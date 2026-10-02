@@ -1,0 +1,1729 @@
+{
+  "_about": "Starting data for Umpqua Valley Lamb. Parts, cut specs, products and size classes come from Kathy's real 9/30/2026 Mohawk cut sheet and her conversations. Items marked confirmed:false need Kathy's confirmation. sample_cut_sheet is her real 9/30 sheet, for testing and as the first week to copy from. Field names match docs/SPEC.md section 4.",
+  "parts": [
+    {
+      "id": "leg",
+      "name": "Leg",
+      "per_lamb": 2,
+      "unit": "each",
+      "balance_check": true,
+      "confirmed": true,
+      "source_note": "Kathy: 100 legs means 50 lambs. Cut sheet sets confirm 2 per lamb.",
+      "sort": 0
+    },
+    {
+      "id": "shoulder",
+      "name": "Shoulder",
+      "per_lamb": 2,
+      "unit": "each",
+      "balance_check": true,
+      "confirmed": true,
+      "source_note": "9/30 cut sheet: every set balances at 2 per lamb",
+      "sort": 1
+    },
+    {
+      "id": "rack",
+      "name": "Rack",
+      "per_lamb": 2,
+      "unit": "each",
+      "balance_check": true,
+      "confirmed": true,
+      "source_note": "9/30 cut sheet",
+      "sort": 2
+    },
+    {
+      "id": "loin",
+      "name": "Short loin",
+      "per_lamb": 2,
+      "unit": "each",
+      "balance_check": true,
+      "confirmed": true,
+      "source_note": "9/30 cut sheet. A whole loin is a rack plus a short loin; a saddle is both short loins.",
+      "sort": 3
+    },
+    {
+      "id": "fshank",
+      "name": "Front shank",
+      "per_lamb": 2,
+      "unit": "each",
+      "balance_check": true,
+      "confirmed": true,
+      "source_note": "9/30 cut sheet",
+      "sort": 4
+    },
+    {
+      "id": "hshank",
+      "name": "Hind shank",
+      "per_lamb": 2,
+      "unit": "each",
+      "balance_check": true,
+      "confirmed": false,
+      "source_note": "9/30 cut sheet. Whether it stays on bone-in and AO legs varies by set. Confirm with Kathy.",
+      "sort": 5
+    },
+    {
+      "id": "neck",
+      "name": "Neck",
+      "per_lamb": 1,
+      "unit": "each",
+      "balance_check": true,
+      "confirmed": true,
+      "source_note": "One per lamb",
+      "sort": 6
+    },
+    {
+      "id": "trim",
+      "name": "Trim",
+      "per_lamb": 5,
+      "unit": "lb",
+      "balance_check": false,
+      "confirmed": true,
+      "source_note": "Kathy: 25 lambs gives about 125 lb of trim",
+      "sort": 7
+    }
+  ],
+  "cut_specs": [
+    {
+      "id": "s1",
+      "text": "legs Bone In to VAC",
+      "use_type": "leg",
+      "active": true,
+      "sort": 0
+    },
+    {
+      "id": "s2",
+      "text": "BLS legs to Vac",
+      "use_type": "leg",
+      "active": true,
+      "sort": 1
+    },
+    {
+      "id": "s3",
+      "text": "AO Leg to Vac",
+      "use_type": "legshank",
+      "active": true,
+      "sort": 2
+    },
+    {
+      "id": "s4",
+      "text": "AO ODD LEGS (AO, Cut to 3\" \"Steak Roast\")",
+      "use_type": "leg",
+      "active": true,
+      "sort": 3
+    },
+    {
+      "id": "s5",
+      "text": "BLS Legs to Grind",
+      "use_type": "leg",
+      "active": true,
+      "sort": 4
+    },
+    {
+      "id": "s6",
+      "text": "Legs, 1\" Steaks 2/pack",
+      "use_type": "leg",
+      "active": true,
+      "sort": 5
+    },
+    {
+      "id": "s7",
+      "text": "BLS Shoulder to Vac",
+      "use_type": "shoulder",
+      "active": true,
+      "sort": 6
+    },
+    {
+      "id": "s8",
+      "text": "BLS Shoulder (Cut in 1/2 and Netted)",
+      "use_type": "shoulder",
+      "active": true,
+      "sort": 7
+    },
+    {
+      "id": "s9",
+      "text": "shoulders BLS, netted (CUT IN 1/2 PLEASE)",
+      "use_type": "shoulder",
+      "active": true,
+      "sort": 8
+    },
+    {
+      "id": "s10",
+      "text": "BI Shoulder to Vac",
+      "use_type": "shoulder",
+      "active": true,
+      "sort": 9
+    },
+    {
+      "id": "s11",
+      "text": "Shoulders Bone In to VAC",
+      "use_type": "shoulder",
+      "active": true,
+      "sort": 10
+    },
+    {
+      "id": "s12",
+      "text": "BLS Shoulder to Grind (TO TUBS FOR NANCY)",
+      "use_type": "shoulder",
+      "active": true,
+      "sort": 11
+    },
+    {
+      "id": "s13",
+      "text": "Shoulders - to 1\" steaks 2/pack",
+      "use_type": "shoulder",
+      "active": true,
+      "sort": 12
+    },
+    {
+      "id": "s14",
+      "text": "French Rack to Vac",
+      "use_type": "rack",
+      "active": true,
+      "sort": 13
+    },
+    {
+      "id": "s15",
+      "text": "Frenched Rack to Vac",
+      "use_type": "rack",
+      "active": true,
+      "sort": 14
+    },
+    {
+      "id": "s16",
+      "text": "UVL racks to Vac (SINGLE PACK)",
+      "use_type": "rack",
+      "active": true,
+      "sort": 15
+    },
+    {
+      "id": "s17",
+      "text": "UVL racks to Vac (SHORT BONE SPEC)",
+      "use_type": "rack",
+      "active": true,
+      "sort": 16
+    },
+    {
+      "id": "s18",
+      "text": "Chop Ready Racks (KEEP SEPARATE)",
+      "use_type": "rack",
+      "active": true,
+      "sort": 17
+    },
+    {
+      "id": "s19",
+      "text": "Dish Dash Racks (9.5 bone, NEW 7 INCH Fence Please)",
+      "use_type": "rack",
+      "active": true,
+      "sort": 18
+    },
+    {
+      "id": "s20",
+      "text": "Whole Loins to VAC",
+      "use_type": "wholeloin",
+      "active": true,
+      "sort": 19
+    },
+    {
+      "id": "s21",
+      "text": "whole loin to 1.25 inch chops 2/pak",
+      "use_type": "wholeloin",
+      "active": true,
+      "sort": 20
+    },
+    {
+      "id": "s22",
+      "text": "Shortloins - NSM Spec lean trim::1 PK,",
+      "use_type": "loin",
+      "active": true,
+      "sort": 21
+    },
+    {
+      "id": "s23",
+      "text": "BLS Shortloin to Vac (1/4 Fat, Tenderloin ON)",
+      "use_type": "loin",
+      "active": true,
+      "sort": 22
+    },
+    {
+      "id": "s24",
+      "text": "BLS Loin NY Strip, (TenderOff PLEASE Trim 1/4 inch Cap)",
+      "use_type": "loin",
+      "active": true,
+      "sort": 23
+    },
+    {
+      "id": "s25",
+      "text": "Short Loins to 1 1/4 inch chops 4/pak, sirloins out!",
+      "use_type": "loin",
+      "active": true,
+      "sort": 24
+    },
+    {
+      "id": "s26",
+      "text": "Loin Saddle to Vac (Standard Cut, Full Fat Cap)",
+      "use_type": "saddle",
+      "active": true,
+      "sort": 25
+    },
+    {
+      "id": "s27",
+      "text": "Front Shanks 2/pack",
+      "use_type": "fshank",
+      "active": true,
+      "sort": 26
+    },
+    {
+      "id": "s28",
+      "text": "Hind Shanks 2/pack",
+      "use_type": "hshank",
+      "active": true,
+      "sort": 27
+    },
+    {
+      "id": "s29",
+      "text": "Hind Shanks - Volcano Cut (Just like Last time, Keep Separate)",
+      "use_type": "hshank",
+      "active": true,
+      "sort": 28
+    },
+    {
+      "id": "s30",
+      "text": "Hind Shanks TRIMMED OUT TO Stew Meat",
+      "use_type": "hshank",
+      "active": true,
+      "sort": 29
+    },
+    {
+      "id": "s31",
+      "text": "All shanks to Osso Bucco",
+      "use_type": "allshank",
+      "active": true,
+      "sort": 30
+    },
+    {
+      "id": "s32",
+      "text": "SAVE NECK to Vac (drop to later Necks)",
+      "use_type": "none",
+      "active": true,
+      "sort": 31
+    },
+    {
+      "id": "s33",
+      "text": "Well finished lamb for Carcass (70-80# Target)",
+      "use_type": "carcass",
+      "active": true,
+      "sort": 32
+    },
+    {
+      "id": "s34",
+      "text": "XS 50-55 of the day lambs for Behman",
+      "use_type": "carcass",
+      "active": true,
+      "sort": 33
+    }
+  ],
+  "products": [
+    {
+      "id": "s1",
+      "name": "legs Bone In to VAC",
+      "short_name": "Leg BI",
+      "unit": "each",
+      "group_name": "Legs",
+      "cut_spec_id": "s1",
+      "fresh_only": false,
+      "active": true,
+      "sort": 0,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "name": "BLS legs to Vac",
+      "short_name": "Leg BLS",
+      "unit": "each",
+      "group_name": "Legs",
+      "cut_spec_id": "s2",
+      "fresh_only": false,
+      "active": true,
+      "sort": 1,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s3",
+      "name": "AO Leg to Vac",
+      "short_name": "Leg AO",
+      "unit": "each",
+      "group_name": "Legs",
+      "cut_spec_id": "s3",
+      "fresh_only": false,
+      "active": true,
+      "sort": 2,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 1
+        },
+        {
+          "part": "hshank",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s4",
+      "name": "AO ODD LEGS (AO, Cut to 3\" \"Steak Roast\")",
+      "short_name": "AO odd leg roast",
+      "unit": "each",
+      "group_name": "Legs",
+      "cut_spec_id": "s4",
+      "fresh_only": false,
+      "active": true,
+      "sort": 3,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s5",
+      "name": "BLS Legs to Grind",
+      "short_name": "Leg BLS to grind",
+      "unit": "each",
+      "group_name": "Legs",
+      "cut_spec_id": "s5",
+      "fresh_only": false,
+      "active": true,
+      "sort": 4,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s6",
+      "name": "Legs, 1\" Steaks 2/pack",
+      "short_name": "Leg steaks",
+      "unit": "leg",
+      "group_name": "Legs",
+      "cut_spec_id": "s6",
+      "fresh_only": false,
+      "active": true,
+      "sort": 5,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s7",
+      "name": "BLS Shoulder to Vac",
+      "short_name": "Shldr BLS",
+      "unit": "each",
+      "group_name": "Shoulders",
+      "cut_spec_id": "s7",
+      "fresh_only": false,
+      "active": true,
+      "sort": 6,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "shoulder",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s8",
+      "name": "BLS Shoulder (Cut in 1/2 and Netted)",
+      "short_name": "Shldr BLS halved, netted",
+      "unit": "each",
+      "group_name": "Shoulders",
+      "cut_spec_id": "s8",
+      "fresh_only": false,
+      "active": true,
+      "sort": 7,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "shoulder",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s9",
+      "name": "shoulders BLS, netted (CUT IN 1/2 PLEASE)",
+      "short_name": "Shldr BLS netted (PT)",
+      "unit": "each",
+      "group_name": "Shoulders",
+      "cut_spec_id": "s9",
+      "fresh_only": false,
+      "active": true,
+      "sort": 8,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "shoulder",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s10",
+      "name": "BI Shoulder to Vac",
+      "short_name": "Shldr BI",
+      "unit": "each",
+      "group_name": "Shoulders",
+      "cut_spec_id": "s10",
+      "fresh_only": false,
+      "active": true,
+      "sort": 9,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "shoulder",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s11",
+      "name": "Shoulders Bone In to VAC",
+      "short_name": "Shldr BI (VAC)",
+      "unit": "each",
+      "group_name": "Shoulders",
+      "cut_spec_id": "s11",
+      "fresh_only": false,
+      "active": true,
+      "sort": 10,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "shoulder",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s12",
+      "name": "BLS Shoulder to Grind (TO TUBS FOR NANCY)",
+      "short_name": "Shldr to grind (Nancy)",
+      "unit": "each",
+      "group_name": "Shoulders",
+      "cut_spec_id": "s12",
+      "fresh_only": false,
+      "active": true,
+      "sort": 11,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "shoulder",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s13",
+      "name": "Shoulders - to 1\" steaks 2/pack",
+      "short_name": "Shldr steaks",
+      "unit": "each",
+      "group_name": "Shoulders",
+      "cut_spec_id": "s13",
+      "fresh_only": false,
+      "active": true,
+      "sort": 12,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "shoulder",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s14",
+      "name": "French Rack to Vac",
+      "short_name": "French rack",
+      "unit": "each",
+      "group_name": "Racks",
+      "cut_spec_id": "s14",
+      "fresh_only": false,
+      "active": true,
+      "sort": 13,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s15",
+      "name": "Frenched Rack to Vac",
+      "short_name": "Frenched rack",
+      "unit": "each",
+      "group_name": "Racks",
+      "cut_spec_id": "s15",
+      "fresh_only": false,
+      "active": true,
+      "sort": 14,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s16",
+      "name": "UVL racks to Vac (SINGLE PACK)",
+      "short_name": "UVL rack single",
+      "unit": "each",
+      "group_name": "Racks",
+      "cut_spec_id": "s16",
+      "fresh_only": false,
+      "active": true,
+      "sort": 15,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s17",
+      "name": "UVL racks to Vac (SHORT BONE SPEC)",
+      "short_name": "UVL rack short bone",
+      "unit": "each",
+      "group_name": "Racks",
+      "cut_spec_id": "s17",
+      "fresh_only": false,
+      "active": true,
+      "sort": 16,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s18",
+      "name": "Chop Ready Racks (KEEP SEPARATE)",
+      "short_name": "Chop-ready rack",
+      "unit": "each",
+      "group_name": "Racks",
+      "cut_spec_id": "s18",
+      "fresh_only": false,
+      "active": true,
+      "sort": 17,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s19",
+      "name": "Dish Dash Racks (9.5 bone, NEW 7 INCH Fence Please)",
+      "short_name": "Dish Dash rack",
+      "unit": "each",
+      "group_name": "Racks",
+      "cut_spec_id": "s19",
+      "fresh_only": false,
+      "active": true,
+      "sort": 18,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s20",
+      "name": "Whole Loins to VAC",
+      "short_name": "Whole loin",
+      "unit": "each",
+      "group_name": "Loins",
+      "cut_spec_id": "s20",
+      "fresh_only": false,
+      "active": true,
+      "sort": 19,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        },
+        {
+          "part": "loin",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s21",
+      "name": "whole loin to 1.25 inch chops 2/pak",
+      "short_name": "Whole loin chops",
+      "unit": "each",
+      "group_name": "Loins",
+      "cut_spec_id": "s21",
+      "fresh_only": false,
+      "active": true,
+      "sort": 20,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "rack",
+          "qty": 1
+        },
+        {
+          "part": "loin",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s22",
+      "name": "Shortloins - NSM Spec lean trim::1 PK,",
+      "short_name": "Shortloin NSM",
+      "unit": "each",
+      "group_name": "Loins",
+      "cut_spec_id": "s22",
+      "fresh_only": false,
+      "active": true,
+      "sort": 21,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "loin",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s23",
+      "name": "BLS Shortloin to Vac (1/4 Fat, Tenderloin ON)",
+      "short_name": "Shortloin BLS",
+      "unit": "each",
+      "group_name": "Loins",
+      "cut_spec_id": "s23",
+      "fresh_only": false,
+      "active": true,
+      "sort": 22,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "loin",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s24",
+      "name": "BLS Loin NY Strip, (TenderOff PLEASE Trim 1/4 inch Cap)",
+      "short_name": "NY strip",
+      "unit": "each",
+      "group_name": "Loins",
+      "cut_spec_id": "s24",
+      "fresh_only": false,
+      "active": true,
+      "sort": 23,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "loin",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s25",
+      "name": "Short Loins to 1 1/4 inch chops 4/pak, sirloins out!",
+      "short_name": "Loin chops 4/pk",
+      "unit": "each",
+      "group_name": "Loins",
+      "cut_spec_id": "s25",
+      "fresh_only": false,
+      "active": true,
+      "sort": 24,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "loin",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s26",
+      "name": "Loin Saddle to Vac (Standard Cut, Full Fat Cap)",
+      "short_name": "Loin saddle",
+      "unit": "each",
+      "group_name": "Loins",
+      "cut_spec_id": "s26",
+      "fresh_only": false,
+      "active": true,
+      "sort": 25,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "loin",
+          "qty": 2
+        }
+      ]
+    },
+    {
+      "id": "s27",
+      "name": "Front Shanks 2/pack",
+      "short_name": "Front shank",
+      "unit": "each",
+      "group_name": "Shanks",
+      "cut_spec_id": "s27",
+      "fresh_only": false,
+      "active": true,
+      "sort": 26,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "fshank",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s28",
+      "name": "Hind Shanks 2/pack",
+      "short_name": "Hind shank",
+      "unit": "each",
+      "group_name": "Shanks",
+      "cut_spec_id": "s28",
+      "fresh_only": false,
+      "active": true,
+      "sort": 27,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "hshank",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s29",
+      "name": "Hind Shanks - Volcano Cut (Just like Last time, Keep Separate)",
+      "short_name": "Hind volcano",
+      "unit": "each",
+      "group_name": "Shanks",
+      "cut_spec_id": "s29",
+      "fresh_only": false,
+      "active": true,
+      "sort": 28,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "hshank",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s30",
+      "name": "Hind Shanks TRIMMED OUT TO Stew Meat",
+      "short_name": "Hind to stew",
+      "unit": "each",
+      "group_name": "Shanks",
+      "cut_spec_id": "s30",
+      "fresh_only": false,
+      "active": true,
+      "sort": 29,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "hshank",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s31",
+      "name": "All shanks to Osso Bucco",
+      "short_name": "Osso bucco",
+      "unit": "each",
+      "group_name": "Shanks",
+      "cut_spec_id": "s31",
+      "fresh_only": false,
+      "active": true,
+      "sort": 30,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "fshank",
+          "qty": 0.5
+        },
+        {
+          "part": "hshank",
+          "qty": 0.5
+        }
+      ]
+    },
+    {
+      "id": "ground",
+      "name": "Ground lamb",
+      "short_name": "Ground",
+      "unit": "lb",
+      "group_name": "Ground and trim",
+      "cut_spec_id": null,
+      "fresh_only": false,
+      "active": true,
+      "sort": 31,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "trim",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "letrim",
+      "name": "Le trim",
+      "short_name": "Le trim",
+      "unit": "lb",
+      "group_name": "Ground and trim",
+      "cut_spec_id": null,
+      "fresh_only": false,
+      "active": true,
+      "sort": 32,
+      "note": "Half trim, half shoulder. 0.125 assumes about 4 lb of meat per shoulder. Confirm with Kathy.",
+      "part_uses": [
+        {
+          "part": "trim",
+          "qty": 0.5
+        },
+        {
+          "part": "shoulder",
+          "qty": 0.125
+        }
+      ]
+    },
+    {
+      "id": "s32",
+      "name": "SAVE NECK to Vac (drop to later Necks)",
+      "short_name": "Neck",
+      "unit": "each",
+      "group_name": "Other",
+      "cut_spec_id": "s32",
+      "fresh_only": false,
+      "active": true,
+      "sort": 33,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "neck",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "s33",
+      "name": "Well finished lamb for Carcass (70-80# Target)",
+      "short_name": "Carcass 70-80",
+      "unit": "lamb",
+      "group_name": "Whole lambs",
+      "cut_spec_id": "s33",
+      "fresh_only": false,
+      "active": true,
+      "sort": 34,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 2
+        },
+        {
+          "part": "shoulder",
+          "qty": 2
+        },
+        {
+          "part": "rack",
+          "qty": 2
+        },
+        {
+          "part": "loin",
+          "qty": 2
+        },
+        {
+          "part": "fshank",
+          "qty": 2
+        },
+        {
+          "part": "hshank",
+          "qty": 2
+        },
+        {
+          "part": "neck",
+          "qty": 1
+        },
+        {
+          "part": "trim",
+          "qty": 5
+        }
+      ]
+    },
+    {
+      "id": "s34",
+      "name": "XS 50-55 of the day lambs for Behman",
+      "short_name": "XS carcass (Behman)",
+      "unit": "lamb",
+      "group_name": "Whole lambs",
+      "cut_spec_id": "s34",
+      "fresh_only": false,
+      "active": true,
+      "sort": 35,
+      "note": "",
+      "part_uses": [
+        {
+          "part": "leg",
+          "qty": 2
+        },
+        {
+          "part": "shoulder",
+          "qty": 2
+        },
+        {
+          "part": "rack",
+          "qty": 2
+        },
+        {
+          "part": "loin",
+          "qty": 2
+        },
+        {
+          "part": "fshank",
+          "qty": 2
+        },
+        {
+          "part": "hshank",
+          "qty": 2
+        },
+        {
+          "part": "neck",
+          "qty": 1
+        },
+        {
+          "part": "trim",
+          "qty": 5
+        }
+      ]
+    }
+  ],
+  "size_classes": [
+    {
+      "id": "XL",
+      "label": "XL",
+      "weight_range": "90+ Lbs",
+      "sort": 0
+    },
+    {
+      "id": "Large",
+      "label": "Large",
+      "weight_range": "70-80 Lbs",
+      "sort": 1
+    },
+    {
+      "id": "Medium",
+      "label": "Medium",
+      "weight_range": "60-65 Lbs",
+      "sort": 2
+    },
+    {
+      "id": "Small",
+      "label": "Small",
+      "weight_range": "50-60 Lbs",
+      "sort": 3
+    },
+    {
+      "id": "XS",
+      "label": "XS",
+      "weight_range": "50-55 Lbs",
+      "sort": 4
+    }
+  ],
+  "saving_goals": [
+    {
+      "text": "Bones: Need to gather 2,000 lbs bones. Can save all types...",
+      "active": true
+    }
+  ],
+  "processor": {
+    "name": "Mohawk",
+    "email": "",
+    "standing_instructions": ""
+  },
+  "sample_cut_sheet": {
+    "week_id": "2026-09-28",
+    "process_date": "2026-09-30",
+    "inv_number": "2403",
+    "banners": [
+      "Denver Rib Instructions on each set",
+      "JOHN: SAVE ALL NECK",
+      "KEEP trimming fat a bit on the NY strips, 1/4 inch or so Please."
+    ],
+    "notes": "",
+    "sets": [
+      {
+        "name": "Port Townsend",
+        "lambs": 1,
+        "size_class_id": "Large",
+        "headline": "",
+        "sort": 0,
+        "lines": [
+          {
+            "kind": "line",
+            "cut_spec_id": "s32",
+            "qty": null,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 0
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s9",
+            "qty": 1,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 1
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s13",
+            "qty": 1,
+            "text": null,
+            "side_note": "",
+            "highlight": "green",
+            "shank_on": false,
+            "sort": 2
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s6",
+            "qty": 1,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 3
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s4",
+            "qty": 1,
+            "text": null,
+            "side_note": "",
+            "highlight": "yellow",
+            "shank_on": false,
+            "sort": 4
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s21",
+            "qty": 2,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 5
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s31",
+            "qty": 4,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 6
+          }
+        ]
+      },
+      {
+        "name": "PCC",
+        "lambs": 2,
+        "size_class_id": "Small",
+        "headline": "",
+        "sort": 1,
+        "lines": [
+          {
+            "kind": "line",
+            "cut_spec_id": "s1",
+            "qty": 4,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": true,
+            "sort": 0
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s11",
+            "qty": 4,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 1
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s20",
+            "qty": 4,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 2
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s27",
+            "qty": 4,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 3
+          }
+        ]
+      },
+      {
+        "name": "",
+        "lambs": 40,
+        "size_class_id": "XL",
+        "headline": "Save All Nec, Save All denver Ribs",
+        "sort": 2,
+        "lines": [
+          {
+            "kind": "note",
+            "cut_spec_id": null,
+            "qty": null,
+            "text": "(Cut F. Shanks Shorter THIS SET ONLY)",
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 0
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s2",
+            "qty": 76,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 1
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s5",
+            "qty": 4,
+            "text": null,
+            "side_note": "(whole Legs)",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 2
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s7",
+            "qty": 66,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 3
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s12",
+            "qty": 14,
+            "text": null,
+            "side_note": "Save Coppa Please",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 4
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s19",
+            "qty": 15,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 5
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s15",
+            "qty": 65,
+            "text": null,
+            "side_note": "Don't Save Caps",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 6
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s24",
+            "qty": 15,
+            "text": null,
+            "side_note": "Cut in 1/2 Please",
+            "highlight": "yellow",
+            "shank_on": false,
+            "sort": 7
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s25",
+            "qty": 58,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 8
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s23",
+            "qty": 7,
+            "text": null,
+            "side_note": "",
+            "highlight": "blue",
+            "shank_on": false,
+            "sort": 9
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s27",
+            "qty": 80,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 10
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s27",
+            "qty": 80,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 11
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s29",
+            "qty": 20,
+            "text": null,
+            "side_note": "",
+            "highlight": "yellow",
+            "shank_on": false,
+            "sort": 12
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s28",
+            "qty": 60,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 13
+          }
+        ]
+      },
+      {
+        "name": "Parts NEW Mid",
+        "lambs": 30,
+        "size_class_id": "Large",
+        "headline": "Save All Neck, Start Saving Bellies (340# needed)",
+        "sort": 3,
+        "lines": [
+          {
+            "kind": "line",
+            "cut_spec_id": "s2",
+            "qty": 56,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 0
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s1",
+            "qty": 4,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 1
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s7",
+            "qty": 8,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 2
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s10",
+            "qty": 52,
+            "text": null,
+            "side_note": "EXTRA SQUARE CUT",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 3
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s17",
+            "qty": 60,
+            "text": null,
+            "side_note": "",
+            "highlight": "yellow",
+            "shank_on": false,
+            "sort": 4
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s22",
+            "qty": 24,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 5
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s23",
+            "qty": 20,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 6
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s26",
+            "qty": 8,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 7
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s27",
+            "qty": 60,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 8
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s30",
+            "qty": 40,
+            "text": null,
+            "side_note": "1# Pack Stew Please",
+            "highlight": "blue",
+            "shank_on": false,
+            "sort": 9
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s28",
+            "qty": 20,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 10
+          }
+        ]
+      },
+      {
+        "name": "PCC Parts",
+        "lambs": 16,
+        "size_class_id": "Medium",
+        "headline": "Save all Necks, Keep Saving Bellies (340 needed)",
+        "sort": 4,
+        "lines": [
+          {
+            "kind": "line",
+            "cut_spec_id": "s1",
+            "qty": 32,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": true,
+            "sort": 0
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s8",
+            "qty": 20,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 1
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s10",
+            "qty": 12,
+            "text": null,
+            "side_note": "EXTRA SQUARE CUT",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 2
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s20",
+            "qty": 6,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 3
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s14",
+            "qty": 16,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 4
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s16",
+            "qty": 10,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 5
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s22",
+            "qty": 26,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 6
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s27",
+            "qty": 32,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 7
+          }
+        ]
+      },
+      {
+        "name": "Parts 2A",
+        "lambs": 48,
+        "size_class_id": "Large",
+        "headline": "Save all Necks, Finish 340# Bellies Please",
+        "sort": 5,
+        "lines": [
+          {
+            "kind": "line",
+            "cut_spec_id": "s2",
+            "qty": 86,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 0
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s3",
+            "qty": 10,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 1
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s7",
+            "qty": 96,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 2
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s18",
+            "qty": 6,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 3
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s16",
+            "qty": 90,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 4
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s22",
+            "qty": 19,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 5
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s23",
+            "qty": 77,
+            "text": null,
+            "side_note": "KEEP FAT Tight on Side",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 6
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s27",
+            "qty": 96,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 7
+          },
+          {
+            "kind": "line",
+            "cut_spec_id": "s28",
+            "qty": 86,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 8
+          }
+        ]
+      },
+      {
+        "name": "Extra",
+        "lambs": 2,
+        "size_class_id": "Large",
+        "headline": "",
+        "sort": 6,
+        "lines": [
+          {
+            "kind": "line",
+            "cut_spec_id": "s33",
+            "qty": 2,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 0
+          }
+        ]
+      },
+      {
+        "name": "Extra",
+        "lambs": 5,
+        "size_class_id": "XS",
+        "headline": "",
+        "sort": 7,
+        "lines": [
+          {
+            "kind": "line",
+            "cut_spec_id": "s34",
+            "qty": 5,
+            "text": null,
+            "side_note": "",
+            "highlight": null,
+            "shank_on": false,
+            "sort": 0
+          }
+        ]
+      }
+    ]
+  }
+}

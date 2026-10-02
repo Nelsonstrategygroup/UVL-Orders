@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Umpqua Valley Lamb Orders</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --forest:#3B5E27; --forest-deep:#2C4A1C; --linen:#F1EFE3; --paper:#FBFAF4; --field:#E8EAE0;
+  --wool:#DDD9C9; --wool-dark:#8C8672; --barn:#7A3327; --ink:#23261E; --ink-soft:#5A5C50;
+  --ok:#E3EBD7; --warn:#F6E7C4; --bad:#F3DAD4; --line:#D6D2C1;
+  --display:"Fraunces", Georgia, "Times New Roman", serif;
+  --body:"Work Sans", "Helvetica Neue", Arial, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --forest:#8DB36F; --forest-deep:#A9CB8E; --linen:#1D2019; --paper:#252920; --field:#2C3126;
+  --wool:#3A3F33; --wool-dark:#A39E8A; --barn:#E0907F; --ink:#ECEBE2; --ink-soft:#B9B7AA;
+  --ok:#2F3E25; --warn:#453B20; --bad:#4A2A24; --line:#3E4436; } }
+:root[data-theme="dark"]{
+  --forest:#8DB36F; --forest-deep:#A9CB8E; --linen:#1D2019; --paper:#252920; --field:#2C3126;
+  --wool:#3A3F33; --wool-dark:#A39E8A; --barn:#E0907F; --ink:#ECEBE2; --ink-soft:#B9B7AA;
+  --ok:#2F3E25; --warn:#453B20; --bad:#4A2A24; --line:#3E4436; }
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;min-height:100%;background:var(--linen);color:var(--ink);font:.9375rem/1.5 var(--body);-webkit-text-size-adjust:100%}
+html.large{font-size:19px}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--display);font-weight:650;margin:0;line-height:1.15;letter-spacing:-.01em}
+h1{font-size:1.25rem} h2{font-size:1.6rem} h3{font-size:1.1rem}
+:focus-visible{outline:3px solid var(--forest);outline-offset:2px}
+.muted{color:var(--ink-soft)} .small{font-size:.85rem}
+.num{font-variant-numeric:tabular-nums}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--forest);color:#F4F2E6;
+  display:flex;align-items:center;gap:1rem;padding:.6rem 1rem}
+:root[data-theme="dark"] header.top, header.top{}
+header.top .brand{display:flex;align-items:center;gap:.6rem;min-width:0}
+header.top .mark{width:30px;height:30px;border-radius:50%;border:2px solid #F4F2E6;display:grid;place-items:center;font-family:var(--display);font-size:.9rem;flex:none}
+header.top h1{color:#F4F2E6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+nav.tabs{display:flex;gap:.25rem;margin-left:auto}
+nav.tabs button{background:none;border:0;color:#DDE6D2;padding:.45rem .75rem;border-radius:6px;cursor:pointer;font-weight:500}
+nav.tabs button[aria-current="page"]{background:#F4F2E6;color:#2C4A1C}
+.sync{font-size:.75rem;color:#DDE6D2;white-space:nowrap}
+.sync::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#C9B98A;margin-right:.35rem;vertical-align:1px}
+.sync.live::before{background:#B7E08F}
+
+.weekbar{display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem;background:var(--paper);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.weekbar .wk{font-family:var(--display);font-size:1.15rem;min-width:11ch;text-align:center}
+.iconbtn{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:40px;min-height:40px;cursor:pointer;display:inline-grid;place-items:center}
+main{max-width:1280px;margin:0 auto;padding:1rem 1rem 6rem}
+section.view{display:none} section.view.on{display:block}
+
+.btn{border:1px solid var(--forest);background:var(--forest);color:#F7F5EA;border-radius:8px;padding:.55rem .95rem;cursor:pointer;font-weight:600;min-height:42px}
+.btn.ghost{background:transparent;color:var(--forest)}
+.btn.small{min-height:34px;padding:.3rem .7rem;font-size:.85rem}
+.btn.danger{border-color:var(--barn);background:transparent;color:var(--barn)}
+:root[data-theme="dark"] .btn:not(.ghost):not(.danger){color:#1D2019}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn:not(.ghost):not(.danger){color:#1D2019}}
+
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:1rem}
+.grid2{display:grid;gap:1rem;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.grid2{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}}
+
+/* This week */
+.count{display:flex;align-items:flex-end;gap:1.25rem;flex-wrap:wrap}
+.count .big{font-family:var(--display);font-size:clamp(4rem,12vw,7rem);line-height:.85;color:var(--forest);font-weight:650}
+.count .why{padding-bottom:.4rem;max-width:34ch}
+.override{display:flex;gap:.5rem;align-items:center;margin-top:1rem;flex-wrap:wrap}
+.override input{width:6.5rem}
+input.field,select.field,textarea.field{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:.5rem .6rem;min-height:42px;width:100%}
+label.lbl{display:block;font-size:.85rem;color:var(--ink-soft);margin:.6rem 0 .25rem}
+.msg{margin-top:1rem;background:var(--field);border-radius:8px;padding:.75rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.bal{width:100%;border-collapse:collapse}
+.bal th{text-align:left;font-weight:500;color:var(--ink-soft);font-size:.8rem;padding:.35rem .4rem;border-bottom:1px solid var(--line)}
+.bal td{padding:.5rem .4rem;border-bottom:1px solid var(--line);vertical-align:middle}
+.bar{height:10px;background:var(--field);border-radius:5px;position:relative;overflow:hidden;min-width:80px}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--forest);border-radius:5px}
+.bar.short i{background:var(--barn)}
+.tag{display:inline-block;border-radius:999px;padding:.1rem .55rem;font-size:.78rem;font-weight:600;white-space:nowrap}
+.tag.sets{background:var(--forest);color:#F7F5EA}
+.tag.extra{background:var(--warn)} .tag.short{background:var(--bad);color:var(--barn)} .tag.even{background:var(--ok)}
+.progress{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem}
+.progress div{flex:1 1 140px;background:var(--field);border-radius:8px;padding:.6rem .75rem}
+.progress b{font-family:var(--display);font-size:1.5rem;display:block}
+.cut{margin:0;padding:0;list-style:none}
+.cut li{padding:.5rem 0;border-bottom:1px solid var(--line)}
+.cut li:last-child{border:0}
+
+/* Orders grid */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+table.og{border-collapse:separate;border-spacing:0;min-width:100%}
+table.og th,table.og td{border-bottom:1px solid var(--line);padding:0;text-align:center;white-space:nowrap}
+table.og thead th{position:sticky;top:0;background:var(--field);font-size:.78rem;font-weight:600;padding:.45rem .35rem;line-height:1.2;white-space:normal;min-width:62px;vertical-align:bottom}
+table.og thead th small{display:block;font-weight:400;color:var(--ink-soft)}
+table.og .cust{text-align:left;position:sticky;left:0;background:var(--paper);padding:.35rem .6rem;min-width:190px;max-width:230px;z-index:1;border-right:1px solid var(--line)}
+table.og thead .cust{background:var(--field);z-index:2}
+table.og td input{width:100%;min-width:56px;height:40px;border:0;background:transparent;text-align:center;font-variant-numeric:tabular-nums}
+table.og td input:focus{background:var(--warn)}
+table.og tr.orow:hover td{background:color-mix(in srgb,var(--field) 55%,transparent)}
+table.og tr.tot td{font-weight:650;background:var(--field);padding:.55rem .3rem}
+table.og tr.sf td{color:var(--barn);font-style:italic;padding:.45rem .3rem}
+.cname{font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis}
+.cmeta{display:flex;gap:.35rem;align-items:center;margin-top:.15rem}
+select.status{border:1px solid var(--line);border-radius:6px;background:var(--paper);font-size:.78rem;padding:.1rem .25rem}
+.copy{border:0;background:none;color:var(--forest);font-size:.78rem;cursor:pointer;text-decoration:underline;padding:0}
+.desk-only{display:block} .mob-only{display:none}
+@media (max-width:899px){.desk-only{display:none} .mob-only{display:block}}
+
+/* Mobile order cards */
+.clist{display:grid;gap:.5rem}
+.ccard{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.8rem;display:flex;justify-content:space-between;gap:.75rem;align-items:center;cursor:pointer;width:100%;text-align:left}
+.ccard .sum{font-size:.82rem;color:var(--ink-soft)}
+.st{font-size:.75rem;font-weight:600;border-radius:999px;padding:.12rem .55rem;white-space:nowrap}
+.st.ordered{background:var(--ok)} .st.none{background:var(--field)} .st.callback{background:var(--warn)} .st.todo{background:transparent;border:1px dashed var(--wool-dark);color:var(--ink-soft)}
+
+/* Sheet (mobile editor / modals) */
+.sheet{position:fixed;inset:0;z-index:50;display:none;background:rgba(20,22,16,.45)}
+.sheet.on{display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:900px){.sheet.on{align-items:center}}
+.sheet .box{background:var(--paper);width:100%;max-width:640px;max-height:92%;overflow:auto;border-radius:14px 14px 0 0;padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom,0px))}
+@media (min-width:900px){.sheet .box{border-radius:14px}}
+.sheet .hd{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.5rem}
+.step{display:flex;align-items:center;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid var(--line);gap:.75rem}
+.step .nm{min-width:0}
+.stepper{display:flex;align-items:center;gap:.25rem;flex:none}
+.stepper button{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--field);font-size:1.3rem;cursor:pointer;line-height:1}
+.stepper input{width:58px;height:44px;text-align:center;border:1px solid var(--line);border-radius:10px;background:var(--paper);font-variant-numeric:tabular-nums}
+
+/* Packing */
+.packhead{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;margin-bottom:.75rem}
+.pbar{height:14px;background:var(--field);border-radius:7px;overflow:hidden;margin:.5rem 0 1rem}
+.pbar i{display:block;height:100%;background:var(--forest)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--paper);padding:.45rem .8rem;cursor:pointer;min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--forest);color:#F7F5EA}
+.pcust{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin-bottom:.9rem;overflow:hidden}
+.pcust .ph{display:flex;justify-content:space-between;gap:.5rem;align-items:center;padding:.7rem .85rem;background:var(--field)}
+.pline{display:flex;align-items:center;gap:.6rem;padding:.55rem .85rem;border-top:1px solid var(--line)}
+.pline .what{flex:1;min-width:0}
+.pline .qty{font-family:var(--display);font-size:1.35rem;min-width:2.5ch;text-align:right}
+.tick{min-width:104px;min-height:48px;border-radius:10px;border:2px solid var(--forest);background:transparent;color:var(--forest);font-weight:650;cursor:pointer}
+.tick.done{background:var(--forest);color:#F7F5EA}
+.tick.part{border-color:var(--barn);color:var(--barn);background:var(--bad)}
+.pfoot{display:flex;gap:1rem;align-items:center;padding:.65rem .85rem;border-top:1px solid var(--line);flex-wrap:wrap}
+.pfoot .stepper button{width:40px;height:40px}
+.pfoot .stepper input{width:52px;height:40px}
+.by{font-size:.78rem;color:var(--ink-soft)}
+
+/* Half & whole */
+.hwlist{display:grid;gap:.6rem}
+.hwcard{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:.85rem;display:grid;gap:.35rem}
+.coach .part{border-top:1px solid var(--line);padding:.6rem 0}
+.coach .slot{display:flex;gap:.5rem;align-items:center;margin:.3rem 0}
+.coach .slot span{min-width:5.5rem;font-size:.85rem;color:var(--ink-soft)}
+.avail{font-size:.75rem;white-space:nowrap}
+.avail.ok{color:var(--forest)} .avail.no{color:var(--barn)}
+.sizes{display:flex;gap:.5rem}
+.sizes button{flex:1;min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--paper);cursor:pointer;font-weight:600}
+.sizes button[aria-pressed="true"]{border-color:var(--forest);background:var(--ok);color:var(--forest-deep)}
+
+/* Tables generic */
+table.simple{width:100%;border-collapse:collapse}
+table.simple th{text-align:left;font-weight:500;font-size:.8rem;color:var(--ink-soft);border-bottom:1px solid var(--line);padding:.35rem}
+table.simple td{border-bottom:1px solid var(--line);padding:.45rem .35rem}
+.negative{color:var(--barn);font-weight:650}
+.unconfirmed{background:var(--warn);border-radius:4px;padding:0 .25rem}
+.note{background:var(--field);border-left:4px solid var(--forest);padding:.6rem .8rem;border-radius:4px;margin:0 0 1rem}
+.empty{padding:2rem 1rem;text-align:center;color:var(--ink-soft)}
+.row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+
+/* CRM */
+.pin{background:var(--warn);border-radius:8px;padding:.6rem .75rem;margin:.5rem 0;white-space:pre-wrap}
+.pin.empty{background:var(--field);color:var(--ink-soft)}
+.cname-btn{border:0;background:none;padding:0;font-weight:600;cursor:pointer;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.cname-btn:hover{text-decoration:underline}
+.cpin{display:block;font-size:.72rem;color:var(--ink-soft);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:210px}
+.timeline{list-style:none;margin:.5rem 0 0;padding:0}
+.timeline li{border-left:2px solid var(--line);padding:.1rem 0 .8rem .85rem;position:relative}
+.timeline li::before{content:"";position:absolute;left:-6px;top:.45rem;width:10px;height:10px;border-radius:50%;background:var(--paper);border:2px solid var(--wool-dark)}
+.timeline li.t-call::before,.timeline li.t-visit::before,.timeline li.t-email::before{border-color:var(--forest);background:var(--forest)}
+.timeline li.t-order::before{border-color:var(--wool-dark)}
+.timeline .when{font-size:.78rem;color:var(--ink-soft)}
+.fu{display:inline-block;font-size:.75rem;border-radius:999px;padding:.05rem .5rem;background:var(--warn);margin-left:.35rem}
+.fu.done{background:var(--ok);text-decoration:line-through}
+.contacts{display:grid;gap:.4rem;margin:.4rem 0}
+.contacts div{display:flex;gap:.5rem;flex-wrap:wrap;align-items:baseline}
+.crow{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;padding:.5rem 0;border-bottom:1px solid var(--line)}
+@media (min-width:600px){.crow{grid-template-columns:1.2fr 1fr 1fr 1.3fr auto}}
+.lastc{font-size:.82rem;color:var(--ink-soft);margin:.25rem 0}
+.fulist{list-style:none;margin:0;padding:0}
+.fulist li{display:flex;gap:.75rem;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--line)}
+.fulist li:last-child{border:0}
+
+/* Welcome / role */
+.welcome{max-width:520px;margin:2rem auto;text-align:center}
+.welcome .choices{display:grid;gap:.75rem;margin-top:1.25rem}
+.bigchoice{display:block;width:100%;text-align:left;border:2px solid var(--line);background:var(--paper);border-radius:14px;padding:1.1rem 1.2rem;cursor:pointer;font-size:1.15rem}
+.bigchoice b{display:block;font-family:var(--display);font-size:1.4rem;color:var(--forest)}
+.bigchoice:hover,.bigchoice:focus-visible{border-color:var(--forest)}
+#roleBtn{background:none;border:1px solid #DDE6D2;color:#F4F2E6;border-radius:6px;padding:.3rem .6rem;cursor:pointer;font-size:.8rem;white-space:nowrap}
+
+/* Calls */
+.callcard{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:1.1rem;max-width:640px;margin:0 auto}
+.callcard h2{font-size:1.9rem}
+.bigbtn{display:block;width:100%;min-height:60px;border-radius:12px;font-size:1.15rem;font-weight:650;cursor:pointer;border:2px solid var(--forest);background:var(--forest);color:#F7F5EA;margin-top:.6rem}
+.bigbtn.alt{background:var(--paper);color:var(--forest)}
+.bigbtn.quiet{border-color:var(--line);background:var(--field);color:var(--ink)}
+.bigbtn.tel{background:var(--paper);color:var(--forest);text-align:center;text-decoration:none;line-height:56px}
+.readback{background:var(--field);border-radius:10px;padding:.75rem 1rem;margin:.75rem 0;font-size:1.15rem}
+.readback div{padding:.15rem 0;display:flex;gap:.75rem}
+.readback .q{font-family:var(--display);min-width:3ch;text-align:right;font-weight:650}
+.queue{max-width:640px;margin:1.25rem auto 0}
+.queue button{display:flex;justify-content:space-between;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:.7rem .25rem;cursor:pointer;text-align:left;font-size:1rem}
+.queue button[aria-current="true"]{font-weight:650;color:var(--forest)}
+.callprog{max-width:640px;margin:0 auto .75rem;display:flex;justify-content:space-between;align-items:baseline}
+.more-cuts{border:0;background:none;color:var(--forest);text-decoration:underline;cursor:pointer;padding:.6rem 0;font-size:1rem}
+
+/* Packing rows: whole row is the button */
+.prow{display:flex;align-items:center;gap:.8rem;width:100%;border:0;border-top:1px solid var(--line);background:var(--paper);padding:.8rem .9rem;cursor:pointer;text-align:left;min-height:68px}
+.prow .box{width:38px;height:38px;border-radius:9px;border:3px solid var(--forest);flex:none;display:grid;place-items:center;font-size:1.4rem;font-weight:700;color:#F7F5EA}
+.prow.done{background:var(--ok)} .prow.done .box{background:var(--forest)}
+.prow.part{background:var(--bad)} .prow.part .box{border-color:var(--barn);background:var(--barn)}
+.prow .what{flex:1;min-width:0;font-size:1.1rem}
+.prow .qty{font-family:var(--display);font-size:1.7rem;min-width:2.5ch;text-align:right}
+.fewer{border:0;background:none;color:var(--barn);text-decoration:underline;cursor:pointer;font-size:.9rem;padding:.2rem .9rem .7rem;display:block}
+.alldone{background:var(--forest);color:#F7F5EA;padding:.5rem .9rem;font-weight:650}
+#printArea{display:none}
+@media print{ body.printing > *:not(#printArea){display:none!important} body.printing #printArea{display:block}
+  #printArea h1{font-size:18pt} #printArea table{width:100%;border-collapse:collapse;margin-bottom:14pt;page-break-inside:avoid}
+  #printArea td,#printArea th{border:1px solid #999;padding:6pt;font-size:12pt;text-align:left} #printArea .ck{width:24pt}}
+
+@media (max-width:899px){.sync{font-size:0}}
+/* Cut sheet */
+.cutstat{border-radius:8px;padding:.55rem .75rem;margin:.5rem 0;font-weight:500}
+.cutstat.notsent{background:var(--field)} .cutstat.sent{background:var(--ok)} .cutstat.changed{background:var(--bad);color:var(--barn)}
+pre.cutpre{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:.8rem;white-space:pre-wrap;font:.88rem/1.45 var(--body);margin:.5rem 0;max-height:46vh;overflow:auto}
+.xrow{display:flex;gap:.6rem;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.xrow span{flex:1 1 160px}
+.xrow select{flex:1 1 180px}
+#printArea pre{font:12pt/1.5 Arial, sans-serif;white-space:pre-wrap}
+
+/* Cut sheet builder */
+.setcard{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:1rem 0;overflow:hidden}
+.setcard.bad{border-color:var(--barn)}
+.sethead{display:grid;grid-template-columns:minmax(0,2fr) 5.5rem minmax(0,1fr) auto;gap:.5rem;padding:.75rem;background:var(--field);align-items:end}
+@media (max-width:640px){.sethead{grid-template-columns:1fr 1fr}.sethead .sname{grid-column:1/-1}}
+.sethead label{font-size:.75rem;color:var(--ink-soft);display:block}
+.setbody{padding:.5rem .75rem .75rem}
+.lrow{display:grid;grid-template-columns:4.2rem minmax(0,1fr) minmax(0,.7fr) auto;gap:.4rem;align-items:center;padding:.3rem 0;border-bottom:1px dashed var(--line)}
+@media (max-width:640px){.lrow{grid-template-columns:4rem minmax(0,1fr) auto}.lrow .side{grid-column:1/-1}}
+.lrow input,.lrow select{min-height:40px}
+.lrow.hl-y{background:#F7EE9A55}.lrow.hl-b{background:#9CC9EE55}.lrow.hl-g{background:#7FC08A55}
+.lopts{display:flex;gap:.3rem;align-items:center}
+.hlbtn{flex:none;width:30px;height:30px;border-radius:6px;border:1px solid var(--line);background:var(--paper);cursor:pointer;font-size:.7rem}
+.hlbtn.y{background:#F2E36B}.hlbtn.b{background:#8EC0EA}.hlbtn.g{background:#73B87E}
+.chips{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 0}
+.chip{font-size:.78rem;border-radius:999px;padding:.12rem .55rem;background:var(--ok)}
+.chip.bad{background:var(--bad);color:var(--barn);font-weight:650}
+.shank{font-size:.78rem;display:flex;gap:.25rem;align-items:center;white-space:nowrap}
+.ph{background:var(--warn);border-radius:4px;padding:0 .3rem;font-size:.75rem}
+.banrow{display:flex;gap:.4rem;margin:.35rem 0}
+/* Mohawk-format sheet (preview and print) */
+.cs{background:#fff;color:#111;font-family:"Times New Roman",Times,Georgia,serif;padding:24px;border:1px solid var(--line);border-radius:8px;overflow-x:auto;min-width:0}
+.cs-wrap{overflow-x:auto}
+.cs-inner{min-width:640px}
+.cs-top{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:start}
+.cs-meta{font:600 12px Arial,sans-serif;line-height:2}
+.cs-ban{font:italic 700 16px Georgia,serif;padding:3px 8px}
+.cs-ban.c0{background:#E07FB5}.cs-ban.c1{background:#7DB8EC}.cs-ban.c2{background:#F2EA62}
+.cs-std{font:600 13px Arial,sans-serif;margin:12px 0}
+.cs-sizes{font:600 13px Georgia,serif;margin:4px 0 10px auto;width:300px}
+.cs-set{display:grid;grid-template-columns:120px 1fr;gap:8px;margin:18px 0}
+.cs-left{font:600 11px Arial,sans-serif}
+.cs-left u{font-weight:400}
+.cs-hl{font:italic 700 14px Arial,sans-serif;background:#F2EA62;padding:2px 6px}
+.cs-line{display:grid;grid-template-columns:52px 1fr 220px;font-size:14px;border-bottom:1px solid #999;padding:2px 0}
+.cs-line .q{text-align:center;font-weight:700;border-bottom:1px solid #111}
+.cs-line .sd{font-weight:700;font-size:13px}
+.cs-line.y{background:#F2EA62}.cs-line.b{background:#7DB8EC}.cs-line.g{background:#73B87E}
+.cs-foot{display:grid;grid-template-columns:150px 1fr;gap:10px;margin-top:16px;font:600 12px Arial,sans-serif}
+.cs-notes{background:#D9567F;min-height:40px;padding:4px 8px;font:600 13px Georgia,serif;color:#111}
+@media print{#printArea .cs{border:0;padding:0}#printArea .cs-inner{min-width:0}#printArea *{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+/* Mobile bottom nav */
+nav.bottom{display:none}
+@media (max-width:899px){
+  nav.tabs{display:none}
+  nav.bottom{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--paper);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom,0px)}
+  nav.bottom button{flex:1;border:0;background:none;padding:.55rem .2rem .6rem;font-size:.72rem;color:var(--ink-soft);cursor:pointer;min-height:56px}
+  nav.bottom button b{display:block;font-size:1.15rem;line-height:1.1;font-weight:500}
+  nav.bottom button[aria-current="page"]{color:var(--forest);font-weight:650}
+}
+.toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--ink);color:var(--linen);padding:.55rem 1rem;border-radius:8px;font-size:.95rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;display:flex;gap:1rem;align-items:center;white-space:nowrap}
+.toast.on{pointer-events:auto}
+.toast button{background:none;border:1px solid var(--linen);color:var(--linen);border-radius:6px;padding:.3rem .8rem;font-weight:650;cursor:pointer;min-height:38px}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+@media print{
+  header.top,nav,.weekbar .iconbtn,.noprint{display:none!important}
+  body{background:#fff} main{padding:0} .panel,.pcust{border-color:#999}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><div class="mark" aria-hidden="true">UV</div><h1>Umpqua Valley Lamb</h1></div>
+  <nav class="tabs" aria-label="Sections">
+    <button data-go="calls">Calls</button>
+    <button data-go="week">This week</button>
+    <button data-go="orders">Orders</button>
+    <button data-go="pack">Packing</button>
+    <button data-go="hw">Half &amp; whole</button>
+    <button data-go="freezer">Freezer</button>
+    <button data-go="customers">Customers</button>
+    <button data-go="cutsheet">Cut sheet</button>
+    <button data-go="setup">Setup</button>
+  </nav>
+  <span class="sync" id="sync">Connecting</span>
+  <button id="roleBtn">Settings</button>
+</header>
+
+<div class="weekbar" id="weekbar">
+  <button class="iconbtn" id="prevWk" aria-label="Previous week">&#8249;</button>
+  <div class="wk" id="wkLabel">Week of</div>
+  <button class="iconbtn" id="nextWk" aria-label="Next week">&#8250;</button>
+  <span class="muted small" id="wkSub"></span>
+</div>
+
+<main>
+  <section class="view" id="v-welcome"></section>
+  <section class="view" id="v-calls"></section>
+  <section class="view" id="v-week"></section>
+  <section class="view" id="v-orders"></section>
+  <section class="view" id="v-pack"></section>
+  <section class="view" id="v-hw"></section>
+  <section class="view" id="v-freezer"></section>
+  <section class="view" id="v-customers"></section>
+  <section class="view" id="v-cutsheet"></section>
+  <section class="view" id="v-setup"></section>
+</main>
+
+<nav class="bottom" aria-label="Sections">
+  <button data-go="calls"><b>&#9742;</b>Calls</button>
+  <button data-go="week"><b>&#9673;</b>Week</button>
+  <button data-go="orders"><b>&#9998;</b>Orders</button>
+  <button data-go="pack"><b>&#10003;</b>Packing</button>
+  <button data-go="hw"><b>&#189;</b>Half/whole</button>
+  <button data-go="more"><b>&#8943;</b>More</button>
+</nav>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="box" id="sheetBox"></div></div>
+<div class="toast" id="toast" role="status"></div>
+<div id="printArea"></div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- tiny helpers ---------- */
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+const fmt = v => { const r = Math.round(v*10)/10; return (Math.abs(r - Math.round(r)) < 1e-9 ? Math.round(r) : r).toString(); };
+const toast = (msg, undo) => { const t = $("#toast"); t.innerHTML = ""; const sp = document.createElement("span"); sp.textContent = msg; t.appendChild(sp);
+  if (undo){ const b = document.createElement("button"); b.textContent = "Undo"; b.onclick = () => { t.classList.remove("on"); undo(); }; t.appendChild(b); }
+  t.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("on"), undo ? 6000 : 1800); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const parseD = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const isoD = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const monday = d => { const x = new Date(d); const k = (x.getDay()+6)%7; x.setDate(x.getDate()-k); return x; };
+const niceD = s => { if(!s) return ""; const d = parseD(s); return MON[d.getMonth()]+" "+d.getDate(); };
+const longD = s => { if(!s) return ""; const d = parseD(s); return DAYS[d.getDay()]+", "+MON[d.getMonth()]+" "+d.getDate(); };
+
+/* ---------- storage: shared db when available, this browser otherwise ---------- */
+const COLLS = ["config","customers","weeks","orders","packing","halfwhole","freezer","touches"];
+const S = {}; COLLS.forEach(c => S[c] = {});
+const Store = {
+  mode: "connecting", db: null, queues: {},
+  async init(){
+    let db = null;
+    try { db = window.claude && window.claude.use ? await window.claude.use("db") : null; } catch(e){ db = null; }
+    if (db){
+      this.db = db; this.mode = "live";
+      COLLS.forEach(c => db.collection(c).onSnapshot(
+        snap => { const m = {}; snap.docs.forEach(d => { m[d.id] = d.data(); }); S[c] = m; scheduleRender(); },
+        err => { if (err && err.code === "revoked"){ setSync("Read only"); } }
+      ));
+      setSync("Live, shared", true);
+    } else {
+      this.mode = "local";
+      COLLS.forEach(c => { try { S[c] = JSON.parse(localStorage.getItem("uvl:"+c) || "{}"); } catch(e){ S[c] = {}; } });
+      setSync("This device only");
+      scheduleRender();
+    }
+  },
+  _saveLocal(c){ try { localStorage.setItem("uvl:"+c, JSON.stringify(S[c])); } catch(e){} },
+  /* one write at a time per document; later writes to the same doc replace queued ones */
+  set(c, id, data){
+    S[c] = Object.assign({}, S[c], {[id]: data}); scheduleRender();
+    if (this.mode !== "live"){ this._saveLocal(c); return Promise.resolve(); }
+    const key = c+"/"+id; const q = this.queues[key] || (this.queues[key] = {busy:false, next:null});
+    q.next = data;
+    const run = async () => {
+      if (q.busy || !q.next) return; q.busy = true; const d = q.next; q.next = null;
+      try { await this.db.collection(c).doc(id).set(d); }
+      catch(e){ if (e && e.code === "unavailable"){ await new Promise(r=>setTimeout(r, 400+Math.random()*600)); try { await this.db.collection(c).doc(id).set(d); } catch(e2){ toast("Couldn't save. Check your connection."); } }
+                else if (e && e.code === "quota_exceeded"){ toast("The demo database is full. Delete some freezer log entries."); }
+                else if (e && e.code === "invalid_argument"){ toast("You have view-only access, so changes aren't saved."); }
+                else toast("Couldn't save that change."); }
+      q.busy = false; if (q.next) run();
+    };
+    run(); return Promise.resolve();
+  },
+  remove(c, id){
+    const m = Object.assign({}, S[c]); delete m[id]; S[c] = m; scheduleRender();
+    if (this.mode !== "live"){ this._saveLocal(c); return; }
+    this.db.collection(c).doc(id).delete().catch(()=>toast("Couldn't delete that."));
+  }
+};
+function setSync(t, live){ const el = $("#sync"); el.textContent = t; el.classList.toggle("live", !!live); }
+
+/* who is using the page (for "packed by") */
+let USER = null, MYID = null, NAMES = {};
+(async () => {
+  try { USER = window.claude && window.claude.use ? await window.claude.use("user") : null; if (USER){ MYID = await USER.id(); scheduleRender(); } } catch(e){}
+})();
+async function resolveNames(ids){
+  if (!USER || !ids.length) return;
+  try { const ps = await USER.profiles(ids); let changed = false;
+    ids.forEach(id => { const nm = (ps[id] && ps[id].name) || ""; if (NAMES[id] !== nm){ NAMES[id] = nm; changed = true; } });
+    if (changed) scheduleRender();
+  } catch(e){}
+}
+
+/* ---------- derived data ---------- */
+const cfg = () => S.config.setup || null;
+const parts = () => (cfg() && cfg().parts) || [];
+const products = () => (cfg() && cfg().products) || [];
+const prodById = id => products().find(p => p.id === id);
+const partById = id => parts().find(p => p.id === id);
+const customers = () => Object.entries(S.customers).map(([id,c]) => Object.assign({id}, c)).sort((a,b)=>a.name.localeCompare(b.name));
+const activeCustomers = () => customers().filter(c => c.active !== false);
+const orderId = (wk, cid) => wk+"_"+cid;
+const touchesFor = cid => Object.entries(S.touches).map(([id,t]) => Object.assign({id}, t)).filter(t => t.customerId === cid).sort((a,b) => (b.at||0) - (a.at||0));
+const lastTouch = cid => touchesFor(cid)[0] || null;
+const contactsOf = c => (c && c.contacts) || (c && (c.contact || c.phone) ? [{name: c.contact || "", role: "", phone: c.phone || "", email: ""}] : []);
+const KIND = {call:"Call", email:"Email", visit:"Visit", note:"Note"};
+const ago = at => { if (!at) return ""; const d = Math.floor((Date.now() - at) / 86400000); return d <= 0 ? "today" : d === 1 ? "yesterday" : d < 14 ? d + " days ago" : new Date(at).toLocaleDateString([], {month:"short", day:"numeric"}); };
+let WEEK = null;
+
+function weekOrders(wk){ return Object.entries(S.orders).filter(([,o]) => o.weekId === wk).map(([id,o]) => Object.assign({id}, o)); }
+function orderLines(o){ return (o && o.lines) || {}; }
+
+function freezerOnHand(){
+  const oh = {}; products().forEach(p => oh[p.id] = 0);
+  Object.values(S.freezer).forEach(e => { oh[e.pid] = (oh[e.pid]||0) + n(e.qty); });
+  Object.values(S.halfwhole).forEach(h => { if (h.status === "filled"){ const l = hwLines(h); for (const k in l) oh[k] = (oh[k]||0) - l[k]; } });
+  return oh;
+}
+function hwLines(h){
+  const lines = {};
+  const frac = h.size === "whole" ? 1 : 0.5;
+  const ch = h.choices || {};
+  for (const pid of Object.values(ch).flat()){ if (pid) lines[pid] = (lines[pid]||0) + 1; }
+  // trim becomes ground lamb automatically
+  parts().filter(p => !p.check).forEach(pt => {
+    const prod = products().find(pr => pr.uses.length === 1 && pr.uses[0].part === pt.id);
+    if (prod) lines[prod.id] = (lines[prod.id]||0) + pt.yield * frac / prod.uses[0].qty;
+  });
+  return lines;
+}
+function hwNeeds(){
+  const need = {}, onHand = freezerOnHand(), short = {};
+  Object.values(S.halfwhole).forEach(h => { if (h.status === "pending"){ const l = hwLines(h); for (const k in l) need[k] = (need[k]||0) + l[k]; } });
+  products().forEach(p => { short[p.id] = Math.max(0, (need[p.id]||0) - (onHand[p.id]||0)); });
+  return {need, onHand, short};
+}
+
+function calcWeek(wk){
+  const totals = {}; products().forEach(p => totals[p.id] = 0);
+  weekOrders(wk).forEach(o => { const l = orderLines(o); for (const k in l) totals[k] = (totals[k]||0) + n(l[k]); });
+  const {short} = hwNeeds();
+  const withShort = Object.assign({}, totals); for (const k in short) withShort[k] = (withShort[k]||0) + short[k];
+  const need = {}; parts().forEach(p => need[p.id] = 0);
+  products().forEach(p => (p.uses||[]).forEach(u => { need[u.part] = (need[u.part]||0) + (withShort[p.id]||0) * n(u.qty); }));
+  const rows = parts().map(p => {
+    const nd = need[p.id] || 0;
+    return {part: p, need: nd, lambs: nd > 0 && p.yield > 0 ? Math.ceil(nd / p.yield - 1e-9) : 0};
+  });
+  const rec = rows.reduce((m,r) => Math.max(m, r.lambs), 0);
+  const driver = rows.find(r => r.lambs === rec && rec > 0);
+  const w = S.weeks[wk] || {};
+  const final = w.lambOverride != null && w.lambOverride !== "" ? n(w.lambOverride) : rec;
+  rows.forEach(r => { r.supply = final * r.part.yield; r.left = r.supply - r.need; });
+  return {totals, short, withShort, rows, rec, driver, final, w};
+}
+
+/* ---------- routing ---------- */
+let VIEW = "week";
+const ROLES = {
+  orders: {label: "I take orders", sub: "Calls, orders, customers, and half and whole lambs", views: ["calls","week","orders","cutsheet","hw","customers","freezer","setup"], home: "calls"},
+  pack: {label: "I pack orders", sub: "Just the packing list, big and simple", views: ["pack"], home: "pack"},
+  all: {label: "I do everything", sub: "Every screen", views: ["calls","week","orders","cutsheet","pack","hw","freezer","customers","setup"], home: "week"}
+};
+let ROLE = null; try { ROLE = localStorage.getItem("uvl:role"); } catch(e){}
+try { if (localStorage.getItem("uvl:large") === "1") document.documentElement.classList.add("large"); } catch(e){}
+function applyRole(){
+  const r = ROLES[ROLE] || ROLES.all;
+  document.querySelectorAll("[data-go]").forEach(b => { const v = b.dataset.go; b.style.display = (v === "more" ? ROLE !== "pack" : r.views.includes(v)) ? "" : "none"; });
+  document.querySelector("nav.bottom").classList.toggle("hide-for-pack", ROLE === "pack");
+  if (ROLE === "pack") document.querySelector("nav.bottom").style.display = "none"; else document.querySelector("nav.bottom").style.display = "";
+}
+function setRole(r){ ROLE = r; try { localStorage.setItem("uvl:role", r); } catch(e){} applyRole(); go(ROLES[r].home); }
+$("#roleBtn").onclick = openSettings;
+function openSettings(){
+  const large = document.documentElement.classList.contains("large");
+  openSheet(`<div class="hd"><h3>Settings for this device</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <p class="muted">Who uses this ${matchMedia("(max-width:899px)").matches ? "phone" : "computer"}? It only shows the screens that person needs.</p>
+    <div class="welcome" style="margin:0;text-align:left"><div class="choices">${Object.entries(ROLES).map(([k,r]) => `<button class="bigchoice" data-role="${k}" style="${ROLE===k ? "border-color:var(--forest)" : ""}"><b>${r.label}</b>${r.sub}</button>`).join("")}</div></div>
+    <label class="row" style="margin-top:1rem;font-size:1.05rem"><input type="checkbox" id="lgt" ${large ? "checked" : ""} style="width:24px;height:24px"> Larger text</label>
+    <div class="row" style="margin-top:1rem"><span class="spacer"></span><button class="btn" data-close>Done</button></div>`);
+  $("#sheetBox").querySelectorAll("[data-role]").forEach(b => b.onclick = () => setRole(b.dataset.role));
+  $("#lgt").onchange = e => { document.documentElement.classList.toggle("large", e.target.checked); try { localStorage.setItem("uvl:large", e.target.checked ? "1" : "0"); } catch(x){} };
+}
+function go(v){
+  if (v === "more"){ openMore(); return; }
+  if (!ROLE && v !== "welcome"){ v = "welcome"; }
+  if (ROLE && v !== "welcome" && !(ROLES[ROLE] || ROLES.all).views.includes(v)) v = (ROLES[ROLE] || ROLES.all).home;
+  VIEW = v; closeSheet();
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-"+v));
+  document.querySelectorAll("[data-go]").forEach(b => { if (b.dataset.go === v || (b.dataset.go === "more" && ["freezer","customers","setup","cutsheet"].includes(v))) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
+  $("#weekbar").style.display = ["week","orders","pack","calls","cutsheet"].includes(v) ? "" : "none";
+  try { localStorage.setItem("uvl:view", v); } catch(e){}
+  render(); window.scrollTo(0,0);
+}
+document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => go(b.dataset.go)));
+function openMore(){
+  openSheet(`<div class="hd"><h3>More</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <div class="clist">
+      <button class="ccard" data-go2="cutsheet"><span><b>Cut sheet</b><br><span class="sum">This week's sheet for Mohawk</span></span></button>
+      <button class="ccard" data-go2="freezer"><span><b>Freezer</b><br><span class="sum">What's on hand, add or remove cuts</span></span></button>
+      <button class="ccard" data-go2="customers"><span><b>Customers</b><br><span class="sum">Customer list and call days</span></span></button>
+      <button class="ccard" data-go2="setup"><span><b>Setup</b><br><span class="sum">Parts per lamb and products</span></span></button>
+    </div>`);
+  $("#sheetBox").querySelectorAll("[data-go2]").forEach(b => b.onclick = () => go(b.dataset.go2));
+}
+
+/* week picker */
+function setWeek(wk){ WEEK = wk; try { localStorage.setItem("uvl:week", wk); } catch(e){} render(); }
+$("#prevWk").onclick = () => { const d = parseD(WEEK); d.setDate(d.getDate()-7); setWeek(isoD(d)); };
+$("#nextWk").onclick = () => { const d = parseD(WEEK); d.setDate(d.getDate()+7); setWeek(isoD(d)); };
+function pickDefaultWeek(){
+  let saved = null; try { saved = localStorage.getItem("uvl:week"); } catch(e){}
+  if (saved) return saved;
+  const withData = [...new Set(Object.values(S.orders).map(o => o.weekId))].sort();
+  return withData.length ? withData[withData.length-1] : isoD(monday(new Date()));
+}
+
+/* ---------- sheet ---------- */
+function openSheet(html){ $("#sheetBox").innerHTML = html; $("#sheet").classList.add("on"); $("#sheetBox").querySelectorAll("[data-close]").forEach(b => b.onclick = closeSheet); const f = $("#sheetBox").querySelector("input,select,button"); if (f) f.focus({preventScroll:true}); }
+function closeSheet(){ $("#sheet").classList.remove("on"); SHEET = null; }
+$("#sheet").addEventListener("click", e => { if (e.target.id === "sheet") closeSheet(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+let SHEET = null; // {type, id} for live re-render of open editors
+
+/* ---------- render loop ---------- */
+let rq = false;
+function scheduleRender(){ if (rq) return; rq = true; requestAnimationFrame(() => { rq = false; render(); }); }
+function render(){
+  if (VIEW === "welcome"){ renderWelcome(); return; }
+  if (Store.mode === "connecting"){ $("#v-"+VIEW).innerHTML = `<div class="empty">Loading orders...</div>`; return; }
+  if (!WEEK && (Store.mode === "local" || Object.keys(S.orders).length || Object.keys(S.config).length)) WEEK = pickDefaultWeek();
+  if (!cfg()){
+    $("#v-"+VIEW).innerHTML = `<div class="empty"><h3>Setup hasn't been loaded yet</h3><p>Parts per lamb and the product list need to be added before orders can be calculated.</p></div>`;
+    return;
+  }
+  const d = parseD(WEEK), end = new Date(d); end.setDate(end.getDate()+6);
+  $("#wkLabel").textContent = "Week of " + niceD(WEEK);
+  const w = S.weeks[WEEK] || {};
+  $("#wkSub").textContent = w.processDate ? "Processing " + longD(w.processDate) : "";
+  const keep = captureFocus();
+  ({welcome:renderWelcome, calls:renderCalls, cutsheet:renderCutsheet, week:renderWeek, orders:renderOrders, pack:renderPack, hw:renderHW, freezer:renderFreezer, customers:renderCustomers, setup:renderSetup})[VIEW]();
+  if (SHEET && SHEET.type === "order") refreshOrderSheet();
+  if (SHEET && SHEET.type === "cust") refreshCustSheet();
+  if (SHEET && SHEET.type === "cut") refreshCutSheet();
+  restoreFocus(keep);
+}
+function captureFocus(){ const a = document.activeElement; if (!a || !a.dataset || !a.dataset.k) return null; let s = null, e = null; try { s = a.selectionStart; e = a.selectionEnd; } catch(x){} return {k: a.dataset.k, s, e}; }
+function restoreFocus(f){ if (!f) return; const el = document.querySelector(`[data-k="${CSS.escape(f.k)}"]`); if (el && el !== document.activeElement){ el.focus({preventScroll:true}); try { if (f.s != null) el.setSelectionRange(f.s, f.e); } catch(x){} } }
+
+/* ---------- This week ---------- */
+function renderWeek(){
+  const c = calcWeek(WEEK), el = $("#v-week");
+  const orders = weekOrders(WEEK);
+  const act = activeCustomers();
+  const responded = act.filter(cu => { const o = S.orders[orderId(WEEK, cu.id)]; return o && (o.status === "ordered" || o.status === "none"); }).length;
+  const pk = packStats(WEEK);
+  const unconfirmed = parts().filter(p => !p.confirmed).length;
+  const maxBar = Math.max(1, ...c.rows.map(r => Math.max(r.need, r.supply)));
+  const csT = csTotals(c.w.cs);
+  const msg = csT.total ? `Please bring ${csT.total} lambs${c.w.processDate ? " for processing on " + longD(c.w.processDate) : ""}: ${csT.bySize.map(x => x.n + " " + x.label).join(", ")}. Thank you!`
+    : `Please bring ${c.final} lamb${c.final===1?"":"s"}${c.w.processDate ? " for processing on " + longD(c.w.processDate) : ""}. Thank you!`;
+  const shortCount = Object.values(c.short).reduce((a,b)=>a+b,0);
+  el.innerHTML = `
+  ${unconfirmed ? `<p class="note small">${unconfirmed} of the parts-per-lamb numbers are still starting guesses. The lamb count is only as good as those numbers. <button class="copy" data-go3="setup">Review them in Setup</button></p>` : ""}
+  <div class="grid2">
+    <div class="panel">
+      <div class="count">
+        <div class="big num">${c.final}</div>
+        <div class="why"><h2>lambs to order</h2>
+          <div class="muted">${c.rec === 0 ? "No orders entered for this week yet." : `Set by ${esc(c.driver.part.name.toLowerCase())}. ${fmt(c.driver.need)}${c.driver.part.unit === "lb" ? " lb" : ""} needed, ${fmt(c.driver.part.yield)}${c.driver.part.unit === "lb" ? " lb" : ""} per lamb.`}</div>
+        </div>
+      </div>
+      <div class="override noprint">
+        <label for="ovr" class="small muted">Your number</label>
+        <input id="ovr" class="field num" style="width:7rem" inputmode="numeric" data-k="ovr" placeholder="${c.rec}" value="${c.w.lambOverride ?? ""}">
+        ${c.w.lambOverride != null && c.w.lambOverride !== "" ? `<button class="btn ghost small" id="ovrClear">Use ${c.rec}</button>` : `<span class="small muted">Leave blank to use the recommended count.</span>`}
+      </div>
+      <div class="row" style="margin-top:.5rem">
+        <div style="flex:1 1 180px"><label class="lbl" for="prod">Producer bringing lambs</label><input id="prod" class="field" data-k="prod" value="${esc(c.w.producer||"")}" placeholder="Name"></div>
+        <div style="flex:1 1 160px"><label class="lbl" for="pdate">Processing day at Mohawk</label><input id="pdate" type="date" class="field" data-k="pdate" value="${esc(c.w.processDate||"")}"></div>
+      </div>
+      <div class="msg"><span>${esc(msg)}</span><button class="btn small noprint" id="copyMsg">Copy message</button></div>
+      <div class="progress">
+        <div><b class="num">${responded}/${act.length}</b><span class="small muted">customers have answered</span></div>
+        <div><b class="num">${pk.done}/${pk.total}</b><span class="small muted">lines packed</span></div>
+        <div><b class="num">${fmt(shortCount)}</b><span class="small muted">cuts added for half &amp; whole orders</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Does the carcass balance?</h3>
+      <p class="small muted" style="margin:.25rem 0 .5rem">What this week's orders need from each part, against what ${c.final} lambs will give you.</p>
+      <table class="bal"><thead><tr><th>Part</th><th class="num">Need</th><th class="num">Get</th><th style="width:30%"></th><th></th></tr></thead><tbody>
+      ${c.rows.map(r => {
+        const st = r.need === 0 ? "" : r.left < -1e-9 ? `<span class="tag short">Short ${fmt(-r.left)}</span>` : (r.lambs === c.rec && c.rec > 0 && (c.w.lambOverride == null || c.w.lambOverride === "")) ? `<span class="tag sets">Sets count</span>` : Math.abs(r.left) < 1e-9 ? `<span class="tag even">Even</span>` : `<span class="tag extra">${fmt(r.left)} extra</span>`;
+        return `<tr><td><b>${esc(r.part.name)}</b> <span class="small muted">${esc(r.part.unit === "lb" ? "lb" : "")}</span></td><td class="num">${fmt(r.need)}</td><td class="num">${fmt(r.supply)}</td>
+          <td><div class="bar ${r.left < -1e-9 ? "short":""}" title="${fmt(r.need)} of ${fmt(r.supply)}"><i style="width:${Math.min(100, r.supply ? r.need/r.supply*100 : (r.need?100:0))}%"></i></div></td><td>${st}</td></tr>`; }).join("")}
+      </tbody></table>
+      <p class="small muted" style="margin-top:.6rem">Extras are estimates until the cut sheet comes back from Mohawk. Anything extra can go in the freezer for half and whole orders.</p>
+    </div>
+  </div>
+  ${followUpPanel()}
+  ${cutPanel(c)}`;
+  const ovr = $("#ovr");
+  ovr.onchange = () => { const v = ovr.value.trim(); saveWeek({lambOverride: v === "" ? null : Math.max(0, Math.round(n(v)))}); };
+  const oc = $("#ovrClear"); if (oc) oc.onclick = () => saveWeek({lambOverride: null});
+  $("#prod").onchange = e => saveWeek({producer: e.target.value.trim()});
+  $("#pdate").onchange = e => saveWeek({processDate: e.target.value});
+  $("#copyMsg").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(msg) : Promise.reject()).then(()=>toast("Message copied"), ()=>toast("Select the message and copy it")); };
+  el.querySelectorAll("[data-go3]").forEach(b => b.onclick = () => go(b.dataset.go3));
+  wireFollowUps(el);
+  const oc2 = $("#openCut"); if (oc2) oc2.onclick = openCutSheet;
+}
+function dueFollowUps(){
+  const end = parseD(WEEK); end.setDate(end.getDate()+6); const endS = isoD(end);
+  return Object.entries(S.touches).map(([id,t]) => Object.assign({id}, t)).filter(t => t.followUp && !t.followUpDone && t.followUp <= endS).sort((a,b) => a.followUp.localeCompare(b.followUp));
+}
+function followUpPanel(){
+  const due = dueFollowUps(); if (!due.length) return "";
+  const today = isoD(new Date());
+  return `<div class="panel" style="margin-top:1rem"><h3>Follow-ups</h3><ul class="fulist">${due.map(t => { const cu = S.customers[t.customerId] || {name: "Unknown"};
+    return `<li><div style="flex:1;min-width:0"><button class="cname-btn" data-cd="${t.customerId}">${esc(cu.name)}</button><span class="small">${esc(t.followUpNote || t.summary || "")}</span></div>
+      <span class="small ${t.followUp < today ? "negative" : "muted"}">${t.followUp < today ? "Overdue, " : ""}${niceD(t.followUp)}</span><button class="btn ghost small" data-fud="${t.id}">Done</button></li>`; }).join("")}</ul></div>`;
+}
+function wireFollowUps(el){
+  el.querySelectorAll("[data-fud]").forEach(b => b.onclick = () => { const t = S.touches[b.dataset.fud]; Store.set("touches", b.dataset.fud, Object.assign({}, t, {followUpDone: true})); toast("Follow-up done"); });
+  el.querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCustSheet(b.dataset.cd));
+}
+function saveWeek(patch){ const cur = S.weeks[WEEK] || {producer:"", processDate:"", lambOverride:null, notes:""}; Store.set("weeks", WEEK, Object.assign({}, cur, patch)); }
+const proc = () => Object.assign({name: "Mohawk", email: "", standing: ""}, (cfg() && cfg().processor) || {});
+function hashStr(t){ let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return String(h >>> 0); }
+function extrasOptions(partId){
+  return [{id: "freeze", name: "Freeze whole"}].concat(products().filter(pr => pr.uses.length === 1 && pr.uses[0].part === partId).map(p => ({id: p.id, name: p.name})));
+}
+function cutModel(c){
+  const w = c.w || {}, ex = w.cutExtras || {};
+  return c.rows.filter(r => r.supply > 0).map(r => {
+    const lines = [];
+    products().forEach(p => (p.uses||[]).forEach(u => { if (u.part === r.part.id && c.withShort[p.id] > 0){
+      let q = c.withShort[p.id] * n(u.qty); if (r.part.unit !== "lb") q = Math.ceil(q - 1e-9);
+      lines.push({name: p.uses.length > 1 ? `for ${p.name.toLowerCase()}` : p.name.replace(/^[^,]+, /, "").replace(/^./, ch => ch.toUpperCase()), full: p.name, qty: q}); } }));
+    const used = lines.reduce((a,l) => a + l.qty, 0);
+    let left = r.supply - used; if (r.part.unit !== "lb") left = Math.floor(left + 1e-9); else left = Math.round(left * 10) / 10;
+    const opt = extrasOptions(r.part.id).find(o => o.id === ex[r.part.id]) || extrasOptions(r.part.id)[0];
+    return {part: r.part, supply: r.supply, lines, left, extrasAs: opt};
+  });
+}
+function cutText(c, opts){
+  const w = c.w || {}, pr = proc(), m = cutModel(c), unit = pt => pt.unit === "lb" ? " lb" : "";
+  const L = [];
+  L.push(`UMPQUA VALLEY LAMB CUT SHEET${opts && opts.updated ? " (UPDATED)" : ""}`);
+  L.push(`Week of ${niceD(WEEK)}${w.processDate ? ". Processing " + longD(w.processDate) : ""}.`);
+  L.push(`${c.final} lamb${c.final === 1 ? "" : "s"}${w.producer ? " from " + w.producer : ""}.`);
+  L.push("");
+  m.forEach(x => {
+    L.push(`${x.part.name.toUpperCase()} (${fmt(x.supply)}${unit(x.part)} total)`);
+    if (!x.lines.length && x.left <= 0) L.push("   Nothing ordered");
+    x.lines.forEach(l => L.push(`   ${fmt(l.qty)}${unit(x.part)}  ${l.name}`));
+    if (x.left > 0) L.push(`   ${fmt(x.left)}${unit(x.part)}  Extra: ${x.extrasAs.id === "freeze" ? "leave whole, label for freezer" : x.extrasAs.name.toLowerCase() + ", label for freezer"}`);
+    L.push("");
+  });
+  if (pr.standing) { L.push("EVERY WEEK"); pr.standing.split("\n").filter(Boolean).forEach(t => L.push("   " + t)); L.push(""); }
+  if (w.cutNotes) { L.push("THIS WEEK"); w.cutNotes.split("\n").filter(Boolean).forEach(t => L.push("   " + t)); L.push(""); }
+  if (w.cutCustomers !== false){
+    const orders = weekOrders(WEEK).filter(o => Object.values(orderLines(o)).some(v => v > 0)).sort((a,b) => ((S.customers[a.customerId]||{}).name||"").localeCompare((S.customers[b.customerId]||{}).name||""));
+    if (orders.length){ L.push("BOXES BY CUSTOMER");
+      orders.forEach(o => { const cu = S.customers[o.customerId] || {name: o.customerId};
+        L.push(`   ${cu.name}: ` + products().filter(p => n(orderLines(o)[p.id]) > 0).map(p => `${fmt(orderLines(o)[p.id])}${p.unit === "lb" ? " lb" : ""} ${p.name.toLowerCase()}`).join("; ")); });
+      const sh = products().filter(p => c.short[p.id] > 0);
+      if (sh.length) L.push(`   Half and whole lamb orders: ` + sh.map(p => `${fmt(c.short[p.id])}${p.unit === "lb" ? " lb" : ""} ${p.name.toLowerCase()}`).join("; "));
+      L.push(""); }
+  }
+  L.push("Questions? Reply to this email or call Kathy.");
+  return L.join("\n");
+}
+function cutStatus(c){
+  const w = c.w || {};
+  if (!w.cutSentAt) return {cls: "notsent", text: "Not sent to " + proc().name + " yet."};
+  const when = new Date(w.cutSentAt).toLocaleString([], {weekday: "short", hour: "numeric", minute: "2-digit"});
+  if (hashStr(cutText(c)) !== w.cutSentHash && hashStr(cutText(c, {updated: true})) !== w.cutSentHash)
+    return {cls: "changed", text: `Orders changed after you sent this on ${when}. Send an updated cut sheet.`, changed: true};
+  return {cls: "sent", text: `Sent to ${proc().name} ${when}.`};
+}
+function cutPanel(c){
+  const cs = c.w.cs, t = csTotals(cs);
+  if (!t.total) return `<div class="panel" style="margin-top:1rem"><div class="row"><h3>Cut sheet for ${esc(proc().name)}</h3><span class="spacer"></span><button class="btn" data-go3="cutsheet">Start this week's cut sheet</button></div>
+    <p class="small muted" style="margin:.25rem 0 0">The order count above is a guide. The cut sheet is where the lambs get assigned to sets.</p></div>`;
+  const st = csStatus(cs), off = csProblems(cs);
+  return `<div class="panel" style="margin-top:1rem"><div class="row"><h3>Cut sheet for ${esc(proc().name)}</h3><span class="spacer"></span><button class="btn" data-go3="cutsheet">Open cut sheet</button></div>
+    <p style="margin:.4rem 0 0"><b>${t.total} lambs</b> in ${cs.sets.length} sets: ${t.bySize.map(x => x.n + " " + esc(x.label)).join(", ")}</p>
+    ${off.length ? `<div class="cutstat changed">${off.length} set${off.length > 1 ? "s don't" : " doesn't"} add up. Check before sending.</div>` : ""}
+    <div class="cutstat ${st.cls}">${esc(st.text)}</div></div>`;
+}
+function openCutSheet(){ SHEET = {type: "cut"}; openSheet(`<div id="cutbox"></div>`); refreshCutSheet(); }
+function refreshCutSheet(){
+  const box = $("#cutbox"); if (!box) return; const c = calcWeek(WEEK), w = c.w || {}, pr = proc(), st = cutStatus(c);
+  const m = cutModel(c), updated = !!w.cutSentAt, text = cutText(c, {updated: updated && st.changed});
+  const keep = captureFocus();
+  box.innerHTML = `<div class="hd"><div><h3>Cut sheet for ${esc(pr.name)}</h3><span class="small muted">Week of ${niceD(WEEK)}, ${c.final} lambs</span></div><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <div class="cutstat ${st.cls}">${esc(st.text)}</div>
+    ${m.some(x => x.left > 0) ? `<h3 style="font-size:1rem;margin-top:.75rem">What to do with the extras</h3>${m.filter(x => x.left > 0).map(x => `<div class="xrow"><span>${fmt(x.left)}${x.part.unit === "lb" ? " lb" : ""} extra ${esc(x.part.unit === "lb" ? x.part.name.toLowerCase() : x.part.name.toLowerCase() + (x.left === 1 ? "" : "s"))}</span>
+      <select class="field" data-xp="${x.part.id}" aria-label="Extras for ${esc(x.part.name)}">${extrasOptions(x.part.id).map(o => `<option value="${o.id}" ${o.id === x.extrasAs.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select></div>`).join("")}` : ""}
+    <label class="lbl" for="cnotes">Notes for the cutters this week</label><textarea id="cnotes" class="field" data-k="cnotes" rows="2" placeholder="Anything different this week">${esc(w.cutNotes || "")}</textarea>
+    <label class="row small" style="margin-top:.5rem"><input type="checkbox" id="ccust" ${w.cutCustomers !== false ? "checked" : ""} style="width:22px;height:22px"> Include what goes in each customer's boxes</label>
+    <p class="small muted" style="margin:.75rem 0 0">This is what ${esc(pr.name)} will get</p><pre class="cutpre">${esc(text)}</pre>
+    ${pr.email ? "" : `<p class="small muted">Add ${esc(pr.name)}'s email address in Setup and it fills in automatically.</p>`}
+    <button class="bigbtn" id="cmail">${st.changed ? "Email the update to " : "Email to "}${esc(pr.name)}</button>
+    <div class="row" style="margin-top:.6rem"><button class="btn ghost" id="ccopy">Copy the text</button><button class="btn ghost" id="cprint">Print or save as PDF</button>${w.cutSentAt ? "" : `<span class="spacer"></span><button class="copy" id="cmark">I sent it another way</button>`}</div>`;
+  box.querySelectorAll("[data-close]").forEach(b => b.onclick = closeSheet);
+  box.querySelectorAll("[data-xp]").forEach(sel => sel.onchange = () => saveWeek({cutExtras: Object.assign({}, w.cutExtras || {}, {[sel.dataset.xp]: sel.value})}));
+  $("#cnotes").onchange = e => saveWeek({cutNotes: e.target.value.trim()});
+  $("#ccust").onchange = e => saveWeek({cutCustomers: e.target.checked});
+  const markSent = () => saveWeek({cutSentAt: Date.now(), cutSentHash: hashStr(text), cutSentBy: MYID || null});
+  $("#cmail").onclick = () => {
+    const subj = `Umpqua Valley Lamb cut sheet${st.changed ? " (UPDATED)" : ""}, week of ${niceD(WEEK)}`;
+    markSent(); location.href = `mailto:${encodeURIComponent(pr.email)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(text)}`;
+    toast("Opening your email. Check it and press Send.");
+  };
+  $("#ccopy").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => { toast("Copied. Paste it into an email or text."); }, () => toast("Select the text above and copy it")); };
+  $("#cprint").onclick = () => { $("#printArea").innerHTML = `<pre>${esc(text)}</pre>`; document.body.classList.add("printing"); window.print(); setTimeout(() => document.body.classList.remove("printing"), 500); };
+  const cm = $("#cmark"); if (cm) cm.onclick = () => { markSent(); toast("Marked as sent"); };
+  restoreFocus(keep);
+}
+
+/* ---------- Cut sheet builder (sets) ---------- */
+const CS_PARTS = [["leg","Legs"],["shoulder","Shoulders"],["rack","Racks"],["loin","Short loins"],["fshank","Front shanks"],["hshank","Hind shanks"]];
+const USES = {
+  leg: {label: "Leg", u: {leg:1}}, legshank: {label: "Leg, hind shank stays on", u: {leg:1, hshank:1}},
+  shoulder: {label: "Shoulder", u: {shoulder:1}}, rack: {label: "Rack", u: {rack:1}}, loin: {label: "Short loin", u: {loin:1}},
+  wholeloin: {label: "Whole loin (rack and short loin)", u: {rack:1, loin:1}}, saddle: {label: "Loin saddle (both short loins)", u: {loin:2}},
+  fshank: {label: "Front shank", u: {fshank:1}}, hshank: {label: "Hind shank", u: {hshank:1}}, allshank: {label: "Any shank", u: {fshank:.5, hshank:.5}},
+  carcass: {label: "Whole lamb", u: {leg:2, shoulder:2, rack:2, loin:2, fshank:2, hshank:2}}, none: {label: "Nothing to count (necks, bellies, bones)", u: {}}
+};
+const USE_GROUPS = [["Legs",["leg","legshank"]],["Shoulders",["shoulder"]],["Racks",["rack"]],["Loins",["loin","wholeloin","saddle"]],["Shanks",["fshank","hshank","allshank"]],["Whole lambs",["carcass"]],["Other",["none"]]];
+const specs = () => (cfg() && cfg().specs) || [];
+const specById = id => specs().find(x => x.id === id);
+const sizes = () => (cfg() && cfg().sizes) || [{id:"XL",label:"XL",range:"90+ lbs"},{id:"Large",label:"Large",range:"70-80 lbs"},{id:"Medium",label:"Medium",range:"60-65 lbs"},{id:"Small",label:"Small",range:"50-60 lbs"},{id:"XS",label:"XS",range:"50-55 lbs"}];
+const goals = () => (cfg() && cfg().goals) || [];
+function lineUse(l){ if (l.kind === "note") return {}; const sp = specById(l.spec); if (!sp) return {}; const u = Object.assign({}, (USES[sp.use] || USES.none).u); if (l.shankOn && sp.use === "leg") u.hshank = (u.hshank||0) + 1; return u; }
+function setBalance(set){
+  const used = {}; CS_PARTS.forEach(([k]) => used[k] = 0);
+  (set.lines || []).forEach(l => { const u = lineUse(l); for (const k in u) used[k] += n(l.qty) * u[k]; });
+  const exp = n(set.lambs) * 2;
+  return CS_PARTS.map(([k, label]) => ({k, label, used: used[k], exp, ok: Math.abs(used[k] - exp) < 1e-9}));
+}
+function csProblems(cs){ if (!cs || !cs.sets) return []; return cs.sets.filter(st => (st.lines||[]).some(l => l.kind !== "note") && setBalance(st).some(b => !b.ok)); }
+function csTotals(cs){
+  const sets = (cs && cs.sets) || []; const by = {};
+  sets.forEach(st => { by[st.size || "?"] = (by[st.size || "?"] || 0) + n(st.lambs); });
+  const pulled = (cs && cs.pulled) || {};
+  const order = sizes().map(z => z.id);
+  return {total: sets.reduce((a, st) => a + n(st.lambs), 0), bySize: order.filter(z => by[z]).map(z => ({n: by[z], label: z})).concat(by["?"] ? [{n: by["?"], label: "size not set"}] : []), pulled};
+}
+function csText(cs, updated){
+  const t = csTotals(cs), w = S.weeks[WEEK] || {}, L = [];
+  L.push(`UVL CUT SHEET${updated ? " (UPDATED)" : ""}`);
+  L.push(`Date: ${w.processDate ? niceD(w.processDate) + ", " + parseD(w.processDate).getFullYear() : niceD(WEEK)}   INV# ${cs.inv || "____"}   Total lamb: ${t.total}`);
+  L.push("");
+  goals().filter(g => g.active).forEach(g => L.push(`** ${g.text}`));
+  (cs.banners || []).filter(Boolean).forEach(b => L.push(`** ${b}`));
+  if (proc().standing) proc().standing.split("\n").filter(Boolean).forEach(b => L.push(b));
+  L.push("");
+  cs.sets.forEach(st => {
+    L.push(`${(st.name || "Set").toUpperCase()}: ${st.lambs || 0} ${st.size || ""}`);
+    if (st.headline) L.push(`  >> ${st.headline}`);
+    (st.lines || []).forEach(l => { const txt = l.kind === "note" ? l.text : ((specById(l.spec) || {}).text || "?");
+      L.push(`  ${l.kind === "note" ? "    " : String(l.qty ?? "").padStart(4)}  ${txt}${l.side ? "   [" + l.side + "]" : ""}`); });
+    L.push("");
+  });
+  const p = t.pulled; if (n(p.large) || n(p.medium) || n(p.small)) L.push(`Lambs pulled from inventory: Large ${n(p.large)}, Medium ${n(p.medium)}, Small ${n(p.small)}`);
+  if (cs.notes) L.push(`UVL notes: ${cs.notes}`);
+  L.push(`TOTAL ${t.total}`);
+  return L.join("\n");
+}
+function csStatus(cs){
+  if (!cs || !cs.sentAt) return {cls: "notsent", text: "Not sent to " + proc().name + " yet."};
+  const when = new Date(cs.sentAt).toLocaleString([], {weekday: "short", hour: "numeric", minute: "2-digit"});
+  const h = hashStr(csText(Object.assign({}, cs, {sentAt: null, sentHash: null})));
+  if (h !== cs.sentHash) return {cls: "changed", text: `Changed after you sent it on ${when}. Send an update.`, changed: true};
+  return {cls: "sent", text: `Sent to ${proc().name} ${when}.`};
+}
+function csHTML(cs){
+  const t = csTotals(cs), w = S.weeks[WEEK] || {};
+  const bans = goals().filter(g => g.active).map(g => g.text).concat((cs.banners || []).filter(Boolean));
+  const carcass = {}; cs.sets.forEach(st => { if ((st.lines||[]).some(l => (specById(l.spec)||{}).use === "carcass")) carcass[st.size] = (carcass[st.size]||0) + n(st.lambs); });
+  const dt = w.processDate ? parseD(w.processDate) : parseD(WEEK);
+  return `<div class="cs"><div class="cs-inner">
+    <div class="cs-top"><div class="cs-meta">DATE: ${dt.getMonth()+1}/${dt.getDate()}/${dt.getFullYear()}<br>INV# ${esc(cs.inv || "")}<br>Total Lamb: ${t.total}.0</div>
+      <div>${bans.map((b,i) => `<div class="cs-ban c${i%3}">${esc(b)}</div>`).join("") || `<div class="cs-ban c2">&nbsp;</div>`}</div></div>
+    ${proc().standing ? `<div class="cs-std">${esc(proc().standing).replace(/\n/g,"<br>")}</div>` : ""}
+    <div class="cs-sizes">${sizes().filter(z => z.id !== "XS").map(z => `${carcass[z.id] || 0}: ${esc(z.label)} Lambs, ${esc(z.range)}`).join("<br>")}</div>
+    ${cs.sets.map(st => `<div class="cs-set"><div class="cs-left">${esc(st.name || "")}<br><u>&nbsp;${esc(st.lambs || 0)}&nbsp;</u> ${esc(st.size || "")}</div><div>
+      ${st.headline ? `<div class="cs-hl">${esc(st.headline)}</div>` : ""}
+      ${(st.lines || []).map(l => `<div class="cs-line ${l.hl || ""}"><span class="q">${l.kind === "note" ? "" : esc(l.qty ?? "")}</span><span>${esc(l.kind === "note" ? l.text : ((specById(l.spec) || {}).text || ""))}</span><span class="sd">${esc(l.side || "")}</span></div>`).join("")}
+    </div></div>`).join("")}
+    <div class="cs-foot"><div>Lambs Pulled From Inventory<br>LARGE ${n(t.pulled.large) || ""}<br>Medium ${n(t.pulled.medium) || ""}<br>Small ${n(t.pulled.small) || ""}<br><br>TOTAL ${t.total}.0</div>
+      <div class="cs-notes">UVL Notes<br>${esc(cs.notes || "")}</div></div>
+  </div></div>`;
+}
+function saveCS(patch){ const w = S.weeks[WEEK] || {}; const cs = Object.assign({inv: "", banners: [], sets: [], pulled: {}, notes: ""}, w.cs || {}, patch); saveWeek({cs}); }
+function cloneCS(){ return JSON.parse(JSON.stringify((S.weeks[WEEK] || {}).cs || {inv: "", banners: [], sets: [], pulled: {}, notes: ""})); }
+function lastCSWeek(){ return Object.keys(S.weeks).filter(k => k < WEEK && S.weeks[k].cs && (S.weeks[k].cs.sets || []).length).sort().pop(); }
+function specOptions(sel){
+  return USE_GROUPS.map(([g, uses]) => { const list = specs().filter(x => uses.includes(x.use)); return list.length ? `<optgroup label="${g}">${list.map(x => `<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${esc(x.text)}</option>`).join("")}</optgroup>` : ""; }).join("")
+    + `<optgroup label="More"><option value="__note">Note line, no count</option><option value="__new">Add a new instruction...</option></optgroup>`;
+}
+function renderCutsheet(){
+  const el = $("#v-cutsheet"), w = S.weeks[WEEK] || {}, cs = w.cs;
+  if (!cs || !(cs.sets || []).length){
+    const lw = lastCSWeek();
+    el.innerHTML = `<div class="empty"><h3>No cut sheet for this week yet</h3><p>Most weeks look a lot like the last one, so the quickest start is a copy.</p>
+      ${lw ? `<button class="bigbtn" id="csCopy" style="max-width:420px;margin:0 auto">Copy the week of ${niceD(lw)}</button>` : ""}
+      <button class="btn ghost" id="csBlank" style="margin-top:.8rem">Start a blank sheet</button></div>`;
+    const cp = $("#csCopy"); if (cp) cp.onclick = () => { const src = JSON.parse(JSON.stringify(S.weeks[lw].cs)); src.inv = ""; delete src.sentAt; delete src.sentHash; src.pulled = {}; saveWeek({cs: src}); toast("Copied. Change the numbers for this week.", () => saveWeek({cs: null})); };
+    $("#csBlank").onclick = () => saveCS({sets: [{id: uid(), name: "", lambs: 0, size: "Large", headline: "", lines: [], customers: []}]});
+    return;
+  }
+  const t = csTotals(cs), st = csStatus(cs), probs = csProblems(cs), cs2 = csText(cs, st.changed);
+  const allCust = activeCustomers();
+  el.innerHTML = `
+  <div class="row" style="margin-bottom:.5rem"><div><h2>Cut sheet</h2><span class="muted">${t.total} lambs: ${t.bySize.map(x => x.n + " " + esc(x.label)).join(", ")}</span></div><span class="spacer"></span>
+    <div style="width:9rem"><label class="lbl" for="csInv" style="margin:0">INV#</label><input id="csInv" class="field" data-k="csInv" value="${esc(cs.inv || "")}"></div></div>
+  ${probs.length ? `<div class="cutstat changed">${probs.map(x => esc(x.name || "A set")).join(", ")} ${probs.length > 1 ? "don't" : "doesn't"} add up to whole lambs. The red counts below show where.</div>` : `<div class="cutstat sent">Every set adds up to whole lambs.</div>`}
+  <div class="cutstat ${st.cls}">${esc(st.text)}</div>
+
+  <div class="panel" style="margin-top:1rem"><h3>Instructions at the top</h3>
+    <p class="small muted" style="margin:.2rem 0 .5rem">Ongoing saving goals carry to every week until you mark them finished. Banners are for this week only.</p>
+    ${goals().filter(g => g.active).map(g => `<div class="banrow"><input class="field" data-k="g:${g.id}" data-goal="${g.id}" value="${esc(g.text)}"><button class="btn ghost small" data-gdone="${g.id}">Finished</button></div>`).join("")}
+    <button class="copy" id="gAdd">Add a saving goal (bones, bellies, necks)</button>
+    <div style="margin-top:.6rem">${(cs.banners || []).map((b,i) => `<div class="banrow"><input class="field" data-k="b:${i}" data-ban="${i}" value="${esc(b)}"><button class="iconbtn" data-bdel="${i}" aria-label="Remove banner">&#10005;</button></div>`).join("")}</div>
+    <button class="copy" id="bAdd">Add a banner for this week</button>
+  </div>
+
+  ${cs.sets.map((set, i) => { const bal = setBalance(set), hasLines = (set.lines||[]).some(l => l.kind !== "note"), bad = hasLines && bal.some(b => !b.ok);
+    const linked = (set.customers || []).map(id => S.customers[id]).filter(Boolean);
+    return `<div class="setcard ${bad ? "bad" : ""}">
+    <div class="sethead"><div class="sname"><label for="sn${i}">Set name or customer</label><input id="sn${i}" class="field" data-k="s:${i}:name" data-sf="${i}|name" value="${esc(set.name || "")}"></div>
+      <div><label for="sl${i}">Lambs</label><input id="sl${i}" class="field num" inputmode="numeric" data-k="s:${i}:lambs" data-sf="${i}|lambs" value="${esc(set.lambs || "")}"></div>
+      <div><label for="sz${i}">Size</label><select id="sz${i}" class="field" data-sf="${i}|size">${sizes().map(z => `<option value="${z.id}" ${z.id === set.size ? "selected" : ""}>${esc(z.label)} (${esc(z.range)})</option>`).join("")}</select></div>
+      <div class="lopts"><button class="iconbtn" data-smove="${i}|-1" aria-label="Move set up" ${i === 0 ? "disabled" : ""}>&#8593;</button><button class="iconbtn" data-smove="${i}|1" aria-label="Move set down" ${i === cs.sets.length-1 ? "disabled" : ""}>&#8595;</button><button class="iconbtn" data-sdel="${i}" aria-label="Delete set">&#10005;</button></div></div>
+    <div class="setbody">
+      <input class="field" style="background:#F2EA6244;margin-bottom:.4rem" data-k="s:${i}:headline" data-sf="${i}|headline" value="${esc(set.headline || "")}" placeholder="Yellow bar at the top of this set (optional)">
+      ${(set.lines || []).map((l, j) => { const sp = specById(l.spec);
+        return `<div class="lrow ${l.hl ? "hl-" + l.hl[0] : ""}">
+        ${l.kind === "note" ? `<span class="small muted">Note</span><input class="field" data-k="l:${i}:${j}:text" data-lf="${i}|${j}|text" value="${esc(l.text || "")}">`
+          : `<input class="field num" inputmode="numeric" data-k="l:${i}:${j}:qty" data-lf="${i}|${j}|qty" value="${esc(l.qty ?? "")}" aria-label="Count"><select class="field" data-lspec="${i}|${j}" aria-label="Instruction">${specOptions(l.spec)}</select>`}
+        <input class="field side" data-k="l:${i}:${j}:side" data-lf="${i}|${j}|side" value="${esc(l.side || "")}" placeholder="Side note">
+        <span class="lopts">${sp && sp.use === "leg" ? `<label class="shank"><input type="checkbox" data-lshank="${i}|${j}" ${l.shankOn ? "checked" : ""}> shank on</label>` : ""}
+          <button class="hlbtn ${l.hl === "y" ? "y" : l.hl === "b" ? "b" : l.hl === "g" ? "g" : ""}" data-lhl="${i}|${j}" title="Highlight color" aria-label="Change highlight">${l.hl ? "" : "hl"}</button>
+          <button class="iconbtn" data-lmove="${i}|${j}" aria-label="Move line up" ${j === 0 ? "disabled" : ""}>&#8593;</button>
+          <button class="iconbtn" data-ldel="${i}|${j}" aria-label="Delete line">&#10005;</button></span></div>`; }).join("")}
+      <div class="row" style="margin-top:.5rem"><button class="btn ghost small" data-ladd="${i}">Add a line</button></div>
+      ${hasLines ? `<div class="chips">${bal.map(b => `<span class="chip ${b.ok ? "" : "bad"}">${b.label} ${fmt(b.used)}${b.ok ? " &#10003;" : " of " + fmt(b.exp)}</span>`).join("")}</div>` : ""}
+      <div class="small" style="margin-top:.6rem">For: ${linked.map(c => `<span class="chip">${esc(c.name)} <button class="copy" data-cun="${i}|${c.id}" aria-label="Remove ${esc(c.name)}">x</button></span>`).join(" ")}
+        <select class="field" style="display:inline-block;width:auto;min-height:34px" data-clink="${i}"><option value="">Link a customer...</option>${allCust.filter(c => !(set.customers||[]).includes(c.id)).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+      ${linked.length ? setOrderHint(set, i) : ""}
+    </div></div>`; }).join("")}
+  <button class="btn" id="sAdd">Add a set</button>
+
+  <div class="panel" style="margin-top:1rem"><h3>Bottom of the sheet</h3>
+    <div class="row">${["large","medium","small"].map(k => `<div style="width:7rem"><label class="lbl" for="pl${k}">Pulled from inventory, ${k}</label><input id="pl${k}" class="field num" inputmode="numeric" data-k="pl:${k}" data-pull="${k}" value="${esc((cs.pulled||{})[k] || "")}"></div>`).join("")}</div>
+    <label class="lbl" for="csNotes">UVL notes</label><textarea id="csNotes" class="field" data-k="csNotes" rows="2">${esc(cs.notes || "")}</textarea>
+    <p class="small muted"><span class="ph">Ask Kathy</span> what "Lambs Pulled From Inventory" tracks, and where the INV# comes from.</p>
+  </div>
+
+  <div class="panel" style="margin-top:1rem"><div class="row"><h3>What Mohawk gets</h3><span class="spacer"></span><button class="btn ghost small" id="csPrint">Print or save as PDF</button></div>
+    <div class="cs-wrap" style="margin-top:.5rem">${csHTML(cs)}</div>
+    <button class="bigbtn" id="csMail">${st.changed ? "Email the update to " : "Email to "}${esc(proc().name)}</button>
+    <div class="row" style="margin-top:.6rem"><button class="btn ghost" id="csCopyTxt">Copy as text</button>${cs.sentAt && !st.changed ? "" : `<span class="spacer"></span><button class="copy" id="csMark">I sent it another way</button>`}</div>
+    <p class="small muted">Email sends a plain-text version. For the colored version, print it or save a PDF and attach that.</p>
+  </div>`;
+  wireCutsheet(el, cs, st, probs);
+}
+function linkedOrderLines(set){
+  const lines = {}; (set.customers || []).forEach(cid => { const o = S.orders[orderId(WEEK, cid)]; Object.entries(orderLines(o)).forEach(([k,v]) => lines[k] = (lines[k]||0) + n(v)); });
+  return lines;
+}
+function setOrderHint(set, i){
+  const lines = linkedOrderLines(set);
+  const items = products().filter(p => lines[p.id] > 0);
+  if (!items.length) return `<p class="small muted" style="margin:.4rem 0 0">No orders entered this week for the linked customers.</p>`;
+  const onSheet = items.filter(p => p.spec), offSheet = items.filter(p => !p.spec);
+  return `<div class="small" style="margin:.4rem 0 0;background:var(--field);padding:.5rem .7rem;border-radius:6px">
+    <b>Their orders this week:</b> ${items.map(p => `${fmt(lines[p.id])}${p.unit === "lb" ? " lb" : ""} ${esc(p.short || p.name)}`).join("; ")}
+    ${offSheet.length ? `<br><span class="muted">${offSheet.map(p => esc(p.name.toLowerCase())).join(" and ")} ${offSheet.length > 1 ? "aren't cut sheet lines. They come" : "isn't a cut sheet line. It comes"} from trim, so plan ${offSheet.length > 1 ? "them" : "it"} in the grind set.</span>` : ""}
+    ${onSheet.length ? (set.filledWeek === WEEK ? `<div class="row" style="margin-top:.4rem"><span>&#10003; Added to the lines above.</span><button class="copy" data-fill="${i}">Add them again</button></div>`
+      : `<div class="row" style="margin-top:.4rem"><button class="btn small" data-fill="${i}">Put these on this set</button><span class="muted">Adds their counts to the lines above, then the red counts show what's left to fill.</span></div>`) : ""}</div>`;
+}
+function fillSetFromOrders(c, si){
+  const set = c.sets[si], lines = linkedOrderLines(set); let added = 0;
+  products().forEach(p => { if (!p.spec || !(lines[p.id] > 0)) return;
+    const ex = (set.lines || []).find(l => l.kind !== "note" && l.spec === p.spec);
+    if (ex) ex.qty = n(ex.qty) + lines[p.id]; else { set.lines = set.lines || []; set.lines.push({spec: p.spec, qty: lines[p.id], side: "", hl: ""}); }
+    added++; });
+  const bal = setBalance(set), maxPart = Math.max(...bal.map(b => b.used));
+  if (!n(set.lambs) && maxPart > 0) set.lambs = Math.ceil(maxPart / 2 - 1e-9);
+  set.filledWeek = WEEK;
+  return added;
+}
+function wireCutsheet(el, cs, st, probs){
+  const upd = fn => { const c = cloneCS(); fn(c); saveCS(c); };
+  $("#csInv").onchange = e => saveCS({inv: e.target.value.trim()});
+  el.querySelectorAll("[data-goal]").forEach(i => i.onchange = () => { const nc = JSON.parse(JSON.stringify(cfg())); const g = (nc.goals||[]).find(x => x.id === i.dataset.goal); if (g){ g.text = i.value.trim(); Store.set("config","setup",nc); } });
+  el.querySelectorAll("[data-gdone]").forEach(b => b.onclick = () => { const nc = JSON.parse(JSON.stringify(cfg())); const g = (nc.goals||[]).find(x => x.id === b.dataset.gdone); if (g){ g.active = false; Store.set("config","setup",nc); toast("Goal finished. It won't print next week.", () => { const n2 = JSON.parse(JSON.stringify(cfg())); const g2 = n2.goals.find(x => x.id === g.id); g2.active = true; Store.set("config","setup",n2); }); } });
+  $("#gAdd").onclick = () => { const nc = JSON.parse(JSON.stringify(cfg())); nc.goals = (nc.goals||[]).concat([{id: uid(), text: "", active: true}]); Store.set("config","setup",nc); };
+  el.querySelectorAll("[data-ban]").forEach(i => i.onchange = () => upd(c => { c.banners[+i.dataset.ban] = i.value.trim(); }));
+  el.querySelectorAll("[data-bdel]").forEach(b => b.onclick = () => upd(c => { c.banners.splice(+b.dataset.bdel, 1); }));
+  $("#bAdd").onclick = () => upd(c => { c.banners = (c.banners||[]).concat([""]); });
+  el.querySelectorAll("[data-sf]").forEach(i => i.onchange = () => { const [si, f] = i.dataset.sf.split("|"); upd(c => { c.sets[+si][f] = f === "lambs" ? Math.max(0, Math.round(n(i.value))) : i.value; }); });
+  el.querySelectorAll("[data-smove]").forEach(b => b.onclick = () => { const [si, d] = b.dataset.smove.split("|").map(Number); upd(c => { const [x] = c.sets.splice(si, 1); c.sets.splice(si + d, 0, x); }); });
+  el.querySelectorAll("[data-sdel]").forEach(b => b.onclick = () => { const before = cloneCS(); upd(c => { c.sets.splice(+b.dataset.sdel, 1); }); toast("Set deleted", () => saveCS(before)); });
+  $("#sAdd").onclick = () => upd(c => { c.sets.push({id: uid(), name: "", lambs: 0, size: "Large", headline: "", lines: [], customers: []}); });
+  el.querySelectorAll("[data-lf]").forEach(i => i.onchange = () => { const [si, li, f] = i.dataset.lf.split("|"); upd(c => { c.sets[+si].lines[+li][f] = f === "qty" ? (i.value.trim() === "" ? "" : Math.max(0, n(i.value))) : i.value; }); });
+  el.querySelectorAll("[data-lspec]").forEach(sel => sel.onchange = () => { const [si, li] = sel.dataset.lspec.split("|").map(Number);
+    if (sel.value === "__note"){ upd(c => { c.sets[si].lines[li] = {kind: "note", text: "", side: c.sets[si].lines[li].side || "", hl: c.sets[si].lines[li].hl || ""}; }); return; }
+    if (sel.value === "__new"){ newSpec(si, li); return; }
+    upd(c => { c.sets[si].lines[li].spec = sel.value; }); });
+  el.querySelectorAll("[data-lshank]").forEach(cb => cb.onchange = () => { const [si, li] = cb.dataset.lshank.split("|").map(Number); upd(c => { c.sets[si].lines[li].shankOn = cb.checked; }); });
+  el.querySelectorAll("[data-lhl]").forEach(b => b.onclick = () => { const [si, li] = b.dataset.lhl.split("|").map(Number); upd(c => { const cyc = ["", "y", "b", "g"]; const l = c.sets[si].lines[li]; l.hl = cyc[(cyc.indexOf(l.hl || "") + 1) % 4]; }); });
+  el.querySelectorAll("[data-lmove]").forEach(b => b.onclick = () => { const [si, li] = b.dataset.lmove.split("|").map(Number); upd(c => { const ls = c.sets[si].lines; [ls[li-1], ls[li]] = [ls[li], ls[li-1]]; }); });
+  el.querySelectorAll("[data-ldel]").forEach(b => b.onclick = () => { const [si, li] = b.dataset.ldel.split("|").map(Number); const before = cloneCS(); upd(c => { c.sets[si].lines.splice(li, 1); }); toast("Line deleted", () => saveCS(before)); });
+  el.querySelectorAll("[data-ladd]").forEach(b => b.onclick = () => { const si = +b.dataset.ladd; upd(c => { c.sets[si].lines.push({spec: (specs()[0] || {}).id || "", qty: "", side: "", hl: ""}); }); });
+  el.querySelectorAll("[data-clink]").forEach(sel => sel.onchange = () => { if (!sel.value) return; const si = +sel.dataset.clink; upd(c => { c.sets[si].customers = (c.sets[si].customers || []).concat([sel.value]); }); });
+  el.querySelectorAll("[data-cun]").forEach(b => b.onclick = () => { const [si, cid] = b.dataset.cun.split("|"); upd(c => { c.sets[+si].customers = (c.sets[+si].customers || []).filter(x => x !== cid); }); });
+  el.querySelectorAll("[data-fill]").forEach(b => b.onclick = () => { const before = cloneCS(); const c = cloneCS(); const k = fillSetFromOrders(c, +b.dataset.fill); saveCS(c); toast(k + " order line" + (k === 1 ? "" : "s") + " added to the set", () => saveCS(before)); });
+  el.querySelectorAll("[data-pull]").forEach(i => i.onchange = () => upd(c => { c.pulled = Object.assign({}, c.pulled, {[i.dataset.pull]: Math.max(0, Math.round(n(i.value)))}); }));
+  $("#csNotes").onchange = e => saveCS({notes: e.target.value.trim()});
+  $("#csPrint").onclick = () => { $("#printArea").innerHTML = csHTML(cs); document.body.classList.add("printing"); window.print(); setTimeout(() => document.body.classList.remove("printing"), 500); };
+  const text = csText(cs, st.changed);
+  const mark = () => saveCS({sentAt: Date.now(), sentHash: hashStr(csText(Object.assign({}, cs, {sentAt: null, sentHash: null}))), sentBy: MYID || null});
+  $("#csMail").onclick = () => { if (probs.length && !confirm(probs.length + " set(s) don't add up to whole lambs. Send anyway?")) return;
+    const subj = `UVL cut sheet${st.changed ? " (UPDATED)" : ""}, ${cs.inv ? "INV# " + cs.inv + ", " : ""}week of ${niceD(WEEK)}`;
+    mark(); location.href = `mailto:${encodeURIComponent(proc().email)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(text)}`; toast("Opening your email. Check it and press Send."); };
+  $("#csCopyTxt").onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast("Copied"), () => toast("Couldn't copy on this device")); };
+  const mk = $("#csMark"); if (mk) mk.onclick = () => { mark(); toast("Marked as sent"); };
+}
+function newSpec(si, li){
+  openSheet(`<div class="hd"><h3>New instruction</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <p class="small muted">Write it the way Mohawk reads it. It's saved for next time.</p>
+    <label class="lbl" for="nsText">Instruction</label><input id="nsText" class="field" placeholder='e.g. Legs, 1" Steaks 2/pack'>
+    <label class="lbl" for="nsUse">Each one uses</label><select id="nsUse" class="field">${USE_GROUPS.map(([g, us]) => `<optgroup label="${g}">${us.map(u => `<option value="${u}">${esc(USES[u].label)}</option>`).join("")}</optgroup>`).join("")}</select>
+    <div class="row" style="margin-top:1rem"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="nsSave">Save</button></div>`);
+  $("#sheetBox").querySelectorAll("[data-close]").forEach(b => b.onclick = () => { closeSheet(); render(); });
+  $("#nsSave").onclick = () => { const txt = $("#nsText").value.trim(); if (!txt){ toast("Write the instruction"); return; }
+    const id = "sp" + uid(); const nc = JSON.parse(JSON.stringify(cfg())); const use = $("#nsUse").value; nc.specs = (nc.specs || []).concat([{id, text: txt, use}]);
+    const GRP = {leg:"Legs",legshank:"Legs",shoulder:"Shoulders",rack:"Racks",loin:"Loins",wholeloin:"Loins",saddle:"Loins",fshank:"Shanks",hshank:"Shanks",allshank:"Shanks",carcass:"Whole lambs",none:"Other"};
+    const UMAP = {};
+    nc.products = (nc.products || []).concat([{id: "p" + id, spec: id, name: txt, short: txt.length > 22 ? txt.slice(0, 20) + "..." : txt, unit: use === "carcass" ? "lamb" : "each", group: GRP[use] || "Other",
+      uses: Object.entries((USES[use] || USES.none).u).map(([k,q]) => ({part: UMAP[k] || k, qty: q})).concat(use === "none" ? [] : [])}]);
+    Store.set("config", "setup", nc);
+    const c = cloneCS(); c.sets[si].lines[li] = Object.assign({}, c.sets[si].lines[li], {kind: undefined, spec: id}); saveCS(c); closeSheet(); };
+}
+
+/* ---------- Orders ---------- */
+const drafts = {}; const draftTimers = {};
+function getLines(oid){ return drafts[oid] || orderLines(S.orders[oid]); }
+function setQty(cid, pid, val){
+  const oid = orderId(WEEK, cid);
+  const lines = Object.assign({}, getLines(oid));
+  const v = Math.max(0, n(val)); if (v) lines[pid] = v; else delete lines[pid];
+  drafts[oid] = lines;
+  clearTimeout(draftTimers[oid]);
+  draftTimers[oid] = setTimeout(() => flushOrder(cid), 500);
+}
+function flushOrder(cid, extra){
+  const oid = orderId(WEEK, cid); const wk = WEEK;
+  const cur = S.orders[oid] || {weekId: wk, customerId: cid, status: "todo", lines: {}, notes: ""};
+  const lines = drafts[oid] || cur.lines || {};
+  let status = cur.status; if (Object.keys(lines).length && (status === "todo" || status === "none" || !status)) status = "ordered";
+  Store.set("orders", oid, Object.assign({}, cur, {weekId: wk, customerId: cid, lines, status}, extra || {}));
+  delete drafts[oid];
+}
+function copyLastWeek(cid){
+  const d = parseD(WEEK); d.setDate(d.getDate()-7); const prev = S.orders[orderId(isoD(d), cid)];
+  if (!prev || !Object.keys(orderLines(prev)).length){ toast("No order from last week to copy"); return; }
+  drafts[orderId(WEEK, cid)] = Object.assign({}, prev.lines); flushOrder(cid, {status: "ordered"}); toast("Copied last week's order");
+}
+function hasLastWeek(cid){ const d = parseD(WEEK); d.setDate(d.getDate()-7); const prev = S.orders[orderId(isoD(d), cid)]; return !!(prev && Object.keys(orderLines(prev)).length); }
+const STATUS = {todo:"Not called", ordered:"Ordered", none:"No order", callback:"Call back"};
+
+function groupRows(list, row){
+  let last = null, out = "";
+  list.forEach(p => { const g = p.group || "Other"; if (g !== last){ out += `<h4 style="margin:.9rem 0 .1rem;font-family:var(--display);color:var(--forest)">${esc(g)}</h4>`; last = g; } out += row(p); });
+  return out;
+}
+let ORDERVIEW = null; try { ORDERVIEW = localStorage.getItem("uvl:orderview"); } catch(e){}
+function renderOrders(){
+  const el = $("#v-orders"), ps = products(), cs = activeCustomers(), c = calcWeek(WEEK);
+  if (!cs.length){ el.innerHTML = `<div class="empty"><h3>No customers yet</h3><p>Add customers first, then their names show up here each week.</p><button class="btn" id="goCust">Add a customer</button></div>`; $("#goCust").onclick = () => go("customers"); return; }
+  const totalsLive = {}; ps.forEach(p => totalsLive[p.id] = 0);
+  cs.forEach(cu => { const l = getLines(orderId(WEEK, cu.id)); for (const k in l) totalsLive[k] = (totalsLive[k]||0) + n(l[k]); });
+  const today = DAYS[new Date().getDay()];
+  const grid = `
+  <div class="row noprint" style="margin-bottom:.6rem"><p class="small muted" style="margin:0">Customers down the side, products across the top. Type a number and press Tab to move across. It saves as you go.</p></div>
+  <div class="scroll"><table class="og"><thead><tr><th class="cust">Customer</th>${ps.map(p => `<th title="${esc(p.name)}">${esc(p.short||p.name)}<small>${esc(p.unit)}</small></th>`).join("")}</tr></thead><tbody>
+  ${cs.map(cu => { const oid = orderId(WEEK, cu.id), o = S.orders[oid], l = getLines(oid), st = (o && o.status) || "todo";
+    return `<tr class="orow"><td class="cust"><button class="cname-btn" data-cd="${cu.id}" title="Open customer page">${esc(cu.name)}</button>${cu.notes ? `<span class="cpin" title="${esc(cu.notes)}">${esc(cu.notes)}</span>` : ""}<span class="cmeta">
+      <select class="status" data-st="${cu.id}" aria-label="Status for ${esc(cu.name)}">${Object.entries(STATUS).map(([k,v]) => `<option value="${k}" ${k===st?"selected":""}>${v}</option>`).join("")}</select>
+      ${hasLastWeek(cu.id) ? `<button class="copy" data-cp="${cu.id}">Same as last week</button>` : ""}</span></td>
+      ${ps.map(p => `<td><input data-k="g:${cu.id}:${p.id}" data-c="${cu.id}" data-p="${p.id}" inputmode="decimal" autocomplete="off" aria-label="${esc(cu.name)}, ${esc(p.name)}" value="${l[p.id] ? fmt(l[p.id]) : ""}"></td>`).join("")}</tr>`; }).join("")}
+  <tr class="sf"><td class="cust small">Half &amp; whole shortfall</td>${ps.map(p => `<td class="num">${c.short[p.id] ? fmt(c.short[p.id]) : ""}</td>`).join("")}</tr>
+  <tr class="tot"><td class="cust">Total this week</td>${ps.map(p => `<td class="num">${((totalsLive[p.id]||0) + (c.short[p.id]||0)) ? fmt((totalsLive[p.id]||0) + (c.short[p.id]||0)) : ""}</td>`).join("")}</tr>
+  </tbody></table></div>`;
+  const cards = `
+  <p class="small muted" style="margin:0 0 .6rem">Tap a customer to enter their order. Today is ${today}.</p>
+  <div class="clist">${cs.map(cu => { const oid = orderId(WEEK, cu.id), o = S.orders[oid], l = getLines(oid), st = (o && o.status) || "todo";
+    const items = Object.entries(l).filter(([,v]) => v).map(([k,v]) => `${fmt(v)} ${esc((prodById(k)||{}).short||k)}`);
+    return `<button class="ccard" data-open="${cu.id}"><span style="min-width:0"><b>${esc(cu.name)}</b>${cu.callDay === today && st === "todo" ? ` <span class="small" style="color:var(--barn)">Call today</span>` : ""}<br><span class="sum">${items.length ? items.join(", ") : (o && o.notes ? esc(o.notes) : "Nothing yet")}</span></span><span class="st ${st}">${STATUS[st]}</span></button>`; }).join("")}</div>`;
+  const ov = ORDERVIEW || "list";
+  const toggle = `<div class="desk-only noprint" style="margin-bottom:.6rem"><div class="seg" role="group" aria-label="Layout"><button data-ov="list" aria-pressed="${ov === "list"}">One customer at a time</button><button data-ov="grid" aria-pressed="${ov === "grid"}">Spreadsheet grid</button></div></div>`;
+  el.innerHTML = toggle + (ov === "grid" ? `<div class="desk-only">${grid}</div><div class="mob-only">${cards}</div>` : `<div style="max-width:760px">${cards}</div>`);
+  el.querySelectorAll("[data-ov]").forEach(b => b.onclick = () => { ORDERVIEW = b.dataset.ov; try { localStorage.setItem("uvl:orderview", ORDERVIEW); } catch(e){} render(); });
+  el.querySelectorAll("input[data-c]").forEach(inp => {
+    inp.addEventListener("input", () => { inp.value = inp.value.replace(/[^0-9.]/g,""); setQty(inp.dataset.c, inp.dataset.p, inp.value); updateTotalsOnly(); });
+    inp.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === "ArrowDown" || e.key === "ArrowUp"){ e.preventDefault(); moveVert(inp, e.key === "ArrowUp" ? -1 : 1); } });
+    inp.addEventListener("focus", () => inp.select());
+  });
+  el.querySelectorAll("select[data-st]").forEach(s => s.onchange = () => { flushOrder(s.dataset.st, {status: s.value}); });
+  el.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => copyLastWeek(b.dataset.cp));
+  el.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openOrderSheet(b.dataset.open));
+  el.querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCustSheet(b.dataset.cd));
+}
+function updateTotalsOnly(){ scheduleRender(); }
+function moveVert(inp, dir){
+  const all = [...document.querySelectorAll(`#v-orders input[data-p="${inp.dataset.p}"]`)];
+  const i = all.indexOf(inp); const nx = all[i+dir]; if (nx) nx.focus();
+}
+function openOrderSheet(cid){ SHEET = {type:"order", id: cid}; openSheet(`<div id="osheet"></div>`); refreshOrderSheet(); }
+function refreshOrderSheet(){
+  const box = $("#osheet"); if (!box || !SHEET) return; const cid = SHEET.id, cu = S.customers[cid]; if (!cu){ closeSheet(); return; }
+  const oid = orderId(WEEK, cid), o = S.orders[oid], l = getLines(oid), st = (o && o.status) || "todo";
+  const keep = captureFocus();
+  box.innerHTML = `<div class="hd"><div><h3>${esc(cu.name)}</h3><span class="small muted">Week of ${niceD(WEEK)}${cu.phone ? ` &middot; <a href="tel:${esc(cu.phone)}">${esc(cu.phone)}</a>` : ""}</span></div><button class="iconbtn" data-close aria-label="Done">&#10005;</button></div>
+    ${cu.notes ? `<div class="pin small">${esc(cu.notes)}</div>` : ""}
+    ${(() => { const lt = lastTouch(cid); return lt ? `<div class="lastc">Last contact ${ago(lt.at)}: ${esc(lt.summary)}</div>` : ""; })()}
+    <div class="row" style="margin:.25rem 0"><button class="btn ghost small" id="olog">Log this call</button><button class="copy" id="ocust">Customer page</button></div>
+    <div class="seg" role="group" aria-label="Status" style="margin:.25rem 0 .5rem;flex-wrap:wrap">${Object.entries(STATUS).map(([k,v]) => `<button data-sst="${k}" aria-pressed="${k===st}">${v}</button>`).join("")}</div>
+    ${hasLastWeek(cid) ? `<button class="btn ghost small" id="cpl" style="margin-bottom:.5rem">Same as last week</button>` : ""}
+    ${(() => { const usual = usualProducts(cid); const showAll = SHEET.showAll || usual.size === 0;
+      const row = p => `<div class="step"><div class="nm">${esc(p.name)} <span class="small muted">${esc(p.unit)}</span></div><div class="stepper">
+      <button data-d="-1" data-p="${p.id}" aria-label="One less ${esc(p.name)}">&minus;</button>
+      <input data-k="s:${cid}:${p.id}" data-p="${p.id}" inputmode="decimal" value="${l[p.id] ? fmt(l[p.id]) : ""}" aria-label="${esc(p.name)}">
+      <button data-d="1" data-p="${p.id}" aria-label="One more ${esc(p.name)}">+</button></div></div>`;
+      const first = products().filter(p => usual.has(p.id)), rest = products().filter(p => !usual.has(p.id));
+      return (usual.size ? `<p class="small muted" style="margin:.5rem 0 0">What they usually buy</p>` : "") + first.map(row).join("") +
+        (rest.length ? (showAll ? (usual.size ? `<p class="small muted" style="margin:.75rem 0 0">Other cuts</p>` : "") + groupRows(rest, row) : `<button class="more-cuts" id="showAll">Show ${rest.length} other cuts</button>`) : ""); })()}
+    <p class="small muted" style="margin:.9rem 0 0">Read back to the customer</p>${readback(l)}
+    <label class="lbl" for="onote">Notes</label><input id="onote" class="field" data-k="onote" value="${esc((o && o.notes) || "")}" placeholder="Call back time, delivery changes">
+    <div class="row" style="margin-top:1rem"><span class="spacer"></span><button class="btn" data-close>Done</button></div>`;
+  box.querySelectorAll("[data-close]").forEach(b => b.onclick = () => { const fc = SHEET && SHEET.fromCalls; flushOrder(cid); closeSheet(); if (fc){ CALL.after = cid; render(); window.scrollTo(0,0); } });
+  const sa = $("#showAll"); if (sa) sa.onclick = () => { SHEET.showAll = true; refreshOrderSheet(); };
+  box.querySelectorAll("[data-sst]").forEach(b => b.onclick = () => flushOrder(cid, {status: b.dataset.sst}));
+  const cp = $("#cpl"); if (cp) cp.onclick = () => copyLastWeek(cid);
+  $("#olog").onclick = () => { flushOrder(cid); openCustSheet(cid, true); };
+  $("#ocust").onclick = () => { flushOrder(cid); openCustSheet(cid); };
+  box.querySelectorAll("button[data-d]").forEach(b => b.onclick = () => { const cur = n(getLines(oid)[b.dataset.p]); setQty(cid, b.dataset.p, Math.max(0, cur + n(b.dataset.d))); refreshOrderSheet(); });
+  box.querySelectorAll(".stepper input").forEach(i => i.addEventListener("input", () => { i.value = i.value.replace(/[^0-9.]/g,""); setQty(cid, i.dataset.p, i.value); }));
+  $("#onote").onchange = e => flushOrder(cid, {notes: e.target.value});
+  restoreFocus(keep);
+}
+
+/* ---------- Welcome ---------- */
+function renderWelcome(){
+  $("#weekbar").style.display = "none";
+  $("#v-welcome").innerHTML = `<div class="welcome"><h2>Welcome</h2><p class="muted" style="font-size:1.05rem">Who's using this ${matchMedia("(max-width:899px)").matches ? "phone" : "computer"}? You only have to answer once.</p>
+    <div class="choices">${Object.entries(ROLES).map(([k,r]) => `<button class="bigchoice" data-role="${k}"><b>${r.label}</b>${r.sub}</button>`).join("")}</div></div>`;
+  $("#v-welcome").querySelectorAll("[data-role]").forEach(b => b.onclick = () => setRole(b.dataset.role));
+}
+
+/* ---------- read-back ---------- */
+function readback(lines){
+  const items = products().filter(p => n(lines[p.id]) > 0);
+  if (!items.length) return `<div class="readback muted">Nothing ordered yet.</div>`;
+  return `<div class="readback">${items.map(p => `<div><span class="q num">${fmt(lines[p.id])}</span><span>${p.unit === "lb" ? "lb " : ""}${esc(p.name)}</span></div>`).join("")}</div>`;
+}
+function usualProducts(cid){
+  const used = new Set();
+  Object.values(S.orders).forEach(o => { if (o.customerId === cid) Object.entries(orderLines(o)).forEach(([k,v]) => { if (v > 0) used.add(k); }); });
+  Object.entries(getLines(orderId(WEEK, cid))).forEach(([k,v]) => { if (v > 0) used.add(k); });
+  return used;
+}
+
+/* ---------- Calls: one customer at a time ---------- */
+let CALL = {cid: null, after: null};
+function callQueue(){
+  const today = DAYS[new Date().getDay()];
+  const rank = cu => { const o = S.orders[orderId(WEEK, cu.id)], st = (o && o.status) || "todo";
+    return (st === "ordered" || st === "none") ? 3 : st === "callback" ? 1 : cu.callDay === today ? 0 : 2; };
+  return activeCustomers().sort((a,b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+}
+function isDone(cid){ const o = S.orders[orderId(WEEK, cid)]; return !!o && (o.status === "ordered" || o.status === "none"); }
+function renderCalls(){
+  const el = $("#v-calls"), q = callQueue(), doneN = q.filter(c => isDone(c.id)).length;
+  if (!q.length){ el.innerHTML = `<div class="empty">No customers yet.</div>`; return; }
+  if (!CALL.cid || !S.customers[CALL.cid]) CALL.cid = (q.find(c => !isDone(c.id)) || q[0]).id;
+  const cu = Object.assign({id: CALL.cid}, S.customers[CALL.cid]), oid = orderId(WEEK, cu.id), o = S.orders[oid], st = (o && o.status) || "todo";
+  const d = parseD(WEEK); d.setDate(d.getDate()-7); const prev = S.orders[orderId(isoD(d), cu.id)];
+  const prevLines = prev ? orderLines(prev) : {}; const hasPrev = Object.values(prevLines).some(v => v > 0);
+  const phone = (contactsOf(cu).find(k => k.phone) || {}).phone;
+  const nextUp = q.find(c => c.id !== cu.id && !isDone(c.id));
+  let body;
+  if (CALL.after === cu.id){
+    body = `<p style="font-size:1.1rem;margin:.75rem 0 0">${st === "none" ? "Saved. No order this week." : st === "callback" ? "Saved. Marked to call back." : "Saved. Read this back to them:"}</p>
+      ${st === "ordered" ? readback(getLines(oid)) : ""}
+      ${st === "ordered" ? `<button class="bigbtn alt" data-act="change">Fix something</button>` : ""}
+      ${nextUp ? `<button class="bigbtn" data-next="${nextUp.id}">Next: ${esc(nextUp.name)}</button>` : `<p class="note" style="margin-top:1rem">That's everyone for this week.</p>`}`;
+  } else {
+    body = `${cu.notes ? `<div class="pin">${esc(cu.notes)}</div>` : ""}
+      ${(() => { const lt = lastTouch(cu.id); return lt ? `<div class="lastc">Last contact ${ago(lt.at)}: ${esc(lt.summary)}</div>` : ""; })()}
+      ${phone ? `<a class="bigbtn tel" href="tel:${esc(phone)}">Call ${esc(phone)}</a>` : ""}
+      ${st === "ordered" ? `<p style="margin:.75rem 0 0">Already ordered this week:</p>${readback(getLines(oid))}` : hasPrev ? `<p style="margin:.75rem 0 0">Last week they ordered:</p>${readback(prevLines)}` : `<p class="muted">No order last week.</p>`}
+      ${hasPrev && st !== "ordered" ? `<button class="bigbtn" data-act="same">Same as last week</button>` : ""}
+      <button class="bigbtn ${hasPrev && st !== "ordered" ? "alt" : ""}" data-act="change">${st === "ordered" ? "Change the order" : hasPrev ? "Different order this week" : "Enter their order"}</button>
+      <button class="bigbtn quiet" data-act="none">No order this week</button>
+      <button class="bigbtn quiet" data-act="callback">Call back later</button>
+      ${st === "callback" && o && o.notes ? `<p class="small muted">${esc(o.notes)}</p>` : ""}`;
+  }
+  el.innerHTML = `<div class="callprog"><h2>Calls</h2><span class="muted">${doneN} of ${q.length} done</span></div>
+    <div class="callcard"><div class="row"><h2 style="flex:1">${esc(cu.name)}</h2><span class="st ${st}">${STATUS[st]}</span></div>${body}</div>
+    <div class="queue"><h3 style="margin-bottom:.25rem">Everyone this week</h3>${q.map(c => { const oo = S.orders[orderId(WEEK, c.id)], s2 = (oo && oo.status) || "todo";
+      return `<button data-pick="${c.id}" aria-current="${c.id === cu.id}"><span>${esc(c.name)}</span><span class="st ${s2}">${STATUS[s2]}</span></button>`; }).join("")}</div>`;
+  const snap = () => { const cur = S.orders[oid]; return cur ? JSON.parse(JSON.stringify(cur)) : null; };
+  const undoTo = before => () => { if (before) Store.set("orders", oid, before); else Store.remove("orders", oid); CALL.after = null; render(); };
+  el.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
+    const a = b.dataset.act, before = snap();
+    if (a === "same"){ drafts[oid] = Object.assign({}, prevLines); flushOrder(cu.id, {status: "ordered"}); CALL.after = cu.id; toast("Copied last week's order", undoTo(before)); }
+    else if (a === "change"){ CALL.after = null; openOrderSheet(cu.id); SHEET.fromCalls = true; }
+    else if (a === "none"){ flushOrder(cu.id, {status: "none", lines: {}}); drafts[oid] = undefined; delete drafts[oid]; CALL.after = cu.id; toast("No order this week", undoTo(before)); }
+    else if (a === "callback"){ askCallback(cu.id, before, undoTo); return; }
+    render(); window.scrollTo(0,0);
+  });
+  el.querySelectorAll("[data-next],[data-pick]").forEach(b => b.onclick = () => { CALL.cid = b.dataset.next || b.dataset.pick; CALL.after = null; render(); window.scrollTo(0,0); });
+}
+function askCallback(cid, before, undoTo){
+  openSheet(`<div class="hd"><h3>Call back later</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <label class="lbl" for="cbn" style="font-size:1rem">When should you call back? (optional)</label><input id="cbn" class="field" placeholder="Wednesday after 10">
+    <button class="bigbtn" id="cbs">Save</button>`);
+  $("#cbs").onclick = () => { flushOrder(cid, {status: "callback", notes: $("#cbn").value.trim()}); closeSheet(); CALL.after = cid; toast("Marked to call back", undoTo(before)); render(); };
+}
+
+/* ---------- Packing ---------- */
+let PACKFILTER = "todo";
+function packStats(wk){
+  let total = 0, done = 0;
+  weekOrders(wk).forEach(o => { const pk = S.packing[o.id] || {}; const items = pk.items || {};
+    Object.entries(orderLines(o)).forEach(([pid, q]) => { if (q > 0){ total++; if (n(items[pid]) >= q) done++; } }); });
+  return {total, done};
+}
+function renderPack(){
+  const el = $("#v-pack"), orders = weekOrders(WEEK).filter(o => Object.values(orderLines(o)).some(v => v > 0));
+  const st = packStats(WEEK);
+  const byIds = [...new Set(orders.map(o => (S.packing[o.id]||{}).by).filter(Boolean))]; resolveNames(byIds.filter(id => !(id in NAMES)));
+  orders.sort((a,b) => ((S.customers[a.customerId]||{}).name||"").localeCompare((S.customers[b.customerId]||{}).name||""));
+  const shown = orders.filter(o => { const pk = S.packing[o.id] || {}; const items = pk.items || {}; const allDone = Object.entries(orderLines(o)).every(([pid,q]) => !(q>0) || n(items[pid]) >= q);
+    return PACKFILTER === "all" || (PACKFILTER === "todo" ? !allDone : allDone); });
+  el.innerHTML = `
+  <div class="packhead"><div><h2>Packing</h2><span class="muted">${st.done} of ${st.total} lines packed</span> <button class="copy noprint" id="printPack">Print a paper copy</button></div>
+    <div class="seg" role="group" aria-label="Show">${[["todo","To pack"],["done","Done"],["all","All"]].map(([k,v]) => `<button data-f="${k}" aria-pressed="${PACKFILTER===k}">${v}</button>`).join("")}</div></div>
+  <div class="pbar" role="progressbar" aria-valuemin="0" aria-valuemax="${st.total}" aria-valuenow="${st.done}"><i style="width:${st.total ? st.done/st.total*100 : 0}%"></i></div>
+  ${!orders.length ? `<div class="empty">No orders for this week yet. They show up here as soon as they're entered.</div>` :
+    !shown.length ? `<div class="empty">${PACKFILTER === "todo" ? "Everything is packed." : "Nothing here yet."}</div>` :
+    shown.map(o => { const cu = S.customers[o.customerId] || {name: o.customerId}, pk = S.packing[o.id] || {}, items = pk.items || {};
+      const lines = Object.entries(orderLines(o)).filter(([,q]) => q > 0);
+      const nDone = lines.filter(([pid,q]) => n(items[pid]) >= q).length;
+      return `<div class="pcust"><div class="ph"><b>${esc(cu.name)}</b><span class="small num">${nDone}/${lines.length}</span></div>
+        ${lines.map(([pid,q]) => { const p = prodById(pid) || {name: pid, unit: ""}, got = n(items[pid]), cls = got >= q ? "done" : got > 0 ? "part" : "";
+          return `<button class="prow ${cls}" data-t="${o.id}|${pid}" aria-pressed="${got >= q}"><span class="box" aria-hidden="true">${got >= q ? "&#10003;" : got > 0 ? "!" : ""}</span>
+            <span class="what"><b>${esc(p.name)}</b><br><span class="small muted">${p.unit === "lb" ? "Pounds. " : ""}${got > 0 && got < q ? `Packed ${fmt(got)}, short ${fmt(q-got)}` : got > q ? `Packed ${fmt(got)}, over ${fmt(got-q)}` : got >= q ? "Packed" : "Tap when packed"}</span></span>
+            <span class="qty num">${fmt(q)}</span></button>${got >= q || got > 0 ? `<button class="fewer" data-adj="${o.id}|${pid}">${got > 0 && got < q ? "Change the count" : "Packed a different amount?"}</button>` : ""}`; }).join("")}
+        ${nDone === lines.length ? `<div class="alldone">All packed. Add boxes and pallet below.</div>` : ""}
+        <div class="pfoot"><span class="small">Boxes</span><div class="stepper"><button data-bx="${o.id}|-1" aria-label="One less box">&minus;</button><input data-k="bx:${o.id}" data-bxi="${o.id}" inputmode="numeric" value="${pk.boxes || ""}" aria-label="Boxes"><button data-bx="${o.id}|1" aria-label="One more box">+</button></div>
+          <label class="small" for="pl-${o.id}">Pallet</label><input id="pl-${o.id}" class="field" style="width:5rem" data-k="pl:${o.id}" data-pl="${o.id}" value="${esc(pk.pallet || "")}">
+          <span class="spacer"></span>${pk.by || pk.at ? `<span class="by">${pk.by ? esc(NAMES[pk.by] || "Someone") : ""}${pk.at ? " at " + new Date(pk.at).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : ""}</span>` : ""}</div></div>`; }).join("")}`;
+  el.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { PACKFILTER = b.dataset.f; render(); });
+  el.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { const [oid, pid] = b.dataset.t.split("|"); const q = n(orderLines(S.orders[oid])[pid]); const got = n(((S.packing[oid]||{}).items||{})[pid]);
+    const nm = (prodById(pid) || {name: pid}).name; savePack(oid, pid, got >= q ? 0 : q); toast(got >= q ? nm + " unchecked" : nm + " packed", () => savePack(oid, pid, got)); });
+  const pp = $("#printPack"); if (pp) pp.onclick = printPacking;
+  el.querySelectorAll("[data-adj]").forEach(b => b.onclick = () => { const [oid, pid] = b.dataset.adj.split("|"); adjustPacked(oid, pid); });
+  el.querySelectorAll("[data-bx]").forEach(b => b.onclick = () => { const [oid, d] = b.dataset.bx.split("|"); const cur = n((S.packing[oid]||{}).boxes); savePackMeta(oid, {boxes: Math.max(0, cur + n(d))}); });
+  el.querySelectorAll("[data-bxi]").forEach(i => i.onchange = () => savePackMeta(i.dataset.bxi, {boxes: Math.max(0, Math.round(n(i.value)))}));
+  el.querySelectorAll("[data-pl]").forEach(i => i.onchange = () => savePackMeta(i.dataset.pl, {pallet: i.value.trim()}));
+}
+function printPacking(){
+  const orders = weekOrders(WEEK).filter(o => Object.values(orderLines(o)).some(v => v > 0)).sort((a,b) => ((S.customers[a.customerId]||{}).name||"").localeCompare((S.customers[b.customerId]||{}).name||""));
+  $("#printArea").innerHTML = `<h1>Packing list, week of ${niceD(WEEK)}</h1>` + orders.map(o => { const cu = S.customers[o.customerId] || {name: o.customerId};
+    return `<table><thead><tr><th colspan="4">${esc(cu.name)}</th></tr><tr><th class="ck">Done</th><th>Cut</th><th>Ordered</th><th>Packed</th></tr></thead><tbody>${Object.entries(orderLines(o)).filter(([,q]) => q > 0).map(([pid,q]) => { const p = prodById(pid) || {name: pid, unit: ""};
+      return `<tr><td class="ck">&#9744;</td><td>${esc(p.name)}${p.unit === "lb" ? " (lb)" : ""}</td><td>${fmt(q)}</td><td></td></tr>`; }).join("")}<tr><td colspan="4">Boxes: ________ &nbsp;&nbsp; Pallet: ________ &nbsp;&nbsp; Initials: ______</td></tr></tbody></table>`; }).join("");
+  document.body.classList.add("printing"); window.print(); setTimeout(() => document.body.classList.remove("printing"), 500);
+}
+function packBase(oid){ const o = S.orders[oid]; return Object.assign({weekId: o.weekId, customerId: o.customerId, items: {}, boxes: 0, pallet: ""}, S.packing[oid] || {}); }
+function savePack(oid, pid, qty){ const b = packBase(oid); b.items = Object.assign({}, b.items, {[pid]: qty}); b.by = MYID || b.by || null; b.at = Date.now(); Store.set("packing", oid, b); }
+function savePackMeta(oid, patch){ const b = Object.assign(packBase(oid), patch); b.by = MYID || b.by || null; b.at = Date.now(); Store.set("packing", oid, b); }
+function adjustPacked(oid, pid){
+  const q = n(orderLines(S.orders[oid])[pid]), got = n(((S.packing[oid]||{}).items||{})[pid]), p = prodById(pid) || {name: pid};
+  openSheet(`<div class="hd"><h3>${esc(p.name)}</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <p class="muted">${fmt(q)} ordered. How many did you pack?</p>
+    <div class="stepper" style="justify-content:center;margin:1rem 0"><button id="am">&minus;</button><input id="av" data-k="av" inputmode="decimal" value="${fmt(got || q)}"><button id="ap">+</button></div>
+    <div class="row"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="asave">Save</button></div>`);
+  const av = $("#av"); $("#am").onclick = () => av.value = fmt(Math.max(0, n(av.value)-1)); $("#ap").onclick = () => av.value = fmt(n(av.value)+1);
+  $("#asave").onclick = () => { savePack(oid, pid, Math.max(0, n(av.value))); closeSheet(); };
+}
+
+/* ---------- Half & whole ---------- */
+function coachParts(){ return parts().filter(p => p.check); }
+function optionsFor(partId){ return products().filter(pr => pr.uses.length === 1 && pr.uses[0].part === partId && n(pr.uses[0].qty) === 1); }
+function renderHW(){
+  const el = $("#v-hw"), {need, onHand, short} = hwNeeds();
+  const list = Object.entries(S.halfwhole).map(([id,h]) => Object.assign({id}, h)).sort((a,b) => (a.status === b.status ? (a.needBy||"").localeCompare(b.needBy||"") : a.status === "pending" ? -1 : 1));
+  const shortList = products().filter(p => short[p.id] > 0);
+  el.innerHTML = `
+  <div class="row" style="margin-bottom:.75rem"><div><h2>Half &amp; whole lambs</h2><span class="muted small">Walk the customer through each part. The freezer covers what it can and the rest goes on this week's order.</span></div><span class="spacer"></span><button class="btn" id="newHW">New order</button></div>
+  ${shortList.length ? `<p class="note small"><b>Added to this week's order:</b> ${shortList.map(p => `${fmt(short[p.id])} ${esc(p.name.toLowerCase())}`).join(", ")}. The freezer doesn't have enough for pending orders.</p>` : ""}
+  <div class="hwlist">${list.length ? list.map(h => { const l = hwLines(h);
+    return `<div class="hwcard"><div class="row"><b>${esc(h.customer || "Unnamed")}</b><span class="st ${h.status === "filled" ? "ordered" : h.status === "cancelled" ? "none" : "callback"}">${h.status === "filled" ? "Filled" : h.status === "cancelled" ? "Cancelled" : "Pending"}</span><span class="spacer"></span><span class="small muted">${h.size === "whole" ? "Whole" : "Half"}${h.needBy ? ", needed by " + niceD(h.needBy) : ""}</span></div>
+      <span class="small">${Object.entries(l).filter(([,v])=>v).map(([k,v]) => `${fmt(v)} ${esc(((prodById(k)||{}).name||k).toLowerCase())}`).join(", ")}</span>
+      ${h.notes ? `<span class="small muted">${esc(h.notes)}</span>` : ""}
+      <div class="row"><button class="btn ghost small" data-edit="${h.id}">Open</button>${h.status === "pending" ? `<button class="btn small" data-fill="${h.id}">Mark filled</button>` : ""}</div></div>`; }).join("") : `<div class="empty">No half or whole lamb orders yet.</div>`}</div>`;
+  $("#newHW").onclick = () => openHW(null);
+  el.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openHW(b.dataset.edit));
+  el.querySelectorAll("[data-fill]").forEach(b => b.onclick = () => { const h = S.halfwhole[b.dataset.fill]; Store.set("halfwhole", b.dataset.fill, Object.assign({}, h, {status: "filled"})); toast("Marked filled. Cuts taken out of the freezer."); });
+}
+function openHW(id){
+  const base = id ? JSON.parse(JSON.stringify(S.halfwhole[id])) : {customer:"", phone:"", size:"half", status:"pending", needBy:"", choices:{}, notes:"", created: isoD(new Date())};
+  const draft = base; const hid = id || uid();
+  const fill = () => { const frac = draft.size === "whole" ? 1 : 0.5;
+    coachParts().forEach(pt => { const slots = Math.round(pt.yield * frac); const opts = optionsFor(pt.id); const cur = (draft.choices[pt.id] || []).slice(0, slots);
+      while (cur.length < slots) cur.push(opts[0] ? opts[0].id : ""); draft.choices[pt.id] = cur; }); };
+  const draw = () => { fill(); const RUN = {}; const oh = freezerOnHand(); const lines = hwLines(draft); const frac = draft.size === "whole" ? 1 : 0.5;
+    // availability counts other pending orders too
+    const otherNeed = {}; Object.entries(S.halfwhole).forEach(([k,h]) => { if (k !== hid && h.status === "pending"){ const l = hwLines(h); for (const x in l) otherNeed[x] = (otherNeed[x]||0) + l[x]; } });
+    $("#sheetBox").innerHTML = `<div class="hd"><h3>${id ? "Half or whole order" : "New half or whole order"}</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+      <div class="row"><div style="flex:2 1 200px"><label class="lbl" for="hc">Customer</label><input id="hc" class="field" value="${esc(draft.customer)}" placeholder="Name"></div>
+      <div style="flex:1 1 140px"><label class="lbl" for="hp">Phone</label><input id="hp" class="field" inputmode="tel" value="${esc(draft.phone)}"></div></div>
+      <label class="lbl">Size</label><div class="sizes"><button data-sz="half" aria-pressed="${draft.size==="half"}">Half lamb</button><button data-sz="whole" aria-pressed="${draft.size==="whole"}">Whole lamb</button></div>
+      <div class="coach">${coachParts().map(pt => { const opts = optionsFor(pt.id);
+        return `<div class="part"><b>${esc(pt.name)}</b> <span class="small muted">${draft.choices[pt.id].length} in a ${draft.size}</span>
+          ${draft.choices[pt.id].map((v, i) => { const free = (oh[v]||0) - (otherNeed[v]||0); RUN[v] = (RUN[v]||0) + 1; const usedHere = RUN[v];
+            return `<div class="slot"><span>${esc(pt.name)} ${draft.choices[pt.id].length > 1 ? i+1 : ""}</span><select class="field" data-ch="${pt.id}|${i}" aria-label="${esc(pt.name)} ${i+1}">${opts.map(o => `<option value="${o.id}" ${o.id===v?"selected":""}>${esc(o.name)}</option>`).join("")}</select>
+              <span class="avail ${free >= usedHere ? "ok" : "no"}">${free >= usedHere ? "In freezer" : "Cut fresh"}</span></div>`; }).join("")}</div>`; }).join("")}
+        ${parts().filter(p => !p.check).map(pt => `<div class="part small muted">Plus about ${fmt(pt.yield * frac)} lb ground lamb from the trim.</div>`).join("")}
+      </div>
+      <div class="row"><div style="flex:1 1 150px"><label class="lbl" for="hn">Needed by</label><input id="hn" type="date" class="field" value="${esc(draft.needBy)}"></div>
+      <div style="flex:1 1 150px"><label class="lbl" for="hs">Status</label><select id="hs" class="field">${[["pending","Pending"],["filled","Filled"],["cancelled","Cancelled"]].map(([k,v]) => `<option value="${k}" ${draft.status===k?"selected":""}>${v}</option>`).join("")}</select></div></div>
+      <label class="lbl" for="hno">Notes from the call</label><textarea id="hno" class="field" rows="2">${esc(draft.notes)}</textarea>
+      <div class="row" style="margin-top:1rem">${id ? `<button class="btn danger small" id="hdel">Delete</button>` : ""}<span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="hsave">Save order</button></div>`;
+    const box = $("#sheetBox");
+    box.querySelectorAll("[data-close]").forEach(b => b.onclick = closeSheet);
+    const grab = () => { draft.customer = $("#hc").value.trim(); draft.phone = $("#hp").value.trim(); draft.needBy = $("#hn").value; draft.status = $("#hs").value; draft.notes = $("#hno").value; };
+    box.querySelectorAll("[data-sz]").forEach(b => b.onclick = () => { grab(); draft.size = b.dataset.sz; draw(); });
+    box.querySelectorAll("[data-ch]").forEach(s => s.onchange = () => { grab(); const [pt, i] = s.dataset.ch.split("|"); draft.choices[pt][+i] = s.value; draw(); });
+    $("#hsave").onclick = () => { grab(); if (!draft.customer){ toast("Add the customer's name"); $("#hc").focus(); return; } Store.set("halfwhole", hid, draft); closeSheet(); toast("Order saved"); };
+    const del = $("#hdel"); if (del) del.onclick = () => { if (confirm("Delete this order?")){ Store.remove("halfwhole", hid); closeSheet(); } };
+  };
+  openSheet(""); draw();
+}
+
+/* ---------- Freezer ---------- */
+function renderFreezer(){
+  const el = $("#v-freezer"), oh = freezerOnHand(), {need} = hwNeeds();
+  const log = Object.entries(S.freezer).map(([id,e]) => Object.assign({id}, e)).sort((a,b) => (b.date||"").localeCompare(a.date||"")).slice(0, 40);
+  el.innerHTML = `<div class="row" style="margin-bottom:.75rem"><h2>Freezer</h2><span class="spacer"></span><button class="btn" id="fzAdd">Add or take out</button></div>
+  <div class="grid2"><div class="panel"><table class="simple"><thead><tr><th>Cut</th><th class="num">On hand</th><th class="num">Held for orders</th><th class="num">Free</th></tr></thead><tbody>
+    ${products().map(p => { const free = (oh[p.id]||0) - (need[p.id]||0); return `<tr><td>${esc(p.name)} <span class="small muted">${esc(p.unit)}</span></td><td class="num"><b>${fmt(oh[p.id]||0)}</b></td><td class="num">${need[p.id] ? fmt(need[p.id]) : ""}</td><td class="num ${free < 0 ? "negative" : ""}">${fmt(free)}</td></tr>`; }).join("")}
+  </tbody></table><p class="small muted">Held means pending half and whole orders are counting on it. When an order is marked filled, its cuts come off the on-hand count.</p></div>
+  <div class="panel"><h3>Recent changes</h3>${log.length ? `<table class="simple"><tbody>${log.map(e => `<tr><td class="small">${niceD(e.date)}</td><td>${esc((prodById(e.pid)||{}).name || e.pid)}</td><td class="num ${e.qty < 0 ? "negative":""}">${e.qty > 0 ? "+" : ""}${fmt(e.qty)}</td><td class="small muted">${esc(e.note||"")}</td><td><button class="copy" data-del="${e.id}" aria-label="Remove entry">Remove</button></td></tr>`).join("")}</tbody></table>` : `<div class="empty">Nothing logged yet.</div>`}</div></div>`;
+  $("#fzAdd").onclick = openFreezerEntry;
+  el.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { if (confirm("Remove this freezer entry?")) Store.remove("freezer", b.dataset.del); });
+}
+function openFreezerEntry(){
+  let dir = 1;
+  openSheet(`<div class="hd"><h3>Freezer change</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <div class="sizes"><button data-dir="1" aria-pressed="true">Put in</button><button data-dir="-1" aria-pressed="false">Take out</button></div>
+    <label class="lbl" for="fp">Cut</label><select id="fp" class="field">${products().map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
+    <label class="lbl" for="fq">How many</label><div class="stepper"><button id="fm">&minus;</button><input id="fq" inputmode="decimal" value="1"><button id="fpl">+</button></div>
+    <label class="lbl" for="fn">Note</label><input id="fn" class="field" placeholder="Extra from this week, damaged, count correction">
+    <div class="row" style="margin-top:1rem"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="fsave">Save</button></div>`);
+  const box = $("#sheetBox");
+  box.querySelectorAll("[data-dir]").forEach(b => b.onclick = () => { dir = n(b.dataset.dir); box.querySelectorAll("[data-dir]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+  $("#fm").onclick = () => $("#fq").value = fmt(Math.max(0, n($("#fq").value)-1)); $("#fpl").onclick = () => $("#fq").value = fmt(n($("#fq").value)+1);
+  $("#fsave").onclick = () => { const q = n($("#fq").value); if (!q){ toast("Enter a quantity"); return; } Store.set("freezer", uid(), {date: isoD(new Date()), pid: $("#fp").value, qty: q * dir, note: $("#fn").value.trim()}); closeSheet(); toast("Freezer updated"); };
+}
+
+/* ---------- Customers ---------- */
+function renderCustomers(){
+  const el = $("#v-customers"), cs = customers();
+  el.innerHTML = `<div class="row" style="margin-bottom:.75rem"><h2>Customers</h2><span class="spacer"></span><button class="btn" id="cAdd">Add customer</button></div>
+  <div class="clist">${cs.map(c => { const lt = lastTouch(c.id); const open = touchesFor(c.id).filter(t => t.followUp && !t.followUpDone).length;
+    return `<button class="ccard" data-cd="${c.id}"><span style="min-width:0"><b>${esc(c.name)}</b>${c.active === false ? ` <span class="small muted">(inactive)</span>` : ""}${open ? `<span class="fu">${open} follow-up${open>1?"s":""}</span>` : ""}<br>
+      <span class="sum">${[c.type, c.callDay ? "Call " + c.callDay : ""].filter(Boolean).map(esc).join(", ")}${lt ? `. Last contact ${ago(lt.at)}` : ""}</span></span><span class="small muted">Open</span></button>`; }).join("") || `<div class="empty">No customers yet.</div>`}</div>`;
+  $("#cAdd").onclick = () => editCustomer(null);
+  el.querySelectorAll("[data-cd]").forEach(b => b.onclick = () => openCustSheet(b.dataset.cd));
+}
+let CD = null; // draft state for the customer page
+function openCustSheet(cid, focusLog){
+  CD = {cid, kind: "call", summary: "", followUp: "", followUpNote: "", notes: null, editingNotes: false, focusLog: !!focusLog};
+  SHEET = {type: "cust", id: cid}; openSheet(`<div id="csheet"></div>`); refreshCustSheet();
+  if (focusLog){ const t = $("#lsum"); if (t) t.focus(); }
+}
+function refreshCustSheet(){
+  const box = $("#csheet"); if (!box || !CD) return; const cid = CD.cid, cu = S.customers[cid]; if (!cu){ closeSheet(); return; }
+  const keep = captureFocus();
+  const byIds = touchesFor(cid).map(t => t.by).filter(Boolean); resolveNames([...new Set(byIds)].filter(id => !(id in NAMES)));
+  const events = touchesFor(cid).map(t => ({at: t.at || 0, html: `<li class="t-${esc(t.kind)}"><div class="when">${KIND[t.kind] || "Note"}, ${new Date(t.at).toLocaleDateString([], {month:"short", day:"numeric", year:"numeric"})}${t.by ? " by " + esc(NAMES[t.by] || "Someone") : ""}
+      ${t.followUp ? `<span class="fu ${t.followUpDone ? "done" : ""}">Follow up ${niceD(t.followUp)}</span>` : ""}</div><div>${esc(t.summary)}</div>
+      ${t.followUpNote ? `<div class="small muted">Next: ${esc(t.followUpNote)}</div>` : ""}
+      <div class="row small" style="gap:.6rem">${t.followUp && !t.followUpDone ? `<button class="copy" data-fud="${t.id}">Mark follow-up done</button>` : ""}<button class="copy" data-tdel="${t.id}">Delete</button></div></li>`}));
+  Object.entries(S.orders).filter(([,o]) => o.customerId === cid && (o.status === "ordered" || o.status === "none")).forEach(([id,o]) => {
+    const items = Object.entries(orderLines(o)).filter(([,v]) => v).map(([k,v]) => `${fmt(v)} ${esc((prodById(k)||{}).short || k)}`);
+    events.push({at: parseD(o.weekId).getTime() + 1, html: `<li class="t-order"><div class="when">Order, week of ${niceD(o.weekId)}</div><div class="small">${o.status === "none" ? "No order this week" : items.join(", ")}</div>${o.notes ? `<div class="small muted">${esc(o.notes)}</div>` : ""}</li>`});
+  });
+  events.sort((a,b) => b.at - a.at);
+  const notesVal = CD.notes != null ? CD.notes : (cu.notes || "");
+  box.innerHTML = `<div class="hd"><div><h3>${esc(cu.name)}</h3><span class="small muted">${[cu.type, cu.callDay ? "Call " + cu.callDay : ""].filter(Boolean).map(esc).join(", ")}</span></div><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <div class="contacts">${contactsOf(cu).map(k => `<div><b>${esc(k.name || "Contact")}</b>${k.role ? `<span class="small muted">${esc(k.role)}</span>` : ""}${k.phone ? `<a href="tel:${esc(k.phone)}">${esc(k.phone)}</a>` : ""}${k.email ? `<a href="mailto:${esc(k.email)}">${esc(k.email)}</a>` : ""}</div>`).join("") || `<span class="small muted">No contacts yet.</span>`}</div>
+    <div class="row"><h3 style="font-size:1rem">Standing notes</h3><span class="spacer"></span>${CD.editingNotes ? "" : `<button class="copy" id="nedit">Edit</button>`}</div>
+    ${CD.editingNotes ? `<textarea class="field" id="nta" data-k="nta" rows="4" placeholder="Delivery needs, who orders, who pays, preferences, pricing">${esc(notesVal)}</textarea>
+      <div class="row" style="margin-top:.4rem"><span class="spacer"></span><button class="btn ghost small" id="ncancel">Cancel</button><button class="btn small" id="nsave">Save notes</button></div>`
+      : `<div class="pin ${cu.notes ? "" : "empty"}">${cu.notes ? esc(cu.notes) : "Things that stay true every week. Delivery times, who does the ordering, cut preferences."}</div>`}
+    <div class="panel" style="margin-top:.75rem;padding:.75rem">
+      <h3 style="font-size:1rem">Log a contact</h3>
+      <div class="seg" role="group" aria-label="Kind" style="margin:.5rem 0">${Object.entries(KIND).map(([k,v]) => `<button data-kind="${k}" aria-pressed="${CD.kind===k}">${v}</button>`).join("")}</div>
+      <textarea class="field" id="lsum" data-k="lsum" rows="2" placeholder="What was said">${esc(CD.summary)}</textarea>
+      <div class="row" style="margin-top:.4rem"><div style="flex:1 1 140px"><label class="lbl" for="lfu">Follow up on</label><input type="date" class="field" id="lfu" data-k="lfu" value="${esc(CD.followUp)}"></div>
+      <div style="flex:2 1 200px"><label class="lbl" for="lfn">What to follow up on</label><input class="field" id="lfn" data-k="lfn" value="${esc(CD.followUpNote)}" placeholder="Optional"></div></div>
+      <div class="row" style="margin-top:.6rem"><span class="spacer"></span><button class="btn small" id="lsave">Save to history</button></div>
+    </div>
+    <h3 style="font-size:1rem;margin-top:1rem">History</h3>
+    ${events.length ? `<ul class="timeline">${events.slice(0, 30).map(e => e.html).join("")}</ul>` : `<p class="small muted">Nothing yet. Calls you log and weekly orders show up here.</p>`}
+    <div class="row" style="margin-top:1rem"><button class="btn ghost small" id="cedit">Edit details and contacts</button><span class="spacer"></span><button class="btn" data-close>Done</button></div>`;
+  box.querySelectorAll("[data-close]").forEach(b => b.onclick = () => { CD = null; closeSheet(); });
+  box.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => { CD.kind = b.dataset.kind; refreshCustSheet(); });
+  $("#lsum").oninput = e => CD.summary = e.target.value;
+  $("#lfu").onchange = e => CD.followUp = e.target.value;
+  $("#lfn").oninput = e => CD.followUpNote = e.target.value;
+  $("#lsave").onclick = () => { const sum = CD.summary.trim(); if (!sum){ toast("Write what was said"); $("#lsum").focus(); return; }
+    Store.set("touches", uid(), {customerId: cid, kind: CD.kind, summary: sum, followUp: CD.followUp || "", followUpNote: CD.followUpNote.trim(), followUpDone: false, at: Date.now(), by: MYID || null});
+    CD.summary = ""; CD.followUp = ""; CD.followUpNote = ""; toast("Saved to history"); refreshCustSheet(); };
+  const ne = $("#nedit"); if (ne) ne.onclick = () => { CD.editingNotes = true; CD.notes = cu.notes || ""; refreshCustSheet(); const t = $("#nta"); if (t) t.focus(); };
+  const nta = $("#nta"); if (nta) nta.oninput = e => CD.notes = e.target.value;
+  const nc = $("#ncancel"); if (nc) nc.onclick = () => { CD.editingNotes = false; CD.notes = null; refreshCustSheet(); };
+  const ns = $("#nsave"); if (ns) ns.onclick = () => { Store.set("customers", cid, Object.assign({}, cu, {notes: (CD.notes || "").trim()})); CD.editingNotes = false; CD.notes = null; toast("Notes saved"); refreshCustSheet(); };
+  box.querySelectorAll("[data-fud]").forEach(b => b.onclick = () => { const t = S.touches[b.dataset.fud]; Store.set("touches", b.dataset.fud, Object.assign({}, t, {followUpDone: true})); });
+  box.querySelectorAll("[data-tdel]").forEach(b => b.onclick = () => { if (confirm("Delete this entry from the history?")) Store.remove("touches", b.dataset.tdel); });
+  $("#cedit").onclick = () => editCustomer(cid);
+  restoreFocus(keep);
+}
+function editCustomer(id){
+  SHEET = null; CD = null;
+  const c = id ? S.customers[id] : {name:"", type:"Retail", callDay:"", notes:"", active:true};
+  let contacts = JSON.parse(JSON.stringify(contactsOf(c))); if (!contacts.length) contacts.push({name:"", role:"", phone:"", email:""});
+  const draw = () => {
+    openSheet(`<div class="hd"><h3>${id ? "Edit customer" : "New customer"}</h3><button class="iconbtn" data-close aria-label="Close">&#10005;</button></div>
+    <label class="lbl" for="cn">Business name</label><input id="cn" class="field" value="${esc(c.name)}">
+    <div class="row"><div style="flex:1 1 150px"><label class="lbl" for="ct">Type</label><select id="ct" class="field">${["Retail","Wholesale","Restaurant","Other"].map(t => `<option ${t===c.type?"selected":""}>${t}</option>`).join("")}</select></div>
+    <div style="flex:1 1 150px"><label class="lbl" for="cd">Call day</label><select id="cd" class="field"><option value="">None</option>${DAYS.map(d => `<option ${d===c.callDay?"selected":""}>${d}</option>`).join("")}</select></div></div>
+    <label class="lbl">People</label>
+    ${contacts.map((k,i) => `<div class="crow"><input class="field" data-ck="${i}|name" placeholder="Name" value="${esc(k.name)}"><input class="field" data-ck="${i}|role" placeholder="Role (orders, receiving, billing)" value="${esc(k.role)}">
+      <input class="field" data-ck="${i}|phone" inputmode="tel" placeholder="Phone" value="${esc(k.phone)}"><input class="field" data-ck="${i}|email" inputmode="email" placeholder="Email" value="${esc(k.email)}">
+      <button class="copy" data-crm="${i}">Remove</button></div>`).join("")}
+    <button class="btn ghost small" id="cadd" style="margin-top:.5rem">Add another person</button>
+    <label class="row small" style="margin-top:.8rem"><input type="checkbox" id="ca" ${c.active !== false ? "checked" : ""}> Active (shows on the weekly order list)</label>
+    <div class="row" style="margin-top:1rem"><span class="spacer"></span><button class="btn ghost" data-close>Cancel</button><button class="btn" id="csave">Save</button></div>`);
+    const box = $("#sheetBox");
+    const grab = () => { c.name = $("#cn").value; c.type = $("#ct").value; c.callDay = $("#cd").value; c.active = $("#ca").checked;
+      box.querySelectorAll("[data-ck]").forEach(i => { const [ix, f] = i.dataset.ck.split("|"); contacts[+ix][f] = i.value.trim(); }); };
+    $("#cadd").onclick = () => { grab(); contacts.push({name:"", role:"", phone:"", email:""}); draw(); };
+    box.querySelectorAll("[data-crm]").forEach(b => b.onclick = () => { grab(); contacts.splice(+b.dataset.crm, 1); draw(); });
+    $("#csave").onclick = () => { grab(); const name = c.name.trim(); if (!name){ toast("Add a name"); return; }
+      const kept = contacts.filter(k => k.name || k.phone || k.email);
+      const cid = id || name.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,40) + "-" + uid().slice(-4);
+      const prev = id ? S.customers[id] : {};
+      Store.set("customers", cid, Object.assign({}, prev, {name, type: c.type, callDay: c.callDay, active: c.active, notes: prev.notes || c.notes || "", contacts: kept, contact: (kept[0]||{}).name || "", phone: (kept[0]||{}).phone || ""}));
+      toast("Customer saved"); openCustSheet(cid); };
+  };
+  draw();
+}
+
+/* ---------- Setup ---------- */
+function renderSetup(){
+  const el = $("#v-setup"), c = cfg();
+  el.innerHTML = `<h2 style="margin-bottom:.5rem">Setup</h2>
+  <p class="note small">Numbers highlighted in yellow are starting guesses. Kathy can correct them here and every calculation updates.</p>
+  <div class="grid2"><div class="panel"><h3>What one lamb gives you</h3><table class="simple"><thead><tr><th>Part</th><th>Per lamb</th><th>Where it came from</th></tr></thead><tbody>
+  ${c.parts.map((p,i) => `<tr><td><b>${esc(p.name)}</b> <span class="small muted">${esc(p.unit)}</span></td><td><input class="field num ${p.confirmed ? "" : "unconfirmed"}" style="width:5.5rem" data-k="y:${p.id}" data-yi="${i}" inputmode="decimal" value="${fmt(p.yield)}"></td>
+    <td class="small">${esc(p.source||"")}${p.confirmed ? "" : ` <button class="copy" data-conf="${i}">Mark confirmed</button>`}</td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="panel"><h3>Products and the parts they use</h3><table class="simple"><tbody>
+  ${c.products.map(p => `<tr><td><b>${esc(p.name)}</b><br><span class="small muted">${esc(p.unit)}${p.note ? ". " + esc(p.note) : ""}</span></td><td class="small">${p.uses.map(u => `${fmt(u.qty)} ${esc((partById(u.part)||{}).name||u.part)}`).join(" + ")}</td></tr>`).join("")}
+  </tbody></table><p class="small muted">Adding and renaming products comes in the full version.</p></div></div>
+  <div class="panel" style="margin-top:1rem;max-width:640px"><h3>Processor</h3>
+    <div class="row"><div style="flex:1 1 160px"><label class="lbl" for="pname">Name</label><input id="pname" class="field" value="${esc(proc().name)}"></div>
+    <div style="flex:2 1 220px"><label class="lbl" for="pemail">Email for cut sheets</label><input id="pemail" class="field" inputmode="email" value="${esc(proc().email)}" placeholder="Ask Denise who should get these"></div></div>
+    <label class="lbl" for="pstand">Instructions that go on every cut sheet</label><textarea id="pstand" class="field" rows="3" placeholder="One per line. Packaging, labels, anything they should always do">${esc(proc().standing)}</textarea></div>`;
+  el.querySelectorAll("[data-yi]").forEach(i => i.onchange = () => { const nc = JSON.parse(JSON.stringify(cfg())); nc.parts[+i.dataset.yi].yield = Math.max(0, n(i.value)); Store.set("config", "setup", nc); toast("Saved"); });
+  el.querySelectorAll("[data-conf]").forEach(b => b.onclick = () => { const nc = JSON.parse(JSON.stringify(cfg())); nc.parts[+b.dataset.conf].confirmed = true; Store.set("config", "setup", nc); });
+  const saveProc = () => { const nc = JSON.parse(JSON.stringify(cfg())); nc.processor = {name: $("#pname").value.trim() || "Mohawk", email: $("#pemail").value.trim(), standing: $("#pstand").value.trim()}; Store.set("config", "setup", nc); toast("Saved"); };
+  ["#pname","#pemail","#pstand"].forEach(id => $(id).onchange = saveProc);
+}
+
+/* ---------- start ---------- */
+let startView = "week"; try { startView = localStorage.getItem("uvl:view") || (ROLES[ROLE] ? ROLES[ROLE].home : "week"); } catch(e){}
+applyRole();
+go(ROLE ? startView : "welcome");
+Store.init();
+})();
+</script>
+</body>
+</html>
