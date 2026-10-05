@@ -86,8 +86,8 @@ export default function FreezerScreen() {
             </tbody>
           </table>
           <p className="small muted">
-            Held means pending half and whole orders are counting on it. When an order is marked filled, its cuts come off
-            the on-hand count.
+            Held means pending half and whole orders are counting on it. When an order is marked filled, what the freezer
+            had comes off the on-hand count; the rest was cut fresh.
           </p>
         </section>
 
@@ -106,9 +106,15 @@ export default function FreezerScreen() {
                     </td>
                     <td className="small muted">{e.note}</td>
                     <td>
-                      <button type="button" className="copy min-h-[44px]" aria-label={`Remove ${nameOf(e.product_id)} entry`} onClick={() => void remove(e)}>
-                        Remove
-                      </button>
+                      {e.half_whole_order_id ? (
+                        <span className="small muted" title="Change the order on Half and whole to put these back">
+                          Order
+                        </span>
+                      ) : (
+                        <button type="button" className="copy min-h-[44px]" aria-label={`Remove ${nameOf(e.product_id)} entry`} onClick={() => void remove(e)}>
+                          Remove
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

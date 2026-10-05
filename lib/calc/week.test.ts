@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { halfWholeLines, halfWholeNeeds, slotCount, slotOptions, slotParts } from "./halfWhole";
+import { freezerOnHand, freezerTakes, halfWholeLines, halfWholeNeeds, slotCount, slotOptions, slotParts } from "./halfWhole";
 import { seedParts, seedProducts } from "./testData";
 import type { HalfWholeOrder } from "./types";
 import { calcWeek } from "./week";
@@ -105,10 +105,35 @@ describe("6.2 half and whole shortfall", () => {
     expect(short.s7).toBe(1);
   });
 
-  it("takes filled orders out of the freezer", () => {
+  it("filled orders don't count against the freezer by themselves; what they took is logged", () => {
     const freezer = [{ product_id: "s1", qty: 3 }];
-    const { onHand } = halfWholeNeeds(freezer, [wholeLamb("filled")], seedParts, seedProducts);
-    expect(onHand.s1).toBe(1);
+    const { onHand, short } = halfWholeNeeds(freezer, [wholeLamb("filled")], seedParts, seedProducts);
+    expect(onHand.s1).toBe(3);
+    expect(short).toEqual({});
+  });
+
+  it("filling an order takes only what the freezer has; the rest was cut fresh (Option A)", () => {
+    const lines = halfWholeLines(wholeLamb(), seedParts, seedProducts);
+    const onHand = { s1: 3, s7: 1, s14: 0 };
+    expect(freezerTakes(lines, onHand, seedProducts)).toEqual({ s1: 2, s7: 1 });
+    // After logging those takes, nothing goes below zero.
+    const after = freezerOnHand(
+      [
+        { product_id: "s1", qty: 3 },
+        { product_id: "s7", qty: 1 },
+        { product_id: "s1", qty: -2 },
+        { product_id: "s7", qty: -1 },
+      ],
+      seedProducts,
+    );
+    expect(after.s1).toBe(1);
+    expect(after.s7).toBe(0);
+    expect(after.s14).toBe(0);
+  });
+
+  it("treats a freezer count below zero as empty when working out the shortfall", () => {
+    const { short } = halfWholeNeeds([{ product_id: "s1", qty: -4 }], [wholeLamb()], seedParts, seedProducts);
+    expect(short.s1).toBe(2);
   });
 
   it("never counts fresh-only products as in the freezer", () => {

@@ -19,6 +19,8 @@ export type FreezerRow = {
   qty: number;
   note: string;
   created_at: string;
+  /** Set when this entry is what a filled half or whole order took. */
+  half_whole_order_id: string | null;
 };
 
 export type HalfWholeData = { orders: HWOrder[]; freezer: FreezerRow[] };
@@ -47,7 +49,7 @@ export async function loadHalfWhole(db: SupabaseClient): Promise<HalfWholeData> 
     all<FreezerRow>((a, b) =>
       db
         .from("freezer_log")
-        .select("id, entry_date, product_id, qty, note, created_at")
+        .select("id, entry_date, product_id, qty, note, created_at, half_whole_order_id")
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false })
         .range(a, b),
@@ -77,8 +79,17 @@ export async function saveHalfWhole(db: SupabaseClient, o: HWInput) {
   return { id: (data as string | null) ?? null, error: error ? error.message : null };
 }
 
-export async function setHalfWholeStatus(db: SupabaseClient, id: string, status: HalfWholeOrder["status"]) {
-  const { error } = await db.from("half_whole_orders").update({ status }).eq("id", id);
+/**
+ * Change an order's status. Marking it filled logs `takes` (what it took from
+ * the freezer) against the order; any other status puts those back.
+ */
+export async function setHalfWholeStatus(
+  db: SupabaseClient,
+  id: string,
+  status: HalfWholeOrder["status"],
+  takes: Record<string, number> = {},
+) {
+  const { error } = await db.rpc("set_half_whole_status", { p_id: id, p_status: status, p_takes: takes });
   return error ? error.message : null;
 }
 

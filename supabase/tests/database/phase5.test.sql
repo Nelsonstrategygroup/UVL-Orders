@@ -2,7 +2,7 @@
 -- and saving half and whole orders.
 
 begin;
-select plan(12);
+select plan(17);
 
 insert into public.parts (id, name, per_lamb, unit, balance_check, sort) values
   ('leg', 'Leg', 2, 'each', true, 0)
@@ -71,6 +71,25 @@ select is(
   (select o.size || ':' || (select count(*) from public.half_whole_choices c where c.order_id = o.id)
    from public.half_whole_orders o where o.id = (select id from hw)),
   'half:1', 'changing to a half drops the extra choice');
+
+-- Option A: filling takes only what the freezer had, logged against the order.
+insert into public.freezer_log (product_id, qty, note) values ('p5-leg', 3, 'put in');
+select public.set_half_whole_status((select id from hw), 'filled', '{"p5-leg": 1}');
+select is(
+  (select status from public.half_whole_orders where id = (select id from hw)), 'filled', 'mark filled sets the status');
+select is(
+  (select sum(qty) from public.freezer_log where product_id = 'p5-leg'), 2::numeric,
+  'filling logs what it took from the freezer (3 in, 1 taken)');
+select is(
+  (select count(*)::int from public.freezer_log where half_whole_order_id = (select id from hw)), 1,
+  'the withdrawal is tied to the order');
+select public.set_half_whole_status((select id from hw), 'pending');
+select is(
+  (select sum(qty) from public.freezer_log where product_id = 'p5-leg'), 3::numeric,
+  'un-filling (or Undo) puts the cuts back');
+select throws_ok(
+  $$ select public.save_half_whole(jsonb_build_object('id', (select id from hw), 'customer_name', 'P5 Family', 'size', 'half', 'status', 'filled'), '[]') $$,
+  '22023', null, 'the form cannot mark an order filled without updating the freezer');
 
 select throws_ok(
   $$ select public.save_half_whole('{"customer_name":"  ","size":"half"}', '[]') $$,

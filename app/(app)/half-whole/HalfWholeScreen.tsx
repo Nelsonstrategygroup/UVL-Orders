@@ -11,6 +11,7 @@ import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import {
   freezerOnHand,
+  freezerTakes,
   halfWholeLines,
   halfWholeNeeds,
   slotCount,
@@ -49,11 +50,15 @@ export default function HalfWholeScreen() {
   );
   const nameOf = (id: string) => catalog.productById.get(id)?.name ?? id;
 
-  async function setStatus(o: HWOrder, status: HalfWholeOrder["status"], message: string) {
-    const err = await setHalfWholeStatus(db, o.id, status);
+  /** Mark filled: take what the freezer has for this order; the rest was cut fresh. */
+  async function markFilled(o: HWOrder) {
+    const onHand = freezerOnHand(data!.freezer, catalog!.products);
+    const takes = freezerTakes(halfWholeLines(o, catalog!.parts, catalog!.products), onHand, catalog!.products);
+    const err = await setHalfWholeStatus(db, o.id, "filled", takes);
     refresh();
     if (err) return toast("Couldn't save. Check the internet connection.");
-    toast(message, async () => {
+    const n = Object.keys(takes).length;
+    toast(n ? "Marked filled. What the freezer had was taken out." : "Marked filled. Everything was cut fresh.", async () => {
       await setHalfWholeStatus(db, o.id, o.status);
       refresh();
     });
@@ -112,7 +117,7 @@ export default function HalfWholeScreen() {
                     <button
                       type="button"
                       className="btn"
-                      onClick={() => void setStatus(o, "filled", "Marked filled. Cuts taken out of the freezer.")}
+                      onClick={() => void markFilled(o)}
                     >
                       Mark filled
                     </button>
@@ -132,8 +137,12 @@ export default function HalfWholeScreen() {
           data={data}
           catalog={catalog}
           onClose={close}
-          onSaved={() => {
+          onSaved={async (savedId, fill) => {
             close();
+            if (fill) {
+              const saved = (await loadHalfWhole(db)).orders.find((x) => x.id === savedId);
+              if (saved) return markFilled(saved);
+            }
             refresh();
             toast("Order saved");
           }}
@@ -165,7 +174,8 @@ function HWForm({
   data: HalfWholeData;
   catalog: Catalog;
   onClose: () => void;
-  onSaved: () => void;
+  /** `fill`: the form asked for Filled, which goes through Mark filled. */
+  onSaved: (id: string, fill: boolean) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState<Draft>(() => {
     const choices: Draft["choices"] = {};
@@ -204,7 +214,7 @@ function HWForm({
   }, [parts, products, draft.size, draft.choices]);
 
   // What's free in the freezer for this order: on hand, less other pending orders.
-  const onHand = freezerOnHand(data.freezer, data.orders, catalog.parts, catalog.products);
+  const onHand = freezerOnHand(data.freezer, catalog.products);
   const otherNeed: Qty = {};
   for (const o of data.orders) {
     if (o.status !== "pending" || o.id === order?.id) continue;
@@ -223,14 +233,15 @@ function HWForm({
       customer_name: draft.customer_name.trim(),
       phone: draft.phone.trim(),
       size: draft.size,
-      status: draft.status,
+      // Filled goes through Mark filled, so the freezer is updated.
+      status: draft.status === "filled" && order?.status !== "filled" ? (order?.status ?? "pending") : draft.status,
       need_by: draft.need_by || null,
       notes: draft.notes.trim(),
       choices: Object.entries(slots).flatMap(([part_id, list]) => list.map((product_id, slot) => ({ part_id, slot, product_id }))),
     });
     setBusy(false);
-    if (r.error) return setError(`Couldn't save: ${r.error}`);
-    onSaved();
+    if (r.error || !r.id) return setError(`Couldn't save: ${r.error ?? "unknown error"}`);
+    await onSaved(r.id, draft.status === "filled" && order?.status !== "filled");
   }
 
   return (
