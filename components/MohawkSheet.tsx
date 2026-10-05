@@ -29,7 +29,8 @@ export default function MohawkSheet({
   const sizeLabel = (id: string | null) => sizes.find((z) => z.id === id)?.label ?? "";
 
   return (
-    <div className="cs">
+    // Scrolls sideways on narrow screens, so it can take keyboard focus to scroll.
+    <div className="cs" role="region" aria-label="The cut sheet as printed" tabIndex={0}>
       <div className="cs-inner">
         <div className="cs-top">
           <div className="cs-meta">

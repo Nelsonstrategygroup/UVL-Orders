@@ -230,7 +230,7 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
           </thead>
           <tbody>
             {catalog.products.map((p) => (
-              <tr key={p.id} className={p.active ? "" : "opacity-60"}>
+              <tr key={p.id} className={p.active ? "" : "bg-field"}>
                 <td>
                   <b>{p.name}</b>
                   <br />
@@ -268,7 +268,7 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
           </thead>
           <tbody>
             {catalog.cutSpecs.map((s) => (
-              <tr key={s.id} className={s.active ? "" : "opacity-60"}>
+              <tr key={s.id} className={s.active ? "" : "bg-field"}>
                 <td>
                   <input
                     className="field"

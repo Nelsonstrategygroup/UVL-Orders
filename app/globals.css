@@ -17,6 +17,10 @@
   --bad: #f3dad4;
   --line: #d6d2c1;
   --on-forest: #f7f5ea;
+  /* Cut sheet line highlights on screen (the printed sheet keeps Kathy's colors). */
+  --hl-yellow: #f7ee9a66;
+  --hl-blue: #9cc9ee66;
+  --hl-green: #7fc08a66;
   --display: var(--font-fraunces), Georgia, "Times New Roman", serif;
   --body: var(--font-work-sans), "Helvetica Neue", Arial, sans-serif;
 }
@@ -38,6 +42,9 @@
     --bad: #4a2a24;
     --line: #3e4436;
     --on-forest: #1d2019;
+    --hl-yellow: #4f4a1c;
+    --hl-blue: #1f3a52;
+    --hl-green: #22432a;
   }
 }
 :root[data-theme="dark"] {
@@ -56,6 +63,9 @@
   --bad: #4a2a24;
   --line: #3e4436;
   --on-forest: #1d2019;
+  --hl-yellow: #4f4a1c;
+  --hl-blue: #1f3a52;
+  --hl-green: #22432a;
 }
 
 @theme inline {
@@ -1088,13 +1098,13 @@
     }
   }
   .lrow.hl-yellow {
-    background: #f7ee9a66;
+    background: var(--hl-yellow);
   }
   .lrow.hl-blue {
-    background: #9cc9ee66;
+    background: var(--hl-blue);
   }
   .lrow.hl-green {
-    background: #7fc08a66;
+    background: var(--hl-green);
   }
   .lopts {
     display: flex;
