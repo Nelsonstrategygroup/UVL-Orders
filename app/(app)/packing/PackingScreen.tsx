@@ -4,7 +4,7 @@
 // prototype's renderPack: one large row per line, tap anywhere on it to
 // mark it packed, with Undo.
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb } from "@/components/data/db";
 import { useLive } from "@/components/data/useLive";
@@ -40,6 +40,11 @@ export default function PackingScreen() {
   const load = useCallback((d: SupabaseClient) => loadPacking(d, week), [week]);
   const { data, error, refresh, patch } = useLive(`packing-${week}`, load, LIVE_TABLES);
   const [filter, setFilter] = useState<PackFilter>("todo");
+  // Customers finished while "To pack" is showing stay on screen, so the
+  // packer can still see "All packed" and fill in boxes and pallet.
+  const [finished, setFinished] = useState<{ key: string; ids: Set<string> }>({ key: "", ids: new Set() });
+  const finishedKey = `${week}:${filter}`;
+  const keepIds = finished.key === finishedKey ? finished.ids : null;
   const [adjusting, setAdjusting] = useState<{ orderId: string; productId: string } | null>(null);
   const closeAdjust = useCallback(() => setAdjusting(null), [setAdjusting]);
 
@@ -74,6 +79,9 @@ export default function PackingScreen() {
     const ordered = o.lines[productId];
     const before = o.packed[productId] ?? 0;
     const next = afterTap(ordered, before);
+    if (next > 0 && filter === "todo") {
+      setFinished((f) => ({ key: finishedKey, ids: new Set([...(f.key === finishedKey ? f.ids : []), o.id]) }));
+    }
     const name = data!.products.get(productId)?.name ?? "That cut";
     if (await setPacked(o.id, productId, next))
       toast(next ? `${name} packed` : `${name} unchecked`, () => void setPacked(o.id, productId, before));
@@ -88,7 +96,7 @@ export default function PackingScreen() {
   }
 
   const stats = packStats(data.orders);
-  const shown = data.orders.filter((o) => showOrder(o, filter));
+  const shown = data.orders.filter((o) => showOrder(o, filter) || !!keepIds?.has(o.id));
   const adjustOrder = adjusting && data.orders.find((o) => o.id === adjusting.orderId);
 
   return (
@@ -110,7 +118,15 @@ export default function PackingScreen() {
           </div>
           <div className="seg" role="group" aria-label="Show">
             {FILTERS.map(([k, label]) => (
-              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}>
+              <button
+                key={k}
+                type="button"
+                aria-pressed={filter === k}
+                onClick={() => {
+                  setFilter(k);
+                  setFinished({ key: "", ids: new Set() });
+                }}
+              >
                 {label}
               </button>
             ))}
@@ -156,6 +172,8 @@ export default function PackingScreen() {
           onClose={closeAdjust}
           onSave={(qty) => {
             setAdjusting(null);
+            if (filter === "todo")
+              setFinished((f) => ({ key: finishedKey, ids: new Set([...(f.key === finishedKey ? f.ids : []), adjusting.orderId]) }));
             void setPacked(adjusting.orderId, adjusting.productId, qty);
           }}
         />
@@ -249,6 +267,15 @@ function CustomerCard({
 
 function BoxesStepper({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
   const [text, setText] = useState<string | null>(null);
+  // The latest count, so quick taps of + and - all count.
+  const latest = useRef(value);
+  useEffect(() => {
+    latest.current = value;
+  }, [value]);
+  const step = (d: number) => {
+    latest.current = Math.max(0, (latest.current ?? 0) + d);
+    onChange(latest.current);
+  };
   const shown = text ?? (value ? String(value) : "");
   const commit = () => {
     if (text === null) return;
@@ -259,7 +286,7 @@ function BoxesStepper({ value, onChange }: { value: number | null; onChange: (v:
   };
   return (
     <div className="stepper">
-      <button type="button" aria-label="One less box" onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}>
+      <button type="button" aria-label="One less box" onClick={() => step(-1)}>
         &minus;
       </button>
       <input
@@ -273,7 +300,7 @@ function BoxesStepper({ value, onChange }: { value: number | null; onChange: (v:
           if (e.key === "Enter") e.currentTarget.blur();
         }}
       />
-      <button type="button" aria-label="One more box" onClick={() => onChange((value ?? 0) + 1)}>
+      <button type="button" aria-label="One more box" onClick={() => step(1)}>
         +
       </button>
     </div>

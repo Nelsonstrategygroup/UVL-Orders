@@ -79,8 +79,11 @@ export default function OrderEditor(props: OrderEditorProps) {
   // Save anything still waiting when the editor closes.
   useEffect(() => () => void flush(), [flush]);
 
-  function setQty(productId: string, qty: number) {
-    const next = cleanLines({ ...lines, [productId]: Math.max(0, qty) });
+  /** Set a quantity, or change it from the latest count (so quick taps of + all count). */
+  function setQty(productId: string, qty: number | ((current: number) => number)) {
+    const base = pending.current ?? lines;
+    const value = typeof qty === "function" ? qty(base[productId] ?? 0) : qty;
+    const next = cleanLines({ ...base, [productId]: Math.max(0, value) });
     setDraft(next);
     pending.current = next;
     if (timer.current) clearTimeout(timer.current);
@@ -138,7 +141,7 @@ export default function OrderEditor(props: OrderEditorProps) {
           {p.name} <span className="small muted">{p.unit}</span>
         </div>
         <div className="stepper">
-          <button type="button" onClick={() => setQty(p.id, (lines[p.id] ?? 0) - 1)} aria-label={`One less ${p.name}`}>
+          <button type="button" onClick={() => setQty(p.id, (n) => n - 1)} aria-label={`One less ${p.name}`}>
             &minus;
           </button>
           <input
@@ -159,7 +162,7 @@ export default function OrderEditor(props: OrderEditorProps) {
               })
             }
           />
-          <button type="button" onClick={() => setQty(p.id, (lines[p.id] ?? 0) + 1)} aria-label={`One more ${p.name}`}>
+          <button type="button" onClick={() => setQty(p.id, (n) => n + 1)} aria-label={`One more ${p.name}`}>
             +
           </button>
         </div>
