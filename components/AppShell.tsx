@@ -6,6 +6,9 @@ import { useCallback, useState } from "react";
 import { navFor, type NavItem, type Role } from "@/lib/auth/roles";
 import { logout } from "@/app/login/actions";
 import Sheet from "./Sheet";
+import { StaffDataProvider } from "./data/StaffData";
+import { ToastProvider } from "./Toast";
+import { WeekProvider } from "./Week";
 
 function isCurrent(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -59,7 +62,13 @@ export default function AppShell({
         </button>
       </header>
 
-      <main className="mx-auto max-w-[1280px] px-4 pt-4 pb-24">{children}</main>
+      <main className="mx-auto max-w-[1280px] px-4 pt-4 pb-24">
+        <ToastProvider>
+          <WeekProvider>
+            {role === "packing" ? children : <StaffDataProvider>{children}</StaffDataProvider>}
+          </WeekProvider>
+        </ToastProvider>
+      </main>
 
       {nav.length > 0 && (
         <nav className="bottombar mob-only" aria-label="Sections">

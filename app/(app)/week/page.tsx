@@ -1,7 +1,7 @@
-import ComingSoon from "@/components/ComingSoon";
+import WeekScreen from "./WeekScreen";
 
 export const metadata = { title: "This week · Umpqua Valley Lamb" };
 
-export default function ThisweekPage() {
-  return <ComingSoon title="This week" />;
+export default function WeekPage() {
+  return <WeekScreen />;
 }
