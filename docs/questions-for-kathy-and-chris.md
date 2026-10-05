@@ -41,3 +41,10 @@ These stay adjustable in Setup or on the cut sheet until confirmed.
     should XS be listed? [As in the prototype; see spec 6.5.]
 11. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
     them? [Blank, so "Email to Mohawk" opens a draft with no address.]
+12. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
+    choice anyway, as in the prototype, so two halves from one lamb would
+    both get a neck. Is that right, or should only whole lambs get the neck?
+    [Like the prototype: a half gets a neck.]
+13. Pending half and whole lambs add their cuts to the totals of every week
+    you look at, until they're marked filled (as in the prototype). Should
+    they only count in the week they're needed? [Every week, until filled.]

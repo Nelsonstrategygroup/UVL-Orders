@@ -12,9 +12,13 @@ export function slotParts(parts: Part[]): Part[] {
   return parts.filter((p) => p.balance_check);
 }
 
-/** How many slots a part gets on a half or whole order: per_lamb * fraction. */
+/**
+ * How many slots a part gets on a half or whole order: per_lamb * fraction,
+ * rounded as in the prototype. So a half lamb gets 1 neck (0.5 rounds up).
+ * Lucas chose this until Kathy confirms (docs/questions-for-kathy-and-chris.md).
+ */
 export function slotCount(part: Part, size: "half" | "whole"): number {
-  return num(part.per_lamb) * FRACTION[size];
+  return Math.round(num(part.per_lamb) * FRACTION[size]);
 }
 
 /** Products that can fill a slot: exactly one part use, of that part, qty 1. */

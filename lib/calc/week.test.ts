@@ -117,6 +117,12 @@ describe("6.2 half and whole shortfall", () => {
     expect(short.s1).toBe(2);
   });
 
+  it("gives a half lamb one of each part, including a neck, as in the prototype", () => {
+    const slots = Object.fromEntries(slotParts(seedParts).map((p) => [p.id, slotCount(p, "half")]));
+    expect(slots).toEqual({ leg: 1, shoulder: 1, rack: 1, loin: 1, fshank: 1, hshank: 1, neck: 1 });
+    expect(slotCount(seedParts.find((p) => p.id === "neck")!, "whole")).toBe(1);
+  });
+
   it("ignores cancelled orders, and a half lamb is half the trim", () => {
     const half: HalfWholeOrder = { id: "h", size: "half", status: "pending", choices: [] };
     const cancelled = { ...wholeLamb(), status: "cancelled" as const };
