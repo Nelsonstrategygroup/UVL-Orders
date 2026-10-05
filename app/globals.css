@@ -214,7 +214,7 @@
     background: var(--paper);
     border-top: 1px solid var(--line);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    display: flex;
+    /* No display here: .mob-only shows it on phones and hides it on wide screens. */
   }
   .bottombar a,
   .bottombar button {
