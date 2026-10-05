@@ -100,7 +100,7 @@ export default function HalfWholeScreen() {
                 <span className="small">
                   {Object.entries(lines)
                     .filter(([, v]) => v > 0)
-                    .map(([k, v]) => `${fmt(v)} ${nameOf(k).toLowerCase()}`)
+                    .map(([k, v]) => `${fmt(v)}${catalog.productById.get(k)?.unit === "lb" ? " lb" : ""} ${nameOf(k).toLowerCase()}`)
                     .join(", ")}
                 </span>
                 {o.notes && <span className="small muted whitespace-pre-wrap">{o.notes}</span>}
