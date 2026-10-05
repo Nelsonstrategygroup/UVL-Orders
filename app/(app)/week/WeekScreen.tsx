@@ -11,6 +11,7 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { isDone, orderingCustomers } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
+import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
 import { cutSheetTotals, legBreakdown, legBreakdownText, producerMessage } from "@/lib/calc/summary";
 import { calcWeek, type PartRow } from "@/lib/calc/week";
@@ -49,16 +50,9 @@ export default function WeekScreen() {
 
   const ordering = orderingCustomers(customers.list);
   const answered = ordering.filter((cu) => isDone(data.orders.get(cu.id)?.status)).length;
-  let linesTotal = 0;
-  let linesPacked = 0;
-  for (const o of data.orders.values()) {
-    const packed = data.packed.get(o.id) ?? {};
-    for (const [pid, q] of Object.entries(o.lines)) {
-      if (q <= 0) continue;
-      linesTotal++;
-      if ((packed[pid] ?? 0) >= q) linesPacked++;
-    }
-  }
+  const { done: linesPacked, total: linesTotal } = packStats(
+    [...data.orders.values()].map((o) => ({ lines: o.lines, packed: data.packed.get(o.id) ?? {} })),
+  );
   const shortCount = Object.values(short).reduce((a, b) => a + b, 0);
   const unconfirmed = catalog.parts.filter((p) => !p.confirmed).length;
   const processor = catalog.settings?.processor_name || "Mohawk";

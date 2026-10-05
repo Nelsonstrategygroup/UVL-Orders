@@ -915,6 +915,120 @@
     }
   }
 
+  /* Packing: the whole row is the button (prototype .prow) */
+  .packhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .pbar {
+    height: 14px;
+    background: var(--field);
+    border-radius: 7px;
+    overflow: hidden;
+    margin: 0.5rem 0 1rem;
+  }
+  .pbar i {
+    display: block;
+    height: 100%;
+    background: var(--forest);
+  }
+  .pcust {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 0.9rem;
+    overflow: hidden;
+  }
+  .pcust-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.7rem 0.85rem;
+    background: var(--field);
+    font-size: 1.1rem;
+  }
+  .prow {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%;
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: var(--paper);
+    padding: 0.8rem 0.9rem;
+    text-align: left;
+    min-height: 68px;
+  }
+  .prow .box {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    border: 3px solid var(--forest);
+    flex: none;
+    display: grid;
+    place-items: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #f7f5ea;
+  }
+  .prow.done {
+    background: var(--ok);
+  }
+  .prow.done .box {
+    background: var(--forest);
+  }
+  .prow.part {
+    background: var(--bad);
+  }
+  .prow.part .box {
+    border-color: var(--barn);
+    background: var(--barn);
+  }
+  .prow .what {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.1rem;
+  }
+  .prow .qty {
+    font-family: var(--display);
+    font-size: 1.7rem;
+    min-width: 2.5ch;
+    text-align: right;
+  }
+  .fewer {
+    border: 0;
+    background: none;
+    color: var(--barn);
+    text-decoration: underline;
+    font-size: 0.95rem;
+    padding: 0.2rem 0.9rem 0.7rem;
+    min-height: 44px;
+    display: block;
+  }
+  .alldone {
+    background: var(--forest);
+    color: var(--on-forest);
+    padding: 0.5rem 0.9rem;
+    font-weight: 650;
+  }
+  .pfoot {
+    display: flex;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    padding: 0.65rem 0.85rem;
+    border-top: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .by {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+
   /* Tables */
   table.simple {
     width: 100%;
@@ -946,5 +1060,48 @@
   }
   body {
     background: #fff;
+  }
+}
+
+/* Paper copies: .print-only shows only when printing, .screen-only only on screen. */
+.print-only {
+  display: none;
+}
+@media print {
+  .print-only {
+    display: block;
+  }
+  .screen-only {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .printsheet h1 {
+    font-size: 18pt;
+    margin: 0 0 10pt;
+  }
+  .printsheet table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14pt;
+    page-break-inside: avoid;
+  }
+  .printsheet th,
+  .printsheet td {
+    border: 1px solid #999;
+    padding: 6pt;
+    font-size: 12pt;
+    text-align: left;
+    color: #000;
+  }
+  .printsheet .ck {
+    width: 26pt;
+    text-align: center;
+    font-size: 16pt;
+  }
+  .printsheet .blank {
+    width: 70pt;
   }
 }

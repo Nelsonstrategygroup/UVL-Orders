@@ -1,7 +1,7 @@
-import ComingSoon from "@/components/ComingSoon";
+import PackingScreen from "./PackingScreen";
 
 export const metadata = { title: "Packing · Umpqua Valley Lamb" };
 
 export default function PackingPage() {
-  return <ComingSoon title="Packing" />;
+  return <PackingScreen />;
 }
