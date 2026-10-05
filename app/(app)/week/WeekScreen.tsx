@@ -4,8 +4,10 @@
 // balances, and how the week is going.
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
+import { useLive } from "@/components/data/useLive";
 import { useWeekData } from "@/components/data/useWeekData";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
@@ -17,6 +19,8 @@ import { cutSheetTotals, legBreakdown, legBreakdownText, producerMessage } from 
 import { calcWeek, type PartRow } from "@/lib/calc/week";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek } from "@/lib/db/save";
+import { loadCutSheet } from "@/lib/db/cutsheet";
+import { sheetProblems, sheetStatus, specMapOf } from "@/lib/cutsheetView";
 import type { WeekRow } from "@/lib/db/types";
 
 export default function WeekScreen() {
@@ -227,11 +231,7 @@ export default function WeekScreen() {
             <p className="mt-1.5 mb-0">
               <b>{cs.total} lambs</b> in {data.cutSets.length} sets: {cs.bySize.map((s) => `${s.lambs} ${s.label}`).join(", ")}
             </p>
-            <div className={`cutstat ${data.cutSheet?.sent_at ? "sent" : "notsent"}`}>
-              {data.cutSheet?.sent_at
-                ? `Sent to ${processor} ${formatDateTime(data.cutSheet.sent_at)}.`
-                : `Not sent to ${processor} yet.`}
-            </div>
+            <CutSheetStatus week={week} processor={processor} />
           </>
         ) : (
           <p className="small muted mt-1 mb-0">
@@ -239,6 +239,34 @@ export default function WeekScreen() {
           </p>
         )}
       </div>
+    </>
+  );
+}
+
+/** Same checks as the Cut sheet screen: do the sets add up, and has it changed since it was sent? */
+function CutSheetStatus({ week, processor }: { week: string; processor: string }) {
+  const { catalog } = useStaffData();
+  const load = useCallback((d: SupabaseClient) => loadCutSheet(d, week), [week]);
+  const { data } = useLive(`weekcard-${week}`, load, ["cut_sheets", "cut_sets", "cut_set_lines"]);
+  if (!data?.sheet || !catalog) return null;
+  const specs = specMapOf(catalog);
+  const problems = sheetProblems(data, catalog, specs);
+  const status = sheetStatus(data, catalog, specs);
+  const when = data.sheet.sent_at ? formatDateTime(data.sheet.sent_at) : "";
+  return (
+    <>
+      {problems.length > 0 && (
+        <div className="cutstat changed">
+          {problems.length} set{problems.length > 1 ? "s don't" : " doesn't"} add up. Check before sending.
+        </div>
+      )}
+      {status.kind === "notsent" && <div className="cutstat notsent">Not sent to {processor} yet.</div>}
+      {status.kind === "changed" && <div className="cutstat changed">Changed after you sent it on {when}. Send an update.</div>}
+      {status.kind === "sent" && (
+        <div className="cutstat sent">
+          Sent to {processor} {when}.
+        </div>
+      )}
     </>
   );
 }

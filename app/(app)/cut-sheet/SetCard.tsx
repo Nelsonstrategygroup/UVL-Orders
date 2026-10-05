@@ -41,6 +41,7 @@ export default function SetCard({
   customers,
   orders,
   orderingIds,
+  title,
   act,
 }: {
   set: SheetSet;
@@ -55,12 +56,13 @@ export default function SetCard({
   customers: CustomersData;
   orders: Map<string, Qty>;
   orderingIds: string[];
+  /** "Parts 2A", or "The 40 XL set" for a set with no name. */
+  title: string;
   act: SetActions;
 }) {
   const counted = hasCountedLines(set);
   const chips = counted ? setBalance(set, specMap, perLamb) : [];
   const bad = chips.some((c) => !c.ok);
-  const title = set.name || `Set ${index + 1}`;
 
   // Linked customers' orders this week.
   const totals: Qty = {};

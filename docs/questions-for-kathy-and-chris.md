@@ -36,5 +36,8 @@ These stay adjustable in Setup or on the cut sheet until confirmed.
    Behman carcasses) be hidden for other customers? [Shown for everyone.]
 9. Hind shanks per lamb is 2 but marked unconfirmed. [2, editable in Setup.]
 10. The size block at the top right of the printed cut sheet counts lambs in
-    sets that have a whole-carcass line. Is that what it should count?
-    [Yes, see spec 6.5.]
+    sets that have a whole-carcass line, for XL, Large, Medium and Small (XS
+    isn't listed, as in the prototype). Is that what it should count, and
+    should XS be listed? [As in the prototype; see spec 6.5.]
+11. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
+    them? [Blank, so "Email to Mohawk" opens a draft with no address.]

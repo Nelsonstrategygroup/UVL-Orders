@@ -10,16 +10,8 @@ import MohawkSheet from "@/components/MohawkSheet";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import {
-  cutSheetText,
-  emailSubject,
-  hashText,
-  sentStatus,
-  setAddsUp,
-  USE_GROUPS,
-  USES,
-  type CutSpecLite,
-} from "@/lib/calc/cutsheet";
+import { emailSubject, hashText, USE_GROUPS, USES, type CutSpecLite } from "@/lib/calc/cutsheet";
+import { setTitle, sheetProblems, sheetStatus, sheetText } from "@/lib/cutsheetView";
 import { orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { num } from "@/lib/calc/num";
 import { cutSheetTotals } from "@/lib/calc/summary";
@@ -106,30 +98,13 @@ export default function CutSheetScreen() {
   const sh = data.sheet;
   const perLamb = Object.fromEntries(catalog.parts.map((p) => [p.id, p.per_lamb]));
   const totals = cutSheetTotals(data.sets, catalog.sizes);
-  const problems = data.sets.filter((s) => !setAddsUp(s, specMap, perLamb));
-  const setTitle = (s: SheetSet) =>
-    s.name || ["The", s.lambs, catalog.sizes.find((z) => z.id === s.size_class_id)?.label, "set"].filter(Boolean).join(" ");
+  const problems = sheetProblems(data, catalog, specMap);
+  const titleOf = (s: SheetSet) => setTitle(s, catalog);
   const standing = catalog.settings?.standing_instructions ?? "";
 
-  const textFor = (updated: boolean) =>
-    cutSheetText(
-      {
-        week,
-        processDate: data.processDate,
-        inv: sh.inv_number,
-        notes: sh.notes,
-        pulled: { large: sh.pulled_large, medium: sh.pulled_medium, small: sh.pulled_small },
-        goals: data.goals.map((g) => g.text),
-        banners: data.banners.map((b) => b.text),
-        standing,
-        sets: data.sets,
-        sizes: catalog.sizes,
-      },
-      specMap,
-      { updated },
-    );
+  const textFor = (updated: boolean) => sheetText(data, catalog, specMap, updated);
   const plain = textFor(false);
-  const status = sentStatus(sh.sent_at, sh.sent_hash, plain);
+  const status = sheetStatus(data, catalog, specMap);
   const changed = status.kind === "changed";
   const when = sh.sent_at ? formatDateTime(sh.sent_at) : "";
 
@@ -234,7 +209,7 @@ export default function CutSheetScreen() {
 
         {problems.length ? (
           <div className="cutstat changed">
-            {problems.map(setTitle).join(", ")} {problems.length > 1 ? "don't" : "doesn't"} add up to whole lambs. The red counts
+            {problems.map(titleOf).join(", ")} {problems.length > 1 ? "don't" : "doesn't"} add up to whole lambs. The red counts
             below show where.
           </div>
         ) : (
@@ -314,6 +289,7 @@ export default function CutSheetScreen() {
             customers={customers}
             orders={data.orders}
             orderingIds={ordering}
+            title={titleOf(s)}
             act={actionsFor(s, i)}
           />
         ))}
@@ -432,7 +408,7 @@ export default function CutSheetScreen() {
       {confirmSend && (
         <Sheet title="Some sets don't add up" onClose={() => setConfirmSend(null)}>
           <p className="mt-0 text-[1.05rem]">
-            {problems.map(setTitle).join(", ")} {problems.length > 1 ? "don't" : "doesn't"} add up to whole lambs. Send it
+            {problems.map(titleOf).join(", ")} {problems.length > 1 ? "don't" : "doesn't"} add up to whole lambs. Send it
             anyway?
           </p>
           <div className="flex flex-wrap justify-end gap-2">
