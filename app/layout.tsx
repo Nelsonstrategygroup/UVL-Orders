@@ -20,6 +20,11 @@ export const metadata: Metadata = {
   title: "Umpqua Valley Lamb Orders",
   description: "Weekly orders, cut sheet, and packing for Umpqua Valley Lamb.",
   robots: { index: false, follow: false },
+  icons: {
+    icon: [{ url: "/icons/32", sizes: "32x32", type: "image/png" }],
+    apple: [{ url: "/icons/180", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: { capable: true, title: "UVL Orders", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
