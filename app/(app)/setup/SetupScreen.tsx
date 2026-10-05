@@ -298,6 +298,18 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
         </table>
       </section>
 
+      {canEdit && (
+        <section className="panel mt-4">
+          <h3>Your records</h3>
+          <p className="small muted mt-1">
+            Download everything in the app, one spreadsheet file per list, in a single zip file. Keep a copy somewhere safe.
+          </p>
+          <a href="/api/export" className="btn" download>
+            Export all data
+          </a>
+        </section>
+      )}
+
       {editingProduct && (
         <EditProduct
           product={editingProduct === "new" ? null : editingProduct}
