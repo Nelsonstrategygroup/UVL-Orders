@@ -9,6 +9,7 @@ describe("roles", () => {
     expect(canOpen("packing", "/calls")).toBe(false);
     expect(canOpen("packing", "/users")).toBe(false);
     expect(canOpen("packing", "/packingx")).toBe(false);
+    expect(canOpen("packing", "/help")).toBe(true);
   });
 
   it("hides Users from office", () => {

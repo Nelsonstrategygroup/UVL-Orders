@@ -149,6 +149,10 @@ function DeviceSettings({ displayName, onDone }: { displayName: string; onDone: 
         Larger text
       </label>
 
+      <Link href="/help" className="mt-3 flex min-h-[44px] items-center text-[1.05rem] text-forest underline">
+        How to use this
+      </Link>
+
       <div className="mt-4 border-t border-line pt-4">
         <p className="muted mb-2">
           Logged in as <b className="text-ink">{displayName || "you"}</b>.

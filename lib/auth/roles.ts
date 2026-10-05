@@ -57,6 +57,7 @@ function under(pathname: string, base: string) {
 /** Whether a role may open a page. Data access is enforced separately by RLS. */
 export function canOpen(role: Role, pathname: string): boolean {
   if (pathname === "/") return true;
+  if (under(pathname, "/help")) return true;
   if (role === "packing") return under(pathname, "/packing");
   if (under(pathname, "/users")) return role === "admin";
   return true;
