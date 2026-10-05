@@ -6,9 +6,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
 import { loadCatalog, loadCustomers } from "@/lib/db/load";
 import type { Catalog, CustomersData } from "@/lib/db/types";
+import { getDb } from "./db";
 
 type StaffDataValue = {
   db: SupabaseClient;
@@ -21,12 +21,7 @@ type StaffDataValue = {
 
 const Ctx = createContext<StaffDataValue | null>(null);
 
-let browserClient: SupabaseClient | null = null;
-/** One browser Supabase client for the whole app. */
-export function getDb(): SupabaseClient {
-  browserClient ??= createClient();
-  return browserClient;
-}
+export { getDb } from "./db";
 
 export function StaffDataProvider({ children }: { children: React.ReactNode }) {
   const db = getDb();
