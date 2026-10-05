@@ -232,7 +232,7 @@
     /* Share the width evenly; with Larger text a label wraps rather than
        pushing the last button off the screen. */
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
     line-height: 1.2;
     border: 0;
     background: none;
@@ -1367,7 +1367,9 @@
 @media print {
   .noprint,
   .topbar,
-  .bottombar {
+  .bottombar,
+  .toast,
+  .sheet-backdrop {
     display: none !important;
   }
   body {

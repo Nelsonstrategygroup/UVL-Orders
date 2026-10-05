@@ -29,7 +29,7 @@ export const NAV: NavItem[] = [
   { href: "/orders", label: "Orders", short: "Orders", icon: "✎", bottom: true, sub: "Every customer's order" },
   { href: "/cut-sheet", label: "Cut sheet", short: "Cut sheet", icon: "✂", bottom: false, sub: "This week's sheet for Mohawk" },
   { href: "/packing", label: "Packing", short: "Packing", icon: "✓", bottom: true, sub: "Pack and check off orders" },
-  { href: "/half-whole", label: "Half and whole", short: "Half/whole", icon: "½", bottom: true, sub: "Half and whole lamb orders" },
+  { href: "/half-whole", label: "Half and whole", short: "Half/​whole", icon: "½", bottom: true, sub: "Half and whole lamb orders" },
   { href: "/freezer", label: "Freezer", short: "Freezer", icon: "❄", bottom: false, sub: "What's on hand, add or remove cuts" },
   { href: "/customers", label: "Customers", short: "Customers", icon: "☺", bottom: false, sub: "Customer list and call days" },
   { href: "/setup", label: "Setup", short: "Setup", icon: "⚙", bottom: false, sub: "Parts per lamb and products" },
