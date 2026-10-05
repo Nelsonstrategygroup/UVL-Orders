@@ -85,6 +85,8 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
                       defaultValue={fmt(p.per_lamb)}
                       disabled={!canEdit}
                       onBlur={(e) => {
+                        // Save only when the text was changed, never just because someone tabbed through.
+                        if (e.target.value.trim() === fmt(p.per_lamb)) return;
                         const v = Math.max(0, num(e.target.value));
                         if (v !== p.per_lamb) void updateRow(db, "parts", p.id, { per_lamb: v }).then(done);
                       }}

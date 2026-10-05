@@ -42,7 +42,13 @@ export default function OrdersScreen() {
   );
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load orders: {loadError || error}</p>;
-  if (!catalog || !customers || !data) return <div className="empty">Loading orders...</div>;
+  if (!catalog || !customers || !data)
+    return (
+      <>
+        <WeekBar />
+        <div className="empty">Loading orders...</div>
+      </>
+    );
 
   const choose = (v: View) => {
     setView(v);

@@ -50,7 +50,13 @@ export default function CallsScreen() {
   }, [editingId]);
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load orders: {loadError || error}</p>;
-  if (!catalog || !customers || !data || !byId) return <div className="empty">Loading orders...</div>;
+  if (!catalog || !customers || !data || !byId)
+    return (
+      <>
+        <WeekBar />
+        <div className="empty">Loading orders...</div>
+      </>
+    );
 
   const header = <WeekBar processDate={data.weekRow?.process_date} />;
   if (!queue.length) {
@@ -275,6 +281,7 @@ function CallBackSheet({ onClose, onSave }: { onClose: () => void; onSave: (note
         id="cb-note"
         className="field big"
         placeholder="Wednesday after 10"
+        autoFocus
         value={note}
         onChange={(e) => setNote(e.target.value)}
         onKeyDown={(e) => {

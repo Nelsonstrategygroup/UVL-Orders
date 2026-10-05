@@ -9,9 +9,12 @@ export function num(v: unknown): number {
   return Number.isFinite(x) ? x : 0;
 }
 
-/** One decimal at most, no trailing ".0": 2 -> "2", 2.25 -> "2.3", 0.5 -> "0.5". */
+/**
+ * Up to three decimals, no trailing zeros: 2 -> "2", 0.5 -> "0.5", 0.125 -> "0.125".
+ * (The prototype rounded to one decimal, which showed Le trim's 0.125 shoulder as 0.1.)
+ */
 export function fmt(v: number): string {
-  const r = Math.round(v * 10) / 10;
+  const r = Math.round(v * 1000) / 1000;
   return (Math.abs(r - Math.round(r)) < EPS ? Math.round(r) : r).toString();
 }
 

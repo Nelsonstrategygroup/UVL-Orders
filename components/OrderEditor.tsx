@@ -115,11 +115,13 @@ export default function OrderEditor(props: OrderEditorProps) {
   }
 
   const products = catalog?.products ?? [];
-  const usual = useMemo(() => {
+  // "What they usually buy" is fixed when the editor opens, so a row doesn't
+  // jump to the top of the list while someone is tapping + on it.
+  const [usual] = useState(() => {
     const s = new Set(customers?.usual.get(customer.id) ?? []);
-    for (const k in lines) if (lines[k] > 0) s.add(k);
+    for (const k in order?.lines ?? {}) if ((order?.lines[k] ?? 0) > 0) s.add(k);
     return s;
-  }, [customers, customer.id, lines]);
+  });
 
   const visible = products.filter((p) => p.active || (lines[p.id] ?? 0) > 0);
   const first = visible.filter((p) => usual.has(p.id));

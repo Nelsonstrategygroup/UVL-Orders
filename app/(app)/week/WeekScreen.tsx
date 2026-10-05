@@ -26,7 +26,13 @@ export default function WeekScreen() {
   const db = getDb();
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load this week: {loadError || error}</p>;
-  if (!catalog || !customers || !data) return <div className="empty">Loading this week...</div>;
+  if (!catalog || !customers || !data)
+    return (
+      <>
+        <WeekBar />
+        <div className="empty">Loading this week...</div>
+      </>
+    );
 
   const w = data.weekRow;
   const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);

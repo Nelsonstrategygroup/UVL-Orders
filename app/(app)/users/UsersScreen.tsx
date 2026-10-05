@@ -165,7 +165,7 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
       <label className="lbl big" htmlFor="add-name">
         Name
       </label>
-      <input id="add-name" name="name" className="field big" autoComplete="off" />
+      <input id="add-name" name="name" className="field big" autoComplete="off" autoFocus />
 
       <label className="lbl big" htmlFor="add-email">
         Email

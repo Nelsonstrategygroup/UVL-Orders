@@ -72,7 +72,7 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
       <label className="lbl" htmlFor="c-name">
         Business name
       </label>
-      <input id="c-name" className="field" value={name} onChange={(e) => setName(e.target.value)} />
+      <input id="c-name" className="field" autoFocus={!customer} value={name} onChange={(e) => setName(e.target.value)} />
 
       <div className="flex flex-wrap gap-3">
         <div className="min-w-[150px] flex-1">

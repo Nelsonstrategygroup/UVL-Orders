@@ -16,7 +16,10 @@ export default function Sheet({
 
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
-    boxRef.current?.querySelector<HTMLElement>("input,select,button,a")?.focus({ preventScroll: true });
+    // A field marked autoFocus keeps focus. Otherwise focus the sheet itself,
+    // so screen readers announce it and no on-screen keyboard pops up.
+    const box = boxRef.current;
+    if (box && !box.contains(document.activeElement)) box.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -34,7 +37,7 @@ export default function Sheet({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="sheet-box" role="dialog" aria-modal="true" aria-label={title} ref={boxRef}>
+      <div className="sheet-box outline-none" role="dialog" aria-modal="true" aria-label={title} ref={boxRef} tabIndex={-1}>
         <div className="mb-2 flex items-center justify-between gap-4">
           <h3>{title}</h3>
           <button type="button" className="iconbtn" onClick={onClose} aria-label="Close">
