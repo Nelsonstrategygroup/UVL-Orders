@@ -1029,6 +1029,236 @@
     color: var(--ink-soft);
   }
 
+  /* Cut sheet builder (prototype) */
+  .cutstat.changed {
+    background: var(--bad);
+    color: var(--barn);
+  }
+  .setcard {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin: 1rem 0;
+    overflow: hidden;
+  }
+  .setcard.bad {
+    border-color: var(--barn);
+    border-width: 2px;
+  }
+  .sethead {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) 5.5rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--field);
+    align-items: end;
+  }
+  @media (max-width: 640px) {
+    .sethead {
+      grid-template-columns: 1fr 1fr;
+    }
+    .sethead .sname,
+    .sethead .sbtns {
+      grid-column: 1 / -1;
+    }
+  }
+  .sethead label {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    display: block;
+  }
+  .setbody {
+    padding: 0.5rem 0.75rem 0.75rem;
+  }
+  .lrow {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 0.7fr) auto;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.3rem 0.25rem;
+    border-bottom: 1px dashed var(--line);
+  }
+  @media (max-width: 760px) {
+    .lrow {
+      grid-template-columns: 4.5rem minmax(0, 1fr);
+    }
+    .lrow .side,
+    .lrow .lopts {
+      grid-column: 1 / -1;
+    }
+  }
+  .lrow.hl-yellow {
+    background: #f7ee9a66;
+  }
+  .lrow.hl-blue {
+    background: #9cc9ee66;
+  }
+  .lrow.hl-green {
+    background: #7fc08a66;
+  }
+  .lopts {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+  .hlbtn {
+    flex: none;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-size: 0.75rem;
+  }
+  .hlbtn.yellow {
+    background: #f2e36b;
+    color: #111;
+  }
+  .hlbtn.blue {
+    background: #8ec0ea;
+    color: #111;
+  }
+  .hlbtn.green {
+    background: #73b87e;
+    color: #111;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0.6rem 0 0;
+  }
+  .chip {
+    font-size: 0.82rem;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    background: var(--ok);
+  }
+  .chip.bad {
+    background: var(--bad);
+    color: var(--barn);
+    font-weight: 650;
+  }
+  .shank {
+    font-size: 0.82rem;
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    white-space: nowrap;
+    min-height: 44px;
+  }
+  .banrow {
+    display: flex;
+    gap: 0.4rem;
+    margin: 0.35rem 0;
+  }
+
+  /* The sheet Mohawk gets, on screen and on paper (prototype csHTML) */
+  .cs {
+    background: #fff;
+    color: #111;
+    font-family: "Times New Roman", Times, Georgia, serif;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  .cs-inner {
+    min-width: 640px;
+  }
+  .cs-top {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+  .cs-meta {
+    font: 600 12px Arial, sans-serif;
+    line-height: 2;
+  }
+  .cs-ban {
+    font: italic 700 16px Georgia, serif;
+    padding: 3px 8px;
+  }
+  .cs-ban.c0 {
+    background: #e07fb5;
+  }
+  .cs-ban.c1 {
+    background: #7db8ec;
+  }
+  .cs-ban.c2 {
+    background: #f2ea62;
+  }
+  .cs-std {
+    font: 600 13px Arial, sans-serif;
+    margin: 12px 0;
+    white-space: pre-line;
+  }
+  .cs-sizes {
+    font: 600 13px Georgia, serif;
+    margin: 4px 0 10px auto;
+    width: 300px;
+  }
+  .cs-set {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 8px;
+    margin: 18px 0;
+  }
+  .cs-left {
+    font: 600 11px Arial, sans-serif;
+  }
+  .cs-left u {
+    font-weight: 400;
+  }
+  .cs-hl {
+    font: italic 700 14px Arial, sans-serif;
+    background: #f2ea62;
+    padding: 2px 6px;
+  }
+  .cs-line {
+    display: grid;
+    grid-template-columns: 52px 1fr 220px;
+    font-size: 14px;
+    border-bottom: 1px solid #999;
+    padding: 2px 0;
+  }
+  .cs-line .q {
+    text-align: center;
+    font-weight: 700;
+    border-bottom: 1px solid #111;
+  }
+  .cs-line .sd {
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .cs-line.yellow {
+    background: #f2ea62;
+  }
+  .cs-line.blue {
+    background: #7db8ec;
+  }
+  .cs-line.green {
+    background: #73b87e;
+  }
+  .cs-foot {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 10px;
+    margin-top: 16px;
+    font: 600 12px Arial, sans-serif;
+  }
+  .cs-notes {
+    background: #d9567f;
+    min-height: 40px;
+    padding: 4px 8px;
+    font: 600 13px Georgia, serif;
+    color: #111;
+    white-space: pre-line;
+  }
+
   /* Tables */
   table.simple {
     width: 100%;
@@ -1103,5 +1333,20 @@
   }
   .printsheet .blank {
     width: 70pt;
+  }
+}
+
+@media print {
+  .print-only .cs {
+    border: 0;
+    padding: 0;
+  }
+  .print-only .cs-inner {
+    min-width: 0;
+  }
+  .print-only,
+  .print-only * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

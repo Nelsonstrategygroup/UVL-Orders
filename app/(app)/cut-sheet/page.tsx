@@ -1,7 +1,7 @@
-import ComingSoon from "@/components/ComingSoon";
+import CutSheetScreen from "./CutSheetScreen";
 
 export const metadata = { title: "Cut sheet · Umpqua Valley Lamb" };
 
-export default function CutsheetPage() {
-  return <ComingSoon title="Cut sheet" />;
+export default function CutSheetPage() {
+  return <CutSheetScreen />;
 }
