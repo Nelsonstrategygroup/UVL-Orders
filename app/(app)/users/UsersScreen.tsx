@@ -41,7 +41,7 @@ export default function UsersScreen({ users, myId }: { users: UserRow[]; myId: s
             key={u.id}
             type="button"
             onClick={() => setEditingId(u.id)}
-            className={`flex w-full items-center justify-between gap-3 rounded-[10px] border border-line p-3 text-left ${u.active ? "bg-paper" : "bg-field"}`}
+            className={`flex w-full min-w-0 items-center justify-between gap-3 rounded-[10px] border border-line p-3 text-left ${u.active ? "bg-paper" : "bg-field"}`}
           >
             <span className="min-w-0">
               <span className="block truncate text-[1.05rem] font-semibold">
