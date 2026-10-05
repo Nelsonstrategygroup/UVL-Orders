@@ -104,6 +104,18 @@ Set these by hand in the Supabase dashboard. They are not stored in the repo.
   Users and settings), **Packing** (Packing screen only, no other navigation). The database
   enforces the same rules with Row Level Security, so hiding a screen is never the only lock.
 
+## For the people using it
+
+- **How to use this**: a short guide with screenshots, at `/help` and under Settings. Its
+  screenshots live in `public/help/`; retake them if a screen changes a lot.
+- **Home screen**: the app installs like an app (web manifest in `app/manifest.ts`, icons drawn
+  by `app/icons/[size]/route.tsx`). On iPhone or iPad: Safari, Share, Add to Home Screen. On
+  Android: Chrome menu, Install app.
+- **Larger text**: Settings, Larger text. Saved on that device only.
+- **Export all data** (admins): Setup, Your records. Downloads every table as a CSV file in one
+  zip, with a README listing the order to load them into a new database.
+- **Questions waiting on Kathy and Chris**: [docs/questions-for-kathy-and-chris.md](docs/questions-for-kathy-and-chris.md).
+
 ## Tests
 
 ```bash
