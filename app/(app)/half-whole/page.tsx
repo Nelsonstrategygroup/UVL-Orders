@@ -1,7 +1,7 @@
-import ComingSoon from "@/components/ComingSoon";
+import HalfWholeScreen from "./HalfWholeScreen";
 
 export const metadata = { title: "Half and whole · Umpqua Valley Lamb" };
 
-export default function HalfandwholePage() {
-  return <ComingSoon title="Half and whole" />;
+export default function HalfWholePage() {
+  return <HalfWholeScreen />;
 }

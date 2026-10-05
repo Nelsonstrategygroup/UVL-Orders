@@ -9,12 +9,13 @@ import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useWeekData } from "@/components/data/useWeekData";
 import OrderEditor from "@/components/OrderEditor";
 import { orderSummary } from "@/components/ReadBack";
+import { useMe } from "@/components/CurrentUser";
 import { useToast } from "@/components/Toast";
 import { useWeek } from "@/components/Week";
 import { displayName, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate } from "@/lib/dates";
 import { loadCustomerHistory, type HistoryEntry } from "@/lib/db/load";
-import { logContact, saveCustomerNotes } from "@/lib/db/save";
+import { logContact, saveCustomerNotes, setFollowUpDone, updateContact } from "@/lib/db/save";
 import type { Customer } from "@/lib/db/types";
 import { STATUS_LABEL } from "@/lib/orders";
 import EditCustomer from "../EditCustomer";
@@ -145,17 +146,7 @@ export default function CustomerPage({ id }: { id: string }) {
         <ul className="timeline">
           {history.map((e) =>
             e.type === "contact" ? (
-              <li key={e.id} className="t-contact">
-                <div className="when">
-                  {KIND[e.kind] ?? "Note"}, {new Date(e.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" })} by{" "}
-                  {e.by}
-                  {e.follow_up_date && (
-                    <span className={`fu ${e.follow_up_done ? "line-through" : ""}`}>Follow up {niceDate(e.follow_up_date)}</span>
-                  )}
-                </div>
-                <div className="whitespace-pre-wrap">{e.summary}</div>
-                {e.follow_up_note && <div className="small muted">Next: {e.follow_up_note}</div>}
-              </li>
+              <ContactEntry key={e.id} entry={e} onChanged={async () => { await Promise.all([reloadHistory(), reloadCustomers()]); }} />
             ) : (
               <li key={`o-${e.week}`}>
                 <div className="when">Order, week of {niceDate(e.week)}</div>
@@ -172,6 +163,143 @@ export default function CustomerPage({ id }: { id: string }) {
       )}
 
       {editing && <EditCustomer customer={c} onClose={() => setEditing(false)} />}
+    </div>
+  );
+}
+
+type ContactItem = Extract<HistoryEntry, { type: "contact" }>;
+
+/** One contact log entry. The author can edit or delete it; anyone can mark its follow-up done. */
+function ContactEntry({ entry: e, onChanged }: { entry: ContactItem; onChanged: () => Promise<void> }) {
+  const me = useMe();
+  const toast = useToast();
+  const db = getDb();
+  const [editing, setEditing] = useState(false);
+  const mine = e.created_by === me.id;
+
+  async function act(p: Promise<string | null>, ok: string, undo?: () => Promise<string | null>) {
+    const err = await p;
+    if (err) return toast(err.startsWith("Only") ? err : "Couldn't save. Check the internet connection.");
+    await onChanged();
+    toast(ok, undo ? () => void undo().then(onChanged) : undefined);
+  }
+
+  return (
+    <li className="t-contact">
+      <div className="when">
+        {KIND[e.kind] ?? "Note"},{" "}
+        {new Date(e.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/Los_Angeles" })} by{" "}
+        {e.by}
+        {e.follow_up_date && (
+          <span className={`fu ${e.follow_up_done ? "line-through" : ""}`}>Follow up {niceDate(e.follow_up_date)}</span>
+        )}
+      </div>
+      {editing ? (
+        <EditContact
+          entry={e}
+          onCancel={() => setEditing(false)}
+          onSave={async (patch) => {
+            const err = await updateContact(db, e.id, patch);
+            if (err) return toast(err.startsWith("Only") ? err : "Couldn't save. Check the internet connection.");
+            setEditing(false);
+            await onChanged();
+            toast("Saved");
+          }}
+        />
+      ) : (
+        <>
+          <div className="whitespace-pre-wrap">{e.summary}</div>
+          {e.follow_up_note && <div className="small muted">Next: {e.follow_up_note}</div>}
+        </>
+      )}
+      {!editing && (
+        <div className="flex flex-wrap gap-x-4">
+          {e.follow_up_date && !e.follow_up_done && (
+            <button
+              type="button"
+              className="copy min-h-[44px] text-[.9rem]"
+              onClick={() =>
+                void act(setFollowUpDone(db, e.id, true), "Follow-up done", () => setFollowUpDone(db, e.id, false))
+              }
+            >
+              Mark follow-up done
+            </button>
+          )}
+          {mine && (
+            <>
+              <button type="button" className="copy min-h-[44px] text-[.9rem]" onClick={() => setEditing(true)}>
+                Edit
+              </button>
+              <button
+                type="button"
+                className="copy min-h-[44px] text-[.9rem]"
+                onClick={() =>
+                  void act(updateContact(db, e.id, { deleted_at: new Date().toISOString() }), "Entry deleted", () =>
+                    updateContact(db, e.id, { deleted_at: null }),
+                  )
+                }
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function EditContact({
+  entry: e,
+  onCancel,
+  onSave,
+}: {
+  entry: ContactItem;
+  onCancel: () => void;
+  onSave: (patch: { kind: string; summary: string; follow_up_date: string | null; follow_up_note: string }) => Promise<void>;
+}) {
+  const [kind, setKind] = useState(e.kind);
+  const [summary, setSummary] = useState(e.summary);
+  const [date, setDate] = useState(e.follow_up_date ?? "");
+  const [note, setNote] = useState(e.follow_up_note);
+  return (
+    <div className="panel my-1 p-3!">
+      <div className="seg mb-2" role="group" aria-label="Kind">
+        {Object.entries(KIND).map(([k, v]) => (
+          <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)}>
+            {v}
+          </button>
+        ))}
+      </div>
+      <textarea className="field" rows={2} aria-label="What was said" value={summary} onChange={(x) => setSummary(x.target.value)} />
+      <div className="mt-1 flex flex-wrap gap-3">
+        <div className="min-w-[140px] flex-1">
+          <label className="lbl" htmlFor={`fu-d-${e.id}`}>
+            Follow up on
+          </label>
+          <input id={`fu-d-${e.id}`} type="date" className="field" value={date} onChange={(x) => setDate(x.target.value)} />
+        </div>
+        <div className="min-w-[200px] flex-[2]">
+          <label className="lbl" htmlFor={`fu-n-${e.id}`}>
+            What to follow up on
+          </label>
+          <input id={`fu-n-${e.id}`} className="field" value={note} onChange={(x) => setNote(x.target.value)} />
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        <button type="button" className="btn ghost" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={() =>
+            summary.trim() && void onSave({ kind, summary: summary.trim(), follow_up_date: date || null, follow_up_note: note.trim() })
+          }
+        >
+          Save
+        </button>
+      </div>
     </div>
   );
 }

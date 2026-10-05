@@ -160,6 +160,7 @@ export type HistoryEntry =
       follow_up_note: string;
       follow_up_done: boolean;
       by: string;
+      created_by: string;
     }
   | { type: "order"; at: string; week: string; status: Order["status"]; notes: string; lines: Qty };
 
@@ -260,4 +261,26 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     cutSets: (must(sets) as { lambs: number; size_class_id: string | null }[]) ?? [],
     cutSheet: must(sheet) as WeekData["cutSheet"],
   };
+}
+
+export type DueFollowUp = {
+  id: string;
+  customer_id: string;
+  follow_up_date: string;
+  follow_up_note: string;
+  summary: string;
+};
+
+/** Open follow-ups due on or before the last day of the week (SPEC 5.4). */
+export async function loadDueFollowUps(db: SupabaseClient, week: string): Promise<DueFollowUp[]> {
+  const { data, error } = await db
+    .from("contact_log")
+    .select("id, customer_id, follow_up_date, follow_up_note, summary")
+    .is("deleted_at", null)
+    .eq("follow_up_done", false)
+    .not("follow_up_date", "is", null)
+    .lte("follow_up_date", addDays(week, 6))
+    .order("follow_up_date");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DueFollowUp[];
 }

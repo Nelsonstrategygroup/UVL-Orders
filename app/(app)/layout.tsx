@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth/current-user";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   return (
-    <AppShell role={user.role} displayName={user.displayName}>
+    <AppShell userId={user.id} role={user.role} displayName={user.displayName}>
       {children}
     </AppShell>
   );

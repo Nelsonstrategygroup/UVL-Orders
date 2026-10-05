@@ -190,3 +190,22 @@ export async function saveCustomerNotes(db: SupabaseClient, id: string, notes: s
   const { error } = await db.from("customers").update({ notes }).eq("id", id);
   return msg(error);
 }
+
+// ----- Contact log (SPEC 4.3, Phase 5) -----
+
+/** Change your own entry. RLS refuses anyone else's. */
+export async function updateContact(
+  db: SupabaseClient,
+  id: string,
+  patch: Partial<{ kind: string; summary: string; follow_up_date: string | null; follow_up_note: string; deleted_at: string | null }>,
+): Promise<string | null> {
+  const { data, error } = await db.from("contact_log").update(patch).eq("id", id).select("id");
+  if (error) return error.message;
+  return data && data.length ? null : "Only the person who wrote this can change it.";
+}
+
+/** Anyone in the office can mark a follow-up done. */
+export async function setFollowUpDone(db: SupabaseClient, id: string, done: boolean): Promise<string | null> {
+  const { error } = await db.rpc("set_follow_up_done", { p_id: id, p_done: done });
+  return msg(error);
+}

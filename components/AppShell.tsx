@@ -7,6 +7,7 @@ import { navFor, type NavItem, type Role } from "@/lib/auth/roles";
 import { logout } from "@/app/login/actions";
 import Sheet from "./Sheet";
 import { StaffDataProvider } from "./data/StaffData";
+import { CurrentUserProvider } from "./CurrentUser";
 import { ToastProvider } from "./Toast";
 import { WeekProvider } from "./Week";
 
@@ -15,10 +16,12 @@ function isCurrent(pathname: string, href: string) {
 }
 
 export default function AppShell({
+  userId,
   role,
   displayName,
   children,
 }: {
+  userId: string;
   role: Role;
   displayName: string;
   children: React.ReactNode;
@@ -63,11 +66,13 @@ export default function AppShell({
       </header>
 
       <main className="mx-auto max-w-[1280px] px-4 pt-4 pb-24">
-        <ToastProvider>
-          <WeekProvider>
-            {role === "packing" ? children : <StaffDataProvider>{children}</StaffDataProvider>}
-          </WeekProvider>
-        </ToastProvider>
+        <CurrentUserProvider me={{ id: userId, role, displayName }}>
+          <ToastProvider>
+            <WeekProvider>
+              {role === "packing" ? children : <StaffDataProvider>{children}</StaffDataProvider>}
+            </WeekProvider>
+          </ToastProvider>
+        </CurrentUserProvider>
       </main>
 
       {nav.length > 0 && (

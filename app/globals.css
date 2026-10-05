@@ -1259,6 +1259,65 @@
     white-space: pre-line;
   }
 
+  /* Half and whole, freezer (prototype) */
+  .hwcard {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.85rem;
+    display: grid;
+    gap: 0.35rem;
+  }
+  .coach .part {
+    border-top: 1px solid var(--line);
+    padding: 0.6rem 0;
+  }
+  .coach .slot {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin: 0.3rem 0;
+  }
+  .coach .slot > span:first-child {
+    min-width: 6rem;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+  }
+  .avail {
+    font-size: 0.82rem;
+    white-space: nowrap;
+    min-width: 5.5rem;
+  }
+  .avail.ok {
+    color: var(--forest);
+  }
+  .avail.no {
+    color: var(--barn);
+    font-weight: 600;
+  }
+  .sizes {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .sizes button {
+    flex: 1;
+    min-height: 52px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  .sizes button[aria-pressed="true"] {
+    border-color: var(--forest);
+    background: var(--ok);
+    color: var(--forest-deep);
+  }
+  .negative {
+    color: var(--barn);
+    font-weight: 650;
+  }
+
   /* Tables */
   table.simple {
     width: 100%;

@@ -4,21 +4,23 @@
 // balances, and how the week is going.
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
 import { useWeekData } from "@/components/data/useWeekData";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { isDone, orderingCustomers } from "@/lib/calc/customers";
+import { displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
+import { niceDate, todayISO } from "@/lib/dates";
+import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
 import { cutSheetTotals, legBreakdown, legBreakdownText, producerMessage } from "@/lib/calc/summary";
 import { calcWeek, type PartRow } from "@/lib/calc/week";
 import { formatDateTime } from "@/lib/format";
-import { saveWeek } from "@/lib/db/save";
+import { saveWeek, setFollowUpDone } from "@/lib/db/save";
 import { loadCutSheet } from "@/lib/db/cutsheet";
 import { sheetProblems, sheetStatus, specMapOf } from "@/lib/cutsheetView";
 import type { WeekRow } from "@/lib/db/types";
@@ -219,6 +221,8 @@ export default function WeekScreen() {
         </div>
       </div>
 
+      <FollowUps week={week} />
+
       <div className="panel mt-4">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="mr-auto">Cut sheet for {processor}</h3>
@@ -240,6 +244,74 @@ export default function WeekScreen() {
         )}
       </div>
     </>
+  );
+}
+
+/** Follow-ups due this week or overdue, with Done buttons (SPEC 5.4). */
+function FollowUps({ week }: { week: string }) {
+  const { customers } = useStaffData();
+  const toast = useToast();
+  const db = getDb();
+  const [state, setState] = useState<{ week: string; list: DueFollowUp[] } | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const list = await loadDueFollowUps(db, week);
+      setState({ week, list });
+    } catch {
+      setState({ week, list: [] });
+    }
+  }, [db, week]);
+
+  useEffect(() => {
+    let live = true;
+    loadDueFollowUps(db, week).then(
+      (list) => live && setState({ week, list }),
+      () => live && setState({ week, list: [] }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [db, week]);
+
+  const list = state?.week === week ? state.list : [];
+  if (!list.length || !customers) return null;
+  const today = todayISO();
+
+  async function done(id: string, value: boolean) {
+    const err = await setFollowUpDone(db, id, value);
+    if (err) return toast("Couldn't save. Check the internet connection.");
+    await reload();
+    if (value) toast("Follow-up done", () => void done(id, false));
+  }
+
+  return (
+    <section className="panel mt-4">
+      <h3>Follow-ups</h3>
+      <ul className="m-0 list-none p-0">
+        {list.map((f) => {
+          const c = customers.byId.get(f.customer_id);
+          const late = f.follow_up_date < today;
+          return (
+            <li key={f.id} className="flex items-center gap-3 border-b border-line py-2 last:border-0">
+              <div className="min-w-0 flex-1">
+                <Link href={`/customers/${f.customer_id}`} className="font-semibold text-ink no-underline hover:underline">
+                  {c ? displayName(c, customers.byId) : "A customer"}
+                </Link>
+                <div className="small">{f.follow_up_note || f.summary}</div>
+              </div>
+              <span className={`small ${late ? "font-semibold text-barn" : "muted"}`}>
+                {late ? "Overdue, " : ""}
+                {niceDate(f.follow_up_date)}
+              </span>
+              <button type="button" className="btn ghost shrink-0" onClick={() => void done(f.id, true)}>
+                Done
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
