@@ -130,44 +130,57 @@ export async function updateSettings(
 }
 
 export type ProductInput = {
-  id: string;
+  /** null for a new product */
+  id: string | null;
   name: string;
   short_name: string;
   unit: string;
   group_name: string;
+  cut_spec_id: string | null;
   fresh_only: boolean;
   active: boolean;
   note: string;
   uses: { part_id: string; qty: number }[];
 };
 
-/** Save a product and its part uses. New and changed uses are written before removed ones are deleted. */
+/**
+ * Add or save a product and its part uses. New and changed uses are written
+ * before removed ones are deleted. A new product goes at the end of the list.
+ */
 export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<string | null> {
-  const { error } = await db
-    .from("products")
-    .update({
-      name: p.name,
-      short_name: p.short_name,
-      unit: p.unit,
-      group_name: p.group_name,
-      fresh_only: p.fresh_only,
-      active: p.active,
-      note: p.note,
-    })
-    .eq("id", p.id);
-  if (error) return error.message;
+  const row = {
+    name: p.name,
+    short_name: p.short_name,
+    unit: p.unit,
+    group_name: p.group_name,
+    cut_spec_id: p.cut_spec_id,
+    fresh_only: p.fresh_only,
+    active: p.active,
+    note: p.note,
+  };
+  let id = p.id;
+  if (id) {
+    const { error } = await db.from("products").update(row).eq("id", id);
+    if (error) return error.message;
+  } else {
+    const { data: last } = await db.from("products").select("sort").order("sort", { ascending: false }).limit(1);
+    const sort = ((last?.[0]?.sort as number | undefined) ?? -1) + 1;
+    const { data, error } = await db.from("products").insert({ ...row, sort }).select("id").single();
+    if (error) return error.message;
+    id = data.id as string;
+  }
 
   const uses = p.uses.filter((u) => u.part_id && u.qty > 0);
   if (uses.length) {
     const { error: upErr } = await db
       .from("product_part_uses")
       .upsert(
-        uses.map((u) => ({ product_id: p.id, part_id: u.part_id, qty: u.qty })),
+        uses.map((u) => ({ product_id: id, part_id: u.part_id, qty: u.qty })),
         { onConflict: "product_id,part_id" },
       );
     if (upErr) return upErr.message;
   }
-  let del = db.from("product_part_uses").delete().eq("product_id", p.id);
+  let del = db.from("product_part_uses").delete().eq("product_id", id);
   if (uses.length) del = del.not("part_id", "in", `(${uses.map((u) => u.part_id).join(",")})`);
   const { error: delErr } = await del;
   return msg(delErr);

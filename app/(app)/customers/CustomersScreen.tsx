@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useStaffData } from "@/components/data/StaffData";
-import { displayName, sortByDisplayName } from "@/lib/calc/customers";
+import { displayName, matchesSearch, sortByDisplayName } from "@/lib/calc/customers";
 import { ago } from "@/lib/dates";
 import EditCustomer from "./EditCustomer";
 
@@ -16,10 +16,7 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
 
   const list = useMemo(() => {
     if (!customers) return [];
-    const q = filter.trim().toLowerCase();
-    return sortByDisplayName(customers.list, customers.byId).filter(
-      (c) => !q || displayName(c, customers.byId).toLowerCase().includes(q),
-    );
+    return sortByDisplayName(customers.list, customers.byId).filter((c) => matchesSearch(filter, c, customers.byId));
   }, [customers, filter]);
 
   if (error) return <p className="note bad">Couldn&apos;t load customers: {error}</p>;
@@ -39,14 +36,23 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
         </button>
       </div>
 
-      {customers.list.length > 8 && (
-        <input
-          className="field mb-3"
-          placeholder="Find a customer"
-          aria-label="Find a customer"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+      {customers.list.length > 0 && (
+        <div className="mb-3 flex gap-2">
+          <input
+            type="search"
+            className="field big"
+            placeholder="Type a name to find a customer"
+            aria-label="Find a customer"
+            autoComplete="off"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          {filter && (
+            <button type="button" className="btn ghost shrink-0" onClick={() => setFilter("")}>
+              Show all
+            </button>
+          )}
+        </div>
       )}
 
       <div className="clist">
@@ -85,7 +91,7 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
             {isAdmin ? " Add them one at a time, or import a spreadsheet." : " Add them one at a time."}
           </div>
         )}
-        {customers.list.length > 0 && !list.length && <p className="muted">No customer matches “{filter}”.</p>}
+        {customers.list.length > 0 && !list.length && <p className="muted">No customer name starts with “{filter.trim()}”.</p>}
       </div>
 
       {adding && <EditCustomer customer={null} onClose={() => setAdding(false)} />}

@@ -60,3 +60,14 @@ export function callQueue<T extends CustomerLite>(
   };
   return sortByDisplayName(customers, byId).sort((a, b) => rank(a) - rank(b));
 }
+
+/**
+ * Find as you type: the name starts with what was typed, ignoring case and
+ * extra spaces. A store matches by its own name ("Fremont") or by its full
+ * name ("PCC: Fremont"). An empty search matches everyone.
+ */
+export function matchesSearch<T extends CustomerLite>(query: string, c: T, byId: Map<string, T>): boolean {
+  const q = query.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!q) return true;
+  return [c.name, displayName(c, byId)].some((n) => n.trim().replace(/\s+/g, " ").toLowerCase().startsWith(q));
+}

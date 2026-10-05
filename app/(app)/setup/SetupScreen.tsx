@@ -34,7 +34,8 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
   const { catalog, error, reloadCatalog } = useStaffData();
   const toast = useToast();
   const db = getDb();
-  const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
+  // A product being changed, "new" while adding one, or null.
+  const [editingProduct, setEditingProduct] = useState<CatalogProduct | "new" | null>(null);
 
   if (error) return <p className="note bad">Couldn&apos;t load Setup: {error}</p>;
   if (!catalog) return <div className="empty">Loading...</div>;
@@ -208,7 +209,14 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
       </div>
 
       <section className="panel mt-4">
-        <h3>Products and the parts they use</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="mr-auto">Products and the parts they use</h3>
+          {canEdit && (
+            <button type="button" className="btn" onClick={() => setEditingProduct("new")}>
+              Add a product
+            </button>
+          )}
+        </div>
         <p className="small muted mt-1">What customers order, and how much of the lamb one of each takes.</p>
         <table className="simple">
           <thead>
@@ -292,7 +300,7 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
 
       {editingProduct && (
         <EditProduct
-          product={editingProduct}
+          product={editingProduct === "new" ? null : editingProduct}
           onClose={() => setEditingProduct(null)}
           onSaved={async (err) => {
             await done(err);
@@ -309,23 +317,38 @@ function EditProduct({
   onClose,
   onSaved,
 }: {
-  product: CatalogProduct;
+  /** null to add a new product */
+  product: CatalogProduct | null;
   onClose: () => void;
   onSaved: (err: string | null) => Promise<void>;
 }) {
   const { catalog } = useStaffData();
-  const [p, setP] = useState({ ...product, uses: product.uses.map((u) => ({ part_id: u.part_id, qty: String(u.qty) })) });
+  const [p, setP] = useState(() => {
+    const base = product ?? {
+      id: null,
+      name: "",
+      short_name: "",
+      unit: "each",
+      group_name: "Other",
+      cut_spec_id: null,
+      fresh_only: false,
+      active: true,
+      note: "",
+      uses: [],
+    };
+    return { ...base, uses: base.uses.map((u) => ({ part_id: u.part_id, qty: String(u.qty) })) };
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof typeof p>(k: K, v: (typeof p)[K]) => setP((x) => ({ ...x, [k]: v }));
   const unusedParts = (catalog?.parts ?? []).filter((pt) => !p.uses.some((u) => u.part_id === pt.id));
 
   return (
-    <Sheet title="Change product" onClose={onClose}>
+    <Sheet title={product ? "Change product" : "Add a product"} onClose={onClose}>
       <label className="lbl" htmlFor="pr-name">
         Name
       </label>
-      <input id="pr-name" className="field" value={p.name} onChange={(e) => set("name", e.target.value)} />
+      <input id="pr-name" className="field" autoFocus={!product} value={p.name} onChange={(e) => set("name", e.target.value)} />
       <div className="flex flex-wrap gap-3">
         <div className="min-w-[150px] flex-1">
           <label className="lbl" htmlFor="pr-short">
@@ -354,6 +377,25 @@ function EditProduct({
           </select>
         </div>
       </div>
+
+      <label className="lbl" htmlFor="pr-spec">
+        Instruction for the cut sheet
+      </label>
+      <select
+        id="pr-spec"
+        className="field"
+        value={p.cut_spec_id ?? ""}
+        onChange={(e) => set("cut_spec_id", e.target.value || null)}
+      >
+        <option value="">None (for example, ground lamb from trim)</option>
+        {(catalog?.cutSpecs ?? [])
+          .filter((s) => s.active || s.id === p.cut_spec_id)
+          .map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.text}
+            </option>
+          ))}
+      </select>
 
       <p className="lbl">Parts one of these uses</p>
       {p.uses.map((u, i) => (
@@ -392,6 +434,10 @@ function EditProduct({
         </select>
       )}
 
+      {p.uses.length === 0 && (
+        <p className="small muted">With no parts, this product won&apos;t change how many lambs to order.</p>
+      )}
+
       <label className="lbl" htmlFor="pr-note">
         Note
       </label>
@@ -424,6 +470,7 @@ function EditProduct({
               short_name: p.short_name.trim(),
               unit: p.unit,
               group_name: p.group_name,
+              cut_spec_id: p.cut_spec_id,
               fresh_only: p.fresh_only,
               active: p.active,
               note: p.note.trim(),

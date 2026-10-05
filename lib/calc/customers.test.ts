@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { callQueue, displayName, orderingCustomers, type CustomerLite } from "./customers";
+import { callQueue, displayName, matchesSearch, orderingCustomers, type CustomerLite } from "./customers";
 import type { OrderStatus } from "./types";
 
 const c = (id: string, name: string, extra: Partial<CustomerLite> = {}): CustomerLite => ({
@@ -48,5 +48,29 @@ describe("customers", () => {
       "Elm Butcher", // done
       "Fir Foods", // done (today, but already said no)
     ]);
+  });
+});
+
+describe("find a customer as you type", () => {
+  const pcc = c("p", "PCC");
+  const fremont = c("f", "Fremont", { parent_customer_id: "p" });
+  const list = [c("1", "Adams Market"), c("2", "Adobe Grill"), c("3", "Fred's Adobe"), pcc, fremont];
+  const byId = new Map(list.map((x) => [x.id, x]));
+  const find = (q: string) => list.filter((x) => matchesSearch(q, x, byId)).map((x) => displayName(x, byId));
+
+  it("narrows to names that start with the letters typed", () => {
+    expect(find("AD")).toEqual(["Adams Market", "Adobe Grill"]);
+    expect(find("ado")).toEqual(["Adobe Grill"]);
+    expect(find("x")).toEqual([]);
+  });
+
+  it("finds a store by its own name or by its chain", () => {
+    expect(find("fre")).toEqual(["Fred's Adobe", "PCC: Fremont"]);
+    expect(find("pcc")).toEqual(["PCC", "PCC: Fremont"]);
+    expect(find("pcc: f")).toEqual(["PCC: Fremont"]);
+  });
+
+  it("shows everyone when the box is empty", () => {
+    expect(find("  ")).toHaveLength(5);
   });
 });
