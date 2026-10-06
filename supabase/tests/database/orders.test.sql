@@ -109,7 +109,7 @@ select is_empty(
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000c3","role":"authenticated"}';
 select is(
   public.import_customers('[
-    {"name":"Fremont","type":"Retail","call_day":"Monday","parent":"Test Chain","notes":"","contacts":[{"name":"Sam","role":"Orders","phone":"555","email":""}]},
+    {"name":"Fremont","type":"Retail","call_day":"Monday","parent":"Test Chain","notes":"","contacts":[{"name":"Sam","roles":["orders","billing"],"phone":"555","email":""}]},
     {"name":"Test Chain","type":"Wholesale","call_day":null,"parent":null,"notes":"HQ","contacts":[]},
     {"name":"Test Market","type":"Retail","call_day":null,"parent":null,"notes":"","contacts":[]}
   ]'),

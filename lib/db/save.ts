@@ -2,6 +2,7 @@
 // Level Security applies. Each returns an error message for the screen, or null.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ContactRole, DeleteCheck } from "../calc/contacts";
 import type { OrderStatus, Qty, WeekRow } from "./types";
 
 function msg(error: { message: string } | null): string | null {
@@ -53,8 +54,9 @@ export type CustomerInput = {
   call_day: string | null;
   parent_customer_id: string | null;
   active: boolean;
+  bills_for_locations: boolean;
   notes?: string;
-  contacts: { id?: string; name: string; role: string; phone: string; email: string }[];
+  contacts: { id?: string; name: string; roles: ContactRole[]; phone: string; email: string }[];
 };
 
 /** Add or update a customer and its contacts. Returns the customer id. */
@@ -68,6 +70,7 @@ export async function saveCustomer(
     call_day: c.call_day,
     parent_customer_id: c.parent_customer_id,
     active: c.active,
+    bills_for_locations: c.bills_for_locations,
     ...(c.notes !== undefined ? { notes: c.notes } : {}),
   };
   let id = c.id;
@@ -80,7 +83,7 @@ export async function saveCustomer(
     id = data.id as string;
   }
 
-  const keep = c.contacts.filter((k) => k.name || k.phone || k.email);
+  const keep = c.contacts.filter((k) => k.name || k.phone || k.email || k.roles.length);
   const keepIds = keep.map((k) => k.id).filter((x): x is string => !!x);
   let del = db.from("customer_contacts").delete().eq("customer_id", id);
   if (keepIds.length) del = del.not("id", "in", `(${keepIds.join(",")})`);
@@ -91,7 +94,7 @@ export async function saveCustomer(
     ...(k.id ? { id: k.id } : {}),
     customer_id: id,
     name: k.name,
-    role: k.role,
+    roles: k.roles,
     phone: k.phone,
     email: k.email,
     sort,
@@ -107,6 +110,21 @@ export async function saveCustomer(
     if (error) return { id, error: error.message };
   }
   return { id, error: null };
+}
+
+/** What ties a customer to the records (see deleteBlockers). */
+export async function customerDeleteCheck(
+  db: SupabaseClient,
+  id: string,
+): Promise<{ check: DeleteCheck | null; error: string | null }> {
+  const { data, error } = await db.rpc("customer_delete_check", { p_id: id });
+  return { check: (data as DeleteCheck | null) ?? null, error: error?.message ?? null };
+}
+
+/** Delete a customer that has nothing tied to it. The database checks again. */
+export async function deleteCustomer(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await db.rpc("delete_customer", { p_id: id });
+  return msg(error);
 }
 
 // ----- Setup (SPEC 5.10) -----

@@ -934,7 +934,7 @@
   }
   @media (min-width: 600px) {
     .crow {
-      grid-template-columns: 1.2fr 1fr 1fr 1.3fr auto;
+      grid-template-columns: 1.2fr 1fr 1.3fr auto;
     }
   }
 

@@ -32,6 +32,7 @@ describe("planImport", () => {
     const fremont = plan.customers[0];
     expect(fremont).toMatchObject({ name: "Fremont", type: "Retail", call_day: "Monday", parent: "PCC Community Markets" });
     expect(fremont.contacts.map((k) => k.name)).toEqual(["Sam Lee", "Ana Diaz"]);
+    expect(fremont.contacts.map((k) => k.roles)).toEqual([["receiving"], ["orders"]]);
     expect(fremont.notes).toBe("Deliver before 10");
     expect(plan.customers[2]).toMatchObject({ name: "Joe's Diner", call_day: "Friday", parent: "" });
   });
@@ -51,6 +52,15 @@ describe("planImport", () => {
     const plan = planImport([HEADER, "Shop,Grocery,Someday,,,,,,"].join("\n"), []);
     expect(plan.customers[0]).toMatchObject({ type: "Other", call_day: null });
     expect(plan.customers[0].warnings).toHaveLength(2);
+  });
+
+  it("reads several contact roles separated by semicolons", () => {
+    const plan = planImport([HEADER, "Shop,Retail,,,Pat,orders; Billing,,,", "Shop,,,,Lee,boss;receiving,,,"].join("\n"), []);
+    expect(plan.customers[0].contacts.map((k) => k.roles)).toEqual([["orders", "billing"], ["receiving"]]);
+    expect(plan.customers[0].warnings).toEqual([
+      `Row 3: role "boss" isn't orders, receiving, or billing. It will be left off.`,
+    ]);
+    expect(importPayload(plan)[0].contacts[0]).toEqual({ name: "Pat", roles: ["orders", "billing"], phone: "", email: "" });
   });
 
   it("does not create a parent that is also in the file", () => {

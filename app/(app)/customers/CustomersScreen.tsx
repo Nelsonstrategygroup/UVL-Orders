@@ -1,6 +1,7 @@
 "use client";
 
 // Customers list (SPEC 5.9): type, call day, last contact, open follow-ups.
+// Shows active customers unless "Inactive" or "All" is picked.
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -9,15 +10,23 @@ import { displayName, matchesSearch, sortByDisplayName } from "@/lib/calc/custom
 import { ago } from "@/lib/dates";
 import EditCustomer from "./EditCustomer";
 
+type Show = "active" | "inactive" | "all";
+const SHOW_LABEL: Record<Show, string> = { active: "Active", inactive: "Inactive", all: "All" };
+const fits = (show: Show, active: boolean) => show === "all" || (show === "active") === active;
+
 export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
   const { customers, error } = useStaffData();
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState("");
+  const [show, setShow] = useState<Show>("active");
 
-  const list = useMemo(() => {
+  // Everyone matching the search, then split by what's picked.
+  const found = useMemo(() => {
     if (!customers) return [];
     return sortByDisplayName(customers.list, customers.byId).filter((c) => matchesSearch(filter, c, customers.byId));
   }, [customers, filter]);
+  const list = found.filter((c) => fits(show, c.active));
+  const hidden = found.length - list.length;
 
   if (error) return <p className="note bad">Couldn&apos;t load customers: {error}</p>;
   if (!customers) return <div className="empty">Loading customers...</div>;
@@ -35,6 +44,16 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
           Add customer
         </button>
       </div>
+
+      {customers.list.length > 0 && (
+        <div className="seg mb-3" role="group" aria-label="Show">
+          {(["active", "inactive", "all"] as Show[]).map((k) => (
+            <button key={k} type="button" aria-pressed={show === k} onClick={() => setShow(k)}>
+              {SHOW_LABEL[k]} ({customers.list.filter((c) => fits(k, c.active)).length})
+            </button>
+          ))}
+        </div>
+      )}
 
       {customers.list.length > 0 && (
         <div className="mb-3 flex gap-2">
@@ -91,7 +110,21 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
             {isAdmin ? " Add them one at a time, or import a spreadsheet." : " Add them one at a time."}
           </div>
         )}
-        {customers.list.length > 0 && !list.length && <p className="muted">No customer name starts with “{filter.trim()}”.</p>}
+        {customers.list.length > 0 && !found.length && filter.trim() && (
+          <p className="muted">No customer name starts with “{filter.trim()}”.</p>
+        )}
+        {customers.list.length > 0 && found.length > 0 && !list.length && !filter.trim() && (
+          <p className="muted">No {show === "active" ? "active" : "inactive"} customers.</p>
+        )}
+        {hidden > 0 && filter.trim() && (
+          <p className="muted">
+            {list.length ? "Also " : ""}
+            {hidden} {show === "active" ? "inactive" : "active"} {hidden === 1 ? "match" : "matches"}.{" "}
+            <button type="button" className="copy min-h-[44px]" onClick={() => setShow("all")}>
+              Show them
+            </button>
+          </p>
+        )}
       </div>
 
       {adding && <EditCustomer customer={null} onClose={() => setAdding(false)} />}

@@ -8,13 +8,14 @@ import { useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
+import { CONTACT_ROLES, ROLE_LABEL, type ContactRole } from "@/lib/calc/contacts";
 import { DAYS } from "@/lib/dates";
 import { saveCustomer } from "@/lib/db/save";
 import type { Customer } from "@/lib/db/types";
 import { CUSTOMER_TYPES } from "@/lib/import/customers";
 
-type ContactDraft = { id?: string; name: string; role: string; phone: string; email: string };
-const blank = (): ContactDraft => ({ name: "", role: "", phone: "", email: "" });
+type ContactDraft = { id?: string; name: string; roles: ContactRole[]; phone: string; email: string };
+const blank = (): ContactDraft => ({ name: "", roles: [], phone: "", email: "" });
 
 export default function EditCustomer({ customer, onClose }: { customer: Customer | null; onClose: () => void }) {
   const { customers, reloadCustomers } = useStaffData();
@@ -26,8 +27,9 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
   const [callDay, setCallDay] = useState(customer?.call_day ?? "");
   const [parentId, setParentId] = useState(customer?.parent_customer_id ?? "");
   const [active, setActive] = useState(customer?.active ?? true);
+  const [billsAll, setBillsAll] = useState(customer?.bills_for_locations ?? false);
   const [contacts, setContacts] = useState<ContactDraft[]>(() => {
-    const list = (customer?.contacts ?? []).map((k) => ({ id: k.id, name: k.name, role: k.role, phone: k.phone, email: k.email }));
+    const list = (customer?.contacts ?? []).map((k) => ({ id: k.id, name: k.name, roles: k.roles, phone: k.phone, email: k.email }));
     return list.length ? list : [blank()];
   });
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +40,14 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
   const hasKids = !!customer && !!customers?.list.some((c) => c.parent_customer_id === customer.id);
   const parents = (customers?.list ?? []).filter((c) => !c.parent_customer_id && c.id !== customer?.id);
 
-  const setContact = (i: number, field: keyof ContactDraft, value: string) =>
+  const setContact = (i: number, field: "name" | "phone" | "email", value: string) =>
     setContacts((list) => list.map((k, j) => (j === i ? { ...k, [field]: value } : k)));
+  const toggleRole = (i: number, r: ContactRole, on: boolean) =>
+    setContacts((list) =>
+      list.map((k, j) =>
+        j === i ? { ...k, roles: CONTACT_ROLES.filter((x) => (x === r ? on : k.roles.includes(x))) } : k,
+      ),
+    );
 
   async function save() {
     if (!name.trim()) {
@@ -54,7 +62,9 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
       call_day: callDay || null,
       parent_customer_id: parentId || null,
       active,
-      contacts: contacts.map((k) => ({ ...k, name: k.name.trim(), role: k.role.trim(), phone: k.phone.trim(), email: k.email.trim() })),
+      // Only a parent bills for its locations.
+      bills_for_locations: hasKids && billsAll,
+      contacts: contacts.map((k) => ({ ...k, name: k.name.trim(), phone: k.phone.trim(), email: k.email.trim() })),
     });
     setBusy(false);
     if (err) {
@@ -120,13 +130,6 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
           <input className="field" placeholder="Name" aria-label="Name" value={k.name} onChange={(e) => setContact(i, "name", e.target.value)} />
           <input
             className="field"
-            placeholder="Role (orders, receiving, billing)"
-            aria-label="Role"
-            value={k.role}
-            onChange={(e) => setContact(i, "role", e.target.value)}
-          />
-          <input
-            className="field"
             inputMode="tel"
             placeholder="Phone"
             aria-label="Phone"
@@ -144,11 +147,37 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
           <button type="button" className="copy min-h-[44px]" onClick={() => setContacts((list) => list.filter((_, j) => j !== i))}>
             Remove
           </button>
+          <fieldset className="col-span-full m-0 flex flex-wrap gap-x-5 border-0 p-0">
+            <legend className="sr-only">What {k.name.trim() || "this person"} handles</legend>
+            {CONTACT_ROLES.map((r) => (
+              <label key={r} className="flex min-h-[44px] items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-forest"
+                  checked={k.roles.includes(r)}
+                  onChange={(e) => toggleRole(i, r, e.target.checked)}
+                />
+                {ROLE_LABEL[r]}
+              </label>
+            ))}
+          </fieldset>
         </div>
       ))}
       <button type="button" className="btn ghost mt-2" onClick={() => setContacts((list) => [...list, blank()])}>
         Add another person
       </button>
+
+      {hasKids && (
+        <label className="mt-4 flex min-h-[44px] items-center gap-3">
+          <input
+            type="checkbox"
+            className="h-6 w-6 accent-forest"
+            checked={billsAll}
+            onChange={(e) => setBillsAll(e.target.checked)}
+          />
+          Bills for all locations
+        </label>
+      )}
 
       <label className="mt-4 flex min-h-[44px] items-center gap-3">
         <input type="checkbox" className="h-6 w-6 accent-forest" checked={active} onChange={(e) => setActive(e.target.checked)} />

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
+import { rolesLabel } from "@/lib/calc/contacts";
 import { importPayload, IMPORT_COLUMNS, planImport, templateCsv, type ImportPlan } from "@/lib/import/customers";
 
 export default function ImportScreen() {
@@ -81,6 +82,10 @@ export default function ImportScreen() {
         <li>Only “name” is required.</li>
         <li>For a store location, put the chain&apos;s name in “parent”, for example PCC Community Markets.</li>
         <li>For a second contact, add another row with the same name.</li>
+        <li>
+          In “contact_role”, put orders, receiving, or billing. For more than one, separate them with semicolons, for example
+          orders; billing.
+        </li>
         <li>Customers already in the list are skipped, never changed.</li>
       </ul>
 
@@ -146,7 +151,7 @@ export default function ImportScreen() {
                         <td>{c.call_day ?? ""}</td>
                         <td className="small">
                           {c.contacts.map((k, i) => (
-                            <div key={i}>{[k.name, k.role, k.phone, k.email].filter(Boolean).join(", ")}</div>
+                            <div key={i}>{[k.name, rolesLabel(k.roles), k.phone, k.email].filter(Boolean).join(", ")}</div>
                           ))}
                         </td>
                         <td>{c.status === "new" ? "Added" : <span className="muted">Already in the list, skipped</span>}</td>

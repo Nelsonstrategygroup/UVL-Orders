@@ -4,19 +4,29 @@
 // and a history that merges contact log entries with weekly orders.
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useWeekData } from "@/components/data/useWeekData";
 import OrderEditor from "@/components/OrderEditor";
+import Sheet from "@/components/Sheet";
 import { orderSummary } from "@/components/ReadBack";
 import { useMe } from "@/components/CurrentUser";
 import { useToast } from "@/components/Toast";
 import { useWeek } from "@/components/Week";
+import { billedThrough, deleteBlockers, rolesLabel, type DeleteCheck } from "@/lib/calc/contacts";
 import { displayName, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate } from "@/lib/dates";
 import { loadCustomerHistory, type HistoryEntry } from "@/lib/db/load";
-import { logContact, saveCustomerNotes, setFollowUpDone, updateContact } from "@/lib/db/save";
-import type { Customer } from "@/lib/db/types";
+import {
+  customerDeleteCheck,
+  deleteCustomer,
+  logContact,
+  saveCustomerNotes,
+  setFollowUpDone,
+  updateContact,
+} from "@/lib/db/save";
+import type { Contact, Customer } from "@/lib/db/types";
 import { STATUS_LABEL } from "@/lib/orders";
 import EditCustomer from "../EditCustomer";
 
@@ -63,6 +73,7 @@ export default function CustomerPage({ id }: { id: string }) {
   const parent = c.parent_customer_id ? customers.byId.get(c.parent_customer_id) : undefined;
   const kids = customers.list.filter((k) => k.parent_customer_id === c.id);
   const orders = orderingCustomers(customers.list).some((k) => k.id === c.id);
+  const billing = billedThrough(c, customers.byId);
   const meta = [c.type, c.call_day ? `Call ${c.call_day}` : "", c.active ? "" : "Not active"].filter(Boolean);
 
   return (
@@ -92,26 +103,31 @@ export default function CustomerPage({ id }: { id: string }) {
 
       <section className="mt-3 grid gap-2">
         {c.contacts.length ? (
-          c.contacts.map((k) => (
-            <div key={k.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <b>{k.name || "Contact"}</b>
-              {k.role && <span className="small muted">{k.role}</span>}
-              {k.phone && (
-                <a href={`tel:${k.phone}`} className="inline-flex min-h-[44px] items-center text-forest">
-                  {k.phone}
-                </a>
-              )}
-              {k.email && (
-                <a href={`mailto:${k.email}`} className="text-forest">
-                  {k.email}
-                </a>
-              )}
-            </div>
-          ))
+          c.contacts.map((k) => <ContactLine key={k.id} k={k} />)
         ) : (
           <span className="small muted">No contacts yet.</span>
         )}
       </section>
+
+      {billing && (
+        <section className="panel mt-4">
+          <h3 className="mb-1">
+            Billed through{" "}
+            <Link href={`/customers/${billing.parent.id}`} className="text-forest">
+              {billing.parent.name}
+            </Link>
+          </h3>
+          {billing.contacts.length ? (
+            <div className="grid gap-1">
+              {billing.contacts.map((k) => (
+                <ContactLine key={k.id} k={k} />
+              ))}
+            </div>
+          ) : (
+            <p className="small muted my-0">{billing.parent.name} has no billing contact yet.</p>
+          )}
+        </section>
+      )}
 
       {kids.length > 0 && (
         <section className="panel mt-4">
@@ -162,8 +178,106 @@ export default function CustomerPage({ id }: { id: string }) {
         <p className="small muted">Nothing yet. Calls you log and weekly orders show up here.</p>
       )}
 
+      <DeleteCustomer customer={c} name={displayName(c, customers.byId)} recheck={[history, kids.length]} />
+
       {editing && <EditCustomer customer={c} onClose={() => setEditing(false)} />}
     </div>
+  );
+}
+
+function ContactLine({ k }: { k: Contact }) {
+  const roles = rolesLabel(k.roles);
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <b>{k.name || "Contact"}</b>
+      {roles && <span className="small muted">{roles}</span>}
+      {k.phone && (
+        <a href={`tel:${k.phone}`} className="inline-flex min-h-[44px] items-center text-forest">
+          {k.phone}
+        </a>
+      )}
+      {k.email && (
+        <a href={`mailto:${k.email}`} className="text-forest">
+          {k.email}
+        </a>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Delete is only for a customer that was never used: no orders, no history,
+ * no cut sheet links, no locations. Otherwise say why and point to Active.
+ */
+function DeleteCustomer({ customer, name, recheck }: { customer: Customer; name: string; recheck: unknown[] }) {
+  const { reloadCustomers } = useStaffData();
+  const router = useRouter();
+  const toast = useToast();
+  const [check, setCheck] = useState<DeleteCheck | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const key = JSON.stringify(recheck.map((x) => (Array.isArray(x) ? x.length : x)));
+
+  useEffect(() => {
+    let live = true;
+    customerDeleteCheck(getDb(), customer.id).then(({ check }) => live && setCheck(check));
+    return () => {
+      live = false;
+    };
+  }, [customer.id, key]);
+
+  if (!check) return null;
+  const why = deleteBlockers(check);
+
+  async function remove() {
+    setBusy(true);
+    const err = await deleteCustomer(getDb(), customer.id);
+    if (err) {
+      setBusy(false);
+      setError(err.startsWith("Only") || err.includes("Active") || err.includes("locations") ? err : `Couldn't delete: ${err}`);
+      return;
+    }
+    await reloadCustomers();
+    toast(`Deleted ${name}`);
+    router.push("/customers");
+  }
+
+  if (why.length)
+    return (
+      <p className="small muted mt-6">
+        {check.locations
+          ? `To delete this customer, delete its ${check.locations === 1 ? "location" : "locations"} first.`
+          : `This customer can't be deleted because it has ${why.join(", ")}.`}{" "}
+        To hide it, tap <b>Edit details and contacts</b> and untick <b>Active</b>.
+      </p>
+    );
+
+  return (
+    <>
+      <p className="mt-6">
+        <button type="button" className="btn danger" onClick={() => setAsking(true)}>
+          Delete this customer
+        </button>
+      </p>
+      {asking && (
+        <Sheet title="Delete this customer?" onClose={() => setAsking(false)}>
+          <p className="mt-0">
+            <b>{name}</b> and {customer.contacts.length ? "its contacts" : "its details"} will be removed. This can&apos;t be
+            undone.
+          </p>
+          {error && <p className="note bad">{error}</p>}
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" className="btn ghost" onClick={() => setAsking(false)}>
+              Keep it
+            </button>
+            <button type="button" className="btn danger" disabled={busy} onClick={() => void remove()}>
+              {busy ? "Deleting..." : "Delete"}
+            </button>
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 

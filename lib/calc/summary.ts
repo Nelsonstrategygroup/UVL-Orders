@@ -25,6 +25,35 @@ export function cutSheetTotals(
 }
 
 /**
+ * The one lamb count to show at the top of This week, and where it came from.
+ * It always matches the producer message: the cut sheet's total when the week
+ * has one, otherwise "Your number" or the count from orders. When the cut
+ * sheet disagrees with the others, `note` says so, for example
+ * "144 from the cut sheet (orders suggest 0)".
+ */
+export function lambHeadline(opts: {
+  /** From the orders (calcWeek's recommended). */
+  recommended: number;
+  /** "Your number" (weeks.lamb_override). */
+  override: number | null;
+  cutSheetTotal: number;
+}): { lambs: number; from: "cut sheet" | "your number" | "orders"; note: string | null } {
+  const { recommended, override, cutSheetTotal } = opts;
+  if (cutSheetTotal > 0) {
+    const others: string[] = [];
+    if (override != null && override !== cutSheetTotal) others.push(`your number is ${override}`);
+    if (recommended !== cutSheetTotal) others.push(`orders suggest ${recommended}`);
+    return {
+      lambs: cutSheetTotal,
+      from: "cut sheet",
+      note: others.length ? `${cutSheetTotal} from the cut sheet (${others.join(", ")})` : null,
+    };
+  }
+  if (override != null) return { lambs: override, from: "your number", note: null };
+  return { lambs: recommended, from: "orders", note: null };
+}
+
+/**
  * The message for the producer. Uses the cut sheet's totals by size when the
  * week has a cut sheet, otherwise the order-based count.
  */

@@ -2,6 +2,7 @@
 
 import type { Part, Product, Qty, OrderStatus, HalfWholeOrder, FreezerEntry } from "../calc/types";
 import type { CustomerType } from "../import/customers";
+import type { ContactRole } from "../calc/contacts";
 
 export type { Part, Product, Qty, OrderStatus };
 
@@ -32,7 +33,7 @@ export type Contact = {
   id: string;
   customer_id: string;
   name: string;
-  role: string;
+  roles: ContactRole[];
   phone: string;
   email: string;
   sort: number;
@@ -46,6 +47,7 @@ export type Customer = {
   notes: string;
   active: boolean;
   parent_customer_id: string | null;
+  bills_for_locations: boolean;
   contacts: Contact[];
 };
 

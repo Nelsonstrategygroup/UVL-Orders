@@ -1,9 +1,12 @@
 // "Import customers from a spreadsheet" (SPEC 5.9).
 // Columns: name, type, call_day, parent, contact_name, contact_role, phone, email, notes
+// contact_role is one or more of orders, receiving, billing, separated by
+// semicolons ("orders; billing").
 // Several rows with the same name (and parent) become one customer with
 // several contacts. Customers already in the list are skipped, never changed.
 
 import { DAYS } from "../dates";
+import { parseRoles, type ContactRole } from "../calc/contacts";
 import { parseCsv } from "./csv";
 
 export const IMPORT_COLUMNS = [
@@ -21,7 +24,7 @@ export const IMPORT_COLUMNS = [
 export const CUSTOMER_TYPES = ["Retail", "Wholesale", "Restaurant", "Distributor", "Other"] as const;
 export type CustomerType = (typeof CUSTOMER_TYPES)[number];
 
-export type ImportContact = { name: string; role: string; phone: string; email: string };
+export type ImportContact = { name: string; roles: ContactRole[]; phone: string; email: string };
 
 export type ImportCustomer = {
   name: string;
@@ -121,9 +124,14 @@ export function planImport(
       if (!cust.notes) cust.notes = get(r, col.notes);
     }
     cust.rows.push(rowNo);
+    const roles = parseRoles(get(r, col.contact_role));
+    if (roles.unknown.length)
+      cust.warnings.push(
+        `Row ${rowNo}: role "${roles.unknown.join("; ")}" isn't orders, receiving, or billing. It will be left off.`,
+      );
     const contact = {
       name: get(r, col.contact_name),
-      role: get(r, col.contact_role),
+      roles: roles.roles,
       phone: get(r, col.phone),
       email: get(r, col.email),
     };

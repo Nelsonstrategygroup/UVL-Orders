@@ -77,10 +77,10 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
 export async function loadCustomers(db: SupabaseClient): Promise<CustomersData> {
   const [customers, contacts, last, follow, usual] = await Promise.all([
     fetchAll<Omit<Customer, "contacts">>((a, b) =>
-      db.from("customers").select("id, name, type, call_day, notes, active, parent_customer_id").order("name").range(a, b),
+      db.from("customers").select("id, name, type, call_day, notes, active, parent_customer_id, bills_for_locations").order("name").range(a, b),
     ),
     fetchAll<Contact>((a, b) =>
-      db.from("customer_contacts").select("id, customer_id, name, role, phone, email, sort").order("sort").range(a, b),
+      db.from("customer_contacts").select("id, customer_id, name, roles, phone, email, sort").order("sort").range(a, b),
     ),
     fetchAll<LastContact>((a, b) =>
       db.from("customer_last_contact").select("customer_id, kind, summary, created_at").range(a, b),
