@@ -11,9 +11,10 @@ import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { fmt, num } from "@/lib/calc/num";
+import { countUnit } from "@/lib/calc/units";
 import { niceDate } from "@/lib/dates";
 import { addFreezerEntry, loadHalfWhole, removeFreezerEntry, type FreezerRow } from "@/lib/db/halfwhole";
-import type { CatalogProduct } from "@/lib/db/types";
+import type { CatalogPart, CatalogProduct } from "@/lib/db/types";
 
 const RECENT = 40;
 
@@ -73,7 +74,7 @@ export default function FreezerScreen() {
                 return (
                   <tr key={p.id}>
                     <td>
-                      {p.name} <span className="small muted">{p.unit}</span>
+                      {p.name} <span className="small muted">{countUnit(p, catalog.parts)}</span>
                     </td>
                     <td className="num">
                       <b>{fmt(oh)}</b>
@@ -129,6 +130,7 @@ export default function FreezerScreen() {
       {adding && (
         <FreezerChange
           products={products}
+          parts={catalog.parts}
           onClose={close}
           onSave={async (entry) => {
             const err = await addFreezerEntry(db, entry);
@@ -145,10 +147,12 @@ export default function FreezerScreen() {
 
 function FreezerChange({
   products,
+  parts,
   onClose,
   onSave,
 }: {
   products: CatalogProduct[];
+  parts: CatalogPart[];
   onClose: () => void;
   onSave: (e: { product_id: string; qty: number; note: string }) => Promise<void>;
 }) {
@@ -159,6 +163,7 @@ function FreezerChange({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const value = Math.max(0, num(qty));
+  const chosen = products.find((p) => p.id === productId);
 
   return (
     <Sheet title="Freezer change" onClose={onClose}>
@@ -181,7 +186,10 @@ function FreezerChange({
         ))}
       </select>
       <label className="lbl" htmlFor="fz-qty">
-        How many
+        How many{" "}
+        {chosen && countUnit(chosen, parts) !== chosen.unit && (
+          <span className="font-normal">{countUnit(chosen, parts)}</span>
+        )}
       </label>
       <div className="stepper">
         <button type="button" aria-label="One less" onClick={() => setQty(fmt(Math.max(0, value - 1)))}>
