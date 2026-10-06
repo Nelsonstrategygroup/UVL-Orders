@@ -17,7 +17,7 @@ import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
-import { cutSheetTotals, legBreakdown, legBreakdownText, producerMessage } from "@/lib/calc/summary";
+import { cutSheetTotals, lambHeadline, legBreakdown, legBreakdownText, producerMessage } from "@/lib/calc/summary";
 import { calcWeek, type PartRow } from "@/lib/calc/week";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
@@ -51,6 +51,8 @@ export default function WeekScreen() {
     override: w?.lamb_override ?? null,
   });
   const cs = cutSheetTotals(data.cutSets, catalog.sizes);
+  // One number at the top, the same one the producer message uses.
+  const head = lambHeadline({ recommended: c.recommended, override: w?.lamb_override ?? null, cutSheetTotal: cs.total });
   const message = producerMessage({ lambs: c.final, processDate: w?.process_date ?? null, cutSheet: cs });
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
 
@@ -89,13 +91,18 @@ export default function WeekScreen() {
       <div className="grid2">
         <div className="panel">
           <div className="count">
-            <div className="big num">{c.final}</div>
+            <div className="big num">{head.lambs}</div>
             <div className="max-w-[34ch] pb-1.5">
               <h2>lambs to order</h2>
+              {head.from === "cut sheet" && (
+                <div className={head.note ? "font-semibold" : "muted"}>
+                  {head.note ? `${head.note}.` : "From the cut sheet. The orders agree."}
+                </div>
+              )}
               <div className="muted">
                 {c.recommended === 0
                   ? "No orders entered for this week yet."
-                  : `Set by ${c.driver!.part.name.toLowerCase()}. ${fmt(c.driver!.need)}${unit(c.driver!)} needed, ${fmt(c.driver!.part.per_lamb)}${unit(c.driver!)} per lamb.`}
+                  : `${head.from === "cut sheet" ? "Orders: set" : "Set"} by ${c.driver!.part.name.toLowerCase()}. ${fmt(c.driver!.need)}${unit(c.driver!)} needed, ${fmt(c.driver!.part.per_lamb)}${unit(c.driver!)} per lamb.`}
               </div>
             </div>
           </div>
