@@ -124,8 +124,9 @@ export default async function HelpPage() {
         If customers are linked to a set, <b>Put these on this set</b> adds their orders to it.
       </Step>
       <Step n={6} title="Print it for Mohawk">
-        At the bottom, <b>What Mohawk gets</b> shows the sheet as it prints. Tap <b>Print or save as PDF</b>. Printing marks it
-        sent. If you change it later, the app says <b>Send an update</b>.
+        At the bottom, <b>What Mohawk gets</b> shows the sheet as it prints. Tap <b>Print or save as PDF</b>. Afterward it asks
+        <b> Did this go to Mohawk?</b> Tap <b>Yes</b> once it&apos;s on its way, or <b>Not yet</b> if you only printed a copy to
+        check. If you change it after that, the app says <b>Send an update</b>.
         <Shot
           src="/help/cut-sheet-print.jpg"
           alt="The printed sheet preview with the Print or save as PDF button"

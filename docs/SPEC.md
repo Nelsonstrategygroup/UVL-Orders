@@ -84,7 +84,7 @@ Seed all of the above from `reference/seed-data.json`. When a user adds a new cu
 ### 4.3 Customers and CRM
 
 - `customers`: `name`, `type` (Retail, Wholesale, Restaurant, Distributor, Other), `call_day` (weekday name or null), `notes text` (standing notes), `active boolean`, `parent_customer_id uuid` nullable self-reference. A parent such as "PCC Community Markets" has child locations (each PCC store), and each location places its own order.
-- `customer_contacts`: `customer_id`, `name`, `role` (Orders, Receiving, Billing, free text), `phone`, `email`, `sort`.
+- `customer_contacts`: `customer_id`, `name`, `roles text[]` (any of orders, receiving, billing; checkboxes), `phone`, `email`, `sort`. `customers.bills_for_locations` marks a parent that pays for its locations.
 - `contact_log`: `customer_id`, `kind` (`call`, `email`, `visit`, `note`), `summary text`, `follow_up_date date`, `follow_up_note text`, `follow_up_done boolean default false`, `created_by uuid`. Only the author can edit an entry. Every edit is preserved in the audit log (4.7). No one can hard-delete; "delete" sets `deleted_at` and hides the entry.
 
 ### 4.4 Weekly orders and packing
@@ -173,7 +173,7 @@ Port the prototype's Cut sheet screen exactly. Key behaviors:
 - Instructions: active saving goals (editable, "Finished" button), this week's banners (add, edit, remove).
 - Sets, in order, each with name, lambs, size, move up and down, delete (with undo), yellow headline, and lines. A line has qty, a cut spec picker grouped by part (plus "Note line, no count" and "Add a new instruction..."), side note, highlight cycle (none, yellow, blue, green), "shank on" checkbox on plain leg lines, move up, delete. Under the lines, the balance chips (6.3). Below that, linked customers with "Link a customer..." and, when they have orders this week, the "Put these on this set" action (6.4).
 - Bottom: pulled-from-inventory counts and UVL notes.
-- "What Mohawk gets" preview rendered in Mohawk's paper layout (see the prototype's `csHTML`), with **Print or save as PDF as the primary button**, because Kathy hand-delivers the sheet. Secondary: "Email to Mohawk" (opens a `mailto:` with a plain-text version), "Copy as text," and "I sent it another way." Printing or emailing marks the sheet as sent. Use print CSS so only the sheet prints, with colors.
+- "What Mohawk gets" preview rendered in Mohawk's paper layout (see the prototype's `csHTML`), with **Print or save as PDF as the primary button**, because Kathy hand-delivers the sheet. Secondary: "Email to Mohawk" (opens a `mailto:` with a plain-text version), "Copy as text," and "I sent it another way." After printing or emailing, the app asks "Did this go to Mohawk?" (Yes / Not yet); only Yes (or "I sent it another way") marks the sheet as sent. Use print CSS so only the sheet prints, with colors.
 - If anything changes after it was sent, show "Changed after you sent it on [time]. Send an update." and mark the next email subject "(UPDATED)".
 
 ### 5.6 Packing

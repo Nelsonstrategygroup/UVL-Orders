@@ -32,6 +32,8 @@ export default function CutSheetScreen() {
   const { data, error, refresh } = useLive(`cutsheet-${week}`, load, LIVE_TABLES);
   const [newSpecFor, setNewSpecFor] = useState<SheetLine | null>(null);
   const [confirmSend, setConfirmSend] = useState<null | "print" | "email">(null);
+  // After printing or emailing: "Did this go to Mohawk?" Remembers what was sent.
+  const [askSent, setAskSent] = useState<null | { how: "print" | "email"; hash: string }>(null);
 
   const specMap = useMemo(
     () => new Map<string, CutSpecLite>((catalog?.cutSpecs ?? []).map((s) => [s.id, s])),
@@ -108,19 +110,21 @@ export default function CutSheetScreen() {
   const changed = status.kind === "changed";
   const when = sh.sent_at ? formatDateTime(sh.sent_at) : "";
 
-  async function markSentNow() {
-    await run(cs.markSent(db, week, hashText(plain)));
+  async function markSentNow(hash = hashText(plain)) {
+    await run(cs.markSent(db, week, hash));
   }
 
-  async function doPrint() {
-    await markSentNow();
-    // Let the sheet render as sent, then print.
+  // Printing or emailing doesn't mark it sent by itself: Kathy may print a
+  // copy to check, or close the email without sending. Ask afterward.
+  function doPrint() {
+    setAskSent({ how: "print", hash: hashText(plain) });
+    // The question is hidden when printing; it's there when the print window closes.
     setTimeout(() => window.print(), 50);
   }
 
-  async function doEmail() {
+  function doEmail() {
     const subject = emailSubject(sh.inv_number, changed, niceDate(week));
-    await markSentNow();
+    setAskSent({ how: "email", hash: hashText(plain) });
     window.location.assign(
       `mailto:${encodeURIComponent(catalog!.settings?.processor_email ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(textFor(changed))}`,
     );
@@ -129,7 +133,8 @@ export default function CutSheetScreen() {
 
   const send = (how: "print" | "email") => {
     if (problems.length) setConfirmSend(how);
-    else void (how === "print" ? doPrint() : doEmail());
+    else if (how === "print") doPrint();
+    else doEmail();
   };
 
   // ----- Set and line actions -----
@@ -380,7 +385,7 @@ export default function CutSheetScreen() {
             )}
           </div>
           <p className="small muted mt-2 mb-0">
-            Printing or emailing marks it as sent. Email sends a plain-text version; for the colored one, print it or save a
+            After you print or email it, the app asks if it went to {processor}. Email sends a plain-text version; for the colored one, print it or save a
             PDF and attach that.
             {!catalog.settings?.processor_email && ` Add ${processor}'s email address in Setup and it fills in automatically.`}
           </p>
@@ -405,6 +410,34 @@ export default function CutSheetScreen() {
         />
       )}
 
+      {askSent && (
+        <Sheet title={`Did this go to ${processor}?`} onClose={() => setAskSent(null)}>
+          <p className="mt-0 text-[1.05rem]">
+            {askSent.how === "print"
+              ? `If you'll hand this copy to ${processor}, tap Yes.`
+              : "If you pressed Send on the email, tap Yes."}{" "}
+            Tap Not yet if you only looked at it.
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" className="btn ghost" onClick={() => setAskSent(null)}>
+              Not yet
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={async () => {
+                const { hash } = askSent;
+                setAskSent(null);
+                await markSentNow(hash);
+                toast("Marked as sent");
+              }}
+            >
+              Yes
+            </button>
+          </div>
+        </Sheet>
+      )}
+
       {confirmSend && (
         <Sheet title="Some sets don't add up" onClose={() => setConfirmSend(null)}>
           <p className="mt-0 text-[1.05rem]">
@@ -421,7 +454,8 @@ export default function CutSheetScreen() {
               onClick={() => {
                 const how = confirmSend;
                 setConfirmSend(null);
-                void (how === "print" ? doPrint() : doEmail());
+                if (how === "print") doPrint();
+                else doEmail();
               }}
             >
               Send anyway

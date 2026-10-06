@@ -38,7 +38,7 @@ export default function MohawkSheet({
             <br />
             INV# {sh.inv_number}
             <br />
-            Total Lamb: {total}.0
+            Total Lamb: {total}
           </div>
           <div>
             {banners.length ? (
@@ -97,7 +97,7 @@ export default function MohawkSheet({
             Small {sh.pulled_small || ""}
             <br />
             <br />
-            TOTAL {total}.0
+            TOTAL {total}
           </div>
           <div className="cs-notes">
             UVL Notes
