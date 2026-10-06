@@ -68,7 +68,7 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
           />
           {filter && (
             <button type="button" className="btn ghost shrink-0" onClick={() => setFilter("")}>
-              Show all
+              Clear search
             </button>
           )}
         </div>

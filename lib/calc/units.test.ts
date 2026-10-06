@@ -33,6 +33,7 @@ describe("count unit", () => {
   });
 
   it("leaves other products alone", () => {
+    expect(countUnit(product("UVL racks to Vac (SINGLE PACK)", "each", [{ part_id: "rack", qty: 1 }]), parts)).toBe("each");
     expect(countUnit(product("Ground lamb", "lb", [{ part_id: "trim", qty: 1 }]), parts)).toBe("lb");
   });
 });

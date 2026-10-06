@@ -4,7 +4,7 @@
 
 import type { Part, Product } from "./types";
 
-const PACK = /\b\d+\s*\/\s*pa(?:c)?k\b|\bsingle pack\b/i;
+const PACK = /\b\d+\s*\/\s*pa(?:c)?k\b/i;
 
 /** "front shanks (not packs)" for a pack product; otherwise the product's unit. */
 export function countUnit(p: Pick<Product, "name" | "unit" | "uses">, parts: Pick<Part, "id" | "name">[]): string {
