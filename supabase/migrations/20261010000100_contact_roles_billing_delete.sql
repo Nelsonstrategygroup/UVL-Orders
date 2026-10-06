@@ -17,7 +17,9 @@ set roles = array(
 )
 where coalesce(role, '') <> '';
 
-alter table public.customer_contacts drop column role;
+-- The old free-text column stays until the screens that use roles are live,
+-- so the running site keeps working in between. A later migration drops it.
+comment on column public.customer_contacts.role is 'Old free-text role. Replaced by roles; to be dropped.';
 
 -- ---------------------------------------------------------------------------
 -- A parent that pays for its locations ("Bills for all locations").
