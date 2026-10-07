@@ -3,8 +3,12 @@
 //   npm run seed
 //
 // Safe to run more than once. It only adds rows that are missing, so it never
-// overwrites changes made later on the Setup screen. The sample cut sheet
-// (week of 2026-09-28) is added only if that week has no cut sheet yet.
+// overwrites changes made later on the Setup screen.
+//
+// It loads Setup data only (parts, products, cut instructions, sizes, Mohawk
+// settings). Kathy's sample 9/30 cut sheet in seed-data.json is NOT loaded:
+// it was cleared as sample data on 2026-10-06 and must not come back. It is
+// still used by the calculation tests (lib/calc/testData.ts).
 //
 // Needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (from .env.local).
 
@@ -67,24 +71,6 @@ async function main() {
     console.log("  app_settings: updated");
   } else {
     console.log("  app_settings: nothing to change");
-  }
-
-  console.log(`Sample cut sheet (week of ${plan.sample.week.id})`);
-  const { data: existing, error: csErr } = await db
-    .from("cut_sheets")
-    .select("week_id")
-    .eq("week_id", plan.sample.week.id)
-    .maybeSingle();
-  if (csErr) throw new Error(`cut_sheets: ${csErr.message}`);
-  if (existing) {
-    console.log("  already there, skipped");
-  } else {
-    const s = plan.sample;
-    await insertMissing("weeks", [s.week], "id");
-    await insertRows("cut_sheets", [s.cut_sheet]);
-    await insertRows("cut_sheet_banners", s.banners);
-    await insertRows("cut_sets", s.sets);
-    await insertRows("cut_set_lines", s.lines);
   }
 
   console.log("Done.");

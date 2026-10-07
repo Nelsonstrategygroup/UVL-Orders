@@ -37,7 +37,8 @@ with the project, so run it as `npx supabase`.
    ```
 
 4. **Load the starting data** (parts, cut specs, products, size classes, the saving goal,
-   and Kathy's real 9/30/2026 cut sheet as the week of 2026-09-28):
+   and Mohawk's details). It does not add any cut sheet, order, or week. Kathy's 9/30/2026
+   sample sheet stays in `reference/seed-data.json` for the calculation tests only:
 
    ```bash
    npm run seed
