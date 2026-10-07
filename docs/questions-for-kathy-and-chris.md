@@ -18,6 +18,24 @@ different.
 3. Leg summary on This week: legs are grouped as bone-in, AO, boneless, then
    other. Is "BLS Legs to Grind" boneless, "AO ODD LEGS" AO, and leg steaks
    other? [Yes, sorted by the product's name.]
+14. Should the app build the cut sheet from the week's orders for you? Today
+    you set up the sets (name, size, how many lambs, which instructions), and
+    the app checks that each set adds up and totals the lambs. If a set has
+    customers linked to it, "Put these on this set" adds their orders to it.
+    To build the whole sheet on its own, the app would need your rules: which
+    customers' orders go together in a set, how you pick each set's size, and
+    where extra lambs go. [You build the sheet; copy last week's to start.]
+15. Which day do you call each customer? No customer has a call day yet, so
+    Calls lists everyone alphabetically instead of putting today's calls
+    first. [Blank. Set it on each customer's page, under Edit details.]
+16. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
+    If so, tick "Bills for all locations" on the chain, and each store's page
+    will show who to bill. [Off for both.]
+17. In the Freezer, pack products are counted by the piece, not the pack
+    ("front shanks (not packs)"), to match the cut sheet. "whole loin to 1.25
+    inch chops 2/pak" uses a rack and a short loin, so it just says "each
+    (not packs)". How do you count that one? [Each one is a whole loin's
+    worth of chops.]
 
 ## Open items from the spec (section 7)
 
@@ -48,3 +66,18 @@ These stay adjustable in Setup or on the cut sheet until confirmed.
 13. Pending half and whole lambs add their cuts to the totals of every week
     you look at, until they're marked filled (as in the prototype). Should
     they only count in the week they're needed? [Every week, until filled.]
+
+## Customer details to check
+
+These look like typos or gaps in the customer list. Fix them on the
+customer's page (Edit details and contacts).
+
+- Seven Feathers has no contact or phone.
+- Corfini Gourmet SF has the same phone as Corfini Main (503-928-4771).
+- Preservation Meat has the same phone as Corfini Gourmet SAC (916-452-3996).
+
+## For Lucas
+
+- There are two "Kathy Panner" admin logins, kpanner@frontier.net and
+  kpanner@frontier.com. Neither has logged in. Once Kathy says which email is
+  right, delete the other one on the Users screen.
