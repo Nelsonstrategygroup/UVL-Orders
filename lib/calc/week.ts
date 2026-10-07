@@ -1,5 +1,10 @@
 // SPEC 6.1: the weekly lamb guide, based on orders. Ported from the
 // prototype's calcWeek.
+//
+// The week has ONE lamb count, `final`, worked out here and nowhere else:
+// "Your number" if entered, otherwise the cut sheet total if the week has a
+// cut sheet, otherwise the count recommended from orders. The headline, the
+// producer message, and the carcass balance all use it.
 
 import { addInto, ceilSafe, EPS, num } from "./num";
 import type { Part, Product, Qty } from "./types";
@@ -19,6 +24,8 @@ export type PartRow = {
   status: PartStatus;
 };
 
+export type LambSource = "your number" | "cut sheet" | "orders";
+
 export type WeekCalc = {
   /** Sum of order lines per product. */
   totals: Qty;
@@ -29,9 +36,13 @@ export type WeekCalc = {
   recommended: number;
   /** The part that sets the recommended count, if any. */
   driver: PartRow | null;
-  /** The override when set, otherwise the recommended count. */
+  /** THE lamb count for the week (see the top of this file). */
   final: number;
+  /** Where `final` came from. */
+  source: LambSource;
   overridden: boolean;
+  /** Lambs on the week's cut sheet, or 0 when there is none. */
+  cutSheetLambs: number;
 };
 
 export function sumOrders(orders: Qty[]): Qty {
@@ -49,6 +60,8 @@ export function calcWeek(input: {
   shortfall?: Qty;
   /** weeks.lamb_override */
   override?: number | null;
+  /** Total lambs on the week's cut sheet; 0 or missing when there is none. */
+  cutSheetLambs?: number;
 }): WeekCalc {
   const parts = [...input.parts].sort((a, b) => a.sort - b.sort);
   const totals = sumOrders(input.orders);
@@ -71,7 +84,10 @@ export function calcWeek(input: {
 
   const recommended = base.reduce((m, r) => Math.max(m, r.lambs), 0);
   const overridden = input.override != null;
-  const final = overridden ? Math.max(0, Math.round(num(input.override))) : recommended;
+  const cutSheetLambs = Math.max(0, Math.round(num(input.cutSheetLambs ?? 0)));
+  const source: LambSource = overridden ? "your number" : cutSheetLambs > 0 ? "cut sheet" : "orders";
+  const final =
+    source === "your number" ? Math.max(0, Math.round(num(input.override))) : source === "cut sheet" ? cutSheetLambs : recommended;
 
   const rows: PartRow[] = base.map((r) => {
     const supply = final * num(r.part.per_lamb);
@@ -79,12 +95,31 @@ export function calcWeek(input: {
     let status: PartStatus;
     if (r.need === 0) status = "none";
     else if (left < -EPS) status = "short";
-    else if (!overridden && recommended > 0 && r.lambs === recommended) status = "sets";
+    else if (source === "orders" && recommended > 0 && r.lambs === recommended) status = "sets";
     else if (Math.abs(left) < EPS) status = "even";
     else status = "extra";
     return { ...r, supply, left, status };
   });
 
   const driver = recommended > 0 ? (rows.find((r) => r.lambs === recommended) ?? null) : null;
-  return { totals, withShort, rows, recommended, driver, final, overridden };
+  return { totals, withShort, rows, recommended, driver, final, source, overridden, cutSheetLambs };
+}
+
+/**
+ * One line saying where the week's lamb count came from, for example
+ * "144 from the cut sheet (orders suggest 0)". Null when there is nothing
+ * to count yet.
+ */
+export function lambSourceLine(c: Pick<WeekCalc, "final" | "source" | "recommended" | "cutSheetLambs">): string | null {
+  const n = c.final;
+  if (c.source === "cut sheet")
+    return `${n} from the cut sheet (${c.recommended === n ? "orders agree" : `orders suggest ${c.recommended}`})`;
+  if (c.source === "your number") {
+    const others = [
+      c.cutSheetLambs > 0 && c.cutSheetLambs !== n ? `cut sheet has ${c.cutSheetLambs}` : "",
+      c.recommended !== n ? `orders suggest ${c.recommended}` : "",
+    ].filter(Boolean);
+    return `${n} is your number${others.length ? ` (${others.join(", ")})` : ""}`;
+  }
+  return c.recommended > 0 ? `${n} from orders` : null;
 }

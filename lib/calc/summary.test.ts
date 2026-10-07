@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cutSheetTotals, lambHeadline, legBreakdown, legBreakdownText, producerMessage } from "./summary";
+import { cutSheetTotals, legBreakdown, legBreakdownText, producerMessage } from "./summary";
 import { sampleSheet, seedProducts, seedSizes } from "./testData";
 
 describe("cut sheet totals", () => {
@@ -7,31 +7,6 @@ describe("cut sheet totals", () => {
     const t = cutSheetTotals(sampleSheet.sets, seedSizes);
     expect(t.total).toBe(144);
     expect(t.bySize.map((s) => `${s.lambs} ${s.label}`)).toEqual(["40 XL", "81 Large", "16 Medium", "2 Small", "5 XS"]);
-  });
-});
-
-describe("lamb count headline", () => {
-  it("shows the cut sheet total and says what the orders suggest when they disagree", () => {
-    expect(lambHeadline({ recommended: 0, override: null, cutSheetTotal: 144 })).toEqual({
-      lambs: 144,
-      from: "cut sheet",
-      note: "144 from the cut sheet (orders suggest 0)",
-    });
-    expect(lambHeadline({ recommended: 61, override: 70, cutSheetTotal: 144 }).note).toBe(
-      "144 from the cut sheet (your number is 70, orders suggest 61)",
-    );
-  });
-
-  it("has no note when everything agrees", () => {
-    expect(lambHeadline({ recommended: 144, override: null, cutSheetTotal: 144 }).note).toBeNull();
-    expect(lambHeadline({ recommended: 140, override: 144, cutSheetTotal: 144 }).note).toBe(
-      "144 from the cut sheet (orders suggest 140)",
-    );
-  });
-
-  it("without a cut sheet uses your number, then the orders", () => {
-    expect(lambHeadline({ recommended: 6, override: 8, cutSheetTotal: 0 })).toEqual({ lambs: 8, from: "your number", note: null });
-    expect(lambHeadline({ recommended: 6, override: null, cutSheetTotal: 0 })).toEqual({ lambs: 6, from: "orders", note: null });
   });
 });
 
@@ -45,9 +20,14 @@ describe("producer message", () => {
       ],
       seedSizes,
     );
-    expect(producerMessage({ lambs: 61, processDate: "2026-10-21", cutSheet: cs })).toBe(
+    expect(producerMessage({ lambs: 70, processDate: "2026-10-21", cutSheet: cs })).toBe(
       "Please bring 70 lambs for processing on Wednesday, Oct 21: 40 Large, 16 Medium, 14 Small. Thank you!",
     );
+  });
+
+  it("never lists sizes that don't add up to the count", () => {
+    const cs = cutSheetTotals([{ lambs: 40, size_class_id: "Large" }], seedSizes);
+    expect(producerMessage({ lambs: 45, processDate: null, cutSheet: cs })).toBe("Please bring 45 lambs. Thank you!");
   });
 
   it("uses the order count without a cut sheet", () => {

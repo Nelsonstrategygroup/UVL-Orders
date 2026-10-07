@@ -68,7 +68,11 @@ export default function CutSheetScreen() {
         <WeekBar processDate={data.processDate} />
         <div className="panel empty mx-auto max-w-[560px]">
           <h3 className="mb-2">No cut sheet for this week yet</h3>
-          <p>Most weeks look a lot like the last one, so the quickest start is a copy.</p>
+          <p>
+            {from
+              ? "Most weeks look a lot like the last one, so the quickest start is a copy."
+              : "There's no earlier sheet to copy. Start a blank one and add the sets."}
+          </p>
           {from && (
             <button
               type="button"
@@ -83,7 +87,7 @@ export default function CutSheetScreen() {
           )}
           <button
             type="button"
-            className="btn ghost mt-3"
+            className={from ? "btn ghost mt-3" : "bigbtn mx-auto max-w-[420px]"}
             onClick={async () => {
               if (await run(cs.startBlankSheet(db, week, defaultSize)))
                 toast("Blank sheet started", () => void run(cs.removeUnsentSheet(db, week)));

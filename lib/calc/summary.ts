@@ -1,6 +1,7 @@
 // Text and totals shown on This week (SPEC 5.4, 6.5).
 
 import { longDate } from "../dates";
+import { lambSourceLine, type WeekCalc } from "./week";
 import { fmt, num } from "./num";
 import type { Product, Qty } from "./types";
 
@@ -25,37 +26,8 @@ export function cutSheetTotals(
 }
 
 /**
- * The one lamb count to show at the top of This week, and where it came from.
- * It always matches the producer message: the cut sheet's total when the week
- * has one, otherwise "Your number" or the count from orders. When the cut
- * sheet disagrees with the others, `note` says so, for example
- * "144 from the cut sheet (orders suggest 0)".
- */
-export function lambHeadline(opts: {
-  /** From the orders (calcWeek's recommended). */
-  recommended: number;
-  /** "Your number" (weeks.lamb_override). */
-  override: number | null;
-  cutSheetTotal: number;
-}): { lambs: number; from: "cut sheet" | "your number" | "orders"; note: string | null } {
-  const { recommended, override, cutSheetTotal } = opts;
-  if (cutSheetTotal > 0) {
-    const others: string[] = [];
-    if (override != null && override !== cutSheetTotal) others.push(`your number is ${override}`);
-    if (recommended !== cutSheetTotal) others.push(`orders suggest ${recommended}`);
-    return {
-      lambs: cutSheetTotal,
-      from: "cut sheet",
-      note: others.length ? `${cutSheetTotal} from the cut sheet (${others.join(", ")})` : null,
-    };
-  }
-  if (override != null) return { lambs: override, from: "your number", note: null };
-  return { lambs: recommended, from: "orders", note: null };
-}
-
-/**
- * The message for the producer. Uses the cut sheet's totals by size when the
- * week has a cut sheet, otherwise the order-based count.
+ * The message for the producer, for the week's one lamb count. Pass the cut
+ * sheet only when that count came from it, so the sizes add up to it.
  */
 export function producerMessage(opts: {
   lambs: number;
@@ -64,10 +36,33 @@ export function producerMessage(opts: {
 }): string {
   const when = opts.processDate ? ` for processing on ${longDate(opts.processDate)}` : "";
   const cs = opts.cutSheet;
-  if (cs && cs.total > 0) {
-    return `Please bring ${cs.total} lambs${when}: ${cs.bySize.map((s) => `${s.lambs} ${s.label}`).join(", ")}. Thank you!`;
+  // Sizes only when they add up to the count; the count is always opts.lambs.
+  if (cs && cs.total > 0 && cs.total === opts.lambs) {
+    return `Please bring ${opts.lambs} lambs${when}: ${cs.bySize.map((s) => `${s.lambs} ${s.label}`).join(", ")}. Thank you!`;
   }
   return `Please bring ${opts.lambs} lamb${opts.lambs === 1 ? "" : "s"}${when}. Thank you!`;
+}
+
+/**
+ * Every lamb number This week shows, from the week's one count. The screen
+ * reads its numbers only from here, so the headline, the message, and the
+ * carcass balance can't disagree (see the "one lamb count" tests).
+ */
+export function weekNumbers(
+  c: WeekCalc,
+  cutSheet: { total: number; bySize: SizeTotal[] },
+  processDate: string | null,
+): { headline: number; sourceLine: string | null; message: string; balanceLambs: number } {
+  return {
+    headline: c.final,
+    sourceLine: lambSourceLine(c),
+    message: producerMessage({
+      lambs: c.final,
+      processDate,
+      cutSheet: c.source === "cut sheet" ? cutSheet : null,
+    }),
+    balanceLambs: c.final,
+  };
 }
 
 // Kathy summarizes legs as bone-in, AO, boneless, then everything else.

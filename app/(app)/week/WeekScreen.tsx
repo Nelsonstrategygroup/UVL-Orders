@@ -17,7 +17,7 @@ import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
-import { cutSheetTotals, lambHeadline, legBreakdown, legBreakdownText, producerMessage } from "@/lib/calc/summary";
+import { cutSheetTotals, legBreakdown, legBreakdownText, weekNumbers } from "@/lib/calc/summary";
 import { calcWeek, type PartRow } from "@/lib/calc/week";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
@@ -43,17 +43,20 @@ export default function WeekScreen() {
 
   const w = data.weekRow;
   const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);
+  const cs = cutSheetTotals(data.cutSets, catalog.sizes);
+  // The week's ONE lamb count is worked out in calcWeek: your number, else the
+  // cut sheet total, else the count from orders. Every lamb number on this
+  // screen comes from `n` (see lib/calc/oneLambCount.test.ts).
   const c = calcWeek({
     parts: catalog.parts,
     products: catalog.products,
     orders: [...data.orders.values()].map((o) => o.lines),
     shortfall: short,
     override: w?.lamb_override ?? null,
+    cutSheetLambs: cs.total,
   });
-  const cs = cutSheetTotals(data.cutSets, catalog.sizes);
-  // One number at the top, the same one the producer message uses.
-  const head = lambHeadline({ recommended: c.recommended, override: w?.lamb_override ?? null, cutSheetTotal: cs.total });
-  const message = producerMessage({ lambs: c.final, processDate: w?.process_date ?? null, cutSheet: cs });
+  const n = weekNumbers(c, cs, w?.process_date ?? null);
+  const message = n.message;
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
 
   const ordering = orderingCustomers(customers.list);
@@ -91,18 +94,14 @@ export default function WeekScreen() {
       <div className="grid2">
         <div className="panel">
           <div className="count">
-            <div className="big num">{head.lambs}</div>
+            <div className="big num">{n.headline}</div>
             <div className="max-w-[34ch] pb-1.5">
               <h2>lambs to order</h2>
-              {head.from === "cut sheet" && (
-                <div className={head.note ? "font-semibold" : "muted"}>
-                  {head.note ? `${head.note}.` : "From the cut sheet. The orders agree."}
-                </div>
-              )}
+              {n.sourceLine && <div className="font-semibold">{n.sourceLine}.</div>}
               <div className="muted">
                 {c.recommended === 0
                   ? "No orders entered for this week yet."
-                  : `${head.from === "cut sheet" ? "Orders: set" : "Set"} by ${c.driver!.part.name.toLowerCase()}. ${fmt(c.driver!.need)}${unit(c.driver!)} needed, ${fmt(c.driver!.part.per_lamb)}${unit(c.driver!)} per lamb.`}
+                  : `${c.source === "orders" ? "Set" : "Orders: set"} by ${c.driver!.part.name.toLowerCase()}. ${fmt(c.driver!.need)}${unit(c.driver!)} needed, ${fmt(c.driver!.part.per_lamb)}${unit(c.driver!)} per lamb.`}
               </div>
             </div>
           </div>
@@ -110,7 +109,8 @@ export default function WeekScreen() {
           <OverrideField
             key={`${week}:${w?.lamb_override ?? ""}`}
             value={w?.lamb_override ?? null}
-            recommended={c.recommended}
+            fallback={c.cutSheetLambs > 0 ? c.cutSheetLambs : c.recommended}
+            fallbackFrom={c.cutSheetLambs > 0 ? "the cut sheet" : "orders"}
             onSave={(v) => void save({ lamb_override: v })}
           />
 
@@ -184,7 +184,7 @@ export default function WeekScreen() {
         <div className="panel">
           <h3>Does the carcass balance?</h3>
           <p className="small muted mt-1 mb-2">
-            What this week&apos;s orders need from each part, against what {c.final} lambs will give you.
+            What this week&apos;s orders need from each part, against what {n.balanceLambs} lambs will give you.
           </p>
           <table className="bal">
             <thead>
@@ -367,11 +367,14 @@ function StatusTag({ row }: { row: PartRow }) {
 
 function OverrideField({
   value,
-  recommended,
+  fallback,
+  fallbackFrom,
   onSave,
 }: {
   value: number | null;
-  recommended: number;
+  /** The count used when "Your number" is blank. */
+  fallback: number;
+  fallbackFrom: string;
   onSave: (v: number | null) => void;
 }) {
   const [text, setText] = useState(value == null ? "" : String(value));
@@ -389,7 +392,7 @@ function OverrideField({
         id="override"
         className="field num w-28!"
         inputMode="numeric"
-        placeholder={String(recommended)}
+        placeholder={String(fallback)}
         value={text}
         onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, ""))}
         onBlur={commit}
@@ -399,10 +402,10 @@ function OverrideField({
       />
       {value != null ? (
         <button type="button" className="btn ghost" onClick={() => onSave(null)}>
-          Use {recommended}
+          Use {fallback} from {fallbackFrom}
         </button>
       ) : (
-        <span className="small muted">Leave blank to use the recommended count.</span>
+        <span className="small muted">Leave blank to use {fallback} from {fallbackFrom}.</span>
       )}
     </div>
   );
