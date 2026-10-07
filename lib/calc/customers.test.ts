@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { callQueue, displayName, matchesSearch, orderingCustomers, type CustomerLite } from "./customers";
+import {
+  callQueue,
+  countable,
+  displayName,
+  groupForList,
+  matchesSearch,
+  orderingCustomers,
+  type CustomerLite,
+} from "./customers";
 import type { OrderStatus } from "./types";
 
 const c = (id: string, name: string, extra: Partial<CustomerLite> = {}): CustomerLite => ({
@@ -72,5 +80,34 @@ describe("find a customer as you type", () => {
 
   it("shows everyone when the box is empty", () => {
     expect(find("  ")).toHaveLength(5);
+  });
+});
+
+describe("customers list", () => {
+  const pcc = c("p", "PCC");
+  const fremont = c("f", "Fremont", { parent_customer_id: "p" });
+  const ballard = c("b", "Ballard", { parent_customer_id: "p", active: false });
+  const deli = c("x", "Xavier's Deli");
+  const abe = c("a", "Abe's", { active: false });
+  const all = [deli, fremont, pcc, ballard, abe];
+  const byId = new Map(all.map((x) => [x.id, x]));
+  const names = (g: ReturnType<typeof groupForList<CustomerLite>>) =>
+    g.map((x) => [x.top.name, ...x.locations.map((l) => "  " + l.name)]).flat();
+
+  it("puts locations under their parent, by name", () => {
+    expect(names(groupForList(all, () => true))).toEqual(["Abe's", "PCC", "  Ballard", "  Fremont", "Xavier's Deli"]);
+  });
+
+  it("shows a parent for its kept locations even when the parent isn't kept", () => {
+    const active = groupForList(all, (x) => x.active && x.id !== "p");
+    expect(names(active)).toEqual(["PCC", "  Fremont", "Xavier's Deli"]);
+    const search = groupForList(all, (x) => matchesSearch("pcc: b", x, byId));
+    expect(names(search)).toEqual(["PCC", "  Ballard"]);
+  });
+
+  it("counts customers without the parents", () => {
+    expect(countable(all).map((x) => x.id)).toEqual(["x", "f", "b", "a"]);
+    // A parent with no locations is an ordinary customer.
+    expect(countable([pcc]).map((x) => x.id)).toEqual(["p"]);
   });
 });

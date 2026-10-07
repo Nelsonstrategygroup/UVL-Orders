@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { billedThrough, deleteBlockers, parseRoles, rolesLabel } from "./contacts";
+import { billedThrough, deleteBlockers, mainContact, parseRoles, rolesLabel } from "./contacts";
 
 describe("contact roles", () => {
   it("reads one or more roles separated by semicolons", () => {
@@ -57,5 +57,18 @@ describe("deleting a customer", () => {
       "1 history entry",
     ]);
     expect(deleteBlockers({ orders: 0, history: 0, cut_sheet_links: 1, locations: 0 })).toEqual(["1 cut sheet link"]);
+  });
+});
+
+describe("main contact", () => {
+  it("prefers whoever handles orders, and finds a phone", () => {
+    expect(
+      mainContact([
+        { name: "Owner", phone: "541-555-0001", roles: ["billing"] },
+        { name: "Cook", phone: "", roles: ["orders"] },
+      ]),
+    ).toEqual({ name: "Cook", phone: "541-555-0001" });
+    expect(mainContact([{ name: "Sam", phone: "555", roles: [] }])).toEqual({ name: "Sam", phone: "555" });
+    expect(mainContact([])).toBeNull();
   });
 });

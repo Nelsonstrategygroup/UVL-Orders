@@ -71,3 +71,42 @@ export function matchesSearch<T extends CustomerLite>(query: string, c: T, byId:
   if (!q) return true;
   return [c.name, displayName(c, byId)].some((n) => n.trim().replace(/\s+/g, " ").toLowerCase().startsWith(q));
 }
+
+/** True when some customer lists `id` as its parent. */
+function parentIdsOf<T extends CustomerLite>(all: T[]): Set<string> {
+  return new Set(all.map((c) => c.parent_customer_id).filter((x): x is string => !!x));
+}
+
+/**
+ * Customers that count on the Customers list: everyone except parents with
+ * locations (a chain is a heading; its stores are the customers).
+ */
+export function countable<T extends CustomerLite>(all: T[]): T[] {
+  const parents = parentIdsOf(all);
+  return all.filter((c) => !parents.has(c.id));
+}
+
+export type ListGroup<T> = { top: T; locations: T[] };
+
+/**
+ * The Customers list: top-level customers by name, each parent followed by
+ * its locations by name. `keep` picks who shows (filter and search). A parent
+ * shows when it is kept itself or when any of its locations is.
+ */
+export function groupForList<T extends CustomerLite>(all: T[], keep: (c: T) => boolean): ListGroup<T>[] {
+  const byId = new Map(all.map((c) => [c.id, c]));
+  const byName = (a: T, b: T) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  const kids = new Map<string, T[]>();
+  for (const c of all) {
+    if (c.parent_customer_id && byId.has(c.parent_customer_id) && keep(c)) {
+      const list = kids.get(c.parent_customer_id) ?? [];
+      list.push(c);
+      kids.set(c.parent_customer_id, list);
+    }
+  }
+  return all
+    .filter((c) => !c.parent_customer_id || !byId.has(c.parent_customer_id))
+    .filter((c) => keep(c) || kids.has(c.id))
+    .sort(byName)
+    .map((c) => ({ top: c, locations: (kids.get(c.id) ?? []).sort(byName) }));
+}

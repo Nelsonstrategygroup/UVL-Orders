@@ -70,3 +70,15 @@ export function deleteBlockers(k: DeleteCheck): string[] {
   if (k.cut_sheet_links) out.push(n(k.cut_sheet_links, "cut sheet link", "cut sheet links"));
   return out;
 }
+
+/**
+ * The person to show on the Customers list: whoever handles orders, else the
+ * first contact. The phone is theirs, or else the first phone on file.
+ */
+export function mainContact<K extends { name: string; phone: string; roles: readonly string[] }>(
+  contacts: K[],
+): { name: string; phone: string } | null {
+  if (!contacts.length) return null;
+  const who = contacts.find((k) => k.roles.includes("orders")) ?? contacts[0];
+  return { name: who.name, phone: who.phone || contacts.find((k) => k.phone)?.phone || "" };
+}
