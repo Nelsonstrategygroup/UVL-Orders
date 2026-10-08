@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Items Worksheet</title>
+<style>
+  :root {
+    --ink: #1f2a1f;
+    --soft: #5b6657;
+    --guess: #8a8f86;
+    --line: #9aa394;
+    --head: #e9eee4;
+    --paper: #ffffff;
+  }
+  @page { size: letter landscape; margin: 0.45in; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 11pt/1.35 Georgia, "Times New Roman", serif;
+  }
+  .page { max-width: 10.1in; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18pt; margin: 0 0 2px; }
+  .sub { color: var(--soft); margin: 0 0 10px; }
+  .how {
+    border: 1px solid var(--line);
+    padding: 8px 12px;
+    margin: 0 0 12px;
+    font-size: 10pt;
+  }
+  .how ol { margin: 4px 0 0 18px; padding: 0; }
+  .wrap { overflow-x: auto; }
+  table { width: 100%; min-width: 860px; border-collapse: collapse; table-layout: fixed; }
+  @media print { table { min-width: 0; } .wrap { overflow: visible; } }
+  th, td { border: 1px solid var(--line); padding: 4px 6px; vertical-align: top; text-align: left; }
+  th { background: var(--head); font-size: 9.5pt; font-weight: bold; }
+  td { height: 0.5in; font-size: 10.5pt; }
+  td.item { font-weight: bold; }
+  .guess { display: block; color: var(--guess); font-style: italic; font-size: 8.5pt; line-height: 1.2; }
+  .circle { font-size: 8.5pt; color: var(--soft); word-spacing: 3px; }
+  col.c-item { width: 15%; }
+  col.c-unit { width: 17%; }
+  col.c-from { width: 24%; }
+  col.c-lambs { width: 8%; }
+  col.c-mohawk { width: 22%; }
+  col.c-notes { width: 14%; }
+  h2 { font-size: 13pt; margin: 18px 0 6px; }
+  .q { border: 1px solid var(--line); padding: 6px 10px; margin: 0 0 8px; break-inside: avoid; }
+  .q b { display: block; }
+  .write { border-bottom: 1px solid var(--line); height: 0.32in; }
+  .break { break-before: page; }
+  tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  .foot { color: var(--soft); font-size: 8.5pt; margin-top: 10px; }
+  @media screen {
+    body { background: #f3f5f0; }
+    .page { background: var(--paper); margin: 16px auto; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .printbtn { display: inline-block; margin: 0 0 12px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  }
+  @media print { .printbtn { display: none; } .page { padding: 0; } }
+  @media (max-width: 700px) { .page { padding: 10px; } table { font-size: 9pt; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <button class="printbtn" onclick="window.print()">Print this sheet</button>
+  <h1>Order items: please check</h1>
+  <p class="sub">Umpqua Valley Lamb order app. For Kathy. Gray text is a guess; cross it out and write the right answer.</p>
+
+  <div class="how">
+    <b>For each item, fill in:</b>
+    <ol>
+      <li><b>Ordered in:</b> how customers order it. Pieces, pounds, 5 lb packs, or something else.</li>
+      <li><b>Comes from:</b> which part of the lamb, and how much. For example "1 short loin each" or "about 3 lb of chops per short loin."</li>
+      <li><b>Counts toward lambs?</b> Yes if it uses up part of the lamb. No for things like bones and Denver ribs.</li>
+      <li><b>Mohawk cut instruction:</b> the wording on the cut sheet it comes from.</li>
+    </ol>
+  </div>
+
+  <div class="wrap">
+  <table>
+    <colgroup>
+      <col class="c-item"><col class="c-unit"><col class="c-from"><col class="c-lambs"><col class="c-mohawk"><col class="c-notes">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Ordered in</th>
+        <th>Comes from (part, and how much)</th>
+        <th>Counts toward lambs?</th>
+        <th>Mohawk cut instruction</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="item">Whole Lamb</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lambs</span></td>
+        <td><span class="guess">guess: the whole lamb</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: Well finished lamb for Carcass (70-80# Target)</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Special Order BLS</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td><span class="guess">What is this?</span></td>
+      </tr>
+      <tr>
+        <td class="item">French Racks</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: pieces</span></td>
+        <td><span class="guess">guess: 1 rack each</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: French Rack to Vac</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Cap On Rack</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: pieces</span></td>
+        <td><span class="guess">guess: 1 rack each</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Chops</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lb (sheet: 15 ordered, 15.45 filled)</span></td>
+        <td><span class="guess">guess: short loin, about ___ lb of chops per loin</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: Short Loins to 1 1/4 inch chops 4/pak</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Thick Chops</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lb</span></td>
+        <td><span class="guess">guess: short loin, about ___ lb per loin</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">LABELED Chops</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lb (sheet: 20 ordered, 22.20 filled)</span></td>
+        <td><span class="guess">guess: same as Chops</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: same as Chops</span></td>
+        <td><span class="guess">Only the label is different?</span></td>
+      </tr>
+      <tr>
+        <td class="item">BI Loin</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: pieces (sheet: 14 ordered, 37.60 lb filled)</span></td>
+        <td><span class="guess">guess: 1 short loin each</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Hind Shanks</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lb (sheet: 20 ordered, 15.20 filled)</span></td>
+        <td><span class="guess">guess: hind shank, about ___ lb each</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: Hind Shanks 2/pack</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">LABELED Hind Shanks</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">guess: same as Hind Shanks</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: same as Hind Shanks</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Denver Ribs</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">sheet: 10 ordered, 50.15 filled</span></td>
+        <td><span class="guess">none</span></td>
+        <td><span class="guess">No</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Stew Meat</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lb (sheet: 20 ordered, 24.15 filled)</span></td>
+        <td><span class="guess">guess: hind shank or trim? about ___ lb per ___</span></td>
+        <td></td>
+        <td><span class="guess">guess: Hind Shanks TRIMMED OUT TO Stew Meat</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Net BLS Legs</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: pieces</span></td>
+        <td><span class="guess">guess: 1 leg each</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: BLS legs to Vac</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">GR Lamb 1#</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: 1 lb packs</span></td>
+        <td><span class="guess">guess: trim, 1 lb per pack</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: Ground lamb</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">GR Lamb 5#</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lb, or 5 lb packs? (sheet: 40 ordered, 40 filled)</span></td>
+        <td><span class="guess">guess: trim, 1 lb per lb</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: Ground lamb</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Necks</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: pieces</span></td>
+        <td><span class="guess">guess: 1 neck each</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: SAVE NECK to Vac</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Bones</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">none</span></td>
+        <td><span class="guess">No</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Pet</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">none</span></td>
+        <td><span class="guess">No</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">H/L/K (heart, liver, kidney)</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">none</span></td>
+        <td><span class="guess">No</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">LETRIM</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">lb, 10 lb at a time</span></td>
+        <td><span class="guess">now set as: 0.5 lb trim + 0.125 shoulder per lb</span></td>
+        <td><span class="guess">Yes</span></td>
+        <td><span class="guess">guess: Le trim</span></td>
+        <td></td>
+      </tr>
+      <tr><td class="item">&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td class="item">&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="foot">Blank rows at the bottom are for anything missing from the list.</p>
+
+  <div class="break"></div>
+  <h2>Behman's order</h2>
+  <p class="sub">These are on the right side of the order sheet but not in the main list. Should they be added to the order list?</p>
+  <div class="wrap">
+  <table>
+    <colgroup>
+      <col class="c-item"><col class="c-unit"><col class="c-from"><col class="c-lambs"><col class="c-mohawk"><col class="c-notes">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Ordered in</th>
+        <th>Comes from (part, and how much)</th>
+        <th>Add to list?</th>
+        <th>Mohawk cut instruction</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="item">Small (lambs)</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lambs</span></td>
+        <td><span class="guess">guess: the whole lamb</span></td>
+        <td><span class="circle">Yes · No</span></td>
+        <td><span class="guess">guess: XS 50-55 of the day lambs for Behman</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">BLS Legs</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">guess: 1 leg each</span></td>
+        <td><span class="circle">Yes · No</span></td>
+        <td><span class="guess">guess: BLS legs to Vac</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">BI Legs</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">guess: 1 leg each</span></td>
+        <td><span class="circle">Yes · No</span></td>
+        <td><span class="guess">guess: legs Bone In to VAC</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">BI Shoulder</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">guess: 1 shoulder each</span></td>
+        <td><span class="circle">Yes · No</span></td>
+        <td><span class="guess">guess: BI Shoulder to Vac</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">F. Shank</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">guess: 1 front shank each</span></td>
+        <td><span class="circle">Yes · No</span></td>
+        <td><span class="guess">guess: Front Shanks 2/pack</span></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Necks</td>
+        <td><span class="circle">pieces · lb · other</span></td>
+        <td><span class="guess">guess: same as Necks above</span></td>
+        <td><span class="circle">Yes · No</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="item">Trim</td>
+        <td><span class="circle">pieces · lb · other</span><span class="guess">guess: lb</span></td>
+        <td><span class="guess">guess: trim, 1 lb per lb</span></td>
+        <td><span class="circle">Yes · No</span></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>A few more questions</h2>
+  <div class="q">
+    <b>1. The order sheet has some rows twice: Chops #2, Hind Shanks #2, two Stew Meat rows, two GR Lamb 1# and 5# rows, three Necks, two Bones. Are those different items, or extra lines to write on?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>2. On the sheet, GR Lamb 5# (ordered 40, filled 40) is marked pink. What does pink mean?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>3. Half and whole lambs: should those customers pick from these same finished items for each part (for example BI Loin or Chops for the loins)?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>4. Anything else about how orders are taken or filled that the app should know?</b>
+    <div class="write"></div>
+    <div class="write"></div>
+  </div>
+</div>
+</body>
+</html>
