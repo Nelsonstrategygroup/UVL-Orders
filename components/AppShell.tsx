@@ -157,6 +157,13 @@ function DeviceSettings({ displayName, onDone }: { displayName: string; onDone: 
         <p className="muted mb-2">
           Logged in as <b className="text-ink">{displayName || "you"}</b>.
         </p>
+        <Link
+          href="/password"
+          onClick={onDone}
+          className="mb-2 flex min-h-[44px] items-center text-[1.05rem] text-forest underline"
+        >
+          Change my password
+        </Link>
         <form action={logout}>
           <button type="submit" className="btn ghost">
             Log out

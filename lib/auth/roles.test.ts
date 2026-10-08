@@ -9,6 +9,9 @@ describe("roles", () => {
     expect(canOpen("packing", "/calls")).toBe(false);
     expect(canOpen("packing", "/users")).toBe(false);
     expect(canOpen("packing", "/packingx")).toBe(false);
+    // Everyone can change their own password and read the help.
+    expect(canOpen("packing", "/password")).toBe(true);
+    expect(canOpen("packing", "/passwordx")).toBe(false);
     expect(canOpen("packing", "/help")).toBe(true);
   });
 

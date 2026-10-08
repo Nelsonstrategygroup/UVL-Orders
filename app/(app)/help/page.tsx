@@ -155,6 +155,10 @@ export default async function HelpPage() {
           <li>Almost everything saves by itself. Quick taps show an <b>Undo</b> button at the top for a few seconds.</li>
           <li>If it says &ldquo;Couldn&apos;t save,&rdquo; check the internet and try again.</li>
           <li>
+            Passwords: to change yours, tap <b>Settings</b>, then <b>Change my password</b>. Forgot it? On the login page,
+            tap <b>Forgot password?</b> and we&apos;ll email you a link to set a new one.
+          </li>
+          <li>
             Words too small? Tap <b>Settings</b> at the top and turn on <b>Larger text</b>.
           </li>
           <li>

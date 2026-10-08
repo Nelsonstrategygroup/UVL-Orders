@@ -34,7 +34,12 @@ export async function proxy(request: NextRequest) {
   const userId = data?.claims?.sub;
 
   const path = request.nextUrl.pathname;
-  const onLogin = path === "/login";
+  // Pages for people who aren't logged in: log in, and "Forgot password?".
+  const onLogin = path === "/login" || path === "/login/forgot";
+
+  // The reset link signs the person in itself (app/auth/confirm), so let it
+  // through whether or not someone is logged in on this device.
+  if (path === "/auth/confirm") return response;
 
   // Redirect while keeping any refreshed or cleared auth cookies.
   const redirectTo = (pathname: string, message?: string) => {

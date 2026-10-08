@@ -7,6 +7,7 @@ const MESSAGES: Record<string, { text: string; bad?: boolean }> = {
   morning: { text: "Good morning. Please log in for today." },
   off: { text: "This login is turned off. Ask Kathy or Eric to turn it back on.", bad: true },
   out: { text: "You are logged out." },
+  link: { text: "That link didn't work. It may have expired. Try \"Forgot password?\" again.", bad: true },
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
