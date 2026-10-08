@@ -284,3 +284,31 @@ export async function loadDueFollowUps(db: SupabaseClient, week: string): Promis
   if (error) throw new Error(error.message);
   return (data ?? []) as DueFollowUp[];
 }
+
+export type OrderHistoryRow = { week: string; status: Order["status"]; notes: string; lines: Qty; packed: Qty };
+
+/** Every week this customer answered (ordered or no order), newest first, for the history download. */
+export async function loadCustomerOrders(db: SupabaseClient, customerId: string): Promise<OrderHistoryRow[]> {
+  const rows = await fetchAll<{
+    week_id: string;
+    status: Order["status"];
+    notes: string;
+    order_lines: { product_id: string; qty: number }[];
+    packing_lines: { product_id: string; packed_qty: number }[];
+  }>((a, b) =>
+    db
+      .from("orders")
+      .select("week_id, status, notes, order_lines(product_id, qty), packing_lines(product_id, packed_qty)")
+      .eq("customer_id", customerId)
+      .in("status", ["ordered", "none"])
+      .order("week_id", { ascending: false })
+      .range(a, b),
+  );
+  return rows.map((o) => {
+    const lines: Qty = {};
+    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
+    const packed: Qty = {};
+    for (const l of o.packing_lines ?? []) packed[l.product_id] = num(l.packed_qty);
+    return { week: o.week_id, status: o.status, notes: o.notes, lines, packed };
+  });
+}

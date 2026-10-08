@@ -17,7 +17,9 @@ import { useWeek } from "@/components/Week";
 import { billedThrough, deleteBlockers, rolesLabel, type DeleteCheck } from "@/lib/calc/contacts";
 import { displayName, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate } from "@/lib/dates";
-import { loadCustomerHistory, type HistoryEntry } from "@/lib/db/load";
+import { downloadText } from "@/components/download";
+import { loadCustomerHistory, loadCustomerOrders, type HistoryEntry } from "@/lib/db/load";
+import { customerHistoryCsv, fileSafe } from "@/lib/reports";
 import {
   customerDeleteCheck,
   deleteCustomer,
@@ -155,7 +157,10 @@ export default function CustomerPage({ id }: { id: string }) {
         }}
       />
 
-      <h3 className="mt-5">History</h3>
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <h3 className="mr-auto">History</h3>
+        <DownloadHistory customer={c} name={displayName(c, customers.byId)} />
+      </div>
       {history === null ? (
         <p className="small muted">Loading...</p>
       ) : history.length ? (
@@ -597,5 +602,29 @@ function LogContactForm({ customerId, onSaved }: { customerId: string; onSaved: 
         </button>
       </div>
     </section>
+  );
+}
+
+/** "Download order history": every week they answered, as a spreadsheet. */
+function DownloadHistory({ customer, name }: { customer: Customer; name: string }) {
+  const { catalog } = useStaffData();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  async function go() {
+    if (!catalog) return;
+    setBusy(true);
+    try {
+      const orders = await loadCustomerOrders(getDb(), customer.id);
+      if (!orders.length) toast("No orders yet to download.");
+      else downloadText(`${fileSafe(name)}-order-history.csv`, customerHistoryCsv(name, orders, catalog.products));
+    } catch {
+      toast("Couldn't download. Check the internet connection.");
+    }
+    setBusy(false);
+  }
+  return (
+    <button type="button" className="btn ghost" disabled={busy} onClick={() => void go()}>
+      {busy ? "Getting it ready..." : "Download order history"}
+    </button>
   );
 }

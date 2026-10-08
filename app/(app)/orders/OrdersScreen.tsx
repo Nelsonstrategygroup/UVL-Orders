@@ -11,6 +11,8 @@ import OrderEditor from "@/components/OrderEditor";
 import { orderSummary } from "@/components/ReadBack";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
+import { downloadText } from "@/components/download";
+import { weekOrdersCsv } from "@/lib/reports";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { fmt, num } from "@/lib/calc/num";
@@ -83,6 +85,21 @@ export default function OrdersScreen() {
       {header}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Orders</h2>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => {
+            // Everyone who orders this week, plus anyone else with an answer saved.
+            const ordering = new Set(orderingCustomers(customers.list).map((c) => c.id));
+            const list = customers.list.filter((c) => ordering.has(c.id) || data.orders.has(c.id));
+            downloadText(
+              `orders-week-of-${week}.csv`,
+              weekOrdersCsv(week, list, customers.byId, data.orders, data.packed, catalog.products),
+            );
+          }}
+        >
+          Download this week
+        </button>
         <div className="desk-only">
           <div className="seg" role="group" aria-label="Layout">
             <button type="button" aria-pressed={view === "list"} onClick={() => choose("list")}>
