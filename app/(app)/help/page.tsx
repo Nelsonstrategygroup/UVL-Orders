@@ -136,7 +136,9 @@ export default async function HelpPage() {
       <Step n={7} title="Half and whole lambs, freezer, customers">
         <b>Half and whole</b> walks you through each cut. It says <b>In freezer</b> or <b>Cut fresh</b> for each, and anything
         the freezer can&apos;t cover is added to this week&apos;s order. Tap <b>Mark filled</b> when it&apos;s picked up.{" "}
-        <b>Freezer</b> shows what&apos;s on hand. On a customer&apos;s page, <b>Log a contact</b> keeps notes and follow-ups.
+        <b>Freezer</b> shows what&apos;s on hand. On a customer&apos;s page, <b>Log a contact</b> keeps notes and follow-ups.{" "}
+        <b>Downloads</b>, under <b>More</b>, makes spreadsheets: the week&apos;s orders, product totals, packing record,
+        customer list, a customer&apos;s history, sales over a date range, and the freezer.
       </Step>
     </section>
   );

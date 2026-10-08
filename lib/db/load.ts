@@ -312,3 +312,79 @@ export async function loadCustomerOrders(db: SupabaseClient, customerId: string)
     return { week: o.week_id, status: o.status, notes: o.notes, lines, packed };
   });
 }
+
+export type PackingRecord = {
+  customer_id: string;
+  status: Order["status"];
+  lines: Qty;
+  packed: Record<string, { qty: number; by: string; at: string }>;
+  boxes: number | null;
+  pallet: string;
+  stampedBy: string;
+};
+
+/** A week's orders with what was packed, by whom, and when, for the packing record download. */
+export async function loadPackingRecord(db: SupabaseClient, week: string): Promise<PackingRecord[]> {
+  const [orders, people] = await Promise.all([
+    fetchAll<{
+      customer_id: string;
+      status: Order["status"];
+      order_lines: { product_id: string; qty: number }[];
+      packing_lines: { product_id: string; packed_qty: number; packed_by: string | null; packed_at: string }[];
+      packing_orders: { boxes: number | null; pallet: string; updated_by: string | null }[] | { boxes: number | null; pallet: string; updated_by: string | null } | null;
+    }>((a, b) =>
+      db
+        .from("orders")
+        .select(
+          "customer_id, status, order_lines(product_id, qty), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by)",
+        )
+        .eq("week_id", week)
+        .order("id")
+        .range(a, b),
+    ),
+    db.from("profiles").select("id, display_name"),
+  ]);
+  const names = new Map(((must(people) ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
+  const who = (id: string | null) => (id ? (names.get(id) ?? "Someone") : "");
+  return orders.map((o) => {
+    const lines: Qty = {};
+    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
+    const packed: PackingRecord["packed"] = {};
+    for (const l of o.packing_lines ?? []) packed[l.product_id] = { qty: num(l.packed_qty), by: who(l.packed_by), at: l.packed_at };
+    const po = Array.isArray(o.packing_orders) ? o.packing_orders[0] : o.packing_orders;
+    return {
+      customer_id: o.customer_id,
+      status: o.status,
+      lines,
+      packed,
+      boxes: po?.boxes ?? null,
+      pallet: po?.pallet ?? "",
+      stampedBy: who(po?.updated_by ?? null),
+    };
+  });
+}
+
+/** Ordered weeks from `from` to `to` (week start dates, inclusive), for the sales download. */
+export async function loadOrdersBetween(
+  db: SupabaseClient,
+  from: string,
+  to: string,
+): Promise<{ customer_id: string; week: string; lines: Qty }[]> {
+  const rows = await fetchAll<{ customer_id: string; week_id: string; order_lines: { product_id: string; qty: number }[] }>(
+    (a, b) =>
+      db
+        .from("orders")
+        .select("customer_id, week_id, order_lines(product_id, qty)")
+        .eq("status", "ordered")
+        .gte("week_id", from)
+        .lte("week_id", to)
+        .order("week_id")
+        .order("id")
+        .range(a, b),
+  );
+  return rows.map((o) => {
+    const lines: Qty = {};
+    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
+    return { customer_id: o.customer_id, week: o.week_id, lines };
+  });
+}

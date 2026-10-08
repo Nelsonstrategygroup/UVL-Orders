@@ -113,6 +113,11 @@ Set these by hand in the Supabase dashboard. They are not stored in the repo.
   by `app/icons/[size]/route.tsx`). On iPhone or iPad: Safari, Share, Add to Home Screen. On
   Android: Chrome menu, Install app.
 - **Larger text**: Settings, Larger text. Saved on that device only.
+- **Downloads** (office and admin, under More): spreadsheets for people, with names instead of
+  ID codes. The week's orders with customer details, product totals, packing record, customer
+  list, one customer's order history, sales over a date range, and freezer on hand. Built in
+  `lib/reports.ts` (tested in `lib/reports.test.ts`). The Orders screen and each customer's page
+  also have their own download button.
 - **Export all data** (admins): Setup, Your records. Downloads every table as a CSV file in one
   zip, with a README listing the order to load them into a new database.
 - **Questions waiting on Kathy and Chris**: [docs/questions-for-kathy-and-chris.md](docs/questions-for-kathy-and-chris.md).

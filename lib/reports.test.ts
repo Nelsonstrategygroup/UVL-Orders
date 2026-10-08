@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { parseCsv } from "./import/csv";
-import { customerHistoryCsv, fileSafe, weekOrdersCsv } from "./reports";
+import {
+  customerHistoryCsv,
+  customerListCsv,
+  fileSafe,
+  freezerCsv,
+  packingRecordCsv,
+  productTotalsCsv,
+  salesCsv,
+  weekOrdersCsv,
+} from "./reports";
 import type { Customer, Order } from "./db/types";
 
 const products = [
@@ -79,5 +88,116 @@ describe("week's orders download", () => {
     expect(col(r[2], "Quantity")).toBe("6");
     expect(col(r[2], "Packed")).toBe("5");
     expect(col(r[2], "Standing notes")).toBe("Dock in back");
+  });
+});
+
+// Shared customers for the reports below.
+const chain = cust("p", "PCC", { bills_for_locations: true });
+const store = cust("f", "Fremont #11", {
+  parent_customer_id: "p",
+  contacts: [
+    { id: "k1", customer_id: "f", name: "Phil", roles: ["orders", "receiving"], phone: "206-632-6811", email: "", sort: 0 },
+    { id: "k2", customer_id: "f", name: "Ana", roles: ["billing"], phone: "", email: "ap@pcc.test", sort: 1 },
+  ],
+});
+const deli = cust("d", "Abe's Deli", { active: false });
+const all = new Map([chain, store, deli].map((c) => [c.id, c]));
+const withGroup = products.map((x) => ({ ...x, group_name: x.id === "leg" ? "Legs" : "Racks" }));
+const col = (r: string[][], row: number, name: string) => r[row][r[0].indexOf(name)];
+
+describe("product totals", () => {
+  it("adds up each product across customers, with half and whole, packed, and short", () => {
+    const orders: Order[] = [
+      { id: "o1", customer_id: "f", status: "ordered", notes: "", lines: { leg: 6, rack: 2 } },
+      { id: "o2", customer_id: "d", status: "ordered", notes: "", lines: { leg: 4 } },
+    ];
+    const r = rows(productTotalsCsv("2026-10-05", withGroup, orders, new Map([["o1", { leg: 6, rack: 1 }]]), { leg: 2 }));
+    expect(r.length).toBe(3);
+    expect([col(r, 1, "Product"), col(r, 1, "Customers"), col(r, 1, "Ordered"), col(r, 1, "For half and whole"), col(r, 1, "Total to cut"), col(r, 1, "Packed"), col(r, 1, "Short")]).toEqual(
+      ["legs Bone In to VAC", "2", "10", "2", "12", "6", "4"],
+    );
+    expect([col(r, 2, "Product"), col(r, 2, "Short")]).toEqual(["French Rack to Vac", "1"]);
+  });
+});
+
+describe("customer list", () => {
+  it("has a row per contact with roles, and a row for customers without contacts", () => {
+    const r = rows(customerListCsv([chain, store, deli], all));
+    expect(r.slice(1).map((x) => [x[0], x[r[0].indexOf("Contact")]])).toEqual([
+      ["Abe's Deli", ""],
+      ["PCC", ""],
+      ["Fremont #11", "Phil"],
+      ["Fremont #11", "Ana"],
+    ]);
+    expect(col(r, 1, "Active")).toBe("No");
+    expect(col(r, 2, "Bills for all locations")).toBe("Yes");
+    expect(col(r, 3, "Handles")).toBe("Orders, Receiving");
+    expect(col(r, 3, "Bill to")).toBe("PCC");
+    expect(col(r, 4, "Email")).toBe("ap@pcc.test");
+  });
+});
+
+describe("sales over a date range", () => {
+  it("totals each customer's products with weeks ordered and first and last week", () => {
+    const r = rows(
+      salesCsv(
+        "2026-10-05",
+        "2026-10-19",
+        [
+          { customer_id: "f", week: "2026-10-05", lines: { leg: 6 } },
+          { customer_id: "f", week: "2026-10-19", lines: { leg: 4, rack: 2 } },
+          { customer_id: "d", week: "2026-10-12", lines: { leg: 1 } },
+        ],
+        all,
+        products,
+      ),
+    );
+    expect(r.slice(1).map((x) => [x[2], x[4], x[6], x[7], x[8], x[9]])).toEqual([
+      ["Abe's Deli", "legs Bone In to VAC", "1", "1", "2026-10-12", "2026-10-12"],
+      ["Fremont #11", "legs Bone In to VAC", "10", "2", "2026-10-05", "2026-10-19"],
+      ["Fremont #11", "French Rack to Vac", "2", "1", "2026-10-19", "2026-10-19"],
+    ]);
+  });
+});
+
+describe("packing record", () => {
+  it("shows ordered against packed with short or over, who packed, and boxes", () => {
+    const r = rows(
+      packingRecordCsv(
+        "2026-10-05",
+        [
+          {
+            customer_id: "f",
+            status: "ordered",
+            lines: { leg: 6, rack: 2 },
+            packed: { leg: { qty: 5, by: "Chris", at: "2026-10-07T17:00:00Z" }, rack: { qty: 3, by: "Chris", at: "2026-10-07T17:05:00Z" } },
+            boxes: 2,
+            pallet: "A",
+            stampedBy: "Chris",
+          },
+          { customer_id: "d", status: "none", lines: {}, packed: {}, boxes: null, pallet: "", stampedBy: "" },
+        ],
+        all,
+        products,
+        (iso) => iso.slice(11, 16),
+      ),
+    );
+    expect(r.length).toBe(3); // the no-order customer is left out
+    expect([col(r, 1, "Ordered"), col(r, 1, "Packed"), col(r, 1, "Short"), col(r, 1, "Over"), col(r, 1, "Packed by"), col(r, 1, "Packed at")]).toEqual(
+      ["6", "5", "1", "", "Chris", "17:00"],
+    );
+    expect([col(r, 2, "Short"), col(r, 2, "Over"), col(r, 2, "Boxes"), col(r, 2, "Pallet")]).toEqual(["", "1", "2", "A"]);
+  });
+});
+
+describe("freezer on hand", () => {
+  it("lists on hand, held, and free with the counting unit", () => {
+    const r = rows(
+      freezerCsv("2026-10-08", withGroup.map((x) => ({ ...x, countUnit: x.id === "leg" ? "legs (not packs)" : "each" })), { leg: 5 }, { leg: 2, rack: 1 }),
+    );
+    expect(r.slice(1).map((x) => x.slice(1))).toEqual([
+      ["legs Bone In to VAC", "Legs", "legs (not packs)", "5", "2", "3"],
+      ["French Rack to Vac", "Racks", "each", "0", "1", "-1"],
+    ]);
   });
 });

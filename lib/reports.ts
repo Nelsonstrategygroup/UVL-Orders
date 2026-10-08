@@ -2,7 +2,7 @@
 // names instead of ID codes, one row per product ordered. CSV with a BOM so
 // Excel opens it with the right characters.
 
-import { billedThrough, mainContact } from "./calc/contacts";
+import { billedThrough, mainContact, rolesLabel } from "./calc/contacts";
 import { displayName } from "./calc/customers";
 import { STATUS_LABEL } from "./orders";
 import type { Customer, Order, OrderStatus, Qty } from "./db/types";
@@ -100,4 +100,225 @@ export function weekOrdersCsv(
       rows.push([...info, status, l.product?.name ?? l.id, l.qty, l.product?.unit ?? "", got[l.id] ?? "", o!.notes, c.notes]);
   }
   return csvFile(WEEK_COLUMNS, rows);
+}
+
+// ---------------------------------------------------------------------------
+// Product totals for a week: a pick list, and what to check Mohawk's cut against.
+// ---------------------------------------------------------------------------
+
+export const PRODUCT_TOTAL_COLUMNS = [
+  "Week of",
+  "Product",
+  "Group",
+  "Unit",
+  "Customers",
+  "Ordered",
+  "For half and whole",
+  "Total to cut",
+  "Packed",
+  "Short",
+];
+
+export function productTotalsCsv(
+  week: string,
+  products: (ProductLite & { group_name: string })[],
+  orders: Order[],
+  packed: Map<string, Qty>,
+  halfWholeShort: Qty,
+): string {
+  const rows: Cell[][] = [];
+  for (const p of [...products].sort((a, b) => a.sort - b.sort)) {
+    let ordered = 0;
+    let got = 0;
+    let customers = 0;
+    for (const o of orders) {
+      const q = o.lines[p.id] ?? 0;
+      if (!q) continue;
+      customers++;
+      ordered += q;
+      got += packed.get(o.id)?.[p.id] ?? 0;
+    }
+    const hw = halfWholeShort[p.id] ?? 0;
+    if (!ordered && !hw) continue;
+    rows.push([week, p.name, p.group_name, p.unit, customers, ordered, hw || "", ordered + hw, got, Math.max(0, ordered - got) || ""]);
+  }
+  return csvFile(PRODUCT_TOTAL_COLUMNS, rows);
+}
+
+// ---------------------------------------------------------------------------
+// Customer list: an address book, one row per contact.
+// ---------------------------------------------------------------------------
+
+export const CUSTOMER_LIST_COLUMNS = [
+  "Customer",
+  "Chain",
+  "Type",
+  "Call day",
+  "Active",
+  "Bills for all locations",
+  "Bill to",
+  "Contact",
+  "Handles",
+  "Phone",
+  "Email",
+  "Standing notes",
+];
+
+export function customerListCsv(customers: Customer[], byId: Map<string, Customer>): string {
+  const rows: Cell[][] = [];
+  const list = [...customers].sort((a, b) =>
+    displayName(a, byId).localeCompare(displayName(b, byId), undefined, { sensitivity: "base" }),
+  );
+  for (const c of list) {
+    const parent = c.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;
+    const info: Cell[] = [
+      c.name,
+      parent?.name ?? "",
+      c.type,
+      c.call_day ?? "",
+      c.active ? "Yes" : "No",
+      c.bills_for_locations ? "Yes" : "",
+      billedThrough(c, byId)?.parent.name ?? "",
+    ];
+    if (!c.contacts.length) rows.push([...info, "", "", "", "", c.notes]);
+    for (const k of c.contacts) rows.push([...info, k.name, rolesLabel(k.roles), k.phone, k.email, c.notes]);
+  }
+  return csvFile(CUSTOMER_LIST_COLUMNS, rows);
+}
+
+// ---------------------------------------------------------------------------
+// Sales over a date range: quantities by customer and product (no prices yet).
+// ---------------------------------------------------------------------------
+
+export const SALES_COLUMNS = ["From week", "To week", "Customer", "Chain", "Product", "Unit", "Total", "Weeks ordered", "First week", "Last week"];
+
+export function salesCsv(
+  from: string,
+  to: string,
+  orders: { customer_id: string; week: string; lines: Qty }[],
+  byId: Map<string, Customer>,
+  products: ProductLite[],
+): string {
+  type Acc = { total: number; weeks: Set<string>; first: string; last: string };
+  const acc = new Map<string, Acc>(); // customer|product
+  for (const o of orders) {
+    for (const [pid, q] of Object.entries(o.lines)) {
+      if (!q) continue;
+      const k = `${o.customer_id}|${pid}`;
+      const a = acc.get(k) ?? { total: 0, weeks: new Set<string>(), first: o.week, last: o.week };
+      a.total += q;
+      a.weeks.add(o.week);
+      if (o.week < a.first) a.first = o.week;
+      if (o.week > a.last) a.last = o.week;
+      acc.set(k, a);
+    }
+  }
+  const prodById = new Map(products.map((p) => [p.id, p]));
+  const rows = [...acc.entries()].map(([k, a]) => {
+    const [cid, pid] = k.split("|");
+    const c = byId.get(cid);
+    const p = prodById.get(pid);
+    const parent = c?.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;
+    return {
+      sortName: c ? displayName(c, byId) : cid,
+      sortProduct: p?.sort ?? 1e9,
+      row: [from, to, c?.name ?? "(deleted customer)", parent?.name ?? "", p?.name ?? pid, p?.unit ?? "", a.total, a.weeks.size, a.first, a.last] as Cell[],
+    };
+  });
+  rows.sort((x, y) => x.sortName.localeCompare(y.sortName, undefined, { sensitivity: "base" }) || x.sortProduct - y.sortProduct);
+  return csvFile(SALES_COLUMNS, rows.map((r) => r.row));
+}
+
+// ---------------------------------------------------------------------------
+// Packing record for a week: ordered against packed, with who and when.
+// ---------------------------------------------------------------------------
+
+export const PACKING_COLUMNS = [
+  "Week of",
+  "Customer",
+  "Chain",
+  "Product",
+  "Unit",
+  "Ordered",
+  "Packed",
+  "Short",
+  "Over",
+  "Packed by",
+  "Packed at",
+  "Boxes",
+  "Pallet",
+  "Boxes and pallet by",
+];
+
+export function packingRecordCsv(
+  week: string,
+  records: {
+    customer_id: string;
+    status: OrderStatus;
+    lines: Qty;
+    packed: Record<string, { qty: number; by: string; at: string }>;
+    boxes: number | null;
+    pallet: string;
+    stampedBy: string;
+  }[],
+  byId: Map<string, Customer>,
+  products: ProductLite[],
+  formatTime: (iso: string) => string,
+): string {
+  const rows: Cell[][] = [];
+  const name = (id: string) => {
+    const c = byId.get(id);
+    return c ? displayName(c, byId) : "(deleted customer)";
+  };
+  const list = records
+    .filter((r) => r.status === "ordered" && Object.values(r.lines).some(Boolean))
+    .sort((a, b) => name(a.customer_id).localeCompare(name(b.customer_id), undefined, { sensitivity: "base" }));
+  for (const r of list) {
+    const c = byId.get(r.customer_id);
+    const parent = c?.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;
+    for (const l of orderedLines(r.lines, products)) {
+      const p = r.packed[l.id];
+      const got = p?.qty;
+      const diff = got == null ? 0 : got - l.qty;
+      rows.push([
+        week,
+        c?.name ?? "(deleted customer)",
+        parent?.name ?? "",
+        l.product?.name ?? l.id,
+        l.product?.unit ?? "",
+        l.qty,
+        got ?? "",
+        diff < 0 ? -diff : "",
+        diff > 0 ? diff : "",
+        p?.by ?? "",
+        p ? formatTime(p.at) : "",
+        r.boxes ?? "",
+        r.pallet,
+        r.stampedBy,
+      ]);
+    }
+  }
+  return csvFile(PACKING_COLUMNS, rows);
+}
+
+// ---------------------------------------------------------------------------
+// Freezer on hand.
+// ---------------------------------------------------------------------------
+
+export const FREEZER_COLUMNS = ["As of", "Product", "Group", "Counted in", "On hand", "Held for half and whole", "Free"];
+
+export function freezerCsv(
+  asOf: string,
+  products: (ProductLite & { group_name: string; countUnit: string })[],
+  onHand: Qty,
+  held: Qty,
+): string {
+  const rows: Cell[][] = [...products]
+    .sort((a, b) => a.sort - b.sort)
+    .map((p) => {
+      const oh = onHand[p.id] ?? 0;
+      const h = held[p.id] ?? 0;
+      return [asOf, p.name, p.group_name, p.countUnit, oh, h || "", oh - h];
+    });
+  return csvFile(FREEZER_COLUMNS, rows);
 }
