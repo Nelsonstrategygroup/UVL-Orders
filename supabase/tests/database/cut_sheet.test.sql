@@ -27,6 +27,9 @@ insert into public.products (id, name, unit, group_name, cut_spec_id, sort) valu
   ('t-wl', 'Test whole loins', 'each', 'Loins', 't-wl', 1),
   ('t-fs', 'Test front shanks', 'each', 'Shanks', 't-fs', 2),
   ('t-ground', 'Test ground', 'lb', 'Ground and trim', null, 3);
+-- Customer products link to Mohawk lines through product_cut_specs.
+insert into public.product_cut_specs (product_id, cut_spec_id, units_per_cut) values
+  ('t-bi', 't-bi', 1), ('t-wl', 't-wl', 1), ('t-fs', 't-fs', 1);
 insert into public.customers (id, name) values ('00000000-0000-4000-8000-0000000000c3', 'CS Test Co-op');
 
 insert into public.weeks (id) values ('2099-03-02');
@@ -96,11 +99,9 @@ select throws_ok($$ select public.copy_cut_sheet('2099-03-02', '2099-03-09') $$,
 
 create temp table new_spec on commit drop as select public.add_cut_spec('Test osso bucco', 'allshank') as id;
 select ok(
-  (select p.cut_spec_id = s.id and p.group_name = 'Shanks'
-          and (select string_agg(u.part_id || '=' || u.qty, ',' order by u.part_id) from public.product_part_uses u where u.product_id = p.id) = 'fshank=0.5,hshank=0.5'
-   from public.cut_specs s join public.products p on p.cut_spec_id = s.id
-   where s.id = (select id from new_spec)),
-  'a new instruction also makes a matching product with part uses from its type');
+  (select s.use_type = 'allshank' and not exists (select 1 from public.products p where p.cut_spec_id = s.id)
+   from public.cut_specs s where s.id = (select id from new_spec)),
+  'a new instruction is only a cut sheet line; it does not make a product');
 
 select public.mark_cut_sheet_sent('2099-03-09', 'abc');
 select is(

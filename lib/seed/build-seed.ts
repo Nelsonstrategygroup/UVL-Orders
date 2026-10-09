@@ -79,6 +79,10 @@ export function buildSeed(data: SeedData, newId: () => string = () => crypto.ran
   const products = data.products.map((p) => {
     const row: Omit<SeedProduct, "part_uses"> & { part_uses?: unknown } = { ...p };
     delete row.part_uses;
+    // These are copies of Mohawk's cut lines. Customers order from the
+    // customer products (seed_customer_products in the migrations); these stay
+    // off, for history.
+    row.active = false;
     return row as Omit<SeedProduct, "part_uses">;
   });
   const product_part_uses = data.products.flatMap((p) =>

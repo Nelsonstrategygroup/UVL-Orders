@@ -6,7 +6,7 @@
 // overwrites changes made later on the Setup screen.
 //
 // It loads Setup data only (parts, products, cut instructions, sizes, Mohawk
-// settings). Kathy's sample 9/30 cut sheet in seed-data.json is NOT loaded:
+// settings), then the starting customer product list (once). Kathy's sample 9/30 cut sheet in seed-data.json is NOT loaded:
 // it was cleared as sample data on 2026-10-06 and must not come back. It is
 // still used by the calculation tests (lib/calc/testData.ts).
 //
@@ -51,6 +51,11 @@ async function main() {
   await insertMissing("cut_specs", c.cut_specs, "id");
   await insertMissing("products", c.products, "id");
   await insertMissing("product_part_uses", c.product_part_uses, "product_id,part_id");
+
+  console.log("Customer products");
+  const { data: done, error: cpErr } = await db.rpc("seed_customer_products");
+  if (cpErr) throw new Error(`seed_customer_products: ${cpErr.message}`);
+  console.log(`  ${done}`);
 
   console.log("Saving goals");
   const { count, error: goalErr } = await db.from("saving_goals").select("id", { count: "exact", head: true });
