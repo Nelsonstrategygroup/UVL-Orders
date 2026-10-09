@@ -12,6 +12,10 @@ export type PackProduct = { id: string; name: string; unit: string; sort: number
 export type PackOrder = {
   id: string;
   customerName: string;
+  /** The customer's standing notes (delivery times and so on). */
+  standingNotes: string;
+  /** Notes on this week's order. */
+  orderNotes: string;
   lines: Qty;
   packed: Qty;
   boxes: number | null;
@@ -40,10 +44,10 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db
       .from("orders")
       .select(
-        "id, customer_id, order_lines(product_id, qty), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
-    db.from("customers").select("id, name, active, call_day, parent_customer_id"),
+    db.from("customers").select("id, name, active, call_day, parent_customer_id, notes"),
     db.from("products").select("id, name, unit, sort").order("sort"),
     db.from("profiles").select("id, display_name"),
   ]);
@@ -54,6 +58,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     active: boolean;
     call_day: string | null;
     parent_customer_id: string | null;
+    notes: string;
   }[];
   const byId = new Map(custList.map((c) => [c.id, c]));
   const names = new Map((must(people) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
@@ -61,6 +66,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
   type Row = {
     id: string;
     customer_id: string;
+    notes: string;
     order_lines: { product_id: string; qty: number }[];
     packing_lines: { product_id: string; packed_qty: number; packed_by: string | null; packed_at: string }[];
     packing_orders:
@@ -96,6 +102,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     list.push({
       id: o.id,
       customerName: cust ? displayName(cust, byId) : "Unknown customer",
+      standingNotes: (cust?.notes ?? "").trim(),
+      orderNotes: (o.notes ?? "").trim(),
       lines,
       packed,
       boxes: po?.boxes ?? null,

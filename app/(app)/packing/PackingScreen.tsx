@@ -208,6 +208,7 @@ function CustomerCard({
           {done}/{lines.length}
         </span>
       </div>
+      <PackNotes o={o} />
 
       {lines.map(([pid, q]) => {
         const p = data.products.get(pid);
@@ -354,6 +355,25 @@ function AdjustSheet({
 }
 
 /** The paper checklist: blanks for packed count, boxes, pallet, and initials. */
+/** Standing notes and this week's order notes, so Chris sees them while packing. */
+function PackNotes({ o }: { o: PackOrder }) {
+  if (!o.standingNotes && !o.orderNotes) return null;
+  return (
+    <div className="mt-1 grid gap-0.5 text-[.95rem] font-normal">
+      {o.orderNotes && (
+        <div>
+          <b>This week:</b> {o.orderNotes}
+        </div>
+      )}
+      {o.standingNotes && (
+        <div className="whitespace-pre-wrap">
+          <b>Always:</b> {o.standingNotes}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PrintCopy({ data }: { data: PackingData }) {
   return (
     <div className="print-only printsheet">
@@ -362,7 +382,10 @@ function PrintCopy({ data }: { data: PackingData }) {
         <table key={o.id}>
           <thead>
             <tr>
-              <th colSpan={4}>{o.customerName}</th>
+              <th colSpan={4}>
+                {o.customerName}
+                <PackNotes o={o} />
+              </th>
             </tr>
             <tr>
               <th className="ck">Done</th>

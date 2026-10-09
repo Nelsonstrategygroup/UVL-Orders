@@ -199,7 +199,10 @@ function OrderGrid({
     dataRef.current = data;
   }, [data]);
 
-  const products = catalog!.products.filter((p) => p.active);
+  // Active products, plus any turned-off product someone still has this week,
+  // so older orders don't lose columns.
+  const used = new Set([...data.orders.values()].flatMap((o) => Object.keys(o.lines).filter((k) => o.lines[k])));
+  const products = catalog!.products.filter((p) => p.active || used.has(p.id));
   const byId = customers!.byId;
 
   const flush = useCallback(
