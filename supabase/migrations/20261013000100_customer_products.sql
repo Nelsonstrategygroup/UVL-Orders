@@ -134,16 +134,19 @@ begin
         where e.key = l.product_id and e.value::numeric > 0
       );
 
+    -- Units: only stored when they differ from the product's own. Without
+    -- p_units (the grid, Calls), each line keeps the unit it already had.
     insert into public.order_lines (order_id, product_id, qty, unit)
     select v_id, e.key, e.value::numeric,
-      -- Only store a unit when it differs from the product's own.
-      nullif(p_units ->> e.key, (select p.unit from public.products p where p.id = e.key))
+      case when p_units is null then null
+           else nullif(p_units ->> e.key, (select p.unit from public.products p where p.id = e.key)) end
     from jsonb_each_text(p_lines) e
     where e.value::numeric > 0
     on conflict (order_id, product_id) do update
-      set qty = excluded.qty, unit = excluded.unit
+      set qty = excluded.qty,
+          unit = case when p_units is null then public.order_lines.unit else excluded.unit end
       where public.order_lines.qty is distinct from excluded.qty
-         or public.order_lines.unit is distinct from excluded.unit;
+         or (p_units is not null and public.order_lines.unit is distinct from excluded.unit);
   end if;
 
   select exists (select 1 from public.order_lines l where l.order_id = v_id) into v_has_lines;

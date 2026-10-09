@@ -2,7 +2,7 @@
 -- with units, and filling the cut sheet from pounds.
 
 begin;
-select plan(12);
+select plan(13);
 
 -- The starting list ran once, after the catalog was loaded.
 select is(
@@ -43,6 +43,14 @@ select is(
    where o.customer_id = '00000000-0000-4000-8000-0000000000e2'),
   'cp-bls-shoulder=20:lb,cp-chops=16:-,cp-short-loin=3:-',
   'a line keeps its unit only when it differs from the product''s own');
+
+-- Saving without units (the grid) keeps each line's unit.
+select public.set_order('2099-05-04', '00000000-0000-4000-8000-0000000000e2', null, null,
+  '{"cp-chops": 16, "cp-bls-shoulder": 24, "cp-short-loin": 3}');
+select is(
+  (select l.qty || ':' || coalesce(l.unit, '-') from public.order_lines l join public.orders o on o.id = l.order_id
+   where o.customer_id = '00000000-0000-4000-8000-0000000000e2' and l.product_id = 'cp-bls-shoulder'),
+  '24:lb', 'changing a quantity without units keeps the line in pounds');
 
 -- Fill a set: 16 lb of chops at 2.5 lb per loin is 6.4, so 7 chop lines;
 -- 3 short loins is 3 lines.
