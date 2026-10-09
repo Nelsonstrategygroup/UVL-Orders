@@ -23,6 +23,7 @@ import type { HalfWholeOrder, Qty } from "@/lib/calc/types";
 import { niceDate } from "@/lib/dates";
 import { loadHalfWhole, saveHalfWhole, setHalfWholeStatus, type HalfWholeData, type HWOrder } from "@/lib/db/halfwhole";
 import type { Catalog } from "@/lib/db/types";
+import { qtyText } from "@/lib/orders";
 
 const STATUS: Record<HalfWholeOrder["status"], { label: string; cls: string }> = {
   pending: { label: "Pending", cls: "callback" },
@@ -81,7 +82,7 @@ export default function HalfWholeScreen() {
       {shortList.length > 0 && (
         <p className="note small">
           <b>Added to this week&apos;s order:</b>{" "}
-          {shortList.map((p) => `${fmt(short[p.id])}${p.unit === "lb" ? " lb" : ""} ${p.name.toLowerCase()}`).join(", ")}. The
+          {shortList.map((p) => `${qtyText(short[p.id], p.unit)} ${p.name.toLowerCase()}`).join(", ")}. The
           freezer doesn&apos;t have enough for pending orders.
         </p>
       )}

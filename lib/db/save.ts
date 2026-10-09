@@ -155,25 +155,62 @@ export type ProductInput = {
   name: string;
   short_name: string;
   unit: string;
+  alt_unit: string | null;
   group_name: string;
-  cut_spec_id: string | null;
+  lb_per_unit: number | null;
+  pieces_per_pack: number | null;
+  order_step: number;
+  billed_by_weight: boolean;
+  counts_toward_lambs: boolean;
+  not_lamb: boolean;
+  confirmed: boolean;
   fresh_only: boolean;
   active: boolean;
   note: string;
   uses: { part_id: string; qty: number }[];
+  /** Mohawk lines: units_per_cut of this product's unit per line. */
+  links: { cut_spec_id: string; units_per_cut: number }[];
 };
 
+/** Replace one product's child rows: write new and changed ones, then delete the rest. */
+async function replaceChildren(
+  db: SupabaseClient,
+  table: "product_part_uses" | "product_cut_specs",
+  productId: string,
+  key: "part_id" | "cut_spec_id",
+  rows: Record<string, unknown>[],
+): Promise<string | null> {
+  if (rows.length) {
+    const { error } = await db.from(table).upsert(
+      rows.map((r) => ({ ...r, product_id: productId })),
+      { onConflict: `product_id,${key}` },
+    );
+    if (error) return error.message;
+  }
+  let del = db.from(table).delete().eq("product_id", productId);
+  if (rows.length) del = del.not(key, "in", `(${rows.map((r) => r[key]).join(",")})`);
+  const { error } = await del;
+  return msg(error);
+}
+
 /**
- * Add or save a product and its part uses. New and changed uses are written
- * before removed ones are deleted. A new product goes at the end of the list.
+ * Add or save a product, its part uses, and its Mohawk lines. A new product
+ * goes at the end of the list.
  */
 export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<string | null> {
   const row = {
     name: p.name,
     short_name: p.short_name,
     unit: p.unit,
+    alt_unit: p.alt_unit,
     group_name: p.group_name,
-    cut_spec_id: p.cut_spec_id,
+    lb_per_unit: p.lb_per_unit,
+    pieces_per_pack: p.pieces_per_pack,
+    order_step: p.order_step,
+    billed_by_weight: p.billed_by_weight,
+    counts_toward_lambs: p.counts_toward_lambs,
+    not_lamb: p.not_lamb,
+    confirmed: p.confirmed,
     fresh_only: p.fresh_only,
     active: p.active,
     note: p.note,
@@ -190,20 +227,35 @@ export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<
     id = data.id as string;
   }
 
-  const uses = p.uses.filter((u) => u.part_id && u.qty > 0);
-  if (uses.length) {
-    const { error: upErr } = await db
-      .from("product_part_uses")
-      .upsert(
-        uses.map((u) => ({ product_id: id, part_id: u.part_id, qty: u.qty })),
-        { onConflict: "product_id,part_id" },
-      );
-    if (upErr) return upErr.message;
-  }
-  let del = db.from("product_part_uses").delete().eq("product_id", id);
-  if (uses.length) del = del.not("part_id", "in", `(${uses.map((u) => u.part_id).join(",")})`);
-  const { error: delErr } = await del;
-  return msg(delErr);
+  const uses = p.not_lamb ? [] : p.uses.filter((u) => u.part_id && u.qty > 0);
+  const usesErr = await replaceChildren(db, "product_part_uses", id, "part_id", uses);
+  if (usesErr) return usesErr;
+  const links = p.links
+    .filter((l) => l.cut_spec_id && l.units_per_cut > 0)
+    .map((l, sort) => ({ cut_spec_id: l.cut_spec_id, units_per_cut: l.units_per_cut, sort }));
+  return replaceChildren(db, "product_cut_specs", id, "cut_spec_id", links);
+}
+
+/** Add a part (for example a byproduct to track per lamb). */
+export async function addPart(
+  db: SupabaseClient,
+  part: { name: string; unit: "each" | "lb"; per_lamb: number; drives_count: boolean },
+): Promise<string | null> {
+  const slug = part.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "part";
+  const { data: last } = await db.from("parts").select("sort").order("sort", { ascending: false }).limit(1);
+  const sort = ((last?.[0]?.sort as number | undefined) ?? -1) + 1;
+  const { error } = await db.from("parts").insert({
+    id: `${slug}-${Math.random().toString(36).slice(2, 6)}`,
+    name: part.name,
+    unit: part.unit,
+    per_lamb: part.per_lamb,
+    drives_count: part.drives_count,
+    balance_check: false,
+    confirmed: true,
+    source_note: "Added in Setup.",
+    sort,
+  });
+  return msg(error);
 }
 
 export async function saveCustomerNotes(db: SupabaseClient, id: string, notes: string): Promise<string | null> {

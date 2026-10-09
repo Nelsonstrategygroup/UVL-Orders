@@ -13,6 +13,7 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { downloadText } from "@/components/download";
 import { weekOrdersCsv } from "@/lib/reports";
+import { toProductUnit, unitWord } from "@/lib/calc/units";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { fmt, num } from "@/lib/calc/num";
@@ -298,10 +299,15 @@ function OrderGrid({
   }
 
   const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog!.parts, catalog!.products);
+  // Totals in each product's own unit (a shoulder line taken in pounds becomes pieces).
   const totals: Qty = {};
   for (const c of list) {
     const l = linesOf(c.id);
-    for (const k in l) totals[k] = (totals[k] ?? 0) + l[k];
+    const u = data.orders.get(c.id)?.units ?? {};
+    for (const k in l) {
+      const prod = catalog!.productById.get(k);
+      totals[k] = (totals[k] ?? 0) + (prod ? toProductUnit(l[k], u[k], prod) : l[k]);
+    }
   }
 
   const rows: React.ReactNode[] = [];
@@ -354,13 +360,20 @@ function OrderGrid({
         </td>
         {products.map((p) => {
           const key = `${c.id}:${p.id}`;
+          // A line taken in another unit than the column's (pounds of a piece product).
+          const other = data.orders.get(c.id)?.units?.[p.id];
           return (
-            <td key={p.id}>
+            <td key={p.id} className={other ? "relative" : undefined}>
+              {other && (
+                <small className="pointer-events-none absolute right-1 bottom-0.5 text-[.65rem] text-ink-soft">
+                  {unitWord(other)}
+                </small>
+              )}
               <input
                 data-grid-p={p.id}
                 inputMode="decimal"
                 autoComplete="off"
-                aria-label={`${displayName(c, byId)}, ${p.name}`}
+                aria-label={`${displayName(c, byId)}, ${p.name}${other ? `, in ${unitWord(other)}` : ""}`}
                 value={typing[key] ?? (lines[p.id] ? fmt(lines[p.id]) : "")}
                 onFocus={(e) => e.target.select()}
                 onChange={(e) => setQty(c.id, p.id, cleanQtyInput(e.target.value))}
@@ -402,7 +415,7 @@ function OrderGrid({
               {products.map((p) => (
                 <th key={p.id} title={p.name}>
                   {p.short_name || p.name}
-                  <small>{p.unit}</small>
+                  <small>{unitWord(p.unit)}</small>
                 </th>
               ))}
             </tr>

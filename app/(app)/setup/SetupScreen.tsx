@@ -5,14 +5,13 @@
 
 import { useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
-import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import { fmt, num } from "@/lib/calc/num";
-import { saveProduct, updateRow, updateSettings } from "@/lib/db/save";
+import { drivesLambCount, needsChecking, partAmountRow } from "@/lib/calc/products";
+import { unitWord } from "@/lib/calc/units";
+import { addPart, updateRow, updateSettings } from "@/lib/db/save";
 import type { CatalogProduct } from "@/lib/db/types";
-
-const GROUPS = ["Legs", "Shoulders", "Racks", "Loins", "Shanks", "Ground and trim", "Whole lambs", "Other"];
-const UNITS = ["each", "lb", "leg", "loin", "lamb"];
+import EditProduct from "./EditProduct";
 
 // What each cut spec type counts as on a cut set (SPEC 6.3), in plain words.
 const USE_LABEL: Record<string, string> = {
@@ -36,6 +35,8 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
   const db = getDb();
   // A product being changed, "new" while adding one, or null.
   const [editingProduct, setEditingProduct] = useState<CatalogProduct | "new" | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [addingPart, setAddingPart] = useState(false);
 
   if (error) return <p className="note bad">Couldn&apos;t load Setup: {error}</p>;
   if (!catalog) return <div className="empty">Loading...</div>;
@@ -48,6 +49,73 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
 
   const partName = (id: string) => catalog.parts.find((p) => p.id === id)?.name ?? id;
   const settings = catalog.settings;
+  const specText = (id: string) => catalog.cutSpecs.find((s) => s.id === id)?.text ?? id;
+  const onProducts = catalog.products.filter((p) => p.active);
+  const offProducts = catalog.products.filter((p) => !p.active);
+  const toCheck = needsChecking(catalog.products, catalog.parts);
+  const open = (p: CatalogProduct, copy = false) => {
+    setCopying(copy);
+    setEditingProduct(p);
+  };
+  /** "2.5 lb per short loin" or "2 leg": a part use as Kathy says it. */
+  const partUseText = (p: CatalogProduct, u: { part_id: string; qty: number }) => {
+    const r = partAmountRow(u.qty);
+    const part = partName(u.part_id).toLowerCase();
+    return r.mode === "per-part" ? `${fmt(r.amount)} ${unitWord(p.unit)} per ${part}` : `${fmt(r.amount)} ${part}`;
+  };
+
+  const productTable = (products: CatalogProduct[]) => {
+    return (
+      <table className="simple">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Comes from</th>
+            <th>Mohawk lines</th>
+            <th>
+              <span className="sr-only">Change or copy</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((p) => (
+            <tr key={p.id} className={p.active ? "" : "bg-field"}>
+              <td>
+                <b>{p.name}</b>
+                {!p.confirmed && p.active && <span className="tag extra ml-1">Check</span>}
+                <br />
+                <span className="small muted">
+                  {[
+                    p.group_name,
+                    `by ${unitWord(p.unit, 1)}${p.alt_unit ? ` or ${unitWord(p.alt_unit, 1)}` : ""}`,
+                    p.order_step !== 1 ? `steps of ${fmt(p.order_step)}` : "",
+                    p.not_lamb ? "not a lamb product" : drivesLambCount(p, catalog!.parts) ? "" : "doesn't drive the lamb count",
+                    p.fresh_only ? "fresh only" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </td>
+              <td className="small">{p.uses.map((u) => partUseText(p, u)).join(" + ") || "none"}</td>
+              <td className="small">{p.links.map((l) => specText(l.cut_spec_id)).join("; ") || "none"}</td>
+              <td className="whitespace-nowrap text-right">
+                {canEdit && (
+                  <>
+                    <button type="button" className="btn ghost" onClick={() => open(p)}>
+                      Change
+                    </button>{" "}
+                    <button type="button" className="btn ghost" onClick={() => open(p, true)}>
+                      Copy
+                    </button>
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
 
   return (
     <>
@@ -60,6 +128,33 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
         <p className="note small">Only an admin can change these. Ask Kathy or Eric if something looks wrong.</p>
       )}
 
+      {toCheck.length > 0 && (
+        <section className="panel mb-4" aria-labelledby="to-check">
+          <h3 id="to-check">Needs checking ({toCheck.length})</h3>
+          <p className="small muted mt-1">
+            Starting values Kathy hasn&apos;t confirmed yet. Open one, fix anything wrong, and tick &quot;These values are
+            checked&quot;.
+          </p>
+          <ul className="m-0 grid list-none gap-1 p-0">
+            {toCheck.map((c) => {
+              const prod = c.kind === "product" ? catalog.productById.get(c.id) : undefined;
+              return (
+                <li key={`${c.kind}-${c.id}`} className="flex flex-wrap items-center gap-x-3 border-t border-line py-1.5">
+                  <b>{c.name}</b>
+                  <span className="small muted mr-auto">{c.why}</span>
+                  {prod && canEdit && (
+                    <button type="button" className="btn ghost" onClick={() => open(prod)}>
+                      Check
+                    </button>
+                  )}
+                  {c.kind === "part" && <span className="small muted">Below, under parts per lamb</span>}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       <div className="grid2">
         <section className="panel">
           <h3>What one lamb gives you</h3>
@@ -68,6 +163,7 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
               <tr>
                 <th>Part</th>
                 <th>Per lamb</th>
+                <th>Drives lamb count</th>
                 <th>Where it came from</th>
               </tr>
             </thead>
@@ -93,6 +189,16 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
                       }}
                     />
                   </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      className="h-6 w-6 accent-forest"
+                      aria-label={`${p.name} drives the lamb count`}
+                      checked={p.drives_count}
+                      disabled={!canEdit}
+                      onChange={(e) => void updateRow(db, "parts", p.id, { drives_count: e.target.checked }).then(done)}
+                    />
+                  </td>
                   <td className="small">
                     {p.source_note}
                     {!p.confirmed && canEdit && (
@@ -113,6 +219,23 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
               ))}
             </tbody>
           </table>
+          <p className="small muted mt-2 mb-0">
+            Parts that don&apos;t drive the count (necks, trim, Denver ribs) are byproducts: tracked per lamb, but ordering
+            more of them never raises the number of lambs.
+          </p>
+          {canEdit &&
+            (addingPart ? (
+              <AddPart
+                onDone={async (err) => {
+                  if (err !== undefined) await done(err);
+                  if (!err) setAddingPart(false);
+                }}
+              />
+            ) : (
+              <button type="button" className="btn ghost mt-2" onClick={() => setAddingPart(true)}>
+                Add a part
+              </button>
+            ))}
         </section>
 
         <section className="panel">
@@ -210,49 +333,36 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
 
       <section className="panel mt-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="mr-auto">Products and the parts they use</h3>
+          <h3 className="mr-auto">Products customers order</h3>
           {canEdit && (
-            <button type="button" className="btn" onClick={() => setEditingProduct("new")}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setCopying(false);
+                setEditingProduct("new");
+              }}
+            >
               Add a product
             </button>
           )}
         </div>
-        <p className="small muted mt-1">What customers order, and how much of the lamb one of each takes.</p>
-        <table className="simple">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Uses</th>
-              <th>
-                <span className="sr-only">Change</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {catalog.products.map((p) => (
-              <tr key={p.id} className={p.active ? "" : "bg-field"}>
-                <td>
-                  <b>{p.name}</b>
-                  <br />
-                  <span className="small muted">
-                    {[p.group_name, p.short_name, p.unit, p.fresh_only ? "fresh only" : "", p.active ? "" : "not active"]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    {p.note ? `. ${p.note}` : ""}
-                  </span>
-                </td>
-                <td className="small">{p.uses.map((u) => `${fmt(u.qty)} ${partName(u.part_id)}`).join(" + ")}</td>
-                <td className="text-right">
-                  {canEdit && (
-                    <button type="button" className="btn ghost" onClick={() => setEditingProduct(p)}>
-                      Change
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <p className="small muted mt-1">
+          What customers order, in their words: how it&apos;s ordered, what part of the lamb it comes from, and the Mohawk
+          lines it&apos;s cut from. To start a new one from an old one, tap Copy.
+        </p>
+        {productTable(onProducts)}
+        {offProducts.length > 0 && (
+          <details className="mt-3">
+            <summary className="flex min-h-[44px] cursor-pointer items-center font-semibold">
+              Turned off ({offProducts.length})
+            </summary>
+            <p className="small muted mt-0">
+              Kept so old orders and downloads still work. The old Mohawk-wording products are here.
+            </p>
+            {productTable(offProducts)}
+          </details>
+        )}
       </section>
 
       <section className="panel mt-4">
@@ -312,7 +422,9 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
 
       {editingProduct && (
         <EditProduct
+          key={`${editingProduct === "new" ? "new" : editingProduct.id}-${copying}`}
           product={editingProduct === "new" ? null : editingProduct}
+          copy={copying}
           onClose={() => setEditingProduct(null)}
           onSaved={async (err) => {
             await done(err);
@@ -324,177 +436,67 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-function EditProduct({
-  product,
-  onClose,
-  onSaved,
-}: {
-  /** null to add a new product */
-  product: CatalogProduct | null;
-  onClose: () => void;
-  onSaved: (err: string | null) => Promise<void>;
-}) {
-  const { catalog } = useStaffData();
-  const [p, setP] = useState(() => {
-    const base = product ?? {
-      id: null,
-      name: "",
-      short_name: "",
-      unit: "each",
-      group_name: "Other",
-      cut_spec_id: null,
-      fresh_only: false,
-      active: true,
-      note: "",
-      uses: [],
-    };
-    return { ...base, uses: base.uses.map((u) => ({ part_id: u.part_id, qty: String(u.qty) })) };
-  });
+/** Add a part to track per lamb (for example a byproduct like bellies). */
+function AddPart({ onDone }: { onDone: (err?: string | null) => Promise<void> }) {
+  const db = getDb();
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState<"each" | "lb">("each");
+  const [per, setPer] = useState("1");
+  const [drives, setDrives] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = <K extends keyof typeof p>(k: K, v: (typeof p)[K]) => setP((x) => ({ ...x, [k]: v }));
-  const unusedParts = (catalog?.parts ?? []).filter((pt) => !p.uses.some((u) => u.part_id === pt.id));
-
   return (
-    <Sheet title={product ? "Change product" : "Add a product"} onClose={onClose}>
-      <label className="lbl" htmlFor="pr-name">
-        Name
-      </label>
-      <input id="pr-name" className="field" autoFocus={!product} value={p.name} onChange={(e) => set("name", e.target.value)} />
+    <div className="mt-3 grid gap-2 rounded-md border border-line p-3">
       <div className="flex flex-wrap gap-3">
         <div className="min-w-[150px] flex-1">
-          <label className="lbl" htmlFor="pr-short">
-            Short name (for the grid)
+          <label className="lbl mt-0!" htmlFor="np-name">
+            Part name
           </label>
-          <input id="pr-short" className="field" value={p.short_name} onChange={(e) => set("short_name", e.target.value)} />
+          <input id="np-name" className="field" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="min-w-[120px] flex-1">
-          <label className="lbl" htmlFor="pr-unit">
-            Sold by
+        <div>
+          <label className="lbl mt-0!" htmlFor="np-per">
+            Per lamb
           </label>
-          <select id="pr-unit" className="field" value={p.unit} onChange={(e) => set("unit", e.target.value)}>
-            {UNITS.map((u) => (
-              <option key={u}>{u}</option>
-            ))}
-          </select>
+          <input
+            id="np-per"
+            className="field num w-24!"
+            inputMode="decimal"
+            value={per}
+            onChange={(e) => setPer(e.target.value.replace(/[^0-9.]/g, ""))}
+          />
         </div>
-        <div className="min-w-[150px] flex-1">
-          <label className="lbl" htmlFor="pr-group">
-            Group
+        <div>
+          <label className="lbl mt-0!" htmlFor="np-unit">
+            Counted in
           </label>
-          <select id="pr-group" className="field" value={p.group_name} onChange={(e) => set("group_name", e.target.value)}>
-            {GROUPS.map((g) => (
-              <option key={g}>{g}</option>
-            ))}
+          <select id="np-unit" className="field" value={unit} onChange={(e) => setUnit(e.target.value as "each" | "lb")}>
+            <option value="each">Pieces</option>
+            <option value="lb">Pounds</option>
           </select>
         </div>
       </div>
-
-      <label className="lbl" htmlFor="pr-spec">
-        Instruction for the cut sheet
-      </label>
-      <select
-        id="pr-spec"
-        className="field"
-        value={p.cut_spec_id ?? ""}
-        onChange={(e) => set("cut_spec_id", e.target.value || null)}
-      >
-        <option value="">None (for example, ground lamb from trim)</option>
-        {(catalog?.cutSpecs ?? [])
-          .filter((s) => s.active || s.id === p.cut_spec_id)
-          .map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.text}
-            </option>
-          ))}
-      </select>
-
-      <p className="lbl">Parts one of these uses</p>
-      {p.uses.map((u, i) => (
-        <div key={u.part_id} className="mb-2 flex items-center gap-2">
-          <input
-            className="field num w-24!"
-            inputMode="decimal"
-            aria-label={`Amount of ${u.part_id}`}
-            value={u.qty}
-            onChange={(e) =>
-              set(
-                "uses",
-                p.uses.map((x, j) => (j === i ? { ...x, qty: e.target.value.replace(/[^0-9.]/g, "") } : x)),
-              )
-            }
-          />
-          <span className="flex-1">{catalog?.parts.find((pt) => pt.id === u.part_id)?.name ?? u.part_id}</span>
-          <button type="button" className="copy min-h-[44px]" onClick={() => set("uses", p.uses.filter((_, j) => j !== i))}>
-            Remove
-          </button>
-        </div>
-      ))}
-      {unusedParts.length > 0 && (
-        <select
-          className="field"
-          aria-label="Add a part"
-          value=""
-          onChange={(e) => e.target.value && set("uses", [...p.uses, { part_id: e.target.value, qty: "1" }])}
-        >
-          <option value="">Add a part...</option>
-          {unusedParts.map((pt) => (
-            <option key={pt.id} value={pt.id}>
-              {pt.name}
-            </option>
-          ))}
-        </select>
-      )}
-
-      {p.uses.length === 0 && (
-        <p className="small muted">With no parts, this product won&apos;t change how many lambs to order.</p>
-      )}
-
-      <label className="lbl" htmlFor="pr-note">
-        Note
-      </label>
-      <input id="pr-note" className="field" value={p.note} onChange={(e) => set("note", e.target.value)} />
-
-      <label className="mt-3 flex min-h-[44px] items-center gap-3">
-        <input type="checkbox" className="h-6 w-6 accent-forest" checked={p.fresh_only} onChange={(e) => set("fresh_only", e.target.checked)} />
-        Fresh only (never filled from the freezer)
-      </label>
       <label className="flex min-h-[44px] items-center gap-3">
-        <input type="checkbox" className="h-6 w-6 accent-forest" checked={p.active} onChange={(e) => set("active", e.target.checked)} />
-        Active (shows when entering orders)
+        <input type="checkbox" className="h-6 w-6 accent-forest" checked={drives} onChange={(e) => setDrives(e.target.checked)} />
+        Drives the lamb count (leave off for byproducts)
       </label>
-
-      {error && <p className="note bad mt-3">{error}</p>}
-      <div className="mt-4 flex justify-end gap-2">
-        <button type="button" className="btn ghost" onClick={onClose}>
+      <div className="flex justify-end gap-2">
+        <button type="button" className="btn ghost" onClick={() => void onDone()}>
           Cancel
         </button>
         <button
           type="button"
           className="btn"
-          disabled={busy}
+          disabled={busy || !name.trim()}
           onClick={async () => {
-            if (!p.name.trim()) return setError("Add a name.");
             setBusy(true);
-            const err = await saveProduct(getDb(), {
-              id: p.id,
-              name: p.name.trim(),
-              short_name: p.short_name.trim(),
-              unit: p.unit,
-              group_name: p.group_name,
-              cut_spec_id: p.cut_spec_id,
-              fresh_only: p.fresh_only,
-              active: p.active,
-              note: p.note.trim(),
-              uses: p.uses.map((u) => ({ part_id: u.part_id, qty: num(u.qty) })),
-            });
+            const err = await addPart(db, { name: name.trim(), unit, per_lamb: Math.max(0, num(per)), drives_count: drives });
             setBusy(false);
-            await onSaved(err);
+            await onDone(err);
           }}
         >
-          {busy ? "Saving..." : "Save"}
+          Add part
         </button>
       </div>
-    </Sheet>
+    </div>
   );
 }
