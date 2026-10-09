@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useWeekData } from "@/components/data/useWeekData";
-import { downloadText } from "@/components/download";
+import { downloadTable, FILE_TYPE_LABEL, useFileType, type FileType } from "@/components/download";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
@@ -16,14 +16,14 @@ import { addDays, currentWeek, mondayOf, niceDate, todayISO } from "@/lib/dates"
 import { loadCustomerOrders, loadOrdersBetween, loadPackingRecord } from "@/lib/db/load";
 import { formatDateTime } from "@/lib/format";
 import {
-  customerHistoryCsv,
-  customerListCsv,
+  customerHistoryTable,
+  customerListTable,
   fileSafe,
-  freezerCsv,
-  packingRecordCsv,
-  productTotalsCsv,
-  salesCsv,
-  weekOrdersCsv,
+  freezerTable,
+  packingRecordTable,
+  productTotalsTable,
+  salesTable,
+  weekOrdersTable,
 } from "@/lib/reports";
 
 function Item({ title, children, action }: { title: string; children: React.ReactNode; action: React.ReactNode }) {
@@ -44,6 +44,7 @@ export default function DownloadsScreen() {
   const { data, error } = useWeekData(week);
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  const [fileType, setFileType] = useFileType();
   const [customerId, setCustomerId] = useState("");
   const [from, setFrom] = useState(() => addDays(currentWeek(), -7 * 12));
   const [to, setTo] = useState(() => todayISO());
@@ -86,6 +87,19 @@ export default function DownloadsScreen() {
     <div className="max-w-[760px]">
       <h2 className="mb-1">Downloads</h2>
       <p className="muted mt-0">Spreadsheets that open in Excel or Google Sheets.</p>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <span>File type</span>
+        <div className="seg" role="group" aria-label="File type">
+          {(["csv", "xlsx"] as FileType[]).map((t) => (
+            <button key={t} type="button" aria-pressed={fileType === t} onClick={() => setFileType(t)}>
+              {FILE_TYPE_LABEL[t]}
+            </button>
+          ))}
+        </div>
+        <span className="small muted">
+          {fileType === "xlsx" ? "Excel workbook (.xlsx)." : "CSV opens anywhere, including Google Sheets."} Remembered on this device.
+        </span>
+      </div>
 
       <WeekBar processDate={data.weekRow?.process_date} />
 
@@ -94,9 +108,11 @@ export default function DownloadsScreen() {
         <Item
           title="This week's orders"
           action={btn("week", () =>
-            downloadText(
-              `orders-week-of-${week}.csv`,
-              weekOrdersCsv(week, weekList, customers.byId, data.orders, data.packed, catalog.products),
+            downloadTable(
+              `orders-week-of-${week}`,
+              weekOrdersTable(week, weekList, customers.byId, data.orders, data.packed, catalog.products),
+              "Orders",
+              fileType,
             ),
           )}
         >
@@ -105,9 +121,11 @@ export default function DownloadsScreen() {
         <Item
           title="Product totals"
           action={btn("totals", () =>
-            downloadText(
-              `product-totals-week-of-${week}.csv`,
-              productTotalsCsv(week, catalog.products, [...data.orders.values()], data.packed, short),
+            downloadTable(
+              `product-totals-week-of-${week}`,
+              productTotalsTable(week, catalog.products, [...data.orders.values()], data.packed, short),
+              "Product totals",
+              fileType,
             ),
           )}
         >
@@ -118,9 +136,11 @@ export default function DownloadsScreen() {
           title="Packing record"
           action={btn("packing", async () => {
             const records = await loadPackingRecord(getDb(), week);
-            downloadText(
-              `packing-record-week-of-${week}.csv`,
-              packingRecordCsv(week, records, customers.byId, catalog.products, formatDateTime),
+            await downloadTable(
+              `packing-record-week-of-${week}`,
+              packingRecordTable(week, records, customers.byId, catalog.products, formatDateTime),
+              "Packing record",
+              fileType,
             );
           })}
         >
@@ -132,7 +152,9 @@ export default function DownloadsScreen() {
         <h3 className="mb-1">Customers</h3>
         <Item
           title="Customer list"
-          action={btn("customers", () => downloadText("customer-list.csv", customerListCsv(customers.list, customers.byId)))}
+          action={btn("customers", () =>
+            downloadTable("customer-list", customerListTable(customers.list, customers.byId), "Customers", fileType),
+          )}
         >
           Every customer and contact, with what each person handles, call days, chains, and standing notes.
         </Item>
@@ -148,7 +170,7 @@ export default function DownloadsScreen() {
                 toast("No orders yet to download.");
                 return;
               }
-              downloadText(`${fileSafe(name)}-order-history.csv`, customerHistoryCsv(name, orders, catalog.products));
+              await downloadTable(`${fileSafe(name)}-order-history`, customerHistoryTable(name, orders, catalog.products), "Order history", fileType);
             },
             !chosen,
           )}
@@ -191,7 +213,7 @@ export default function DownloadsScreen() {
               const a = mondayOf(from);
               const b = mondayOf(to);
               const orders = await loadOrdersBetween(getDb(), a, b);
-              downloadText(`sales-${a}-to-${b}.csv`, salesCsv(a, b, orders, customers.byId, catalog.products));
+              await downloadTable(`sales-${a}-to-${b}`, salesTable(a, b, orders, customers.byId, catalog.products), "Sales", fileType);
             },
             !rangeOk,
           )}
@@ -208,7 +230,7 @@ export default function DownloadsScreen() {
         <Item
           title="Freezer on hand"
           action={btn("freezer", () =>
-            downloadText(`freezer-${todayISO()}.csv`, freezerCsv(todayISO(), freezerProducts, onHand, need)),
+            downloadTable(`freezer-${todayISO()}`, freezerTable(todayISO(), freezerProducts, onHand, need), "Freezer", fileType),
           )}
         >
           What&apos;s in the freezer now, what half and whole orders are counting on, and what&apos;s free.

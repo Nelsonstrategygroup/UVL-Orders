@@ -57,3 +57,22 @@ export function exportReadme(date: string, counts: { table: string; rows: number
     "",
   ].join("\r\n");
 }
+
+/** Rows to an Excel sheet. Objects become JSON text; true/false become TRUE/FALSE. */
+export function toSheet(name: string, rows: Record<string, unknown>[]): { name: string; header: string[]; rows: (string | number | null)[][] } {
+  const cols: string[] = [];
+  for (const r of rows) for (const k of Object.keys(r)) if (!cols.includes(k)) cols.push(k);
+  const cell = (v: unknown): string | number | null =>
+    v == null
+      ? null
+      : typeof v === "number"
+        ? v
+        : typeof v === "boolean"
+          ? v
+            ? "TRUE"
+            : "FALSE"
+          : typeof v === "object"
+            ? JSON.stringify(v)
+            : String(v);
+  return { name, header: cols, rows: rows.map((r) => cols.map((c) => cell(r[c]))) };
+}

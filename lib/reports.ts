@@ -12,6 +12,18 @@ import { csvCell } from "./import/csv";
 type Cell = string | number | null | undefined;
 type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
 
+/** A download: column names and rows, saved as CSV or Excel. */
+export type Table = { header: string[]; rows: Cell[][] };
+
+function table(header: string[], rows: Cell[][]): Table {
+  return { header, rows };
+}
+
+/** A table as a CSV file Excel opens cleanly. */
+export function tableCsv(t: Table): string {
+  return csvFile(t.header, t.rows);
+}
+
 /** Rows to a CSV file Excel opens cleanly. */
 export function csvFile(header: string[], rows: Cell[][]): string {
   const line = (r: Cell[]) => r.map((v) => csvCell(v ?? "")).join(",");
@@ -35,11 +47,11 @@ function orderedLines(lines: Qty, products: ProductLite[]): { product: ProductLi
 export const HISTORY_COLUMNS = ["Customer", "Week of", "Answer", "Product", "Quantity", "Unit", "Packed", "Order notes"];
 
 /** One customer's order history: a row per product per week, newest week first. */
-export function customerHistoryCsv(
+export function customerHistoryTable(
   name: string,
   orders: { week: string; status: OrderStatus; notes: string; lines: Qty; units?: Units; packed: Qty }[],
   products: ProductLite[],
-): string {
+): Table {
   const rows: Cell[][] = [];
   for (const o of [...orders].sort((a, b) => b.week.localeCompare(a.week))) {
     const lines = orderedLines(o.lines, products);
@@ -47,7 +59,7 @@ export function customerHistoryCsv(
     for (const l of lines)
       rows.push([name, o.week, STATUS_LABEL[o.status], l.product?.name ?? l.id, l.qty, lineUnit(l.id, l.product ?? undefined, o.units), o.packed[l.id] ?? "", o.notes]);
   }
-  return csvFile(HISTORY_COLUMNS, rows);
+  return table(HISTORY_COLUMNS, rows);
 }
 
 export const WEEK_COLUMNS = [
@@ -74,14 +86,14 @@ export const WEEK_COLUMNS = [
  * one row for each customer with no products (no order, call back, not
  * called yet), so the list shows everyone. Sorted by customer name.
  */
-export function weekOrdersCsv(
+export function weekOrdersTable(
   week: string,
   customers: Customer[],
   byId: Map<string, Customer>,
   orders: Map<string, Order>,
   packed: Map<string, Qty>,
   products: ProductLite[],
-): string {
+): Table {
   const rows: Cell[][] = [];
   const list = [...customers].sort((a, b) =>
     displayName(a, byId).localeCompare(displayName(b, byId), undefined, { sensitivity: "base" }),
@@ -100,7 +112,7 @@ export function weekOrdersCsv(
     for (const l of lines)
       rows.push([...info, status, l.product?.name ?? l.id, l.qty, lineUnit(l.id, l.product ?? undefined, o!.units), got[l.id] ?? "", o!.notes, c.notes]);
   }
-  return csvFile(WEEK_COLUMNS, rows);
+  return table(WEEK_COLUMNS, rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -120,13 +132,13 @@ export const PRODUCT_TOTAL_COLUMNS = [
   "Short",
 ];
 
-export function productTotalsCsv(
+export function productTotalsTable(
   week: string,
   products: (ProductLite & { group_name: string })[],
   orders: Order[],
   packed: Map<string, Qty>,
   halfWholeShort: Qty,
-): string {
+): Table {
   const rows: Cell[][] = [];
   for (const p of [...products].sort((a, b) => a.sort - b.sort)) {
     let ordered = 0;
@@ -144,7 +156,7 @@ export function productTotalsCsv(
     if (!ordered && !hw) continue;
     rows.push([week, p.name, p.group_name, p.unit, customers, ordered, hw || "", ordered + hw, got, Math.max(0, ordered - got) || ""]);
   }
-  return csvFile(PRODUCT_TOTAL_COLUMNS, rows);
+  return table(PRODUCT_TOTAL_COLUMNS, rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -166,7 +178,7 @@ export const CUSTOMER_LIST_COLUMNS = [
   "Standing notes",
 ];
 
-export function customerListCsv(customers: Customer[], byId: Map<string, Customer>): string {
+export function customerListTable(customers: Customer[], byId: Map<string, Customer>): Table {
   const rows: Cell[][] = [];
   const list = [...customers].sort((a, b) =>
     displayName(a, byId).localeCompare(displayName(b, byId), undefined, { sensitivity: "base" }),
@@ -185,7 +197,7 @@ export function customerListCsv(customers: Customer[], byId: Map<string, Custome
     if (!c.contacts.length) rows.push([...info, "", "", "", "", c.notes]);
     for (const k of c.contacts) rows.push([...info, k.name, rolesLabel(k.roles), k.phone, k.email, c.notes]);
   }
-  return csvFile(CUSTOMER_LIST_COLUMNS, rows);
+  return table(CUSTOMER_LIST_COLUMNS, rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,13 +206,13 @@ export function customerListCsv(customers: Customer[], byId: Map<string, Custome
 
 export const SALES_COLUMNS = ["From week", "To week", "Customer", "Chain", "Product", "Unit", "Total", "Weeks ordered", "First week", "Last week"];
 
-export function salesCsv(
+export function salesTable(
   from: string,
   to: string,
   orders: { customer_id: string; week: string; lines: Qty; units?: Units }[],
   byId: Map<string, Customer>,
   products: ProductLite[],
-): string {
+): Table {
   const prodBy = new Map(products.map((p) => [p.id, p]));
   type Acc = { total: number; weeks: Set<string>; first: string; last: string };
   const acc = new Map<string, Acc>(); // customer|product
@@ -231,7 +243,7 @@ export function salesCsv(
     };
   });
   rows.sort((x, y) => x.sortName.localeCompare(y.sortName, undefined, { sensitivity: "base" }) || x.sortProduct - y.sortProduct);
-  return csvFile(SALES_COLUMNS, rows.map((r) => r.row));
+  return table(SALES_COLUMNS, rows.map((r) => r.row));
 }
 
 // ---------------------------------------------------------------------------
@@ -255,7 +267,7 @@ export const PACKING_COLUMNS = [
   "Boxes and pallet by",
 ];
 
-export function packingRecordCsv(
+export function packingRecordTable(
   week: string,
   records: {
     customer_id: string;
@@ -270,7 +282,7 @@ export function packingRecordCsv(
   byId: Map<string, Customer>,
   products: ProductLite[],
   formatTime: (iso: string) => string,
-): string {
+): Table {
   const rows: Cell[][] = [];
   const name = (id: string) => {
     const c = byId.get(id);
@@ -304,7 +316,7 @@ export function packingRecordCsv(
       ]);
     }
   }
-  return csvFile(PACKING_COLUMNS, rows);
+  return table(PACKING_COLUMNS, rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -313,12 +325,12 @@ export function packingRecordCsv(
 
 export const FREEZER_COLUMNS = ["As of", "Product", "Group", "Counted in", "On hand", "Held for half and whole", "Free"];
 
-export function freezerCsv(
+export function freezerTable(
   asOf: string,
   products: (ProductLite & { group_name: string; countUnit: string })[],
   onHand: Qty,
   held: Qty,
-): string {
+): Table {
   const rows: Cell[][] = [...products]
     .sort((a, b) => a.sort - b.sort)
     .map((p) => {
@@ -326,5 +338,14 @@ export function freezerCsv(
       const h = held[p.id] ?? 0;
       return [asOf, p.name, p.group_name, p.countUnit, oh, h || "", oh - h];
     });
-  return csvFile(FREEZER_COLUMNS, rows);
+  return table(FREEZER_COLUMNS, rows);
 }
+
+// CSV versions of each report.
+export const customerHistoryCsv = (...a: Parameters<typeof customerHistoryTable>): string => tableCsv(customerHistoryTable(...a));
+export const weekOrdersCsv = (...a: Parameters<typeof weekOrdersTable>): string => tableCsv(weekOrdersTable(...a));
+export const productTotalsCsv = (...a: Parameters<typeof productTotalsTable>): string => tableCsv(productTotalsTable(...a));
+export const customerListCsv = (...a: Parameters<typeof customerListTable>): string => tableCsv(customerListTable(...a));
+export const salesCsv = (...a: Parameters<typeof salesTable>): string => tableCsv(salesTable(...a));
+export const packingRecordCsv = (...a: Parameters<typeof packingRecordTable>): string => tableCsv(packingRecordTable(...a));
+export const freezerCsv = (...a: Parameters<typeof freezerTable>): string => tableCsv(freezerTable(...a));

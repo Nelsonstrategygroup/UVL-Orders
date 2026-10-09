@@ -17,9 +17,9 @@ import { useWeek } from "@/components/Week";
 import { billedThrough, deleteBlockers, rolesLabel, type DeleteCheck } from "@/lib/calc/contacts";
 import { displayName, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate } from "@/lib/dates";
-import { downloadText } from "@/components/download";
+import { downloadTable } from "@/components/download";
 import { loadCustomerHistory, loadCustomerOrders, type HistoryEntry } from "@/lib/db/load";
-import { customerHistoryCsv, fileSafe } from "@/lib/reports";
+import { customerHistoryTable, fileSafe } from "@/lib/reports";
 import {
   customerDeleteCheck,
   deleteCustomer,
@@ -616,7 +616,7 @@ function DownloadHistory({ customer, name }: { customer: Customer; name: string 
     try {
       const orders = await loadCustomerOrders(getDb(), customer.id);
       if (!orders.length) toast("No orders yet to download.");
-      else downloadText(`${fileSafe(name)}-order-history.csv`, customerHistoryCsv(name, orders, catalog.products));
+      else await downloadTable(`${fileSafe(name)}-order-history`, customerHistoryTable(name, orders, catalog.products), "Order history");
     } catch {
       toast("Couldn't download. Check the internet connection.");
     }

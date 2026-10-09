@@ -11,8 +11,8 @@ import OrderEditor from "@/components/OrderEditor";
 import { orderSummary } from "@/components/ReadBack";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { downloadText } from "@/components/download";
-import { weekOrdersCsv } from "@/lib/reports";
+import { downloadTable } from "@/components/download";
+import { weekOrdersTable } from "@/lib/reports";
 import { toProductUnit, unitWord } from "@/lib/calc/units";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
@@ -93,9 +93,10 @@ export default function OrdersScreen() {
             // Everyone who orders this week, plus anyone else with an answer saved.
             const ordering = new Set(orderingCustomers(customers.list).map((c) => c.id));
             const list = customers.list.filter((c) => ordering.has(c.id) || data.orders.has(c.id));
-            downloadText(
-              `orders-week-of-${week}.csv`,
-              weekOrdersCsv(week, list, customers.byId, data.orders, data.packed, catalog.products),
+            void downloadTable(
+              `orders-week-of-${week}`,
+              weekOrdersTable(week, list, customers.byId, data.orders, data.packed, catalog.products),
+              "Orders",
             );
           }}
         >

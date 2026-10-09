@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EXPORT_TABLES, exportReadme, toCsv } from "./export";
+import { EXPORT_TABLES, exportReadme, toCsv, toSheet } from "./export";
 
 describe("export all data", () => {
   it("writes CSV with quoting, blanks for nulls, and JSON for objects", () => {
@@ -26,5 +26,19 @@ describe("export all data", () => {
 
   it("explains itself", () => {
     expect(exportReadme("2026-10-05", [{ table: "parts", rows: 8 }])).toContain(" 1. parts.csv  (8 rows)");
+  });
+});
+
+describe("Excel export", () => {
+  it("turns rows into a sheet: numbers stay numbers, objects become JSON, booleans TRUE/FALSE", () => {
+    const s = toSheet("parts", [
+      { id: "leg", per_lamb: 2, confirmed: true, roles: ["orders"], note: null },
+      { id: "neck", extra: "x" },
+    ]);
+    expect(s.header).toEqual(["id", "per_lamb", "confirmed", "roles", "note", "extra"]);
+    expect(s.rows).toEqual([
+      ["leg", 2, "TRUE", '["orders"]', null, null],
+      ["neck", null, null, null, null, "x"],
+    ]);
   });
 });

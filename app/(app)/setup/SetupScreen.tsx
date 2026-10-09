@@ -384,9 +384,18 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
           <p className="small muted mt-1">
             Download everything in the app, one spreadsheet file per list, in a single zip file. Keep a copy somewhere safe.
           </p>
-          <a href="/api/export" className="btn" download>
-            Export all data
-          </a>
+          <div className="flex flex-wrap gap-2">
+            <a href="/api/export" className="btn" download>
+              Export all data (CSV files in a zip)
+            </a>
+            <a href="/api/export?format=xlsx" className="btn ghost" download>
+              Export all data (one Excel workbook)
+            </a>
+          </div>
+          <p className="small muted mt-2 mb-0">
+            The zip of CSV files is the one to keep for moving the data to new accounts. The Excel workbook is easier to
+            look through: one tab per list.
+          </p>
         </section>
       )}
 
