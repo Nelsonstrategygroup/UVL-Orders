@@ -8,8 +8,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ago, niceDate } from "@/lib/dates";
 import { fmt, num } from "@/lib/calc/num";
 import { logContact, setOrder } from "@/lib/db/save";
-import type { CatalogProduct, Customer, Order, OrderStatus, Qty } from "@/lib/db/types";
-import { cleanLines, cleanQtyInput, hasLines, snapshot, STATUSES, STATUS_LABEL, statusAfterLines } from "@/lib/orders";
+import { lineUnit, unitWord } from "@/lib/calc/units";
+import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
+import {
+  cleanLines,
+  cleanQtyInput,
+  cleanUnits,
+  hasLines,
+  snapshot,
+  STATUSES,
+  STATUS_LABEL,
+  statusAfterLines,
+} from "@/lib/orders";
 import { getDb, useStaffData } from "./data/StaffData";
 import ReadBack from "./ReadBack";
 import Sheet from "./Sheet";
@@ -36,17 +46,20 @@ export default function OrderEditor(props: OrderEditorProps) {
   const db = getDb();
 
   // Unsaved quantities, shown over the saved order until the save lands.
-  const [draft, setDraft] = useState<Qty | null>(null);
+  const [draft, setDraft] = useState<{ lines: Qty; units: Units } | null>(null);
   // Raw text of a quantity box while typing (so "1." stays "1.").
   const [typing, setTyping] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
   const [logging, setLogging] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Which product's info note is open.
+  const [info, setInfo] = useState<string | null>(null);
 
-  const lines = useMemo(() => draft ?? order?.lines ?? {}, [draft, order]);
+  const lines = useMemo(() => draft?.lines ?? order?.lines ?? {}, [draft, order]);
+  const units = useMemo(() => draft?.units ?? order?.units ?? {}, [draft, order]);
   const status: OrderStatus = order?.status ?? "todo";
 
-  const pending = useRef<Qty | null>(null);
+  const pending = useRef<{ lines: Qty; units: Units } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Keep the latest order for the save callback without re-creating it.
   const orderRef = useRef(order);
@@ -65,11 +78,12 @@ export default function OrderEditor(props: OrderEditorProps) {
       id: cur?.id ?? "",
       customer_id: customer.id,
       notes: cur?.notes ?? "",
-      status: statusAfterLines(cur?.status ?? "todo", toSave),
-      lines: toSave,
+      status: statusAfterLines(cur?.status ?? "todo", toSave.lines),
+      lines: toSave.lines,
+      units: toSave.units,
     };
     patchOrder(customer.id, next);
-    const err = await setOrder(db, { week, customerId: customer.id, lines: toSave });
+    const err = await setOrder(db, { week, customerId: customer.id, lines: toSave.lines, units: toSave.units });
     setSaveError(err ? "Couldn't save. Check the internet connection." : null);
     // Clear the draft only if nothing newer was typed meanwhile.
     if (!pending.current) setDraft((d) => (d === toSave ? null : d));
@@ -79,18 +93,31 @@ export default function OrderEditor(props: OrderEditorProps) {
   // Save anything still waiting when the editor closes.
   useEffect(() => () => void flush(), [flush]);
 
-  /** Set a quantity, or change it from the latest count (so quick taps of + all count). */
-  function setQty(productId: string, qty: number | ((current: number) => number)) {
-    const base = pending.current ?? lines;
-    const value = typeof qty === "function" ? qty(base[productId] ?? 0) : qty;
-    const next = cleanLines({ ...base, [productId]: Math.max(0, value) });
+  function queue(next: { lines: Qty; units: Units }) {
     setDraft(next);
     pending.current = next;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), SAVE_DELAY_MS);
   }
 
-  async function save(change: { status?: OrderStatus; notes?: string; lines?: Qty }, message?: string) {
+  /** Set a quantity, or change it from the latest count (so quick taps of + all count). */
+  function setQty(productId: string, qty: number | ((current: number) => number)) {
+    const base = pending.current ?? { lines, units };
+    const value = typeof qty === "function" ? qty(base.lines[productId] ?? 0) : qty;
+    const nextLines = cleanLines({ ...base.lines, [productId]: Math.max(0, value) });
+    queue({ lines: nextLines, units: cleanUnits(base.units, nextLines) });
+  }
+
+  /** Pieces or pounds for one line. The quantity stays; Kathy types the new amount. */
+  function setUnit(p: CatalogProduct, unit: OrderUnit) {
+    const base = pending.current ?? { lines, units };
+    const nextUnits = { ...base.units };
+    if (unit === p.unit) delete nextUnits[p.id];
+    else nextUnits[p.id] = unit;
+    queue({ lines: base.lines, units: nextUnits });
+  }
+
+  async function save(change: { status?: OrderStatus; notes?: string; lines?: Qty; units?: Units }, message?: string) {
     await flush();
     const before = snapshot(orderRef.current);
     const next: Order = {
@@ -99,6 +126,7 @@ export default function OrderEditor(props: OrderEditorProps) {
       status: change.status ?? statusAfterLines(before.status, change.lines ?? before.lines),
       notes: change.notes ?? before.notes,
       lines: change.lines ?? before.lines,
+      units: change.units ?? (change.lines ? {} : before.units),
     };
     patchOrder(customer.id, next);
     const err = await setOrder(db, { week, customerId: customer.id, ...change });
@@ -135,37 +163,70 @@ export default function OrderEditor(props: OrderEditorProps) {
 
   const row = (p: CatalogProduct) => {
     const shown = typing[p.id] ?? (lines[p.id] ? fmt(lines[p.id]) : "");
+    const unit = lineUnit(p.id, p, units);
+    const step = p.order_step || 1;
     return (
-      <div className="step" key={p.id}>
-        <div className="min-w-0">
-          {p.name} <span className="small muted">{p.unit}</span>
+      <div key={p.id}>
+        <div className="step">
+          <div className="min-w-0">
+            {p.name}{" "}
+            {p.alt_unit ? (
+              <span className="unitswitch" role="group" aria-label={`${p.name}: pieces or pounds`}>
+                {[p.unit, p.alt_unit].map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    aria-pressed={unit === u}
+                    onClick={() => setUnit(p, u as OrderUnit)}
+                  >
+                    {unitWord(u)}
+                  </button>
+                ))}
+              </span>
+            ) : (
+              <span className="small muted">{unitWord(unit)}</span>
+            )}
+            {step !== 1 && <span className="small muted"> by {fmt(step)}</span>}
+            {p.note && (
+              <button
+                type="button"
+                className="infobtn"
+                aria-expanded={info === p.id}
+                aria-label={`About ${p.name}`}
+                onClick={() => setInfo((v) => (v === p.id ? null : p.id))}
+              >
+                i
+              </button>
+            )}
+          </div>
+          <div className="stepper">
+            <button type="button" onClick={() => setQty(p.id, (n) => n - step)} aria-label={`${fmt(step)} less ${p.name}`}>
+              &minus;
+            </button>
+            <input
+              inputMode="decimal"
+              value={shown}
+              aria-label={p.name}
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => {
+                const raw = cleanQtyInput(e.target.value);
+                setTyping((t) => ({ ...t, [p.id]: raw }));
+                setQty(p.id, num(raw));
+              }}
+              onBlur={() =>
+                setTyping((t) => {
+                  const n = { ...t };
+                  delete n[p.id];
+                  return n;
+                })
+              }
+            />
+            <button type="button" onClick={() => setQty(p.id, (n) => n + step)} aria-label={`${fmt(step)} more ${p.name}`}>
+              +
+            </button>
+          </div>
         </div>
-        <div className="stepper">
-          <button type="button" onClick={() => setQty(p.id, (n) => n - 1)} aria-label={`One less ${p.name}`}>
-            &minus;
-          </button>
-          <input
-            inputMode="decimal"
-            value={shown}
-            aria-label={p.name}
-            onFocus={(e) => e.target.select()}
-            onChange={(e) => {
-              const raw = cleanQtyInput(e.target.value);
-              setTyping((t) => ({ ...t, [p.id]: raw }));
-              setQty(p.id, num(raw));
-            }}
-            onBlur={() =>
-              setTyping((t) => {
-                const n = { ...t };
-                delete n[p.id];
-                return n;
-              })
-            }
-          />
-          <button type="button" onClick={() => setQty(p.id, (n) => n + 1)} aria-label={`One more ${p.name}`}>
-            +
-          </button>
-        </div>
+        {info === p.id && <p className="note small mt-1 mb-2">{p.note}</p>}
       </div>
     );
   };
@@ -244,7 +305,9 @@ export default function OrderEditor(props: OrderEditorProps) {
           <button
             type="button"
             className="btn ghost mb-2"
-            onClick={() => void save({ status: "ordered", lines: { ...lastWeek!.lines } }, "Copied last week's order")}
+            onClick={() =>
+              void save({ status: "ordered", lines: { ...lastWeek!.lines }, units: { ...lastWeek!.units } }, "Copied last week's order")
+            }
           >
             Same as last week
           </button>
@@ -256,17 +319,17 @@ export default function OrderEditor(props: OrderEditorProps) {
       {rest.length > 0 &&
         (showAll || usual.size === 0 ? (
           <>
-            {usual.size > 0 && <p className="small muted mt-3 mb-0">Other cuts</p>}
+            {usual.size > 0 && <p className="small muted mt-3 mb-0">Other products</p>}
             {grouped(rest)}
           </>
         ) : (
           <button type="button" className="more-cuts" onClick={() => setShowAll(true)}>
-            Show {rest.length} other cuts
+            Show {rest.length} other products
           </button>
         ))}
 
       <p className="small muted mt-4 mb-0">Read back to the customer</p>
-      <ReadBack lines={lines} products={products} />
+      <ReadBack lines={lines} units={units} products={products} />
 
       <label className="lbl" htmlFor="order-notes">
         Notes

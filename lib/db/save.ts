@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContactRole, DeleteCheck } from "../calc/contacts";
-import type { OrderStatus, Qty, WeekRow } from "./types";
+import type { OrderStatus, Qty, Units, WeekRow } from "./types";
 
 function msg(error: { message: string } | null): string | null {
   return error ? error.message : null;
@@ -12,14 +12,16 @@ function msg(error: { message: string } | null): string | null {
 /** Save a customer's order for the week in one step (see set_order in the migrations). */
 export async function setOrder(
   db: SupabaseClient,
-  o: { week: string; customerId: string; status?: OrderStatus; notes?: string; lines?: Qty },
+  o: { week: string; customerId: string; status?: OrderStatus; notes?: string; lines?: Qty; units?: Units },
 ): Promise<string | null> {
+  // Without units, each line keeps the unit it already had (see set_order).
   const { error } = await db.rpc("set_order", {
     p_week: o.week,
     p_customer: o.customerId,
     p_status: o.status ?? null,
     p_notes: o.notes ?? null,
     p_lines: o.lines ?? null,
+    p_units: o.units ?? null,
   });
   return msg(error);
 }

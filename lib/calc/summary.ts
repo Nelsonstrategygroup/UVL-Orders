@@ -82,7 +82,10 @@ export function legBreakdown(withShort: Qty, products: Product[]): LegBreakdown 
   for (const k of LEG_KINDS) sums[k.key] = 0;
   let total = 0;
   for (const p of products) {
-    if (p.group_name !== "Legs") continue;
+    // Leg products: the old "Legs" group, or anything made only from legs
+    // (and the hind shank left on).
+    const legOnly = p.uses.some((u) => u.part_id === "leg") && p.uses.every((u) => u.part_id === "leg" || u.part_id === "hshank");
+    if (p.group_name !== "Legs" && !legOnly) continue;
     const q = withShort[p.id] ?? 0;
     if (!q) continue;
     const kind = LEG_KINDS.find((k) => k.test.test(p.name) || k.test.test(p.short_name));

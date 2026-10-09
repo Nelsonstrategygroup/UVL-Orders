@@ -24,6 +24,7 @@ import {
 } from "@/lib/calc/packing";
 import { niceDate } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
+import { qtyText } from "@/lib/orders";
 import { loadPacking, savePacked, savePackMeta, type PackingData, type PackOrder } from "@/lib/db/packing";
 
 const LIVE_TABLES = ["orders", "order_lines", "packing_lines", "packing_orders"];
@@ -223,9 +224,9 @@ function CustomerCard({
               <span className="what">
                 <b>{p?.name ?? pid}</b>
                 <br />
-                <span className="small muted">{lineWords(q, got, p?.unit ?? "")}</span>
+                <span className="small muted">{lineWords(q, got, o.units[pid] ?? p?.unit ?? "")}</span>
               </span>
-              <span className="qty num">{fmt(q)}</span>
+              <span className="qty num">{qtyText(q, o.units[pid] ?? p?.unit ?? "each")}</span>
             </button>
             {got > 0 && (
               <button type="button" className="fewer" onClick={() => onAdjust(pid)}>
@@ -404,9 +405,8 @@ function PrintCopy({ data }: { data: PackingData }) {
                     <td className="ck">☐</td>
                     <td>
                       {p?.name ?? pid}
-                      {p?.unit === "lb" ? " (lb)" : ""}
                     </td>
-                    <td>{fmt(q)}</td>
+                    <td>{qtyText(q, o.units[pid] ?? p?.unit ?? "each")}</td>
                     <td />
                   </tr>
                 );

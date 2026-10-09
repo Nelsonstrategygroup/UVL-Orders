@@ -172,7 +172,7 @@ export default function CustomerPage({ id }: { id: string }) {
               <li key={`o-${e.week}`}>
                 <div className="when">Order, week of {niceDate(e.week)}</div>
                 <div className="small">
-                  {e.status === "none" ? "No order this week" : orderSummary(e.lines, catalog.products) || STATUS_LABEL[e.status]}
+                  {e.status === "none" ? "No order this week" : orderSummary(e.lines, catalog.products, e.units) || STATUS_LABEL[e.status]}
                 </div>
                 {e.notes && <div className="small muted">{e.notes}</div>}
               </li>
@@ -432,7 +432,7 @@ function ThisWeekOrder({ customer }: { customer: Customer }) {
   if (!data || !customers || !catalog) return null;
   const o = data.orders.get(customer.id);
   const st = o?.status ?? "todo";
-  const sum = o ? orderSummary(o.lines, catalog.products) : "";
+  const sum = o ? orderSummary(o.lines, catalog.products, o.units) : "";
   return (
     <section className="panel mt-4">
       <div className="flex flex-wrap items-center gap-3">

@@ -622,6 +622,45 @@
     color: var(--on-forest);
   }
 
+  /* Pieces or pounds on an order line, and the info button (customer products) */
+  .unitswitch {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-left: 0.25rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .unitswitch button {
+    border: 0;
+    background: var(--paper);
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    padding: 0 0.7rem;
+    min-height: 36px;
+  }
+  .unitswitch button[aria-pressed="true"] {
+    background: var(--forest);
+    color: var(--on-forest);
+  }
+  .infobtn {
+    display: inline-grid;
+    place-items: center;
+    vertical-align: middle;
+    margin-left: 0.35rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid var(--forest);
+    background: var(--paper);
+    color: var(--forest);
+    font: italic 700 0.95rem Georgia, serif;
+  }
+  .infobtn[aria-expanded="true"] {
+    background: var(--forest);
+    color: var(--on-forest);
+  }
+
   /* Order editor */
   .step {
     display: flex;

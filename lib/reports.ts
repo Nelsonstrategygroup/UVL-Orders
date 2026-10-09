@@ -5,11 +5,12 @@
 import { billedThrough, mainContact, rolesLabel } from "./calc/contacts";
 import { displayName } from "./calc/customers";
 import { STATUS_LABEL } from "./orders";
-import type { Customer, Order, OrderStatus, Qty } from "./db/types";
+import type { Customer, Order, OrderStatus, Qty, Units } from "./db/types";
+import { lineUnit, toProductUnit } from "./calc/units";
 import { csvCell } from "./import/csv";
 
 type Cell = string | number | null | undefined;
-type ProductLite = { id: string; name: string; unit: string; sort: number };
+type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
 
 /** Rows to a CSV file Excel opens cleanly. */
 export function csvFile(header: string[], rows: Cell[][]): string {
@@ -36,7 +37,7 @@ export const HISTORY_COLUMNS = ["Customer", "Week of", "Answer", "Product", "Qua
 /** One customer's order history: a row per product per week, newest week first. */
 export function customerHistoryCsv(
   name: string,
-  orders: { week: string; status: OrderStatus; notes: string; lines: Qty; packed: Qty }[],
+  orders: { week: string; status: OrderStatus; notes: string; lines: Qty; units?: Units; packed: Qty }[],
   products: ProductLite[],
 ): string {
   const rows: Cell[][] = [];
@@ -44,7 +45,7 @@ export function customerHistoryCsv(
     const lines = orderedLines(o.lines, products);
     if (!lines.length) rows.push([name, o.week, STATUS_LABEL[o.status], "", "", "", "", o.notes]);
     for (const l of lines)
-      rows.push([name, o.week, STATUS_LABEL[o.status], l.product?.name ?? l.id, l.qty, l.product?.unit ?? "", o.packed[l.id] ?? "", o.notes]);
+      rows.push([name, o.week, STATUS_LABEL[o.status], l.product?.name ?? l.id, l.qty, lineUnit(l.id, l.product ?? undefined, o.units), o.packed[l.id] ?? "", o.notes]);
   }
   return csvFile(HISTORY_COLUMNS, rows);
 }
@@ -97,7 +98,7 @@ export function weekOrdersCsv(
     const got = o ? (packed.get(o.id) ?? {}) : {};
     if (!lines.length) rows.push([...info, status, "", "", "", "", o?.notes ?? "", c.notes]);
     for (const l of lines)
-      rows.push([...info, status, l.product?.name ?? l.id, l.qty, l.product?.unit ?? "", got[l.id] ?? "", o!.notes, c.notes]);
+      rows.push([...info, status, l.product?.name ?? l.id, l.qty, lineUnit(l.id, l.product ?? undefined, o!.units), got[l.id] ?? "", o!.notes, c.notes]);
   }
   return csvFile(WEEK_COLUMNS, rows);
 }
@@ -132,7 +133,8 @@ export function productTotalsCsv(
     let got = 0;
     let customers = 0;
     for (const o of orders) {
-      const q = o.lines[p.id] ?? 0;
+      // In the product's own unit (pounds of a piece product become pieces).
+      const q = toProductUnit(o.lines[p.id] ?? 0, o.units?.[p.id], p);
       if (!q) continue;
       customers++;
       ordered += q;
@@ -195,14 +197,17 @@ export const SALES_COLUMNS = ["From week", "To week", "Customer", "Chain", "Prod
 export function salesCsv(
   from: string,
   to: string,
-  orders: { customer_id: string; week: string; lines: Qty }[],
+  orders: { customer_id: string; week: string; lines: Qty; units?: Units }[],
   byId: Map<string, Customer>,
   products: ProductLite[],
 ): string {
+  const prodBy = new Map(products.map((p) => [p.id, p]));
   type Acc = { total: number; weeks: Set<string>; first: string; last: string };
   const acc = new Map<string, Acc>(); // customer|product
   for (const o of orders) {
-    for (const [pid, q] of Object.entries(o.lines)) {
+    for (const [pid, raw] of Object.entries(o.lines)) {
+      const prod = prodBy.get(pid);
+      const q = prod ? toProductUnit(raw, o.units?.[pid], prod) : raw;
       if (!q) continue;
       const k = `${o.customer_id}|${pid}`;
       const a = acc.get(k) ?? { total: 0, weeks: new Set<string>(), first: o.week, last: o.week };
@@ -256,6 +261,7 @@ export function packingRecordCsv(
     customer_id: string;
     status: OrderStatus;
     lines: Qty;
+    units?: Units;
     packed: Record<string, { qty: number; by: string; at: string }>;
     boxes: number | null;
     pallet: string;
@@ -285,7 +291,7 @@ export function packingRecordCsv(
         c?.name ?? "(deleted customer)",
         parent?.name ?? "",
         l.product?.name ?? l.id,
-        l.product?.unit ?? "",
+        lineUnit(l.id, l.product ?? undefined, r.units),
         l.qty,
         got ?? "",
         diff < 0 ? -diff : "",

@@ -19,7 +19,7 @@ import { fmt, num } from "@/lib/calc/num";
 import { todayName } from "@/lib/dates";
 import { setOrder } from "@/lib/db/save";
 import type { Customer, Order, OrderStatus, Qty, WeekData } from "@/lib/db/types";
-import { cleanLines, cleanQtyInput, hasLines, snapshot, STATUSES, STATUS_LABEL, statusAfterLines } from "@/lib/orders";
+import { cleanLines, cleanQtyInput, cleanUnits, hasLines, snapshot, STATUSES, STATUS_LABEL, statusAfterLines } from "@/lib/orders";
 
 type View = "list" | "grid";
 const VIEW_KEY = "uvl:orderview";
@@ -153,7 +153,7 @@ function OrderCards({ list, data, onOpen }: { list: Customer[]; data: WeekData; 
         {list.map((c) => {
           const o = data.orders.get(c.id);
           const st: OrderStatus = o?.status ?? "todo";
-          const sum = o ? orderSummary(o.lines, catalog!.products) : "";
+          const sum = o ? orderSummary(o.lines, catalog!.products, o.units) : "";
           return (
             <button key={c.id} type="button" className="ccard" onClick={() => onOpen(c.id)}>
               <span className="min-w-0">
@@ -218,6 +218,8 @@ function OrderGrid({
         notes: cur?.notes ?? "",
         status: statusAfterLines(cur?.status ?? "todo", lines),
         lines,
+        // The grid changes amounts only; each line keeps its unit.
+        units: cleanUnits(cur?.units ?? {}, lines),
       });
       const err = await setOrder(db, { week, customerId: cid, lines });
       if (err) toast("Couldn't save. Check the internet connection.");
@@ -271,8 +273,15 @@ function OrderGrid({
     if (!prev || !hasLines(prev.lines)) return;
     const cur = data.orders.get(cid);
     const before = snapshot(cur);
-    patchOrder(cid, { id: cur?.id ?? "", customer_id: cid, notes: before.notes, status: "ordered", lines: { ...prev.lines } });
-    const err = await setOrder(db, { week, customerId: cid, status: "ordered", lines: prev.lines });
+    patchOrder(cid, {
+      id: cur?.id ?? "",
+      customer_id: cid,
+      notes: before.notes,
+      status: "ordered",
+      lines: { ...prev.lines },
+      units: { ...prev.units },
+    });
+    const err = await setOrder(db, { week, customerId: cid, status: "ordered", lines: prev.lines, units: prev.units });
     refresh();
     if (err) return toast("Couldn't save. Check the internet connection.");
     toast("Copied last week's order", async () => {

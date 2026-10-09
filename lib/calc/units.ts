@@ -6,11 +6,11 @@ import type { OrderUnit, Part, Product, Qty, Units } from "./types";
 
 const PACK = /\b\d+\s*\/\s*pa(?:c)?k\b/i;
 
-/** "front shanks (not packs)" for a pack product; otherwise the product's unit. */
+/** "front shanks (not packs)" for an old Mohawk-named pack product; otherwise the unit word ("pcs", "lb"). */
 export function countUnit(p: Pick<Product, "name" | "unit" | "uses">, parts: Pick<Part, "id" | "name">[]): string {
-  if (!PACK.test(p.name)) return p.unit;
+  if (!PACK.test(p.name)) return unitWord(p.unit);
   const only = p.uses.length === 1 && p.uses[0].qty === 1 ? parts.find((x) => x.id === p.uses[0].part_id) : undefined;
-  const what = only ? `${only.name.toLowerCase()}s` : p.unit;
+  const what = only ? `${only.name.toLowerCase()}s` : unitWord(p.unit);
   return `${what} (not packs)`;
 }
 

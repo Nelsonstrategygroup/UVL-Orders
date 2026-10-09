@@ -69,7 +69,7 @@ describe("week's orders download", () => {
   });
   const deli = cust("d", "Abe's Deli");
   const byId = new Map([pcc, fremont, deli].map((c) => [c.id, c]));
-  const orders = new Map<string, Order>([["f", { id: "o1", customer_id: "f", status: "ordered", notes: "", lines: { leg: 6 } }]]);
+  const orders = new Map<string, Order>([["f", { id: "o1", customer_id: "f", status: "ordered", notes: "", lines: { leg: 6 }, units: {} }]]);
 
   it("lists every customer with their details, a row per product, and a row for no products", () => {
     const r = rows(weekOrdersCsv("2026-10-05", [fremont, deli], byId, orders, new Map([["o1", { leg: 5 }]]), products));
@@ -108,8 +108,8 @@ const col = (r: string[][], row: number, name: string) => r[row][r[0].indexOf(na
 describe("product totals", () => {
   it("adds up each product across customers, with half and whole, packed, and short", () => {
     const orders: Order[] = [
-      { id: "o1", customer_id: "f", status: "ordered", notes: "", lines: { leg: 6, rack: 2 } },
-      { id: "o2", customer_id: "d", status: "ordered", notes: "", lines: { leg: 4 } },
+      { id: "o1", customer_id: "f", status: "ordered", notes: "", lines: { leg: 6, rack: 2 }, units: {} },
+      { id: "o2", customer_id: "d", status: "ordered", notes: "", lines: { leg: 4 }, units: {} },
     ];
     const r = rows(productTotalsCsv("2026-10-05", withGroup, orders, new Map([["o1", { leg: 6, rack: 1 }]]), { leg: 2 }));
     expect(r.length).toBe(3);

@@ -17,6 +17,8 @@ export type PackOrder = {
   /** Notes on this week's order. */
   orderNotes: string;
   lines: Qty;
+  /** Lines taken in another unit than the product's own ("lb" for a piece product). */
+  units: Record<string, string>;
   packed: Qty;
   boxes: number | null;
   pallet: string;
@@ -44,7 +46,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes"),
@@ -67,7 +69,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     id: string;
     customer_id: string;
     notes: string;
-    order_lines: { product_id: string; qty: number }[];
+    order_lines: { product_id: string; qty: number; unit: string | null }[];
     packing_lines: { product_id: string; packed_qty: number; packed_by: string | null; packed_at: string }[];
     packing_orders:
       | { boxes: number | null; pallet: string; updated_by: string | null; updated_at: string | null; created_at: string }
@@ -78,7 +80,12 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
   const list: PackOrder[] = [];
   for (const o of must(orders) as Row[]) {
     const lines: Qty = {};
-    for (const l of o.order_lines ?? []) if (num(l.qty) > 0) lines[l.product_id] = num(l.qty);
+    const units: Record<string, string> = {};
+    for (const l of o.order_lines ?? []) {
+      if (num(l.qty) <= 0) continue;
+      lines[l.product_id] = num(l.qty);
+      if (l.unit) units[l.product_id] = l.unit;
+    }
     if (!Object.keys(lines).length) continue;
 
     const packed: Qty = {};
@@ -105,6 +112,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       standingNotes: (cust?.notes ?? "").trim(),
       orderNotes: (o.notes ?? "").trim(),
       lines,
+      units,
       packed,
       boxes: po?.boxes ?? null,
       pallet: po?.pallet ?? "",

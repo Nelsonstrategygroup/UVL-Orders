@@ -1,7 +1,8 @@
 // Order rules shared by Calls, the order editor, and the Orders grid.
 
-import { num } from "./calc/num";
-import type { Order, OrderStatus, Qty } from "./db/types";
+import { fmt, num } from "./calc/num";
+import { unitWord } from "./calc/units";
+import type { Order, OrderStatus, Qty, Units } from "./db/types";
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   todo: "Not called",
@@ -32,10 +33,22 @@ export function statusAfterLines(current: OrderStatus, lines: Qty): OrderStatus 
 }
 
 /** What to restore on Undo: the order as it was, or a blank "todo" order. */
-export function snapshot(order: Order | undefined): { status: OrderStatus; notes: string; lines: Qty } {
+export function snapshot(order: Order | undefined): { status: OrderStatus; notes: string; lines: Qty; units: Units } {
   return order
-    ? { status: order.status, notes: order.notes, lines: { ...order.lines } }
-    : { status: "todo", notes: "", lines: {} };
+    ? { status: order.status, notes: order.notes, lines: { ...order.lines }, units: { ...order.units } }
+    : { status: "todo", notes: "", lines: {}, units: {} };
+}
+
+/** "16 lb", "2 packs", "3" (pieces need no word): a quantity as it's read back. */
+export function qtyText(qty: number, unit: string): string {
+  return unit === "each" ? fmt(qty) : `${fmt(qty)} ${unitWord(unit, qty)}`;
+}
+
+/** Units only for lines that are still on the order. */
+export function cleanUnits(units: Units, lines: Qty): Units {
+  const out: Units = {};
+  for (const k in units) if ((lines[k] ?? 0) > 0) out[k] = units[k];
+  return out;
 }
 
 /** Keep only digits and one decimal point while typing a quantity. */

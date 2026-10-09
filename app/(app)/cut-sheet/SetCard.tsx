@@ -7,7 +7,9 @@ import { chipText, hasCountedLines, setBalance, USE_GROUPS, type CutSpecLite } f
 import { displayName } from "@/lib/calc/customers";
 import { fmt, num } from "@/lib/calc/num";
 import type { SheetLine, SheetSet } from "@/lib/db/cutsheet";
-import type { CatalogProduct, CustomersData, CutSpec, Qty, SizeClass } from "@/lib/db/types";
+import type { CatalogProduct, CustomersData, CutSpec, Qty, SizeClass, Units } from "@/lib/db/types";
+import { inProductUnits } from "@/lib/calc/units";
+import { qtyText } from "@/lib/orders";
 
 const NOTE = "__note";
 const NEW = "__new";
@@ -54,7 +56,7 @@ export default function SetCard({
   sizes: SizeClass[];
   products: CatalogProduct[];
   customers: CustomersData;
-  orders: Map<string, Qty>;
+  orders: Map<string, { lines: Qty; units: Units }>;
   orderingIds: string[];
   /** "Parts 2A", or "The 40 XL set" for a set with no name. */
   title: string;
@@ -64,15 +66,18 @@ export default function SetCard({
   const chips = counted ? setBalance(set, specMap, perLamb) : [];
   const bad = chips.some((c) => !c.ok);
 
-  // Linked customers' orders this week.
+  const productById = new Map(products.map((p) => [p.id, p]));
+  // Linked customers' orders this week, in each product's own unit.
   const totals: Qty = {};
   for (const cid of set.customers) {
-    const lines = orders.get(cid) ?? {};
-    for (const k in lines) totals[k] = (totals[k] ?? 0) + lines[k];
+    const o = orders.get(cid);
+    if (!o) continue;
+    const q = inProductUnits(o.lines, o.units, productById);
+    for (const k in q) totals[k] = (totals[k] ?? 0) + q[k];
   }
   const ordered = products.filter((p) => (totals[p.id] ?? 0) > 0);
-  const onSheet = ordered.filter((p) => p.cut_spec_id);
-  const fromTrim = ordered.filter((p) => !p.cut_spec_id);
+  const onSheet = ordered.filter((p) => p.links.length > 0);
+  const notOnSheet = ordered.filter((p) => p.links.length === 0);
   const linkable = orderingIds.filter((id) => !set.customers.includes(id));
 
   return (
@@ -209,12 +214,14 @@ export default function SetCard({
             ) : (
               <>
                 <b>Their orders this week:</b>{" "}
-                {ordered.map((p) => `${fmt(totals[p.id])}${p.unit === "lb" ? " lb" : ""} ${p.short_name || p.name}`).join("; ")}
-                {fromTrim.length > 0 && (
+                {ordered.map((p) => `${qtyText(totals[p.id], p.unit)} ${p.short_name || p.name}`).join("; ")}
+                {notOnSheet.length > 0 && (
                   <div className="muted mt-1">
-                    {fromTrim.map((p) => p.name.toLowerCase()).join(" and ")}{" "}
-                    {fromTrim.length > 1 ? "aren't cut sheet lines. They come" : "isn't a cut sheet line. It comes"} from
-                    trim, so plan {fromTrim.length > 1 ? "them" : "it"} in the grind set.
+                    {notOnSheet.map((p) => p.name).join(" and ")}{" "}
+                    {notOnSheet.length > 1 ? "aren't" : "isn't"} linked to a Mohawk line, so{" "}
+                    {notOnSheet.length > 1 ? "they won't" : "it won't"} be added. Plan{" "}
+                    {notOnSheet.length > 1 ? "them" : "it"} by hand (ground lamb goes in the grind set), or link{" "}
+                    {notOnSheet.length > 1 ? "them" : "it"} in Setup.
                   </div>
                 )}
                 {onSheet.length > 0 &&

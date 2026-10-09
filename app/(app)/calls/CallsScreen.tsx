@@ -14,7 +14,7 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { callQueue, displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
 import { ago, todayName } from "@/lib/dates";
 import { setOrder } from "@/lib/db/save";
-import type { Customer, Order, OrderStatus, Qty } from "@/lib/db/types";
+import type { Customer, Order, OrderStatus, Qty, Units } from "@/lib/db/types";
 import { hasLines, snapshot, STATUS_LABEL } from "@/lib/orders";
 
 export default function CallsScreen() {
@@ -89,7 +89,7 @@ export default function CallsScreen() {
   const last = customers.lastContact.get(current.id);
   const name = (c: Customer) => displayName(c, byId);
 
-  async function apply(change: { status: OrderStatus; notes?: string; lines?: Qty }, message: string) {
+  async function apply(change: { status: OrderStatus; notes?: string; lines?: Qty; units?: Units }, message: string) {
     const cid = current.id;
     const before = snapshot(data!.orders.get(cid));
     const next: Order = {
@@ -98,6 +98,7 @@ export default function CallsScreen() {
       status: change.status,
       notes: change.notes ?? before.notes,
       lines: change.lines ?? before.lines,
+      units: change.units ?? (change.lines ? {} : before.units),
     };
     patchOrder(cid, next);
     setPickedId(cid);
@@ -175,7 +176,7 @@ export default function CallsScreen() {
         ) : hasPrev ? (
           <>
             <p className="mt-3 mb-0">Last week they ordered:</p>
-            <ReadBack lines={prevLines} products={catalog.products} />
+            <ReadBack lines={prevLines} units={prev?.units} products={catalog.products} />
           </>
         ) : (
           <p className="muted">No order last week.</p>
@@ -184,7 +185,9 @@ export default function CallsScreen() {
           <button
             type="button"
             className="bigbtn"
-            onClick={() => void apply({ status: "ordered", lines: { ...prevLines } }, "Copied last week's order")}
+            onClick={() =>
+              void apply({ status: "ordered", lines: { ...prevLines }, units: { ...(prev?.units ?? {}) } }, "Copied last week's order")
+            }
           >
             Same as last week
           </button>

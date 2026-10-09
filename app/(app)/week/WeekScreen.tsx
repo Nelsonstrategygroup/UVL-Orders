@@ -19,6 +19,7 @@ import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
 import { cutSheetTotals, legBreakdown, legBreakdownText, weekNumbers } from "@/lib/calc/summary";
 import { calcWeek, type PartRow } from "@/lib/calc/week";
+import { inProductUnits } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
 import { loadCutSheet } from "@/lib/db/cutsheet";
@@ -50,7 +51,8 @@ export default function WeekScreen() {
   const c = calcWeek({
     parts: catalog.parts,
     products: catalog.products,
-    orders: [...data.orders.values()].map((o) => o.lines),
+    // In each product's own unit (pounds of a piece product become pieces).
+    orders: [...data.orders.values()].map((o) => inProductUnits(o.lines, o.units, catalog.productById)),
     shortfall: short,
     override: w?.lamb_override ?? null,
     cutSheetLambs: cs.total,

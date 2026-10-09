@@ -4,7 +4,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { num } from "../calc/num";
 import type { CutLine } from "../calc/cutsheet";
-import type { Qty } from "../calc/types";
+import type { Qty, Units } from "../calc/types";
 
 export type SheetLine = CutLine & { id: string; sort: number };
 
@@ -38,7 +38,8 @@ export type CutSheetData = {
   goals: { id: string; text: string }[];
   sets: SheetSet[];
   /** customer id -> this week's order lines */
-  orders: Map<string, Qty>;
+  /** Each customer's order this week, with the units of lines taken in another unit. */
+  orders: Map<string, { lines: Qty; units: Units }>;
   /** The most recent earlier week with a cut sheet, for "Copy the week of ..." */
   lastWeekWithSheet: string | null;
 };
@@ -69,7 +70,7 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
       )
       .eq("week_id", week)
       .order("sort"),
-    db.from("orders").select("customer_id, order_lines(product_id, qty)").eq("week_id", week),
+    db.from("orders").select("customer_id, order_lines(product_id, qty, unit)").eq("week_id", week),
     db.from("cut_sheets").select("week_id").lt("week_id", week).order("week_id", { ascending: false }).limit(1),
   ]);
 
@@ -98,11 +99,18 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
     customers: (s.cut_set_customers ?? []).map((c) => c.customer_id),
   }));
 
-  const orderMap = new Map<string, Qty>();
-  for (const o of (must(orders) ?? []) as { customer_id: string; order_lines: { product_id: string; qty: number }[] }[]) {
-    const q: Qty = {};
-    for (const l of o.order_lines ?? []) q[l.product_id] = num(l.qty);
-    orderMap.set(o.customer_id, q);
+  const orderMap = new Map<string, { lines: Qty; units: Units }>();
+  for (const o of (must(orders) ?? []) as {
+    customer_id: string;
+    order_lines: { product_id: string; qty: number; unit: Units[string] | null }[];
+  }[]) {
+    const lines: Qty = {};
+    const units: Units = {};
+    for (const l of o.order_lines ?? []) {
+      lines[l.product_id] = num(l.qty);
+      if (l.unit) units[l.product_id] = l.unit;
+    }
+    orderMap.set(o.customer_id, { lines, units });
   }
 
   return {

@@ -1,10 +1,10 @@
 // Row shapes as the screens use them (SPEC 4).
 
-import type { Part, Product, Qty, OrderStatus, HalfWholeOrder, FreezerEntry } from "../calc/types";
+import type { Part, Product, Qty, OrderStatus, HalfWholeOrder, FreezerEntry, OrderUnit, Units } from "../calc/types";
 import type { CustomerType } from "../import/customers";
 import type { ContactRole } from "../calc/contacts";
 
-export type { Part, Product, Qty, OrderStatus };
+export type { Part, Product, Qty, OrderStatus, OrderUnit, Units };
 
 export type CutSpec = { id: string; text: string; use_type: string; active: boolean; sort: number };
 export type SizeClass = { id: string; label: string; weight_range: string; sort: number };
@@ -16,8 +16,25 @@ export type AppSettings = {
   company_name: string;
 };
 
-export type CatalogPart = Part & { source_note: string };
-export type CatalogProduct = Product & { note: string };
+export type CatalogPart = Part & { source_note: string; drives_count: boolean };
+
+/** A Mohawk line a product comes from: units_per_cut of the product's unit per line. */
+export type CutLink = { cut_spec_id: string; units_per_cut: number; sort: number };
+
+/** A customer product (SPEC change requests 10/2026) as Setup and the order screens use it. */
+export type CatalogProduct = Product & {
+  note: string;
+  unit: string;
+  alt_unit: OrderUnit | null;
+  lb_per_unit: number | null;
+  pieces_per_pack: number | null;
+  order_step: number;
+  billed_by_weight: boolean;
+  counts_toward_lambs: boolean;
+  not_lamb: boolean;
+  confirmed: boolean;
+  links: CutLink[];
+};
 
 export type Catalog = {
   parts: CatalogPart[];
@@ -76,6 +93,8 @@ export type Order = {
   status: OrderStatus;
   notes: string;
   lines: Qty;
+  /** Lines taken in a unit other than the product's own. */
+  units: Units;
 };
 
 export type WeekData = {

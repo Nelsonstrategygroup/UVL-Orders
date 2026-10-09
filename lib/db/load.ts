@@ -14,7 +14,9 @@ import type {
   CustomersData,
   LastContact,
   Order,
+  OrderUnit,
   Qty,
+  Units,
   WeekData,
 } from "./types";
 
@@ -40,10 +42,12 @@ function must<T>(r: { data: T | null; error: { message: string } | null }): T {
 
 export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
   const [parts, products, uses, cutSpecs, sizes, settings] = await Promise.all([
-    db.from("parts").select("id, name, per_lamb, unit, balance_check, confirmed, sort, source_note").order("sort"),
+    db.from("parts").select("id, name, per_lamb, unit, balance_check, confirmed, sort, source_note, drives_count").order("sort"),
     db
       .from("products")
-      .select("id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note")
+      .select(
+        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, product_cut_specs(cut_spec_id, units_per_cut, sort)",
+      )
       .order("sort")
       .order("name"),
     db.from("product_part_uses").select("product_id, part_id, qty"),
@@ -59,9 +63,18 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     usesBy.set(u.product_id, list);
   }
 
-  const prodList = (must(products) as Omit<CatalogProduct, "uses">[]).map((p) => ({
+  type ProductRow = Omit<CatalogProduct, "uses" | "links"> & {
+    product_cut_specs: { cut_spec_id: string; units_per_cut: number; sort: number }[] | null;
+  };
+  const prodList: CatalogProduct[] = (must(products) as ProductRow[]).map(({ product_cut_specs, ...p }) => ({
     ...p,
+    lb_per_unit: p.lb_per_unit == null ? null : num(p.lb_per_unit),
+    pieces_per_pack: p.pieces_per_pack == null ? null : num(p.pieces_per_pack),
+    order_step: num(p.order_step) || 1,
     uses: usesBy.get(p.id) ?? [],
+    links: (product_cut_specs ?? [])
+      .map((l) => ({ ...l, units_per_cut: num(l.units_per_cut) || 1 }))
+      .sort((a, b) => a.sort - b.sort),
   }));
 
   return {
@@ -122,20 +135,31 @@ type OrderRow = {
   customer_id: string;
   status: Order["status"];
   notes: string;
-  order_lines: { product_id: string; qty: number }[];
+  order_lines: LineRow[];
 };
+
+type LineRow = { product_id: string; qty: number; unit?: OrderUnit | null };
+
+/** Lines and the units of lines taken in another unit. */
+function linesOf(rows: LineRow[] | null | undefined): { lines: Qty; units: Units } {
+  const lines: Qty = {};
+  const units: Units = {};
+  for (const l of rows ?? []) {
+    lines[l.product_id] = num(l.qty);
+    if (l.unit) units[l.product_id] = l.unit;
+  }
+  return { lines, units };
+}
 
 function toOrders(rows: OrderRow[]): Map<string, Order> {
   const m = new Map<string, Order>();
   for (const o of rows) {
-    const lines: Qty = {};
-    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
-    m.set(o.customer_id, { id: o.id, customer_id: o.customer_id, status: o.status, notes: o.notes, lines });
+    m.set(o.customer_id, { id: o.id, customer_id: o.customer_id, status: o.status, notes: o.notes, ...linesOf(o.order_lines) });
   }
   return m;
 }
 
-const ORDER_SELECT = "id, customer_id, status, notes, order_lines(product_id, qty)";
+const ORDER_SELECT = "id, customer_id, status, notes, order_lines(product_id, qty, unit)";
 
 /** Just this week's and last week's orders (refreshed on every live change). */
 export async function loadOrders(db: SupabaseClient, week: string) {
@@ -162,7 +186,7 @@ export type HistoryEntry =
       by: string;
       created_by: string;
     }
-  | { type: "order"; at: string; week: string; status: Order["status"]; notes: string; lines: Qty };
+  | { type: "order"; at: string; week: string; status: Order["status"]; notes: string; lines: Qty; units: Units };
 
 /** Contact log entries and weekly answers for one customer, newest first. */
 export async function loadCustomerHistory(db: SupabaseClient, customerId: string, limit = 40): Promise<HistoryEntry[]> {
@@ -176,7 +200,7 @@ export async function loadCustomerHistory(db: SupabaseClient, customerId: string
       .limit(limit),
     db
       .from("orders")
-      .select("week_id, status, notes, order_lines(product_id, qty)")
+      .select("week_id, status, notes, order_lines(product_id, qty, unit)")
       .eq("customer_id", customerId)
       .in("status", ["ordered", "none"])
       .order("week_id", { ascending: false })
@@ -202,12 +226,11 @@ export async function loadCustomerHistory(db: SupabaseClient, customerId: string
     week_id: string;
     status: Order["status"];
     notes: string;
-    order_lines: { product_id: string; qty: number }[];
+    order_lines: LineRow[];
   }[]) {
-    const lines: Qty = {};
-    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
+    const { lines, units } = linesOf(o.order_lines);
     // Weekly answers sort at the start of their week.
-    out.push({ type: "order", at: `${o.week_id}T12:00:00Z`, week: o.week_id, status: o.status, notes: o.notes, lines });
+    out.push({ type: "order", at: `${o.week_id}T12:00:00Z`, week: o.week_id, status: o.status, notes: o.notes, lines, units });
   }
   return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
 }
@@ -285,7 +308,7 @@ export async function loadDueFollowUps(db: SupabaseClient, week: string): Promis
   return (data ?? []) as DueFollowUp[];
 }
 
-export type OrderHistoryRow = { week: string; status: Order["status"]; notes: string; lines: Qty; packed: Qty };
+export type OrderHistoryRow = { week: string; status: Order["status"]; notes: string; lines: Qty; units: Units; packed: Qty };
 
 /** Every week this customer answered (ordered or no order), newest first, for the history download. */
 export async function loadCustomerOrders(db: SupabaseClient, customerId: string): Promise<OrderHistoryRow[]> {
@@ -293,23 +316,22 @@ export async function loadCustomerOrders(db: SupabaseClient, customerId: string)
     week_id: string;
     status: Order["status"];
     notes: string;
-    order_lines: { product_id: string; qty: number }[];
+    order_lines: LineRow[];
     packing_lines: { product_id: string; packed_qty: number }[];
   }>((a, b) =>
     db
       .from("orders")
-      .select("week_id, status, notes, order_lines(product_id, qty), packing_lines(product_id, packed_qty)")
+      .select("week_id, status, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty)")
       .eq("customer_id", customerId)
       .in("status", ["ordered", "none"])
       .order("week_id", { ascending: false })
       .range(a, b),
   );
   return rows.map((o) => {
-    const lines: Qty = {};
-    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
+    const { lines, units } = linesOf(o.order_lines);
     const packed: Qty = {};
     for (const l of o.packing_lines ?? []) packed[l.product_id] = num(l.packed_qty);
-    return { week: o.week_id, status: o.status, notes: o.notes, lines, packed };
+    return { week: o.week_id, status: o.status, notes: o.notes, lines, units, packed };
   });
 }
 
@@ -317,6 +339,7 @@ export type PackingRecord = {
   customer_id: string;
   status: Order["status"];
   lines: Qty;
+  units: Units;
   packed: Record<string, { qty: number; by: string; at: string }>;
   boxes: number | null;
   pallet: string;
@@ -329,14 +352,14 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
     fetchAll<{
       customer_id: string;
       status: Order["status"];
-      order_lines: { product_id: string; qty: number }[];
+      order_lines: LineRow[];
       packing_lines: { product_id: string; packed_qty: number; packed_by: string | null; packed_at: string }[];
       packing_orders: { boxes: number | null; pallet: string; updated_by: string | null }[] | { boxes: number | null; pallet: string; updated_by: string | null } | null;
     }>((a, b) =>
       db
         .from("orders")
         .select(
-          "customer_id, status, order_lines(product_id, qty), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by)",
+          "customer_id, status, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by)",
         )
         .eq("week_id", week)
         .order("id")
@@ -347,8 +370,7 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
   const names = new Map(((must(people) ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
   const who = (id: string | null) => (id ? (names.get(id) ?? "Someone") : "");
   return orders.map((o) => {
-    const lines: Qty = {};
-    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
+    const { lines, units } = linesOf(o.order_lines);
     const packed: PackingRecord["packed"] = {};
     for (const l of o.packing_lines ?? []) packed[l.product_id] = { qty: num(l.packed_qty), by: who(l.packed_by), at: l.packed_at };
     const po = Array.isArray(o.packing_orders) ? o.packing_orders[0] : o.packing_orders;
@@ -356,6 +378,7 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
       customer_id: o.customer_id,
       status: o.status,
       lines,
+      units,
       packed,
       boxes: po?.boxes ?? null,
       pallet: po?.pallet ?? "",
@@ -369,12 +392,12 @@ export async function loadOrdersBetween(
   db: SupabaseClient,
   from: string,
   to: string,
-): Promise<{ customer_id: string; week: string; lines: Qty }[]> {
+): Promise<{ customer_id: string; week: string; lines: Qty; units: Units }[]> {
   const rows = await fetchAll<{ customer_id: string; week_id: string; order_lines: { product_id: string; qty: number }[] }>(
     (a, b) =>
       db
         .from("orders")
-        .select("customer_id, week_id, order_lines(product_id, qty)")
+        .select("customer_id, week_id, order_lines(product_id, qty, unit)")
         .eq("status", "ordered")
         .gte("week_id", from)
         .lte("week_id", to)
@@ -383,8 +406,7 @@ export async function loadOrdersBetween(
         .range(a, b),
   );
   return rows.map((o) => {
-    const lines: Qty = {};
-    for (const l of o.order_lines ?? []) lines[l.product_id] = num(l.qty);
-    return { customer_id: o.customer_id, week: o.week_id, lines };
+    const { lines, units } = linesOf(o.order_lines);
+    return { customer_id: o.customer_id, week: o.week_id, lines, units };
   });
 }
