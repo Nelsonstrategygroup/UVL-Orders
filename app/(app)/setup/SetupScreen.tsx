@@ -61,7 +61,10 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
   const partUseText = (p: CatalogProduct, u: { part_id: string; qty: number }) => {
     const r = partAmountRow(u.qty);
     const part = partName(u.part_id).toLowerCase();
-    return r.mode === "per-part" ? `${fmt(r.amount)} ${unitWord(p.unit)} per ${part}` : `${fmt(r.amount)} ${part}`;
+    const lb = catalog.parts.find((x) => x.id === u.part_id)?.unit === "lb";
+    return r.mode === "per-part"
+      ? `${fmt(r.amount)} ${unitWord(p.unit)} per ${lb ? "lb of " : ""}${part}`
+      : `${fmt(r.amount)} ${lb ? "lb " : ""}${part}`;
   };
 
   const productTable = (products: CatalogProduct[]) => {
