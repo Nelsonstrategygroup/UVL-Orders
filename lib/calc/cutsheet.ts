@@ -219,46 +219,47 @@ export function emailSubject(inv: string, updated: boolean, niceWeek: string): s
 
 // ----- "Put these on this set" (6.4) -----
 
-export type FillProduct = { id: string; cut_spec_id: string | null };
+/** A product and the Mohawk lines it comes from (units_per_cut of its unit per line). */
+export type FillProduct = { id: string; links: { cut_spec_id: string; units_per_cut: number }[] };
 
 /**
- * Add the linked customers' order quantities to a set: each product with a
- * cut spec adds its quantity to the line with that spec, or a new line at the
- * end. If the set has 0 lambs, it becomes ceil(most of any part / 2).
- * The database does the same thing in fill_cut_set; this is the tested rule.
+ * Add the linked customers' orders to a set. orderTotals are in each
+ * product's own unit. Each product adds (quantity / units_per_cut) to every
+ * Mohawk line it links to (Chops: 16 lb / 2.5 = 6.4 short loins); each line's
+ * total is rounded up to whole. Products with no Mohawk line are listed in
+ * `notOnSheet` (ground lamb, organs). If the set has 0 lambs, it becomes
+ * ceil(most of any part / 2). The database does the same in fill_cut_set.
  */
 export function fillSet(
   set: CutSet,
   orderTotals: Record<string, number>,
   products: FillProduct[],
   specs: Map<string, CutSpecLite>,
-): { set: CutSet; added: number; fromTrim: string[] } {
+): { set: CutSet; added: number; notOnSheet: string[] } {
   const lines = set.lines.map((l) => ({ ...l }));
-  let added = 0;
-  const fromTrim: string[] = [];
+  const perSpec = new Map<string, number>();
+  const notOnSheet: string[] = [];
   for (const p of products) {
     const q = orderTotals[p.id] ?? 0;
     if (q <= 0) continue;
-    if (!p.cut_spec_id) {
-      fromTrim.push(p.id);
+    if (!p.links.length) {
+      notOnSheet.push(p.id);
       continue;
     }
-    const existing = lines.find((l) => l.kind !== "note" && l.cut_spec_id === p.cut_spec_id);
+    for (const l of p.links) perSpec.set(l.cut_spec_id, (perSpec.get(l.cut_spec_id) ?? 0) + q / (num(l.units_per_cut) || 1));
+  }
+  let added = 0;
+  for (const [specId, raw] of perSpec) {
+    const q = Math.ceil(raw - EPS);
+    if (q <= 0) continue;
+    const existing = lines.find((l) => l.kind !== "note" && l.cut_spec_id === specId);
     if (existing) existing.qty = num(existing.qty) + q;
     else
-      lines.push({
-        kind: "line",
-        cut_spec_id: p.cut_spec_id,
-        qty: q,
-        text: null,
-        side_note: "",
-        highlight: null,
-        shank_on: false,
-      });
+      lines.push({ kind: "line", cut_spec_id: specId, qty: q, text: null, side_note: "", highlight: null, shank_on: false });
     added++;
   }
   const next = { ...set, lines };
   if (!num(set.lambs)) next.lambs = lambsFromLines(next, specs);
-  return { set: next, added, fromTrim };
+  return { set: next, added, notOnSheet };
 }
 

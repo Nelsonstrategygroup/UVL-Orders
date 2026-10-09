@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countUnit } from "./units";
+import { countUnit, inProductUnits, toProductUnit, unitWord } from "./units";
 
 const parts = [
   { id: "fshank", name: "Front shank" },
@@ -35,5 +35,25 @@ describe("count unit", () => {
   it("leaves other products alone", () => {
     expect(countUnit(product("UVL racks to Vac (SINGLE PACK)", "each", [{ part_id: "rack", qty: 1 }]), parts)).toBe("each");
     expect(countUnit(product("Ground lamb", "lb", [{ part_id: "trim", qty: 1 }]), parts)).toBe("lb");
+  });
+});
+
+describe("order units", () => {
+  const shoulder = { unit: "each", lb_per_unit: 4 };
+  const chops = { unit: "lb", lb_per_unit: null };
+  it("turns pounds into pieces and pieces into pounds with the piece weight", () => {
+    expect(toProductUnit(12, "lb", shoulder)).toBe(3);
+    expect(toProductUnit(3, undefined, shoulder)).toBe(3);
+    expect(toProductUnit(2, "pack", { unit: "lb", lb_per_unit: 5 })).toBe(10);
+  });
+  it("can't convert without a piece weight, so the line counts as 0", () => {
+    expect(toProductUnit(6, "each", chops)).toBe(0);
+  });
+  it("converts a whole order and names units", () => {
+    const byId = new Map<string, { unit: string; lb_per_unit: number | null }>([["sh", shoulder], ["ch", chops]]);
+    expect(inProductUnits({ sh: 8, ch: 15 }, { sh: "lb" }, byId)).toEqual({ sh: 2, ch: 15 });
+    expect(unitWord("lb", 15)).toBe("lb");
+    expect(unitWord("each", 1)).toBe("pc");
+    expect(unitWord("pack", 3)).toBe("packs");
   });
 });

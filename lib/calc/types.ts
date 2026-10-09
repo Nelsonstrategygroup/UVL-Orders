@@ -9,6 +9,8 @@ export type Part = {
   balance_check: boolean;
   confirmed: boolean;
   sort: number;
+  /** False for byproducts (neck, trim, Denver ribs): tracked per lamb, never sets the count. Missing means true. */
+  drives_count?: boolean;
 };
 
 export type PartUse = { part_id: string; qty: number };
@@ -24,7 +26,21 @@ export type Product = {
   active: boolean;
   sort: number;
   uses: PartUse[];
+  /** A second unit customers may order in ("pieces or lb"). */
+  alt_unit?: OrderUnit | null;
+  /** About how much one unit weighs, to turn pounds into pieces and back. */
+  lb_per_unit?: number | null;
+  /** False for a product that never drives the lamb count. Missing means true. */
+  counts_toward_lambs?: boolean;
+  /** Not from a lamb at all (pepper sticks). */
+  not_lamb?: boolean;
 };
+
+/** Units an order line can be taken in. */
+export type OrderUnit = "each" | "pack" | "lb" | "case";
+
+/** product id -> the unit a line was taken in, only where it differs from the product's own. */
+export type Units = Record<string, OrderUnit>;
 
 /** product id -> quantity */
 export type Qty = Record<string, number>;

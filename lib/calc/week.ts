@@ -15,8 +15,10 @@ export type PartRow = {
   part: Part;
   /** How much of this part the orders need. */
   need: number;
-  /** Lambs needed to cover that need on its own. */
+  /** Lambs needed to cover that need on its own (0 for parts that don't drive the count). */
   lambs: number;
+  /** Whether this part can set the lamb count. Byproducts are tracked but never do. */
+  drives: boolean;
   /** What the final lamb count gives. */
   supply: number;
   /** supply - need. Negative means short. */
@@ -69,17 +71,25 @@ export function calcWeek(input: {
   const withShort: Qty = { ...totals };
   for (const k in input.shortfall ?? {}) addInto(withShort, k, input.shortfall![k]);
 
+  // need: everything ordered, for the balance table. driveNeed: only what can
+  // set the count (products that count toward lambs, from driving parts).
   const need: Qty = {};
+  const driveNeed: Qty = {};
   for (const p of input.products) {
     const q = withShort[p.id] ?? 0;
     if (!q) continue;
-    for (const u of p.uses) addInto(need, u.part_id, q * num(u.qty));
+    const counts = p.counts_toward_lambs !== false && !p.not_lamb;
+    for (const u of p.uses) {
+      addInto(need, u.part_id, q * num(u.qty));
+      if (counts) addInto(driveNeed, u.part_id, q * num(u.qty));
+    }
   }
 
   const base = parts.map((part) => {
-    const nd = need[part.id] ?? 0;
+    const drives = part.drives_count !== false;
+    const nd = driveNeed[part.id] ?? 0;
     const per = num(part.per_lamb);
-    return { part, need: nd, lambs: nd > 0 && per > 0 ? ceilSafe(nd / per) : 0 };
+    return { part, drives, need: need[part.id] ?? 0, lambs: drives && nd > 0 && per > 0 ? ceilSafe(nd / per) : 0 };
   });
 
   const recommended = base.reduce((m, r) => Math.max(m, r.lambs), 0);
@@ -95,13 +105,13 @@ export function calcWeek(input: {
     let status: PartStatus;
     if (r.need === 0) status = "none";
     else if (left < -EPS) status = "short";
-    else if (source === "orders" && recommended > 0 && r.lambs === recommended) status = "sets";
+    else if (r.drives && source === "orders" && recommended > 0 && r.lambs === recommended) status = "sets";
     else if (Math.abs(left) < EPS) status = "even";
     else status = "extra";
     return { ...r, supply, left, status };
   });
 
-  const driver = recommended > 0 ? (rows.find((r) => r.lambs === recommended) ?? null) : null;
+  const driver = recommended > 0 ? (rows.find((r) => r.drives && r.lambs === recommended) ?? null) : null;
   return { totals, withShort, rows, recommended, driver, final, source, overridden, cutSheetLambs };
 }
 

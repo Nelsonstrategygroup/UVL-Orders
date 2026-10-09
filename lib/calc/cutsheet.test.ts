@@ -96,13 +96,16 @@ describe("cut sheet rules", () => {
 });
 
 describe("Put these on this set (6.4)", () => {
-  const products = seed.products.map((p) => ({ id: p.id, cut_spec_id: p.cut_spec_id }));
+  const products = seed.products.map((p) => ({
+    id: p.id,
+    links: p.cut_spec_id ? [{ cut_spec_id: p.cut_spec_id, units_per_cut: 1 }] : [],
+  }));
   const empty: CutSet = { name: "PCC", lambs: 0, size_class_id: "Small", headline: "", lines: [] };
 
   it("adds order quantities as lines and sets the lamb count when it was 0", () => {
-    const { set, added, fromTrim } = fillSet(empty, { s1: 4, s11: 4, s20: 4, s27: 4, ground: 10 }, products, specs);
+    const { set, added, notOnSheet } = fillSet(empty, { s1: 4, s11: 4, s20: 4, s27: 4, ground: 10 }, products, specs);
     expect(added).toBe(4);
-    expect(fromTrim).toEqual(["ground"]);
+    expect(notOnSheet).toEqual(["ground"]);
     expect(set.lines.map((l) => `${l.qty} ${l.cut_spec_id}`)).toEqual(["4 s1", "4 s11", "4 s20", "4 s27"]);
     expect(set.lambs).toBe(2);
   });
@@ -117,6 +120,22 @@ describe("Put these on this set (6.4)", () => {
     expect(set.lines).toHaveLength(1);
     expect(set.lines[0]).toMatchObject({ qty: 6, side_note: "keep", highlight: "yellow", shank_on: true });
     expect(set.lambs).toBe(5);
+  });
+});
+
+describe("Put these on this set: customer products", () => {
+  it("turns pounds into whole Mohawk lines, adding products that share a line", () => {
+    const chopLine = { cut_spec_id: "s25", units_per_cut: 2.5 };
+    const products = [
+      { id: "chops", links: [chopLine] },
+      { id: "labeled", links: [chopLine] },
+      { id: "liver", links: [] },
+    ];
+    const empty: CutSet = { name: "", lambs: 3, size_class_id: "Large", headline: "", lines: [] };
+    // 10 lb + 6 lb = 16 lb of chops at 2.5 lb per short loin = 6.4, so 7.
+    const { set, notOnSheet } = fillSet(empty, { chops: 10, labeled: 6, liver: 2 }, products, specs);
+    expect(set.lines.map((l) => `${l.qty} ${l.cut_spec_id}`)).toEqual(["7 s25"]);
+    expect(notOnSheet).toEqual(["liver"]);
   });
 });
 

@@ -21,24 +21,38 @@ export function slotCount(part: Part, size: "half" | "whole"): number {
   return Math.round(num(part.per_lamb) * FRACTION[size]);
 }
 
-/** Products that can fill a slot: exactly one part use, of that part, qty 1. */
+/**
+ * Products that can fill a slot: turned on, and made from only that part.
+ * A slot is one of the part, so it can be a product sold by the pound
+ * (Chops at 2.5 lb per short loin): see slotUnits.
+ */
 export function slotOptions(partId: string, products: Product[]): Product[] {
-  return products.filter((p) => p.uses.length === 1 && p.uses[0].part_id === partId && num(p.uses[0].qty) === 1);
+  return products.filter(
+    (p) => p.active && p.uses.length === 1 && p.uses[0].part_id === partId && num(p.uses[0].qty) > 0,
+  );
+}
+
+/** How much of a product one slot (one of its part) makes: 1 short loin = 2.5 lb of Chops. */
+export function slotUnits(product: Product | undefined): number {
+  const q = product && product.uses.length === 1 ? num(product.uses[0].qty) : 0;
+  return q > 0 ? 1 / q : 1;
 }
 
 /**
  * What one half or whole order takes, by product.
- * Each chosen slot is one unit of its product. Parts that are not slot parts
+ * Each chosen slot is one of its part, in the product's unit. Parts that are not slot parts
  * (trim) become their single-use product automatically: per_lamb * fraction,
  * divided by how much of the part one unit uses (ground lamb from trim).
  */
 export function halfWholeLines(order: HalfWholeOrder, parts: Part[], products: Product[]): Qty {
   const lines: Qty = {};
-  for (const c of order.choices) if (c.product_id) addInto(lines, c.product_id, 1);
+  const byId = new Map(products.map((p) => [p.id, p]));
+  for (const c of order.choices) if (c.product_id) addInto(lines, c.product_id, slotUnits(byId.get(c.product_id)));
 
   const frac = FRACTION[order.size];
   for (const part of parts.filter((p) => !p.balance_check)) {
-    const prod = products.find((p) => p.uses.length === 1 && p.uses[0].part_id === part.id);
+    // The first turned-on product made only from this part (ground lamb from trim).
+    const prod = products.find((p) => p.active && p.uses.length === 1 && p.uses[0].part_id === part.id);
     if (prod && num(prod.uses[0].qty) > 0) addInto(lines, prod.id, (num(part.per_lamb) * frac) / num(prod.uses[0].qty));
   }
   return lines;

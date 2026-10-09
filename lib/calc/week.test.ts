@@ -155,3 +155,48 @@ describe("6.2 half and whole shortfall", () => {
     expect(short).toEqual({ ground: 2.5 });
   });
 });
+
+describe("customer products and byproducts (10/2026 changes)", () => {
+  const parts = [
+    { id: "loin", name: "Short loin", per_lamb: 2, unit: "each" as const, balance_check: true, confirmed: true, sort: 0 },
+    { id: "neck", name: "Neck", per_lamb: 1, unit: "each" as const, balance_check: true, confirmed: true, sort: 1, drives_count: false },
+  ];
+  const product = (id: string, uses: { part_id: string; qty: number }[], extra = {}) => ({
+    id,
+    name: id,
+    short_name: "",
+    unit: "each",
+    group_name: "",
+    cut_spec_id: null,
+    fresh_only: false,
+    active: true,
+    sort: 0,
+    uses,
+    ...extra,
+  });
+  const chops = product("chops", [{ part_id: "loin", qty: 0.4 }], { unit: "lb" });
+  const necks = product("necks", [{ part_id: "neck", qty: 1 }]);
+  const pepper = product("pepper", [{ part_id: "loin", qty: 1 }], { not_lamb: true });
+
+  it("counts lambs from pounds of chops (2.5 lb per short loin)", () => {
+    const c = calcWeek({ parts, products: [chops], orders: [{ chops: 25 }] });
+    expect(c.recommended).toBe(5); // 10 short loins, 2 per lamb
+    expect(c.driver?.part.id).toBe("loin");
+  });
+
+  it("tracks byproducts per lamb without letting them set the count", () => {
+    const c = calcWeek({ parts, products: [chops, necks], orders: [{ chops: 5, necks: 9 }] });
+    expect(c.recommended).toBe(1);
+    expect(row(c, "neck")).toMatchObject({ need: 9, lambs: 0, drives: false, supply: 1, status: "short" });
+  });
+
+  it("ignores products that aren't from a lamb", () => {
+    expect(calcWeek({ parts, products: [pepper], orders: [{ pepper: 10 }] }).recommended).toBe(0);
+  });
+
+  it("a half or whole slot can be a pound product: one short loin is 2.5 lb of chops", () => {
+    const order: HalfWholeOrder = { id: "h", size: "half", status: "pending", choices: [{ part_id: "loin", slot: 0, product_id: "chops" }] };
+    expect(halfWholeLines(order, parts, [chops])).toEqual({ chops: 2.5 });
+    expect(slotOptions("loin", [chops, pepper, { ...chops, id: "off", active: false }]).map((p) => p.id)).toEqual(["chops", "pepper"]);
+  });
+});
