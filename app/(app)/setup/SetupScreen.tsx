@@ -9,7 +9,8 @@ import { useToast } from "@/components/Toast";
 import { fmt, num } from "@/lib/calc/num";
 import { drivesLambCount, needsChecking, partAmountRow } from "@/lib/calc/products";
 import { unitWord } from "@/lib/calc/units";
-import { addPart, updateRow, updateSettings } from "@/lib/db/save";
+import { addPart, deleteCutSpec, swapSpecSort, updateRow, updateSettings } from "@/lib/db/save";
+import { addCutSpec } from "@/lib/db/cutsheet";
 import type { CatalogProduct } from "@/lib/db/types";
 import EditProduct from "./EditProduct";
 
@@ -370,45 +371,11 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
 
       <section className="panel mt-4">
         <h3>Instructions for {settings?.processor_name || "Mohawk"} (cut specs)</h3>
-        <p className="small muted mt-1">The exact wording printed on the cut sheet. Turn off ones you no longer use.</p>
-        <table className="simple">
-          <thead>
-            <tr>
-              <th>Wording</th>
-              <th>Counts as</th>
-              <th>In use</th>
-            </tr>
-          </thead>
-          <tbody>
-            {catalog.cutSpecs.map((s) => (
-              <tr key={s.id} className={s.active ? "" : "bg-field"}>
-                <td>
-                  <input
-                    className="field"
-                    aria-label="Wording"
-                    defaultValue={s.text}
-                    disabled={!canEdit}
-                    onBlur={(e) => {
-                      const v = e.target.value.trim();
-                      if (v && v !== s.text) void updateRow(db, "cut_specs", s.id, { text: v }).then(done);
-                    }}
-                  />
-                </td>
-                <td className="small">{USE_LABEL[s.use_type] ?? s.use_type}</td>
-                <td>
-                  <input
-                    type="checkbox"
-                    className="h-6 w-6 accent-forest"
-                    aria-label={`In use: ${s.text}`}
-                    checked={s.active}
-                    disabled={!canEdit}
-                    onChange={(e) => void updateRow(db, "cut_specs", s.id, { active: e.target.checked }).then(done)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <p className="small muted mt-1">
+          The exact wording printed on the cut sheet, in the order the cut sheet lists them. &quot;Counts as&quot; is how a line
+          adds up when a set is checked. Changing it changes every set that uses it, including past weeks.
+        </p>
+        <CutSpecs canEdit={canEdit} done={done} />
       </section>
 
       {canEdit && (
@@ -501,5 +468,156 @@ function AddPart({ onDone }: { onDone: (err?: string | null) => Promise<void> })
         </button>
       </div>
     </div>
+  );
+}
+
+/** Cut sheet instructions: wording, what each counts as, order, in use, add, and delete if never used. */
+function CutSpecs({ canEdit, done }: { canEdit: boolean; done: (err: string | null) => Promise<void> }) {
+  const { catalog } = useStaffData();
+  const toast = useToast();
+  const db = getDb();
+  const [text, setText] = useState("");
+  const [use, setUse] = useState("leg");
+  const [busy, setBusy] = useState(false);
+  const specs = catalog?.cutSpecs ?? [];
+
+  return (
+    <>
+      <table className="simple">
+        <thead>
+          <tr>
+            <th>Wording</th>
+            <th>Counts as</th>
+            <th>In use</th>
+            {canEdit && (
+              <th>
+                <span className="sr-only">Move or delete</span>
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {specs.map((s, i) => (
+            <tr key={s.id} className={s.active ? "" : "bg-field"}>
+              <td className="min-w-[220px]">
+                <input
+                  key={`${s.id}:${s.text}`}
+                  className="field"
+                  aria-label="Wording"
+                  defaultValue={s.text}
+                  disabled={!canEdit}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v && v !== s.text) void updateRow(db, "cut_specs", s.id, { text: v }).then(done);
+                  }}
+                />
+              </td>
+              <td>
+                <select
+                  className="field"
+                  aria-label={`What ${s.text} counts as`}
+                  value={s.use_type}
+                  disabled={!canEdit}
+                  onChange={(e) => void updateRow(db, "cut_specs", s.id, { use_type: e.target.value }).then(done)}
+                >
+                  {Object.entries(USE_LABEL).map(([k, label]) => (
+                    <option key={k} value={k}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>
+                <input
+                  type="checkbox"
+                  className="h-6 w-6 accent-forest"
+                  aria-label={`In use: ${s.text}`}
+                  checked={s.active}
+                  disabled={!canEdit}
+                  onChange={(e) => void updateRow(db, "cut_specs", s.id, { active: e.target.checked }).then(done)}
+                />
+              </td>
+              {canEdit && (
+                <td className="whitespace-nowrap">
+                  <button
+                    type="button"
+                    className="iconbtn"
+                    aria-label={`Move ${s.text} up`}
+                    disabled={i === 0}
+                    onClick={() => void swapSpecSort(db, s, specs[i - 1]).then(done)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="iconbtn"
+                    aria-label={`Move ${s.text} down`}
+                    disabled={i === specs.length - 1}
+                    onClick={() => void swapSpecSort(db, s, specs[i + 1]).then(done)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="copy min-h-[44px] px-2"
+                    onClick={async () => {
+                      if (!window.confirm(`Delete "${s.text}"? This can't be undone.`)) return;
+                      const r = await deleteCutSpec(db, s.id);
+                      if (r.inUse) toast(r.inUse);
+                      else await done(r.error);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {canEdit && (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="min-w-[220px] flex-1">
+            <label className="lbl" htmlFor="ns-text">
+              New instruction
+            </label>
+            <input
+              id="ns-text"
+              className="field"
+              value={text}
+              placeholder="Wording exactly as Mohawk should read it"
+              onChange={(e) => setText(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="lbl" htmlFor="ns-use">
+              Counts as
+            </label>
+            <select id="ns-use" className="field" value={use} onChange={(e) => setUse(e.target.value)}>
+              {Object.entries(USE_LABEL).map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            className="btn"
+            disabled={busy || !text.trim()}
+            onClick={async () => {
+              setBusy(true);
+              const r = await addCutSpec(db, text.trim(), use);
+              setBusy(false);
+              if (!r.error) setText("");
+              await done(r.error);
+            }}
+          >
+            Add instruction
+          </button>
+        </div>
+      )}
+    </>
   );
 }

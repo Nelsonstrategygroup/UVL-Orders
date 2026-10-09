@@ -281,3 +281,38 @@ export async function setFollowUpDone(db: SupabaseClient, id: string, done: bool
   const { error } = await db.rpc("set_follow_up_done", { p_id: id, p_done: done });
   return msg(error);
 }
+
+// ----- Cut sheet instructions in Setup -----
+
+/** Swap the order of two instructions (the order they appear in the cut sheet's picker). */
+export async function swapSpecSort(
+  db: SupabaseClient,
+  a: { id: string; sort: number },
+  b: { id: string; sort: number },
+): Promise<string | null> {
+  // Equal sorts would swap to the same values; spread them first.
+  const [sa, sb] = a.sort === b.sort ? [b.sort + 1, a.sort] : [b.sort, a.sort];
+  const { error: e1 } = await db.from("cut_specs").update({ sort: sa }).eq("id", a.id);
+  if (e1) return e1.message;
+  const { error: e2 } = await db.from("cut_specs").update({ sort: sb }).eq("id", b.id);
+  return msg(e2);
+}
+
+/**
+ * Delete an instruction that has never been used: on no cut sheet line and
+ * linked to no product. Otherwise say why, so it can be turned off instead.
+ */
+export async function deleteCutSpec(db: SupabaseClient, id: string): Promise<{ error: string | null; inUse: string | null }> {
+  const [lines, links] = await Promise.all([
+    db.from("cut_set_lines").select("id", { count: "exact", head: true }).eq("cut_spec_id", id),
+    db.from("product_cut_specs").select("product_id", { count: "exact", head: true }).eq("cut_spec_id", id),
+  ]);
+  if (lines.error || links.error) return { error: (lines.error ?? links.error)!.message, inUse: null };
+  const used = [
+    lines.count ? `${lines.count} cut sheet line${lines.count === 1 ? "" : "s"}` : "",
+    links.count ? `${links.count} product${links.count === 1 ? "" : "s"}` : "",
+  ].filter(Boolean);
+  if (used.length) return { error: null, inUse: `It's used on ${used.join(" and ")}. Untick "In use" to hide it instead.` };
+  const { error } = await db.from("cut_specs").delete().eq("id", id);
+  return { error: msg(error), inUse: null };
+}
