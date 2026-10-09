@@ -73,10 +73,11 @@ Create these tables with Supabase migrations. Use `uuid` primary keys with `gen_
 
 ### 4.2 Catalog
 
-- `parts`: `id text` PK (`leg`, `shoulder`, `rack`, `loin`, `fshank`, `hshank`, `neck`, `trim`), `name`, `per_lamb numeric`, `unit text` (`each` or `lb`), `balance_check boolean` (counts in set and half/whole balance), `confirmed boolean`, `source_note text`, `sort int`.
+- `parts`: `id text` PK (`leg`, `shoulder`, `rack`, `loin`, `fshank`, `hshank`, `neck`, `trim`, `denver`, and any added in Setup), `name`, `per_lamb numeric`, `unit text` (`each` or `lb`), `balance_check boolean` (counts in set and half/whole balance), `drives_count boolean` (false for byproducts such as neck, trim, Denver ribs: tracked per lamb but never set the lamb count; hind shank starts false until Kathy confirms), `confirmed boolean`, `source_note text`, `sort int`.
 - `cut_specs`: Mohawk's instruction lines. `id text` PK, `text text` (exact wording printed on the cut sheet), `use_type text` (see 6.3), `active boolean`, `sort int`.
-- `products`: what customers order. `id text` PK, `name`, `short_name`, `unit` (`each`, `lb`, `leg`, `loin`, `lamb`), `group_name` (Legs, Shoulders, Racks, Loins, Shanks, Ground and trim, Whole lambs, Other), `cut_spec_id text` nullable FK (most products are exactly one cut spec), `fresh_only boolean default false` (never filled from the freezer), `active boolean`, `sort int`, `note text`.
-- `product_part_uses`: `product_id`, `part_id`, `qty numeric`. PK (`product_id`, `part_id`). How much of each part one unit consumes.
+- `products`: customer products (change requests 10/2026): what customers order, in their words. `id text` PK, `name` (the name customers see), `short_name`, `unit` (`each`, `pack`, `lb`, `case`; old rows may have `leg`, `loin`, `lamb`), `alt_unit` (a second unit it may be ordered in, or null), `lb_per_unit` (about how much one unit weighs, to turn pounds into pieces), `pieces_per_pack`, `order_step` (Le Trim: 10), `billed_by_weight`, `counts_toward_lambs`, `not_lamb` (pepper sticks), `group_name` (free text), `fresh_only`, `active`, `confirmed` (false = listed under Needs checking in Setup), `sort`, `note` (shown behind an info button on the order screen). `cut_spec_id` is the old single link, replaced by `product_cut_specs`. The 36 original products (copies of Mohawk lines) are turned off and kept for history; the starting list comes from `seed_customer_products()`.
+- `product_cut_specs`: `product_id`, `cut_spec_id`, `units_per_cut` (how much of the product's unit one Mohawk line gives: Chops 2.5 lb per short loin), `sort`. A product can link to several Mohawk lines. Mohawk wording appears only on the cut sheet.
+- `product_part_uses`: `product_id`, `part_id`, `qty numeric`. PK (`product_id`, `part_id`). How much of each part one unit consumes (Chops: 0.4 short loin per lb). Setup lets it be entered either way round.
 - `size_classes`: `id text` PK (`XL`, `Large`, `Medium`, `Small`, `XS`), `label`, `weight_range`, `sort`.
 
 Seed all of the above from `reference/seed-data.json`. When a user adds a new cut spec from the cut sheet screen, also create a matching product (same text, `cut_spec_id` set, part uses derived from `use_type`), as the prototype's `newSpec` does.
@@ -91,7 +92,7 @@ Seed all of the above from `reference/seed-data.json`. When a user adds a new cu
 
 - `weeks`: `id date` PK (the Monday), `process_date date`, `producer text`, `lamb_override int` nullable, `notes text`.
 - `orders`: `week_id`, `customer_id`, `status` (`todo`, `ordered`, `none`, `callback`), `notes text`. Unique (`week_id`, `customer_id`).
-- `order_lines`: `order_id`, `product_id`, `qty numeric check (qty > 0)`. PK (`order_id`, `product_id`). Delete the row when qty becomes 0.
+- `order_lines`: `order_id`, `product_id`, `qty numeric check (qty > 0)`, `unit` (null = the product's unit; set when taken in its other unit, for example a BLS Shoulder in pounds). PK (`order_id`, `product_id`). Delete the row when qty becomes 0.
 - `packing_lines`: `order_id`, `product_id`, `packed_qty numeric`, `packed_by uuid`, `packed_at timestamptz`. PK (`order_id`, `product_id`).
 - `packing_orders`: `order_id` PK, `boxes int`, `pallet text`, `updated_by uuid`.
 
