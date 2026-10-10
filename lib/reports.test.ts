@@ -30,6 +30,9 @@ const cust = (id: string, name: string, extra: Partial<Customer> = {}): Customer
   active: true,
   parent_customer_id: null,
   bills_for_locations: false,
+  pallet_group_id: null,
+  pallet_spot: "",
+  pallet_sort: 0,
   contacts: [],
   ...extra,
 });
@@ -46,7 +49,7 @@ describe("customer order history download", () => {
         products,
       ),
     );
-    expect(r[0]).toEqual(["Customer", "Week of", "Answer", "Product", "Quantity", "Unit", "Packed", "Order notes"]);
+    expect(r[0]).toEqual(["Customer", "Week of", "Answer", "Product", "Quantity", "Unit", "Packed (lb)", "Order notes"]);
     expect(r.slice(1)).toEqual([
       ["Key City", "2026-10-12", "Ordered", "legs Bone In to VAC", "2", "each", "2", "Before 10, please"],
       ["Key City", "2026-10-12", "Ordered", "French Rack to Vac", "4", "each", "", "Before 10, please"],
@@ -86,7 +89,7 @@ describe("week's orders download", () => {
     expect(col(r[2], "Bill to")).toBe("PCC");
     expect(col(r[2], "Product")).toBe("legs Bone In to VAC");
     expect(col(r[2], "Quantity")).toBe("6");
-    expect(col(r[2], "Packed")).toBe("5");
+    expect(col(r[2], "Packed (lb)")).toBe("5");
     expect(col(r[2], "Standing notes")).toBe("Dock in back");
   });
 });
@@ -113,10 +116,11 @@ describe("product totals", () => {
     ];
     const r = rows(productTotalsCsv("2026-10-05", withGroup, orders, new Map([["o1", { leg: 6, rack: 1 }]]), { leg: 2 }));
     expect(r.length).toBe(3);
-    expect([col(r, 1, "Product"), col(r, 1, "Customers"), col(r, 1, "Ordered"), col(r, 1, "For half and whole"), col(r, 1, "Total to cut"), col(r, 1, "Packed"), col(r, 1, "Short")]).toEqual(
-      ["legs Bone In to VAC", "2", "10", "2", "12", "6", "4"],
+    // Pounds packed; short only for products ordered by the pound (these are pieces).
+    expect([col(r, 1, "Product"), col(r, 1, "Customers"), col(r, 1, "Ordered"), col(r, 1, "For half and whole"), col(r, 1, "Total to cut"), col(r, 1, "Packed (lb)"), col(r, 1, "Short (lb)")]).toEqual(
+      ["legs Bone In to VAC", "2", "10", "2", "12", "6", ""],
     );
-    expect([col(r, 2, "Product"), col(r, 2, "Short")]).toEqual(["French Rack to Vac", "1"]);
+    expect([col(r, 2, "Product"), col(r, 2, "Short (lb)")]).toEqual(["French Rack to Vac", ""]);
   });
 });
 
@@ -161,7 +165,8 @@ describe("sales over a date range", () => {
 });
 
 describe("packing record", () => {
-  it("shows ordered against packed with short or over, who packed, and boxes", () => {
+  it("shows pounds and pieces packed, short or over, not filled, flags, boxes, and who weighed", () => {
+    const lb = [{ id: "trim", name: "Le Trim", unit: "lb", sort: 0 }, ...products];
     const r = rows(
       packingRecordCsv(
         "2026-10-05",
@@ -169,24 +174,36 @@ describe("packing record", () => {
           {
             customer_id: "f",
             status: "ordered",
-            lines: { leg: 6, rack: 2 },
-            packed: { leg: { qty: 5, by: "Chris", at: "2026-10-07T17:00:00Z" }, rack: { qty: 3, by: "Chris", at: "2026-10-07T17:05:00Z" } },
-            boxes: 2,
+            lines: { trim: 20, leg: 6, rack: 2 },
+            weights: [
+              { product_id: "trim", weight: 9.8, box_no: 1, by: "Chris", at: "2026-10-07T17:00:00Z" },
+              { product_id: "trim", weight: 5.4, box_no: 2, by: "Chris", at: "2026-10-07T17:05:00Z" },
+              { product_id: "leg", weight: 30.2, box_no: 3, by: "Chris", at: "2026-10-07T17:06:00Z" },
+            ],
+            marks: {
+              leg: { count: 5, shorted: false, flagged: true, flagNote: "One leg bruised" },
+              rack: { count: null, shorted: true, flagged: false, flagNote: "" },
+            },
             pallet: "A",
-            stampedBy: "Chris",
           },
-          { customer_id: "d", status: "none", lines: {}, packed: {}, boxes: null, pallet: "", stampedBy: "" },
+          { customer_id: "d", status: "none", lines: {}, weights: [], marks: {}, pallet: "" },
         ],
         all,
-        products,
+        lb,
         (iso) => iso.slice(11, 16),
       ),
     );
-    expect(r.length).toBe(3); // the no-order customer is left out
-    expect([col(r, 1, "Ordered"), col(r, 1, "Packed"), col(r, 1, "Short"), col(r, 1, "Over"), col(r, 1, "Packed by"), col(r, 1, "Packed at")]).toEqual(
-      ["6", "5", "1", "", "Chris", "17:00"],
+    expect(r.length).toBe(4); // the no-order customer is left out
+    const byProduct = (n: string) => r.find((x) => x[r[0].indexOf("Product")] === n)!;
+    const c = (row: string[], name: string) => row[r[0].indexOf(name)];
+    const trim = byProduct("Le Trim");
+    expect([c(trim, "Packed (lb)"), c(trim, "Short"), c(trim, "Boxes"), c(trim, "Weighed by"), c(trim, "Last weighed")]).toEqual(
+      ["15.2", "4.8", "1, 2", "Chris", "17:05"],
     );
-    expect([col(r, 2, "Short"), col(r, 2, "Over"), col(r, 2, "Boxes"), col(r, 2, "Pallet")]).toEqual(["", "1", "2", "A"]);
+    const leg = byProduct("legs Bone In to VAC");
+    expect([c(leg, "Packed (lb)"), c(leg, "Pieces packed"), c(leg, "Short"), c(leg, "Flag")]).toEqual(["30.2", "5", "1", "One leg bruised"]);
+    const rack = byProduct("French Rack to Vac");
+    expect([c(rack, "Packed (lb)"), c(rack, "Not filled"), c(rack, "Pallet")]).toEqual(["", "Yes", "A"]);
   });
 });
 

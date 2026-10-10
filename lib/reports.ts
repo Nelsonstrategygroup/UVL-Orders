@@ -44,7 +44,7 @@ function orderedLines(lines: Qty, products: ProductLite[]): { product: ProductLi
     .sort((a, b) => (a.product?.sort ?? 1e9) - (b.product?.sort ?? 1e9) || a.id.localeCompare(b.id));
 }
 
-export const HISTORY_COLUMNS = ["Customer", "Week of", "Answer", "Product", "Quantity", "Unit", "Packed", "Order notes"];
+export const HISTORY_COLUMNS = ["Customer", "Week of", "Answer", "Product", "Quantity", "Unit", "Packed (lb)", "Order notes"];
 
 /** One customer's order history: a row per product per week, newest week first. */
 export function customerHistoryTable(
@@ -76,7 +76,7 @@ export const WEEK_COLUMNS = [
   "Product",
   "Quantity",
   "Unit",
-  "Packed",
+  "Packed (lb)",
   "Order notes",
   "Standing notes",
 ];
@@ -128,8 +128,8 @@ export const PRODUCT_TOTAL_COLUMNS = [
   "Ordered",
   "For half and whole",
   "Total to cut",
-  "Packed",
-  "Short",
+  "Packed (lb)",
+  "Short (lb)",
 ];
 
 export function productTotalsTable(
@@ -154,7 +154,9 @@ export function productTotalsTable(
     }
     const hw = halfWholeShort[p.id] ?? 0;
     if (!ordered && !hw) continue;
-    rows.push([week, p.name, p.group_name, p.unit, customers, ordered, hw || "", ordered + hw, got, Math.max(0, ordered - got) || ""]);
+    // Short in pounds only makes sense for products ordered by the pound.
+    const short = p.unit === "lb" ? Math.max(0, ordered - got) : 0;
+    rows.push([week, p.name, p.group_name, p.unit, customers, ordered, hw || "", ordered + hw, got || "", short || ""]);
   }
   return table(PRODUCT_TOTAL_COLUMNS, rows);
 }
@@ -255,18 +257,25 @@ export const PACKING_COLUMNS = [
   "Customer",
   "Chain",
   "Product",
-  "Unit",
   "Ordered",
-  "Packed",
+  "Unit",
+  "Packed (lb)",
+  "Pieces packed",
   "Short",
   "Over",
-  "Packed by",
-  "Packed at",
+  "Not filled",
+  "Flag",
   "Boxes",
+  "Weighed by",
+  "Last weighed",
   "Pallet",
-  "Boxes and pallet by",
 ];
 
+/**
+ * A row per order line: what was weighed (and counted), short or over
+ * (pounds for pound orders, pieces when counted), not filled, flags, boxes,
+ * and who weighed it.
+ */
 export function packingRecordTable(
   week: string,
   records: {
@@ -274,10 +283,9 @@ export function packingRecordTable(
     status: OrderStatus;
     lines: Qty;
     units?: Units;
-    packed: Record<string, { qty: number; by: string; at: string }>;
-    boxes: number | null;
+    weights: { product_id: string; weight: number; box_no: number | null; by: string; at: string }[];
+    marks: Record<string, { count: number | null; shorted: boolean; flagged: boolean; flagNote: string }>;
     pallet: string;
-    stampedBy: string;
   }[],
   byId: Map<string, Customer>,
   products: ProductLite[],
@@ -295,24 +303,31 @@ export function packingRecordTable(
     const c = byId.get(r.customer_id);
     const parent = c?.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;
     for (const l of orderedLines(r.lines, products)) {
-      const p = r.packed[l.id];
-      const got = p?.qty;
-      const diff = got == null ? 0 : got - l.qty;
+      const unit = lineUnit(l.id, l.product ?? undefined, r.units);
+      const ws = r.weights.filter((w) => w.product_id === l.id);
+      const lb = ws.reduce((s, w) => s + w.weight, 0);
+      const m = r.marks[l.id];
+      const packed = unit === "lb" ? (ws.length ? lb : null) : (m?.count ?? null);
+      const diff = packed == null ? 0 : Math.round((packed - l.qty) * 100) / 100;
+      const last = ws.reduce<(typeof ws)[number] | null>((x, w) => (!x || w.at > x.at ? w : x), null);
+      const boxNos = [...new Set(ws.map((w) => w.box_no).filter((b): b is number => b != null))].sort((a, b) => a - b);
       rows.push([
         week,
         c?.name ?? "(deleted customer)",
         parent?.name ?? "",
         l.product?.name ?? l.id,
-        lineUnit(l.id, l.product ?? undefined, r.units),
         l.qty,
-        got ?? "",
+        unit,
+        ws.length ? Math.round(lb * 100) / 100 : "",
+        m?.count ?? "",
         diff < 0 ? -diff : "",
         diff > 0 ? diff : "",
-        p?.by ?? "",
-        p ? formatTime(p.at) : "",
-        r.boxes ?? "",
+        m?.shorted ? "Yes" : "",
+        m?.flagged ? m.flagNote || "Yes" : "",
+        boxNos.join(", "),
+        last?.by ?? "",
+        last ? formatTime(last.at) : "",
         r.pallet,
-        r.stampedBy,
       ]);
     }
   }

@@ -65,6 +65,10 @@ export type Customer = {
   active: boolean;
   parent_customer_id: string | null;
   bills_for_locations: boolean;
+  /** Pallet group, spot on the pallet, and order within the group (Packing). */
+  pallet_group_id: string | null;
+  pallet_spot: string;
+  pallet_sort: number;
   contacts: Contact[];
 };
 
@@ -104,8 +108,10 @@ export type WeekData = {
   orders: Map<string, Order>;
   /** customer id -> order last week */
   lastWeek: Map<string, Order>;
-  /** order id -> product id -> packed qty */
+  /** order id -> product id -> pounds packed */
   packed: Map<string, Qty>;
+  /** order id -> products marked not filled */
+  shorted: Map<string, Set<string>>;
   halfWhole: HalfWholeOrder[];
   freezer: FreezerEntry[];
   cutSets: { lambs: number; size_class_id: string | null }[];

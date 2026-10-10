@@ -3,13 +3,27 @@
 // Setup (SPEC 5.10): parts per lamb, cut specs, products, size classes, and
 // the processor. Admin and office can look; only admins can change things.
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
 import { fmt, num } from "@/lib/calc/num";
 import { drivesLambCount, needsChecking, partAmountRow } from "@/lib/calc/products";
 import { unitWord } from "@/lib/calc/units";
-import { addPart, deleteCutSpec, swapSpecSort, updateRow, updateSettings } from "@/lib/db/save";
+import {
+  addPalletGroup,
+  addPart,
+  deleteCutSpec,
+  deletePalletGroup,
+  loadPalletGroups,
+  setCustomerPallet,
+  swapSpecSort,
+  updatePalletGroup,
+  updateRow,
+  updateSettings,
+} from "@/lib/db/save";
+import { useLive } from "@/components/data/useLive";
+import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { addCutSpec } from "@/lib/db/cutsheet";
 import type { CatalogProduct } from "@/lib/db/types";
 import EditProduct from "./EditProduct";
@@ -378,6 +392,15 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
         <CutSpecs canEdit={canEdit} done={done} />
       </section>
 
+      <section className="panel mt-4">
+        <h3>Pallet groups</h3>
+        <p className="small muted mt-1">
+          Which customers ship together, and where on the pallet. The Packing screen lists customers in this order;
+          everyone else comes after, by name.
+        </p>
+        <PalletGroups canEdit={canEdit} />
+      </section>
+
       {canEdit && (
         <section className="panel mt-4">
           <h3>Your records</h3>
@@ -624,6 +647,180 @@ function CutSpecs({ canEdit, done }: { canEdit: boolean; done: (err: string | nu
             }}
           >
             Add instruction
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Pallet groups: name, order, and the customers in each with their spot. */
+function PalletGroups({ canEdit }: { canEdit: boolean }) {
+  const { customers, reloadCustomers } = useStaffData();
+  const toast = useToast();
+  const db = getDb();
+  const load = useCallback((d: SupabaseClient) => loadPalletGroups(d), []);
+  const { data: groups, refresh } = useLive("pallet-groups", load, ["pallet_groups"]);
+  const [name, setName] = useState("");
+  if (!groups || !customers) return <p className="small muted">Loading...</p>;
+
+  const after = async (err: string | null) => {
+    if (err) toast(`Couldn't save: ${err}`);
+    refresh();
+    await reloadCustomers();
+  };
+  const byId = customers.byId;
+  const members = (gid: string) =>
+    customers.list
+      .filter((c) => c.pallet_group_id === gid)
+      .sort((a, b) => a.pallet_sort - b.pallet_sort || displayName(a, byId).localeCompare(displayName(b, byId)));
+  const free = sortByDisplayName(
+    customers.list.filter((c) => c.active && !c.pallet_group_id),
+    byId,
+  );
+  const moveGroup = (i: number, dir: -1 | 1) => {
+    const a = groups[i];
+    const b = groups[i + dir];
+    if (!b) return;
+    void Promise.all([updatePalletGroup(db, a.id, { sort: i + dir }), updatePalletGroup(db, b.id, { sort: i })]).then((r) =>
+      after(r.find(Boolean) ?? null),
+    );
+  };
+
+  return (
+    <>
+      {groups.length === 0 && <p className="small muted">No pallet groups yet.</p>}
+      {groups.map((g, gi) => {
+        const list = members(g.id);
+        return (
+          <div key={g.id} className="mb-3 rounded-md border border-line p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                key={`${g.id}:${g.name}`}
+                className="field min-w-[200px] flex-1 font-semibold"
+                aria-label="Group name"
+                defaultValue={g.name}
+                disabled={!canEdit}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v && v !== g.name) void updatePalletGroup(db, g.id, { name: v }).then(after);
+                }}
+              />
+              {canEdit && (
+                <>
+                  <button type="button" className="iconbtn" aria-label={`Move ${g.name} up`} disabled={gi === 0} onClick={() => moveGroup(gi, -1)}>
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="iconbtn"
+                    aria-label={`Move ${g.name} down`}
+                    disabled={gi === groups.length - 1}
+                    onClick={() => moveGroup(gi, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="copy min-h-[44px] px-2"
+                    onClick={() => {
+                      if (window.confirm(`Delete the group "${g.name}"? Its customers stay, just without a group.`))
+                        void deletePalletGroup(db, g.id).then(after);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+            <ul className="m-0 mt-2 grid list-none gap-1 p-0">
+              {list.map((c, i) => (
+                <li key={c.id} className="flex flex-wrap items-center gap-2">
+                  <span className="min-w-[160px] flex-1">{displayName(c, byId)}</span>
+                  <input
+                    key={`${c.id}:${c.pallet_spot}`}
+                    className="field w-36!"
+                    aria-label={`Where on the pallet: ${displayName(c, byId)}`}
+                    placeholder="Left half"
+                    defaultValue={c.pallet_spot}
+                    disabled={!canEdit}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      if (v !== c.pallet_spot) void setCustomerPallet(db, c.id, { pallet_spot: v }).then(after);
+                    }}
+                  />
+                  {canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        className="iconbtn"
+                        aria-label={`Move ${displayName(c, byId)} up`}
+                        disabled={i === 0}
+                        onClick={() =>
+                          void Promise.all(
+                            list.map((x, j) =>
+                              setCustomerPallet(db, x.id, { pallet_sort: j === i ? i - 1 : j === i - 1 ? i : j }),
+                            ),
+                          ).then((r) => after(r.find(Boolean) ?? null))
+                        }
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="copy min-h-[44px] px-2"
+                        onClick={() =>
+                          void setCustomerPallet(db, c.id, { pallet_group_id: null, pallet_spot: "", pallet_sort: 0 }).then(after)
+                        }
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {canEdit && free.length > 0 && (
+              <select
+                className="field mt-2"
+                aria-label={`Add a customer to ${g.name}`}
+                value=""
+                onChange={(e) =>
+                  e.target.value &&
+                  void setCustomerPallet(db, e.target.value, { pallet_group_id: g.id, pallet_sort: list.length }).then(after)
+                }
+              >
+                <option value="">Add a customer...</option>
+                {free.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {displayName(c, byId)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        );
+      })}
+      {canEdit && (
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[200px] flex-1">
+            <label className="lbl" htmlFor="pg-name">
+              New group
+            </label>
+            <input id="pg-name" className="field" placeholder="Bellingham Stores" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <button
+            type="button"
+            className="btn"
+            disabled={!name.trim()}
+            onClick={() => {
+              void addPalletGroup(db, name.trim(), groups.length).then((err) => {
+                if (!err) setName("");
+                return after(err);
+              });
+            }}
+          >
+            Add group
           </button>
         </div>
       )}

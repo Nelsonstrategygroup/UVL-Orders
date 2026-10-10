@@ -316,3 +316,39 @@ export async function deleteCutSpec(db: SupabaseClient, id: string): Promise<{ e
   const { error } = await db.from("cut_specs").delete().eq("id", id);
   return { error: msg(error), inUse: null };
 }
+
+// ----- Pallet groups (Setup) -----
+
+export type PalletGroup = { id: string; name: string; sort: number };
+
+export async function loadPalletGroups(db: SupabaseClient): Promise<PalletGroup[]> {
+  const { data, error } = await db.from("pallet_groups").select("id, name, sort").order("sort").order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PalletGroup[];
+}
+
+export async function addPalletGroup(db: SupabaseClient, name: string, sort: number): Promise<string | null> {
+  const { error } = await db.from("pallet_groups").insert({ name, sort });
+  return msg(error);
+}
+
+export async function updatePalletGroup(db: SupabaseClient, id: string, patch: Partial<Omit<PalletGroup, "id">>): Promise<string | null> {
+  const { error } = await db.from("pallet_groups").update(patch).eq("id", id);
+  return msg(error);
+}
+
+/** Delete a group. Its customers stay, without a group. */
+export async function deletePalletGroup(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await db.from("pallet_groups").delete().eq("id", id);
+  return msg(error);
+}
+
+/** Put a customer in a group (or none), with their spot and order. */
+export async function setCustomerPallet(
+  db: SupabaseClient,
+  customerId: string,
+  patch: { pallet_group_id?: string | null; pallet_spot?: string; pallet_sort?: number },
+): Promise<string | null> {
+  const { error } = await db.from("customers").update(patch).eq("id", customerId);
+  return msg(error);
+}

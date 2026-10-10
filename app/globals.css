@@ -1051,6 +1051,32 @@
     border-color: var(--barn);
     background: var(--barn);
   }
+  /* Packing by weight: short or not filled, over, flagged */
+  .prow.short {
+    background: var(--bad);
+  }
+  .prow.short .box {
+    border-color: var(--barn);
+    background: var(--barn);
+    color: var(--paper);
+  }
+  .prow.over {
+    background: var(--warn);
+  }
+  .prow.over .box {
+    border-color: var(--ink-soft);
+    background: var(--ink-soft);
+    color: var(--paper);
+  }
+  .prow.flag {
+    background: var(--bad);
+    box-shadow: inset 6px 0 0 var(--barn);
+  }
+  .prow.flag .box {
+    border-color: var(--barn);
+    color: var(--barn);
+    font-weight: 800;
+  }
   .prow .what {
     flex: 1;
     min-width: 0;

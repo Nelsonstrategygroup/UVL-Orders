@@ -90,7 +90,11 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
 export async function loadCustomers(db: SupabaseClient): Promise<CustomersData> {
   const [customers, contacts, last, follow, usual] = await Promise.all([
     fetchAll<Omit<Customer, "contacts">>((a, b) =>
-      db.from("customers").select("id, name, type, call_day, notes, active, parent_customer_id, bills_for_locations").order("name").range(a, b),
+      db
+        .from("customers")
+        .select("id, name, type, call_day, notes, active, parent_customer_id, bills_for_locations, pallet_group_id, pallet_spot, pallet_sort")
+        .order("name")
+        .range(a, b),
     ),
     fetchAll<Contact>((a, b) =>
       db.from("customer_contacts").select("id, customer_id, name, roles, phone, email, sort").order("sort").range(a, b),
@@ -236,14 +240,22 @@ export async function loadCustomerHistory(db: SupabaseClient, customerId: string
 }
 
 export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekData> {
-  const [weekRow, orders, packed, hw, freezer, sets, sheet] = await Promise.all([
+  const [weekRow, orders, weights, marks, hw, freezer, sets, sheet] = await Promise.all([
     db.from("weeks").select("id, process_date, producer, lamb_override, notes").eq("id", week).maybeSingle(),
     loadOrders(db, week),
-    fetchAll<{ order_id: string; product_id: string; packed_qty: number }>((a, b) =>
+    fetchAll<{ order_id: string; product_id: string; weight: number }>((a, b) =>
+      db
+        .from("packing_weights")
+        .select("order_id, product_id, weight, orders!inner(week_id)")
+        .eq("orders.week_id", week)
+        .range(a, b),
+    ),
+    fetchAll<{ order_id: string; product_id: string; shorted: boolean }>((a, b) =>
       db
         .from("packing_lines")
-        .select("order_id, product_id, packed_qty, orders!inner(week_id)")
+        .select("order_id, product_id, shorted, orders!inner(week_id)")
         .eq("orders.week_id", week)
+        .eq("shorted", true)
         .range(a, b),
     ),
     fetchAll<{
@@ -265,11 +277,18 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     db.from("cut_sheets").select("sent_at").eq("week_id", week).maybeSingle(),
   ]);
 
+  // Pounds packed per line, and lines marked not filled.
   const packedMap = new Map<string, Qty>();
-  for (const p of packed) {
-    const q = packedMap.get(p.order_id) ?? {};
-    q[p.product_id] = num(p.packed_qty);
-    packedMap.set(p.order_id, q);
+  for (const w of weights) {
+    const q = packedMap.get(w.order_id) ?? {};
+    q[w.product_id] = (q[w.product_id] ?? 0) + num(w.weight);
+    packedMap.set(w.order_id, q);
+  }
+  const shortedMap = new Map<string, Set<string>>();
+  for (const m of marks) {
+    const set = shortedMap.get(m.order_id) ?? new Set<string>();
+    set.add(m.product_id);
+    shortedMap.set(m.order_id, set);
   }
 
   const wr = must(weekRow) as WeekData["weekRow"];
@@ -279,6 +298,7 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     orders: orders.orders,
     lastWeek: orders.lastWeek,
     packed: packedMap,
+    shorted: shortedMap,
     halfWhole: hw.map((h) => ({ id: h.id, size: h.size, status: h.status, choices: h.half_whole_choices ?? [] })),
     freezer: freezer.map((f) => ({ product_id: f.product_id, qty: num(f.qty) })),
     cutSets: (must(sets) as { lambs: number; size_class_id: string | null }[]) ?? [],
@@ -317,11 +337,11 @@ export async function loadCustomerOrders(db: SupabaseClient, customerId: string)
     status: Order["status"];
     notes: string;
     order_lines: LineRow[];
-    packing_lines: { product_id: string; packed_qty: number }[];
+    packing_weights: { product_id: string; weight: number }[];
   }>((a, b) =>
     db
       .from("orders")
-      .select("week_id, status, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty)")
+      .select("week_id, status, notes, order_lines(product_id, qty, unit), packing_weights(product_id, weight)")
       .eq("customer_id", customerId)
       .in("status", ["ordered", "none"])
       .order("week_id", { ascending: false })
@@ -329,8 +349,9 @@ export async function loadCustomerOrders(db: SupabaseClient, customerId: string)
   );
   return rows.map((o) => {
     const { lines, units } = linesOf(o.order_lines);
+    // Pounds packed per product.
     const packed: Qty = {};
-    for (const l of o.packing_lines ?? []) packed[l.product_id] = num(l.packed_qty);
+    for (const w of o.packing_weights ?? []) packed[w.product_id] = (packed[w.product_id] ?? 0) + num(w.weight);
     return { week: o.week_id, status: o.status, notes: o.notes, lines, units, packed };
   });
 }
@@ -340,26 +361,26 @@ export type PackingRecord = {
   status: Order["status"];
   lines: Qty;
   units: Units;
-  packed: Record<string, { qty: number; by: string; at: string }>;
-  boxes: number | null;
+  weights: { product_id: string; weight: number; box_no: number | null; by: string; at: string }[];
+  marks: Record<string, { count: number | null; shorted: boolean; flagged: boolean; flagNote: string }>;
   pallet: string;
-  stampedBy: string;
 };
 
-/** A week's orders with what was packed, by whom, and when, for the packing record download. */
+/** A week's orders with what was weighed, by whom and when, for the packing record download. */
 export async function loadPackingRecord(db: SupabaseClient, week: string): Promise<PackingRecord[]> {
   const [orders, people] = await Promise.all([
     fetchAll<{
       customer_id: string;
       status: Order["status"];
       order_lines: LineRow[];
-      packing_lines: { product_id: string; packed_qty: number; packed_by: string | null; packed_at: string }[];
-      packing_orders: { boxes: number | null; pallet: string; updated_by: string | null }[] | { boxes: number | null; pallet: string; updated_by: string | null } | null;
+      packing_weights: { product_id: string; weight: number; box_no: number | null; created_by: string | null; created_at: string }[];
+      packing_lines: { product_id: string; packed_qty: number | null; shorted: boolean; flagged: boolean; flag_note: string }[];
+      packing_orders: { pallet: string }[] | { pallet: string } | null;
     }>((a, b) =>
       db
         .from("orders")
         .select(
-          "customer_id, status, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, packed_by, packed_at), packing_orders(boxes, pallet, updated_by)",
+          "customer_id, status, order_lines(product_id, qty, unit), packing_weights(product_id, weight, box_no, created_by, created_at), packing_lines(product_id, packed_qty, shorted, flagged, flag_note), packing_orders(pallet)",
         )
         .eq("week_id", week)
         .order("id")
@@ -368,21 +389,31 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
     db.from("profiles").select("id, display_name"),
   ]);
   const names = new Map(((must(people) ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
-  const who = (id: string | null) => (id ? (names.get(id) ?? "Someone") : "");
   return orders.map((o) => {
     const { lines, units } = linesOf(o.order_lines);
-    const packed: PackingRecord["packed"] = {};
-    for (const l of o.packing_lines ?? []) packed[l.product_id] = { qty: num(l.packed_qty), by: who(l.packed_by), at: l.packed_at };
+    const marks: PackingRecord["marks"] = {};
+    for (const m of o.packing_lines ?? [])
+      marks[m.product_id] = {
+        count: m.packed_qty == null ? null : num(m.packed_qty),
+        shorted: m.shorted,
+        flagged: m.flagged,
+        flagNote: m.flag_note ?? "",
+      };
     const po = Array.isArray(o.packing_orders) ? o.packing_orders[0] : o.packing_orders;
     return {
       customer_id: o.customer_id,
       status: o.status,
       lines,
       units,
-      packed,
-      boxes: po?.boxes ?? null,
+      weights: (o.packing_weights ?? []).map((w) => ({
+        product_id: w.product_id,
+        weight: num(w.weight),
+        box_no: w.box_no,
+        by: w.created_by ? (names.get(w.created_by) ?? "Someone") : "",
+        at: w.created_at,
+      })),
+      marks,
       pallet: po?.pallet ?? "",
-      stampedBy: who(po?.updated_by ?? null),
     };
   });
 }

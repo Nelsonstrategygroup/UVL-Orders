@@ -68,8 +68,21 @@ export default function WeekScreen() {
 
   const ordering = orderingCustomers(customers.list);
   const answered = ordering.filter((cu) => isDone(data.orders.get(cu.id)?.status)).length;
+  // A line is packed once it has a weight or is marked not filled.
   const { done: linesPacked, total: linesTotal } = packStats(
-    [...data.orders.values()].map((o) => ({ lines: o.lines, packed: data.packed.get(o.id) ?? {} })),
+    [...data.orders.values()].map((o) => ({
+      lines: Object.entries(o.lines)
+        .filter(([, q]) => q > 0)
+        .map(([pid, q]) => ({
+          ordered: q,
+          unit: o.units[pid] ?? catalog.productById.get(pid)?.unit ?? "each",
+          weight: data.packed.get(o.id)?.[pid] ?? 0,
+          count: null,
+          shorted: !!data.shorted.get(o.id)?.has(pid),
+          flagged: false,
+          flagNote: "",
+        })),
+    })),
   );
   const shortCount = Object.values(short).reduce((a, b) => a + b, 0);
   const unconfirmed = catalog.parts.filter((p) => !p.confirmed).length;

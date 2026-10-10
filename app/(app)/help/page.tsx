@@ -48,33 +48,25 @@ export default async function HelpPage() {
         Tap the <b>UV</b> icon on the tablet&apos;s home screen. You only log in once a day. If it asks in the morning, log in
         again. You only see the Packing screen.
       </Step>
-      <Step n={2} title="Tap a row when it's packed">
-        The whole row is the button. It turns green with a check. Tap it again to undo, or tap <b>Undo</b> at the top for a
-        few seconds after.
-        <Shot
-          src="/help/packing.jpg"
-          alt="The Packing screen with two packed lines in green and the All packed banner"
-          caption="Green with a check means packed. When a customer is all packed, add the boxes and pallet."
-        />
+      <Step n={2} title="Tap a row to weigh it">
+        Type the weight in pounds and tap <b>Save weight</b>. The row turns green with a check. For something in several
+        boxes or cases, save each weight; they add up. Made a mistake? Tap <b>Remove</b> next to it, or <b>Undo</b> at the top.
       </Step>
-      <Step n={3} title="Packed a different amount?">
-        Tap <b>Packed a different amount?</b> under the row, then use − and + and tap <b>Save</b>. The row turns red and says
-        how many are short or over.
-        <Shot
-          src="/help/packing-short.jpg"
-          alt="A shoulder line in red that says Packed 2, short 1"
-          caption="Red with ! means short. Tap Change the count to fix it."
-        />
+      <Step n={3} title="Short, over, not filled, or a problem">
+        For orders in pounds, the row says how much short or over. For orders in pieces, type <b>How many</b> to show 13 of
+        14. Couldn&apos;t fill it at all? Tick <b>Not filled</b>. Something wrong? Tick <b>Flag this line</b> and say why; Kathy
+        sees it.
       </Step>
       <Step n={4} title="Boxes and pallet">
-        Under each customer, tap + for each box and type the pallet. It saves by itself and shows who packed it and when.
+        Each weight goes in a box: <b>New box</b>, or pick a box that already has something in it to make a mixed box. Under
+        each customer you&apos;ll see the boxes and their weights. Type the pallet; it saves by itself.
       </Step>
       <Step n={5} title="To pack, Done, All">
         <b>To pack</b> shows what&apos;s left. <b>Done</b> shows finished customers. <b>All</b> shows everyone. New orders show
         up by themselves within a few seconds.
       </Step>
       <Step n={6} title="Paper copy">
-        Tap <b>Print a paper copy</b> for a checklist with spaces for packed counts, boxes, pallet, and initials.
+        Tap <b>Print a paper copy</b> for a checklist with spaces for weights, boxes, not filled, pallet, and initials.
       </Step>
     </section>
   );
