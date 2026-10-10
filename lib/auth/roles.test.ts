@@ -35,7 +35,7 @@ describe("screens by permission", () => {
     expect(canOpen(office, "office", "/cut-sheet")).toBe(true);
     expect(navFor(ALL_ACCESS, "admin").some((n) => n.href === "/users")).toBe(true);
     expect(canOpen(ALL_ACCESS, "admin", "/users")).toBe(true);
-    expect(homeFor(ALL_ACCESS, "admin")).toBe("/calls");
+    expect(homeFor(ALL_ACCESS, "admin")).toBe("/week");
   });
 
   it("shows a viewer everything but Setup and Users", () => {

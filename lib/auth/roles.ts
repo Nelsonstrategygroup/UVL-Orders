@@ -90,8 +90,8 @@ export type NavItem = {
 };
 
 export const NAV: NavItem[] = [
-  { href: "/calls", label: "Calls", short: "Calls", icon: "☎", bottom: true, sub: "Call customers one at a time", area: "calls" },
   { href: "/week", label: "This week", short: "Week", icon: "◉", bottom: true, sub: "Lambs to order and progress", area: "week" },
+  { href: "/calls", label: "Calls", short: "Calls", icon: "☎", bottom: true, sub: "Call customers one at a time", area: "calls" },
   { href: "/orders", label: "Orders", short: "Orders", icon: "✎", bottom: true, sub: "Every customer's order", area: "orders" },
   { href: "/cut-sheet", label: "Cut sheet", short: "Cut sheet", icon: "✂", bottom: false, sub: "This week's sheet for Mohawk", area: "cutsheet" },
   { href: "/packing", label: "Packing", short: "Packing", icon: "✓", bottom: true, sub: "Pack and check off orders", area: "packing" },
@@ -114,7 +114,7 @@ export function onlyPacking(perms: Perms, role: Role): boolean {
   return nav.length === 1 && nav[0].area === "packing";
 }
 
-/** The first screen after logging in: Calls if they have it, else the first screen they can open. */
+/** The first screen after logging in: This week if they have it, else the first screen they can open. */
 export function homeFor(perms: Perms, role: Role): string {
   return navFor(perms, role)[0]?.href ?? "/help";
 }
