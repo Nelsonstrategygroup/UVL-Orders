@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery Questions</title>
+<style>
+  :root {
+    --ink: #1f2a1f;
+    --soft: #5b6657;
+    --line: #9aa394;
+    --head: #e9eee4;
+    --paper: #ffffff;
+  }
+  @page { size: letter portrait; margin: 0.5in; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 11pt/1.4 Georgia, "Times New Roman", serif;
+  }
+  .page { max-width: 7.6in; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18pt; margin: 0 0 2px; }
+  .sub { color: var(--soft); margin: 0 0 12px; }
+  h2 {
+    font-size: 12.5pt;
+    margin: 18px 0 6px;
+    padding: 4px 8px;
+    background: var(--head);
+    border-left: 4px solid var(--soft);
+    break-after: avoid;
+  }
+  .q { margin: 0 0 10px; break-inside: avoid; }
+  .q b { display: block; }
+  .seen { display: block; color: var(--soft); font-size: 9.5pt; font-style: italic; margin-top: 1px; }
+  .choices { font-size: 10pt; color: var(--soft); margin-top: 3px; word-spacing: 2px; }
+  .write { border-bottom: 1px solid var(--line); height: 0.3in; }
+  table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  th, td { border: 1px solid var(--line); padding: 3px 6px; text-align: left; font-size: 10pt; }
+  th { background: var(--head); }
+  td { height: 0.32in; }
+  .foot { color: var(--soft); font-size: 9pt; margin-top: 14px; }
+  @media screen {
+    body { background: #f3f5f0; }
+    .page { background: var(--paper); margin: 16px auto; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+    .printbtn { display: inline-block; margin: 0 0 12px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  }
+  @media print { .printbtn { display: none; } .page { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <button class="printbtn" onclick="window.print()">Print this sheet</button>
+  <h1>How deliveries work: questions</h1>
+  <p class="sub">Umpqua Valley Lamb order app. For Kathy (and Chris where it says so). Write answers on the lines; circle choices where given.
+  Gray italic notes are what we saw on the 10/12/26 Bellingham Stores sheet.</p>
+
+  <h2>1. Who ships together</h2>
+  <div class="q">
+    <b>1. Which customers share a delivery? List each group and the stores in it.</b>
+    <span class="seen">Seen: "BELLINGHAM STORES" with Key City and Port Townsend on one sheet.</span>
+    <table>
+      <tr><th style="width:32%">Delivery group</th><th>Stores in it</th><th style="width:18%">Delivery day</th></tr>
+      <tr><td>Bellingham Stores</td><td>Key City, Port Townsend, …</td><td>Monday?</td></tr>
+      <tr><td></td><td></td><td></td></tr>
+      <tr><td></td><td></td><td></td></tr>
+      <tr><td></td><td></td><td></td></tr>
+      <tr><td></td><td></td><td></td></tr>
+    </table>
+  </div>
+  <div class="q">
+    <b>2. Is a delivery group the same as a pallet (the stores that go on one pallet)? If not, how are they different?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>3. Does every customer belong to a group, or do some get their own delivery or pick up?</b>
+    <div class="choices">all in groups · some alone · some pick up · some shipped by freight</div>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>4. Who takes each delivery? (UVL truck, Mohawk, a freight company, the customer picks up)</b>
+    <div class="write"></div>
+  </div>
+
+  <h2>2. Delivery days</h2>
+  <div class="q">
+    <b>5. Is each group's delivery day the same every week? What happens on a holiday week?</b>
+    <span class="seen">Seen: "MONDAY DELIVERY" on the sheet dated 10/12/26.</span>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>6. Is there a last day or time to take or change orders for each delivery?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>7. How does the delivery day relate to the processing day at Mohawk? (For example, processed Wednesday, delivered the next Monday.)</b>
+    <div class="write"></div>
+  </div>
+
+  <h2>3. Invoices</h2>
+  <div class="q">
+    <b>8. One invoice per delivery group, or one per store?</b>
+    <span class="seen">Seen: one invoice number (2404) on the Bellingham Stores sheet covering two stores.</span>
+    <div class="choices">one per group · one per store · depends on the customer</div>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>9. How are invoice numbers given out? One number series for everything, starting where? Is it the same as the INV# on the Mohawk cut sheet?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>10. What date goes on an invoice: the delivery day, the processing day, or the day it's written?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>11. Who gets the invoice, and how? (The store, the chain's office, emailed, paper with the delivery)</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>12. What has to be on an invoice? Please attach a sample if you can.</b>
+    <div class="choices">each product · weight · price per lb · price each · line total · boxes · pallet · lot numbers · payment terms</div>
+    <div class="write"></div>
+  </div>
+
+  <h2>4. Held for next week (backorders)</h2>
+  <div class="q">
+    <b>13. When something is held to send next week, do you bill it now or when it's delivered? Is it the same every time, or decided each time?</b>
+    <span class="seen">Seen: "Ground Lamb (Into Inventory, send next week. Bill it??)" for Windy River.</span>
+    <div class="choices">bill now · bill on delivery · decide each time</div>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>14. When a line comes up short, is the rest automatically sent next week, or only when the customer asks?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>15. Where does held product wait (our freezer, Mohawk), and how long can it be held?</b>
+    <div class="write"></div>
+  </div>
+
+  <h2>5. Internal accounts</h2>
+  <div class="q">
+    <b>16. What is "Ben (Marketing Deduct)"? Who else takes product without a customer paying for it?</b>
+    <span class="seen">Seen: "Ben (Marketing Deduct): Racks 5pc, Pepper Sticks 1cs".</span>
+    <div class="choices">marketing · samples · staff · UVL's own use · donations · other: ________</div>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>17. For those accounts, should the app still show what the product was worth? Should it go on any report or invoice?</b>
+    <div class="write"></div>
+  </div>
+
+  <h2>6. Who gets freezer stock first</h2>
+  <div class="q">
+    <b>18. When there isn't enough in the freezer, who gets it first? Is the order the same every week?</b>
+    <span class="seen">Seen: "Inventory Ground: BB 3 cases, Windy 1 case, Hawley 1 case, Then UVL".</span>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>19. Is that priority list just for ground lamb, or for other products too?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>20. When the freezer runs out partway down the list, what happens for the rest: cut fresh, held for next week, or shorted?</b>
+    <div class="write"></div>
+  </div>
+
+  <h2>7. Other orders on the sheet</h2>
+  <div class="q">
+    <b>21. Scratch Meats, Behman, and Windy River are on the "Misc orders" side. Are they delivered with a group, on their own, or picked up?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>22. The sheet says "* indicates items were put in one box sent to individual stores." When does that happen, and should the invoice or packing list show it?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>23. For Chris: anything about loading or delivering that the Packing screen should know (labels on boxes, pallet sheets, a sign-off)?</b>
+    <div class="write"></div>
+  </div>
+  <div class="q">
+    <b>24. Anything else about deliveries the app should know?</b>
+    <div class="write"></div>
+    <div class="write"></div>
+  </div>
+
+  <p class="foot">Prices come in stage 5. If it's easy to note default prices or customer-specific prices now, write them on the back.</p>
+</div>
+</body>
+</html>
