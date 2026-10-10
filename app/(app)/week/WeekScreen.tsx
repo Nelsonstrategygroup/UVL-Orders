@@ -264,7 +264,7 @@ export default function WeekScreen() {
           {extras.length > 0 && (
             <div className="note mt-3">
               <b>Extra cuts to plan for:</b>{" "}
-              {extras.map((r) => `${fmt(r.left)} ${r.part.name.toLowerCase()}`).join(", ")}.
+              {extras.map((r) => `${r.part.name} ${fmt(r.left)}`).join(", ")}.
               {(seeFreezer || seeCutSheet || seeHalfWhole) && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className="small">Decide where they go:</span>
