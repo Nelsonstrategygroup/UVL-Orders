@@ -7,7 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/current-user";
-import { isRole } from "@/lib/auth/roles";
+import { AREAS, isRole, maxLevel, type Area, type Level } from "@/lib/auth/roles";
 import { blockedReason, type UserAction, type UserLite } from "@/lib/auth/userRules";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -178,4 +178,52 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
   }
   revalidatePath("/users");
   return { ok: true, message: `Deleted ${saved.display_name || "this login"}.` };
+}
+
+const isArea = (v: unknown): v is Area => typeof v === "string" && (AREAS as readonly string[]).includes(v);
+const isLevel = (v: unknown): v is Level => v === 0 || v === 1 || v === 2;
+
+/**
+ * Change one person's access to one area. null puts them back on their
+ * role's default. Admins always have everything, so they have no settings.
+ */
+export async function setUserPermission(userId: string, area: string, level: number | null): Promise<ActionResult> {
+  await requireAdmin();
+  if (!isArea(area)) return fail("Unknown area.");
+  if (level !== null && !isLevel(level)) return fail("Choose Off, View, or Change.");
+  const supabase = await createClient();
+  const { error } =
+    level === null
+      ? await supabase.from("user_permissions").delete().eq("user_id", userId).eq("area", area)
+      : await supabase
+          .from("user_permissions")
+          .upsert({ user_id: userId, area, level: Math.min(level, maxLevel(area)) }, { onConflict: "user_id,area" });
+  if (error) return fail(`Could not save: ${error.message}`);
+  revalidatePath("/users");
+  return { ok: true, message: "Saved. It takes effect the next time they open a screen." };
+}
+
+/** Put someone back on exactly their role's defaults. */
+export async function resetUserPermissions(userId: string): Promise<ActionResult> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase.from("user_permissions").delete().eq("user_id", userId);
+  if (error) return fail(`Could not save: ${error.message}`);
+  revalidatePath("/users");
+  return { ok: true, message: "Back to the role's defaults." };
+}
+
+/** Change what a role can do by default. Affects everyone with that role (except their own settings). */
+export async function setRoleDefault(role: string, area: string, level: number): Promise<ActionResult> {
+  await requireAdmin();
+  if (role !== "office" && role !== "packing" && role !== "viewer") return fail("Admins always have everything.");
+  if (!isArea(area)) return fail("Unknown area.");
+  if (!isLevel(level)) return fail("Choose Off, View, or Change.");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("role_permissions")
+    .upsert({ role, area, level: Math.min(level, maxLevel(area)) }, { onConflict: "role,area" });
+  if (error) return fail(`Could not save: ${error.message}`);
+  revalidatePath("/users");
+  return { ok: true, message: "Saved." };
 }

@@ -3,13 +3,28 @@
 import { useActionState, useCallback, useEffect, useState, useTransition } from "react";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
-import { ROLE_INFO, ROLES, type Role } from "@/lib/auth/roles";
+import {
+  AREA_INFO,
+  AREAS,
+  effectivePerms,
+  LEVEL_LABEL,
+  maxLevel,
+  ROLE_INFO,
+  ROLES,
+  type Area,
+  type Level,
+  type Role,
+  type RoleDefaults,
+} from "@/lib/auth/roles";
 import { blockedReason, byName } from "@/lib/auth/userRules";
 import { formatDateTime } from "@/lib/format";
 import {
   addUser,
   deleteUser,
   renameUser,
+  resetUserPermissions,
+  setRoleDefault,
+  setUserPermission,
   setUserActive,
   setUserEmail,
   setUserPassword,
@@ -24,6 +39,8 @@ export type UserRow = {
   role: Role;
   active: boolean;
   lastLoginAt: string | null;
+  /** Their own access settings, where they differ from their role. */
+  overrides: Partial<Record<Area, Level>>;
 };
 
 // Sections that open and close. Role sections start open; "Turned off"
@@ -56,7 +73,7 @@ function useSections() {
   return [open, set] as const;
 }
 
-export default function UsersScreen({ users, myId }: { users: UserRow[]; myId: string }) {
+export default function UsersScreen({ users, myId, defaults }: { users: UserRow[]; myId: string; defaults: RoleDefaults }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [open, setOpen] = useSections();
@@ -101,6 +118,8 @@ export default function UsersScreen({ users, myId }: { users: UserRow[]; myId: s
           </details>
         ))}
 
+      <RoleDefaultsEditor defaults={defaults} />
+
       {adding && (
         <Sheet title="Add a person" onClose={closeAdd}>
           <AddUserForm onDone={closeAdd} />
@@ -108,7 +127,7 @@ export default function UsersScreen({ users, myId }: { users: UserRow[]; myId: s
       )}
       {editing && (
         <Sheet title={editing.name || editing.email} onClose={closeEdit}>
-          <EditUser user={editing} users={users} myId={myId} onDone={closeEdit} />
+          <EditUser user={editing} users={users} myId={myId} defaults={defaults} onDone={closeEdit} />
         </Sheet>
       )}
     </>
@@ -128,6 +147,9 @@ function UserLine({ user: u, isMe, onOpen }: { user: UserRow; isMe: boolean; onO
         <span className="block truncate font-semibold">
           {u.name || u.email}
           {isMe && <span className="muted font-normal"> (you)</span>}
+          {u.role !== "admin" && Object.keys(u.overrides).length > 0 && (
+            <span className="tag extra ml-1 font-normal">custom access</span>
+          )}
         </span>
         <span className="block truncate text-[.85rem] text-ink-soft">
           {u.email} · {u.lastLoginAt ? `Last logged in ${formatDateTime(u.lastLoginAt)}` : "Has not logged in yet"}
@@ -259,7 +281,19 @@ function AddUserForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function EditUser({ user, users, myId, onDone }: { user: UserRow; users: UserRow[]; myId: string; onDone: () => void }) {
+function EditUser({
+  user,
+  users,
+  myId,
+  defaults,
+  onDone,
+}: {
+  user: UserRow;
+  users: UserRow[];
+  myId: string;
+  defaults: RoleDefaults;
+  onDone: () => void;
+}) {
   const toast = useToast();
   const [pending, start] = useTransition();
   const [result, setResult] = useState<ActionResult | null>(null);
@@ -356,6 +390,8 @@ function EditUser({ user, users, myId, onDone }: { user: UserRow; users: UserRow
         )}
       </section>
 
+      <AccessGrid user={user} defaults={defaults} pending={pending} run={run} />
+
       <section className="border-t border-line py-3">
         <label className="lbl big mt-0!" htmlFor="edit-password">
           Set a new password
@@ -448,5 +484,145 @@ function EditUser({ user, users, myId, onDone }: { user: UserRow; users: UserRow
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * What one person can see and change, area by area. Each starts at their
+ * role's default; changing one makes it their own setting ("custom").
+ */
+function AccessGrid({
+  user,
+  defaults,
+  pending,
+  run,
+}: {
+  user: UserRow;
+  defaults: RoleDefaults;
+  pending: boolean;
+  run: (fn: () => Promise<ActionResult>) => void;
+}) {
+  if (user.role === "admin")
+    return (
+      <section className="border-t border-line py-3">
+        <p className="lbl big mt-0!">What they can see and change</p>
+        <p className="muted my-0">Admins can see and change everything.</p>
+      </section>
+    );
+  const role = user.role as keyof RoleDefaults;
+  const eff = effectivePerms(user.role, defaults, user.overrides);
+  const custom = Object.keys(user.overrides).length > 0;
+  return (
+    <section className="border-t border-line py-3">
+      <p className="lbl big mt-0!">What they can see and change</p>
+      <p className="small muted mt-0">
+        Starts from what {ROLE_INFO[user.role].label} can do. Change any area just for {user.name || "this person"}; those
+        are marked &quot;their own&quot;.
+      </p>
+      <table className="simple">
+        <tbody>
+          {AREAS.map((a) => {
+            const own = user.overrides[a] !== undefined;
+            const def = defaults[role][a];
+            return (
+              <tr key={a} className={own ? "bg-field" : ""}>
+                <td>
+                  <b>{AREA_INFO[a].label}</b>
+                  <br />
+                  <span className="small muted">
+                    {own ? `Their own. ${ROLE_INFO[user.role].label} default: ${LEVEL_LABEL[def]}` : AREA_INFO[a].sub}
+                  </span>
+                </td>
+                <td className="text-right">
+                  <select
+                    className="field w-auto!"
+                    aria-label={`${AREA_INFO[a].label} for ${user.name || user.email}`}
+                    value={eff[a]}
+                    disabled={pending}
+                    onChange={(e) => {
+                      const v = Number(e.target.value) as Level;
+                      // Matching the role's default means "no setting of their own".
+                      run(() => setUserPermission(user.id, a, v === def ? null : v));
+                    }}
+                  >
+                    {([0, 1, 2] as Level[])
+                      .filter((l) => l <= maxLevel(a))
+                      .map((l) => (
+                        <option key={l} value={l}>
+                          {LEVEL_LABEL[l]}
+                        </option>
+                      ))}
+                  </select>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {custom && (
+        <button type="button" className="btn ghost mt-2" disabled={pending} onClick={() => run(() => resetUserPermissions(user.id))}>
+          Reset to {ROLE_INFO[user.role].label} defaults
+        </button>
+      )}
+    </section>
+  );
+}
+
+/** What each role can do by default. Changing one changes it for everyone with that role. */
+function RoleDefaultsEditor({ defaults }: { defaults: RoleDefaults }) {
+  const [pending, start] = useTransition();
+  const [result, setResult] = useState<ActionResult | null>(null);
+  const roles = ["office", "packing", "viewer"] as const;
+  return (
+    <details className="mt-6">
+      <summary className="flex min-h-[44px] cursor-pointer items-center text-[1.1rem] font-semibold">
+        What each role can do by default
+      </summary>
+      <p className="small muted mt-0">
+        Changing a default changes it for everyone with that role, except where someone has their own setting. Admins can
+        always do everything. Only admins can change Setup, add people, or export all data.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="simple">
+          <thead>
+            <tr>
+              <th>Area</th>
+              {roles.map((r) => (
+                <th key={r}>{ROLE_INFO[r].label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {AREAS.map((a) => (
+              <tr key={a}>
+                <td>{AREA_INFO[a].label}</td>
+                {roles.map((r) => (
+                  <td key={r}>
+                    <select
+                      className="field w-auto!"
+                      aria-label={`${ROLE_INFO[r].label}: ${AREA_INFO[a].label}`}
+                      value={defaults[r][a]}
+                      disabled={pending}
+                      onChange={(e) =>
+                        start(async () => setResult(await setRoleDefault(r, a, Number(e.target.value))))
+                      }
+                    >
+                      {([0, 1, 2] as Level[])
+                        .filter((l) => l <= maxLevel(a))
+                        .map((l) => (
+                          <option key={l} value={l}>
+                            {LEVEL_LABEL[l]}
+                          </option>
+                        ))}
+                    </select>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Result result={result} />
+    </details>
   );
 }

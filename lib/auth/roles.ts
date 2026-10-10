@@ -137,3 +137,21 @@ export function canOpen(perms: Perms, role: Role, pathname: string): boolean {
 export function can(perms: Perms, area: Area, level: "view" | "change"): boolean {
   return perms[area] >= (level === "view" ? 1 : 2);
 }
+
+/** Role defaults for the roles that have them (admins always have everything). */
+export type RoleDefaults = Record<Exclude<Role, "admin">, Perms>;
+
+/**
+ * What someone can actually do: their own change if they have one, else
+ * their role's default, capped at what the area allows. Same rule as the
+ * database's perm().
+ */
+export function effectivePerms(role: Role, defaults: RoleDefaults, overrides: Partial<Record<Area, Level>>): Perms {
+  if (role === "admin") return { ...ALL_ACCESS };
+  const out = { ...NO_ACCESS };
+  for (const a of AREAS) {
+    const v = overrides[a] ?? defaults[role]?.[a] ?? 0;
+    out[a] = Math.min(v, maxLevel(a)) as Level;
+  }
+  return out;
+}

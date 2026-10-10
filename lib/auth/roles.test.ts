@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_ACCESS, can, canOpen, homeFor, navFor, NO_ACCESS, onlyPacking, permsFrom, type Perms } from "./roles";
+import { ALL_ACCESS, can, canOpen, effectivePerms, homeFor, navFor, NO_ACCESS, onlyPacking, permsFrom, type Perms } from "./roles";
 
 const packing: Perms = { ...NO_ACCESS, packing: 2 };
 const office: Perms = { ...ALL_ACCESS, downloads: 1, setup: 1 };
@@ -49,5 +49,22 @@ describe("screens by permission", () => {
   it("reads permissions from the database safely", () => {
     expect(permsFrom({ orders: 2, calls: "1", setup: 7 })).toMatchObject({ orders: 2, calls: 1, setup: 0, packing: 0 });
     expect(permsFrom(null)).toEqual(NO_ACCESS);
+  });
+});
+
+describe("effective access", () => {
+  const defaults = {
+    office: { ...ALL_ACCESS, downloads: 1, setup: 1 } as Perms,
+    packing: { ...NO_ACCESS, packing: 2 } as Perms,
+    viewer: { ...NO_ACCESS, orders: 1 } as Perms,
+  };
+  it("uses the role default unless the person has their own setting", () => {
+    expect(effectivePerms("packing", defaults, {}).orders).toBe(0);
+    expect(effectivePerms("packing", defaults, { orders: 1, cutsheet: 1 })).toMatchObject({ orders: 1, cutsheet: 1, packing: 2 });
+    expect(effectivePerms("office", defaults, { calls: 0 }).calls).toBe(0);
+  });
+  it("never gives a non-admin Setup or Downloads change, and admins everything", () => {
+    expect(effectivePerms("office", defaults, { setup: 2, downloads: 2 })).toMatchObject({ setup: 1, downloads: 1 });
+    expect(effectivePerms("admin", defaults, { orders: 0 }).orders).toBe(2);
   });
 });
