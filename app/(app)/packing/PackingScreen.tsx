@@ -47,7 +47,8 @@ const FILTERS: [PackFilter, string][] = [
   ["done", "Done"],
   ["all", "All"],
 ];
-const MARK: Record<string, string> = { done: "✓", short: "✕", over: "+", flag: "!" };
+// ✕ is the paper sheet's X (not filled); − is packed but short.
+const MARK: Record<string, string> = { done: "✓", short: "−", over: "+", flag: "!" };
 
 export default function PackingScreen() {
   const { week } = useWeek();
@@ -232,7 +233,7 @@ function CustomerCard({
             aria-label={`${name(pid)}. ${lineWords(l)}`}
           >
             <span className="box" aria-hidden="true">
-              {MARK[look] ?? ""}
+              {l.shorted && !l.flagged ? "✕" : (MARK[look] ?? "")}
             </span>
             <span className="what">
               <b>{name(pid)}</b>
@@ -313,6 +314,14 @@ function WeighSheet({
   const name = (pid: string) => data.products.get(pid)?.name ?? pid;
   const value = num(text);
 
+  /** Done: save a flag note or count still being typed, then close. */
+  function finish() {
+    const c = count.trim() === "" ? null : num(count);
+    if (canPack && ((mark.flagged && note !== mark.flagNote) || (line!.unit !== "lb" && c !== mark.count)))
+      onMark({ ...mark, flagNote: mark.flagged ? note : mark.flagNote, count: line!.unit !== "lb" ? c : mark.count });
+    onClose();
+  }
+
   async function add() {
     if (!(value > 0)) return;
     setBusy(true);
@@ -323,7 +332,7 @@ function WeighSheet({
   }
 
   return (
-    <Sheet title={name(productId)} onClose={onClose}>
+    <Sheet title={name(productId)} onClose={finish}>
       <p className="mt-0 text-[1.05rem]">
         Ordered <b>{qtyText(line.ordered, line.unit)}</b>. {lineWords(line)}.
       </p>
@@ -370,7 +379,10 @@ function WeighSheet({
           {boxList.map((b) => (
             <button key={b.box_no} type="button" aria-pressed={box === b.box_no} onClick={() => setBox(b.box_no)}>
               Box {b.box_no}
-              {b.products.some((pid) => pid !== productId) ? " (mixed)" : ""}
+              {/* What's already in it, so mixing is a choice you can see */}
+              {b.products.some((pid) => pid !== productId)
+                ? ` · ${b.products.filter((pid) => pid !== productId).map(name).join(", ")}`
+                : ""}
             </button>
           ))}
           <button type="button" aria-pressed={box === newBox} onClick={() => setBox(newBox)}>
@@ -431,7 +443,7 @@ function WeighSheet({
       </fieldset>
 
       <div className="mt-4 flex justify-end">
-        <button type="button" className="btn" onClick={onClose}>
+        <button type="button" className="btn" onClick={finish}>
           Done
         </button>
       </div>
