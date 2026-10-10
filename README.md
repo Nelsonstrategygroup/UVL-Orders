@@ -102,8 +102,17 @@ Set these by hand in the Supabase dashboard. They are not stored in the repo.
   name for middleware) refreshes the session on every request, signs out anyone whose last
   login is before the most recent 3:00 AM, and signs out anyone whose login was turned off.
 - Roles: **Admin** (everything, including Users and settings), **Office** (everything but
-  Users and settings), **Packing** (Packing screen only, no other navigation). The database
-  enforces the same rules with Row Level Security, so hiding a screen is never the only lock.
+  Users; Setup is view-only), **Packing** (Packing screen only, no other navigation), and
+  **Viewer** (looks at everything but Setup and Users, changes nothing).
+- Each role is a set of defaults: for each area (Calls, Orders, This week, Cut sheet, Packing,
+  Half and whole, Freezer, Customers, Call notes, Downloads, Setup) it is Off, View, or Change.
+  On the Users screen an admin can change any area for one person (marked "custom access") or
+  change a role's defaults for everyone ("What each role can do by default").
+- Fixed rules: admins always have everything; only admins manage users, export all data, and
+  change Setup; Downloads is view-only.
+- The database enforces all of it with Row Level Security (`perm()`, `can_view()`,
+  `can_change()` in migration `20261014000100_permissions.sql`), so hiding a screen is never
+  the only lock. Tests: `supabase/tests/database/permissions.test.sql`.
 
 ## For the people using it
 
