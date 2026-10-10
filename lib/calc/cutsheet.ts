@@ -65,7 +65,10 @@ export type CutSpecLite = { id: string; text: string; use_type: string };
 
 export type CutLine = {
   kind: "line" | "note";
+  /** The instruction; null for a note, a blank line, or one-time wording. */
   cut_spec_id: string | null;
+  /** What one-time wording counts as (a line with text and no instruction). */
+  use_type?: string | null;
   qty: number | null;
   text: string | null;
   side_note: string;
@@ -81,12 +84,49 @@ export type CutSet = {
   lines: CutLine[];
 };
 
+/** What a line counts as: its instruction's type, or its own for one-time wording. */
+export function lineType(line: CutLine, spec: CutSpecLite | undefined): UseType | null {
+  if (line.kind === "note") return null;
+  const t = spec?.use_type ?? (isOneTime(line) ? (line.use_type ?? "none") : null);
+  return t && isUseType(t) ? t : null;
+}
+
+/** One-time wording: typed on the set, not an instruction from the list. */
+export function isOneTime(line: CutLine): boolean {
+  return line.kind === "line" && !line.cut_spec_id && !!(line.text ?? "").trim();
+}
+
+/** A line nobody has filled in yet: no instruction and no wording. */
+export function isBlankLine(line: CutLine): boolean {
+  return line.kind === "line" && !line.cut_spec_id && !(line.text ?? "").trim();
+}
+
+/** The words on a line: the note, the instruction, or the one-time wording. */
+export function lineText(line: CutLine, specs: Map<string, CutSpecLite>): string {
+  if (line.kind === "note") return line.text ?? "";
+  return (line.cut_spec_id ? specs.get(line.cut_spec_id)?.text : (line.text ?? "").trim()) || "";
+}
+
 /** Parts one unit of a line uses. Plain leg lines with "shank on" also use a hind shank. */
 export function lineUse(line: CutLine, spec: CutSpecLite | undefined): Record<string, number> {
-  if (line.kind === "note" || !spec || !isUseType(spec.use_type)) return {};
-  const parts = { ...USES[spec.use_type].parts };
-  if (line.shank_on && spec.use_type === "leg") parts.hshank = (parts.hshank ?? 0) + 1;
+  const type = lineType(line, spec);
+  if (!type) return {};
+  const parts = { ...USES[type].parts };
+  if (line.shank_on && type === "leg") parts.hshank = (parts.hshank ?? 0) + 1;
   return parts;
+}
+
+/**
+ * What goes on the printed, emailed, and copied sheet. Lines with no count
+ * are left off (a note stays if it has words); a set is left off when it has
+ * no lambs and nothing to show.
+ */
+export function printLines<L extends CutLine>(set: { lines: L[] }): L[] {
+  return set.lines.filter((l) => (l.kind === "note" ? !!(l.text ?? "").trim() : !isBlankLine(l) && num(l.qty) > 0));
+}
+
+export function printSets<S extends CutSet>(sets: S[]): S[] {
+  return sets.filter((s) => num(s.lambs) > 0 || printLines(s).length > 0);
 }
 
 export type BalanceChip = { id: string; label: string; used: number; expected: number; ok: boolean };
@@ -111,7 +151,7 @@ export function setBalance(
 
 /** Only sets with at least one counted line are checked. */
 export function hasCountedLines(set: CutSet): boolean {
-  return set.lines.some((l) => l.kind !== "note");
+  return set.lines.some((l) => l.kind !== "note" && !isBlankLine(l));
 }
 
 export function setAddsUp(set: CutSet, specs: Map<string, CutSpecLite>, perLamb: Record<string, number>): boolean {
@@ -130,7 +170,7 @@ export function chipText(c: BalanceChip): string {
 export function carcassBySize(sets: CutSet[], specs: Map<string, CutSpecLite>): Record<string, number> {
   const by: Record<string, number> = {};
   for (const s of sets) {
-    const hasCarcass = s.lines.some((l) => l.kind !== "note" && l.cut_spec_id && specs.get(l.cut_spec_id)?.use_type === "carcass");
+    const hasCarcass = s.lines.some((l) => lineType(l, l.cut_spec_id ? specs.get(l.cut_spec_id) : undefined) === "carcass");
     if (hasCarcass && s.size_class_id) by[s.size_class_id] = (by[s.size_class_id] ?? 0) + num(s.lambs);
   }
   return by;
@@ -179,11 +219,11 @@ export function cutSheetText(s: SheetForText, specs: Map<string, CutSpecLite>, o
   for (const b of s.banners) if (b.trim()) L.push(`** ${b.trim()}`);
   for (const line of s.standing.split("\n")) if (line.trim()) L.push(line.trim());
   L.push("");
-  for (const set of s.sets) {
+  for (const set of printSets(s.sets)) {
     L.push(`${(set.name || "Set").toUpperCase()}: ${num(set.lambs)} ${label(set.size_class_id)}`.trimEnd());
     if (set.headline.trim()) L.push(`  >> ${set.headline.trim()}`);
-    for (const l of set.lines) {
-      const text = l.kind === "note" ? (l.text ?? "") : (l.cut_spec_id ? specs.get(l.cut_spec_id)?.text : "") || "?";
+    for (const l of printLines(set)) {
+      const text = lineText(l, specs) || "?";
       const qty = l.kind === "note" ? "    " : (l.qty == null ? "" : fmt(l.qty)).padStart(4);
       L.push(`  ${qty}  ${text}${l.side_note.trim() ? `   [${l.side_note.trim()}]` : ""}`);
     }

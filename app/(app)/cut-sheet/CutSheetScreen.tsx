@@ -53,7 +53,6 @@ export default function CutSheetScreen() {
     );
 
   const processor = catalog.settings?.processor_name || "Mohawk";
-  const defaultSize = catalog.sizes.find((z) => z.id === "Large")?.id ?? catalog.sizes[0]?.id ?? null;
 
   /** Run a save, show a plain message if it fails, then reload. */
   async function run(p: Promise<string | null>): Promise<boolean> {
@@ -94,7 +93,7 @@ export default function CutSheetScreen() {
             type="button"
             className={from ? "btn ghost mt-3" : "bigbtn mx-auto max-w-[420px]"}
             onClick={async () => {
-              if (await run(cs.startBlankSheet(db, week, defaultSize)))
+              if (await run(cs.startBlankSheet(db, week, null)))
                 toast("Blank sheet started", () => void run(cs.removeUnsentSheet(db, week)));
             }}
           >
@@ -204,10 +203,8 @@ export default function CutSheetScreen() {
       }
     },
     addLine: () => {
-      const first = catalog.cutSpecs.find((x) => x.active);
-      if (!first) return toast("Add an instruction in Setup first.");
       const sort = Math.max(-1, ...s.lines.map((l) => l.sort)) + 1;
-      void run(cs.addLine(db, s.id, sort, first.id));
+      void run(cs.addLine(db, s.id, sort));
     },
     updateLine: (l, patch) => void run(cs.updateLine(db, l.id, patch)),
     moveLineUp: (j) => {
@@ -352,7 +349,7 @@ export default function CutSheetScreen() {
         <button
           type="button"
           className="btn"
-          onClick={() => void run(cs.addSet(db, week, Math.max(-1, ...data.sets.map((s) => s.sort)) + 1, defaultSize))}
+          onClick={() => void run(cs.addSet(db, week, Math.max(-1, ...data.sets.map((s) => s.sort)) + 1, null))}
         >
           Add a set
         </button>
@@ -454,7 +451,7 @@ export default function CutSheetScreen() {
             const r = await cs.addCutSpec(db, text, use);
             if (r.error || !r.id) return toast(`Couldn't add it: ${r.error ?? "unknown error"}`);
             await reloadCatalog();
-            await run(cs.updateLine(db, newSpecFor.id, { kind: "line", cut_spec_id: r.id, text: null }));
+            await run(cs.updateLine(db, newSpecFor.id, { kind: "line", cut_spec_id: r.id, use_type: null, text: null }));
             setNewSpecFor(null);
             toast("Instruction added. It's saved for next time.");
           }}

@@ -7,7 +7,14 @@ import {
   fillSet,
   hashText,
   hasCountedLines,
+  isBlankLine,
+  isOneTime,
   lambsFromLines,
+  lineText,
+  lineType,
+  lineUse,
+  printLines,
+  printSets,
   sentStatus,
   setAddsUp,
   setBalance,
@@ -169,5 +176,86 @@ describe("sent tracking (6.5)", () => {
     expect(sentStatus("2026-09-29T17:00:00Z", hash, text).kind).toBe("sent");
     const changed = cutSheetText({ ...base, inv: "2404" }, specs);
     expect(sentStatus("2026-09-29T17:00:00Z", hash, changed).kind).toBe("changed");
+  });
+});
+
+describe("blank sheets and one-time instructions", () => {
+  const line = (over: Partial<CutLine>): CutLine => ({
+    kind: "line",
+    cut_spec_id: null,
+    qty: null,
+    text: null,
+    side_note: "",
+    highlight: null,
+    shank_on: false,
+    ...over,
+  });
+  const blank = line({});
+  const once = line({ text: "Legs to 2 inch steaks, this week only", use_type: "leg", qty: 6 });
+  const set = (over: Partial<CutSet>): CutSet => ({ name: "", lambs: 0, size_class_id: null, headline: "", lines: [], ...over });
+
+  it("a new line is blank: no instruction, counts as nothing", () => {
+    expect(isBlankLine(blank)).toBe(true);
+    expect(isOneTime(blank)).toBe(false);
+    expect(lineType(blank, undefined)).toBeNull();
+    expect(lineUse(blank, undefined)).toEqual({});
+    expect(hasCountedLines(set({ lines: [blank] }))).toBe(false);
+  });
+
+  it("one-time wording prints its own words and counts as what Kathy picked", () => {
+    expect(isOneTime(once)).toBe(true);
+    expect(lineText(once, specs)).toBe("Legs to 2 inch steaks, this week only");
+    expect(lineType(once, undefined)).toBe("leg");
+    expect(lineUse(once, undefined)).toEqual({ leg: 1 });
+    expect(lineUse({ ...once, shank_on: true }, undefined)).toEqual({ leg: 1, hshank: 1 });
+    expect(lineType({ ...once, use_type: null }, undefined)).toBe("none");
+    expect(chipText(setBalance(set({ lambs: 3, lines: [once] }), specs, perLamb).find((c) => c.id === "leg")!)).toBe("Legs 6 ✓");
+  });
+
+  it("lines with no count stay off the sheet; notes with words stay on", () => {
+    const lines = [
+      blank,
+      line({ cut_spec_id: "s1", qty: null }),
+      line({ cut_spec_id: "s1", qty: 0 }),
+      line({ cut_spec_id: "s1", qty: 4 }),
+      line({ text: "One-time, no count yet", use_type: "none" }),
+      once,
+      line({ kind: "note", text: "Keep separate" }),
+      line({ kind: "note", text: "  " }),
+    ];
+    expect(printLines({ lines }).map((l) => lineText(l, specs))).toEqual([
+      specs.get("s1")!.text,
+      "Legs to 2 inch steaks, this week only",
+      "Keep separate",
+    ]);
+  });
+
+  it("sets with no lambs and nothing to show stay off the sheet", () => {
+    const empty = set({ name: "Empty" });
+    const onlyBlank = set({ name: "Blank lines", lines: [blank, line({ cut_spec_id: "s1" })] });
+    const lambsOnly = set({ name: "Lambs only", lambs: 2 });
+    const counted = set({ name: "Counted", lines: [once] });
+    expect(printSets([empty, onlyBlank, lambsOnly, counted]).map((x) => x.name)).toEqual(["Lambs only", "Counted"]);
+
+    const text = cutSheetText(
+      {
+        week: "2026-10-12",
+        processDate: "2026-10-14",
+        inv: "",
+        notes: "",
+        pulled: { large: null, medium: null, small: null },
+        goals: [],
+        banners: [],
+        standing: "",
+        sets: [empty, onlyBlank, set({ name: "Counted", lambs: 3, size_class_id: "Large", lines: [blank, once] })],
+        sizes: seed.size_classes,
+      },
+      specs,
+    );
+    expect(text).not.toContain("EMPTY");
+    expect(text).not.toContain("BLANK LINES");
+    expect(text).not.toContain("?");
+    expect(text).toContain("COUNTED: 3 Large");
+    expect(text).toContain("     6  Legs to 2 inch steaks, this week only");
   });
 });

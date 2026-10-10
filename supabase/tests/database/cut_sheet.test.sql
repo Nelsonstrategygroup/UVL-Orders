@@ -2,7 +2,7 @@
 -- undo, copy a sheet, add an instruction, mark as sent, and who may do it.
 
 begin;
-select plan(17);
+select plan(22);
 
 -- The balance parts (present already when the seed has run).
 insert into public.parts (id, name, per_lamb, unit, balance_check, sort) values
@@ -107,6 +107,31 @@ select public.mark_cut_sheet_sent('2099-03-09', 'abc');
 select is(
   (select sent_by::text || ':' || sent_hash from public.cut_sheets where week_id = '2099-03-09'),
   '00000000-0000-4000-8000-0000000000a1:abc', 'marking sent records who and the fingerprint');
+
+-- Blank lines and one-time wording ------------------------------------------------
+select public.start_cut_sheet('2099-03-16', null);
+select is(
+  (select count(*) || ':' || coalesce(max(size_class_id), '-')
+     || ':' || (select count(*) from public.cut_set_lines l join public.cut_sets s on s.id = l.set_id where s.week_id = '2099-03-16')
+   from public.cut_sets where week_id = '2099-03-16'),
+  '1:-:0', 'a new sheet has one set with no size and no lines');
+select lives_ok(
+  $$ insert into public.cut_set_lines (set_id, kind, cut_spec_id, qty, sort)
+     select id, 'line', null, null, 0 from public.cut_sets where week_id = '2099-03-16' $$,
+  'a new line starts with no instruction');
+insert into public.cut_set_lines (set_id, kind, cut_spec_id, use_type, text, qty, sort)
+select id, 'line', null, 'leg', 'Legs to 2 inch steaks, this week only', 6, 1 from public.cut_sets where week_id = '2099-03-16';
+select throws_ok(
+  $$ insert into public.cut_set_lines (set_id, kind, use_type, text, qty, sort)
+     select id, 'line', 'brisket', 'Not a real type', 1, 2 from public.cut_sets where week_id = '2099-03-16' $$,
+  '23514', null, 'one-time wording must count as a known type');
+select public.copy_cut_sheet('2099-03-16', '2099-03-23');
+select is(
+  (select string_agg(coalesce(l.use_type, '-') || '=' || coalesce(l.text, '-'), ',' order by l.sort)
+   from public.cut_set_lines l join public.cut_sets s on s.id = l.set_id where s.week_id = '2099-03-23'),
+  '-=-,leg=Legs to 2 inch steaks, this week only', 'copying a sheet keeps one-time wording and what it counts as');
+select is((select count(*)::int from public.cut_specs where text like 'Legs to 2 inch steaks%'), 0,
+  'one-time wording does not become an instruction');
 
 -- As the packing user -------------------------------------------------------------
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000b2","role":"authenticated"}';

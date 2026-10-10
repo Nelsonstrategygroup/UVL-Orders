@@ -3,7 +3,9 @@
 // One set on the cut sheet (SPEC 5.5): name, lambs, size, headline, lines,
 // balance chips (6.3), and linked customers with "Put these on this set" (6.4).
 
-import { chipText, hasCountedLines, setBalance, USE_GROUPS, type CutSpecLite } from "@/lib/calc/cutsheet";
+import { useState } from "react";
+
+import { chipText, hasCountedLines, lineType, setBalance, USE_GROUPS, USES, type CutSpecLite } from "@/lib/calc/cutsheet";
 import { displayName } from "@/lib/calc/customers";
 import { fmt, num } from "@/lib/calc/num";
 import type { SheetLine, SheetSet } from "@/lib/db/cutsheet";
@@ -13,6 +15,7 @@ import { qtyText } from "@/lib/orders";
 
 const NOTE = "__note";
 const NEW = "__new";
+const ONCE = "__once";
 const HIGHLIGHTS: (SheetLine["highlight"])[] = [null, "yellow", "blue", "green"];
 const HL_LABEL: Record<string, string> = { yellow: "Yellow", blue: "Blue", green: "Green" };
 
@@ -270,7 +273,12 @@ function LineRow({
 }) {
   const spec = l.cut_spec_id ? specMap.get(l.cut_spec_id) : undefined;
   const nextHl = HIGHLIGHTS[(HIGHLIGHTS.indexOf(l.highlight) + 1) % HIGHLIGHTS.length];
-  const label = l.kind === "note" ? "Note" : (spec?.text ?? "Line");
+  // One-time wording: typed here, used on this set only. `once` keeps the
+  // box open while it's still empty.
+  const [once, setOnce] = useState(false);
+  const oneTime = l.kind === "line" && !l.cut_spec_id && (once || !!(l.text ?? "").trim());
+  const type = lineType(l, spec);
+  const label = l.kind === "note" ? "Note" : (spec?.text ?? ((l.text ?? "").trim() || "Line"));
 
   return (
     <div className={`lrow ${l.highlight ? `hl-${l.highlight}` : ""}`}>
@@ -295,14 +303,26 @@ function LineRow({
         <select
           className="field"
           aria-label="Instruction"
-          value={l.kind === "note" ? NOTE : (l.cut_spec_id ?? "")}
+          value={l.kind === "note" ? NOTE : oneTime ? ONCE : (l.cut_spec_id ?? "")}
           onChange={(e) => {
             const v = e.target.value;
             if (v === NEW) return onNew();
-            if (v === NOTE) return onChange({ kind: "note", cut_spec_id: null, qty: null, text: l.text ?? "", shank_on: false });
-            onChange({ kind: "line", cut_spec_id: v, text: null, ...(specMap.get(v)?.use_type === "leg" ? {} : { shank_on: false }) });
+            setOnce(v === ONCE);
+            if (v === NOTE)
+              return onChange({ kind: "note", cut_spec_id: null, use_type: null, qty: null, text: l.text ?? "", shank_on: false });
+            if (v === ONCE)
+              return onChange({ kind: "line", cut_spec_id: null, use_type: l.use_type ?? "none", text: l.text ?? "", shank_on: false });
+            if (v === "") return onChange({ kind: "line", cut_spec_id: null, use_type: null, text: null, shank_on: false });
+            onChange({
+              kind: "line",
+              cut_spec_id: v,
+              use_type: null,
+              text: null,
+              ...(specMap.get(v)?.use_type === "leg" ? {} : { shank_on: false }),
+            });
           }}
         >
+          <option value="">Choose an instruction...</option>
           {USE_GROUPS.map(([group, uses]) => {
             const list = cutSpecs.filter((s) => uses.includes(s.use_type as never) && (s.active || s.id === l.cut_spec_id));
             return list.length ? (
@@ -316,8 +336,9 @@ function LineRow({
             ) : null;
           })}
           <optgroup label="More">
+            <option value={ONCE}>One-time instruction (this set only)...</option>
             <option value={NOTE}>Note line, no count</option>
-            <option value={NEW}>Add a new instruction...</option>
+            <option value={NEW}>Add a new instruction to the list...</option>
           </optgroup>
         </select>
         {l.kind === "note" && (
@@ -329,6 +350,31 @@ function LineRow({
             defaultValue={l.text ?? ""}
             onBlur={(e) => e.target.value !== (l.text ?? "") && onChange({ text: e.target.value })}
           />
+        )}
+        {oneTime && (
+          <div className="flex flex-wrap gap-1">
+            <input
+              key={`o-${l.text}`}
+              className="field min-w-[180px] flex-1"
+              aria-label="One-time instruction"
+              placeholder="Wording for Mohawk, this set only"
+              autoFocus={once && !(l.text ?? "").trim()}
+              defaultValue={l.text ?? ""}
+              onBlur={(e) => e.target.value !== (l.text ?? "") && onChange({ text: e.target.value })}
+            />
+            <select
+              className="field w-auto!"
+              aria-label="What it counts as"
+              value={l.use_type ?? "none"}
+              onChange={(e) => onChange({ use_type: e.target.value, ...(e.target.value === "leg" ? {} : { shank_on: false }) })}
+            >
+              {USE_GROUPS.flatMap(([, uses]) => uses).map((u) => (
+                <option key={u} value={u}>
+                  Counts as: {USES[u].label}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
@@ -342,7 +388,7 @@ function LineRow({
       />
 
       <span className="lopts">
-        {spec?.use_type === "leg" && l.kind !== "note" && (
+        {type === "leg" && (
           <label className="shank">
             <input
               type="checkbox"

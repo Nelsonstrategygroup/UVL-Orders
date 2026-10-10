@@ -66,7 +66,7 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
     db
       .from("cut_sets")
       .select(
-        "id, name, lambs, size_class_id, headline, sort, filled_week, cut_set_lines(id, kind, cut_spec_id, qty, text, side_note, highlight, shank_on, sort), cut_set_customers(customer_id)",
+        "id, name, lambs, size_class_id, headline, sort, filled_week, cut_set_lines(id, kind, cut_spec_id, use_type, qty, text, side_note, highlight, shank_on, sort), cut_set_customers(customer_id)",
       )
       .eq("week_id", week)
       .order("sort"),
@@ -254,10 +254,9 @@ export async function unlinkCustomer(db: SupabaseClient, setId: string, customer
 
 // ----- Lines -----
 
-export async function addLine(db: SupabaseClient, setId: string, sort: number, specId: string) {
-  const { error } = await db
-    .from("cut_set_lines")
-    .insert({ set_id: setId, kind: "line", cut_spec_id: specId, qty: null, sort });
+/** Add a blank line: no instruction chosen yet. It doesn't print until it has one and a count. */
+export async function addLine(db: SupabaseClient, setId: string, sort: number) {
+  const { error } = await db.from("cut_set_lines").insert({ set_id: setId, kind: "line", cut_spec_id: null, qty: null, sort });
   return err(error);
 }
 

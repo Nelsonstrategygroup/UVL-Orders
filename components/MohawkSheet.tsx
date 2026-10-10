@@ -1,7 +1,7 @@
 // The cut sheet the way Mohawk sees it on paper (prototype csHTML): used for
 // the "What Mohawk gets" preview and for printing.
 
-import { carcassBySize, type CutSpecLite } from "@/lib/calc/cutsheet";
+import { carcassBySize, lineText, printLines, printSets, type CutSpecLite } from "@/lib/calc/cutsheet";
 import { fmt, num } from "@/lib/calc/num";
 import type { SizeClass } from "@/lib/db/types";
 import type { CutSheetData } from "@/lib/db/cutsheet";
@@ -66,7 +66,7 @@ export default function MohawkSheet({
             ))}
         </div>
 
-        {data.sets.map((s) => (
+        {printSets(data.sets).map((s) => (
           <div key={s.id} className="cs-set">
             <div className="cs-left">
               {s.name}
@@ -75,10 +75,10 @@ export default function MohawkSheet({
             </div>
             <div>
               {s.headline.trim() && <div className="cs-hl">{s.headline}</div>}
-              {s.lines.map((l) => (
+              {printLines(s).map((l) => (
                 <div key={l.id} className={`cs-line ${l.highlight ?? ""}`}>
                   <span className="q">{l.kind === "note" || l.qty == null ? "" : fmt(l.qty)}</span>
-                  <span>{l.kind === "note" ? l.text : (l.cut_spec_id && specs.get(l.cut_spec_id)?.text) || ""}</span>
+                  <span>{lineText(l, specs)}</span>
                   <span className="sd">{l.side_note}</span>
                 </div>
               ))}
