@@ -20,7 +20,7 @@ import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
 import { cutSheetTotals, legBreakdown, legBreakdownText, weekNumbers } from "@/lib/calc/summary";
-import { calcWeek, type PartRow } from "@/lib/calc/week";
+import { calcWeek, plannedExtras, type PartRow } from "@/lib/calc/week";
 import { inProductUnits } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
@@ -37,6 +37,8 @@ export default function WeekScreen() {
   const canChange = useCan("week").change;
   const seeCutSheet = useCan("cutsheet").view;
   const seeNotes = useCan("callnotes").view;
+  const seeFreezer = useCan("freezer").view;
+  const seeHalfWhole = useCan("halfwhole").view;
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load this week: {loadError || error}</p>;
   if (!catalog || !customers || !data)
@@ -64,6 +66,11 @@ export default function WeekScreen() {
   });
   const n = weekNumbers(c, cs, w?.process_date ?? null);
   const message = n.message;
+  const balanceGroups = [
+    { title: "Main cuts", sub: "You plan for these.", rows: c.rows.filter((r) => r.planned) },
+    { title: "Comes with every lamb", sub: "No need to plan.", rows: c.rows.filter((r) => !r.planned) },
+  ];
+  const extras = plannedExtras(c.rows);
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
 
   const ordering = orderingCustomers(customers.list);
@@ -223,31 +230,64 @@ export default function WeekScreen() {
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {c.rows.map((r) => (
-                <tr key={r.part.id}>
-                  <td>
-                    <b>{r.part.name}</b> <span className="small muted">{r.part.unit === "lb" ? "lb" : ""}</span>
-                  </td>
-                  <td className="num">{fmt(r.need)}</td>
-                  <td className="num">{fmt(r.supply)}</td>
-                  <td>
-                    <div className={`bar ${r.status === "short" ? "short" : ""}`} title={`${fmt(r.need)} of ${fmt(r.supply)}`}>
-                      <i style={{ width: `${Math.min(100, r.supply ? (r.need / r.supply) * 100 : r.need ? 100 : 0)}%` }} />
-                    </div>
-                  </td>
-                  <td>
-                    <StatusTag row={r} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+            {balanceGroups.map(
+              (g) =>
+                g.rows.length > 0 && (
+                  <tbody key={g.title}>
+                    <tr className="bal-group">
+                      <th colSpan={5} scope="rowgroup">
+                        {g.title} <span className="font-normal">{g.sub}</span>
+                      </th>
+                    </tr>
+                    {g.rows.map((r) => (
+                      <tr key={r.part.id}>
+                        <td>
+                          <b>{r.part.name}</b> <span className="small muted">{r.part.unit === "lb" ? "lb" : ""}</span>
+                        </td>
+                        <td className="num">{fmt(r.need)}</td>
+                        <td className="num">{fmt(r.supply)}</td>
+                        <td>
+                          <div className={`bar ${r.status === "short" ? "short" : ""}`} title={`${fmt(r.need)} of ${fmt(r.supply)}`}>
+                            <i style={{ width: `${Math.min(100, r.supply ? (r.need / r.supply) * 100 : r.need ? 100 : 0)}%` }} />
+                          </div>
+                        </td>
+                        <td>
+                          <StatusTag row={r} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                ),
+            )}
           </table>
           {legs && <p className="mt-3 mb-0 font-medium">{legs}</p>}
-          <p className="small muted mt-2.5">
-            Extras are estimates until the cut sheet comes back from {processor}. Anything extra can go in the freezer
-            for half and whole orders.
-          </p>
+          {extras.length > 0 && (
+            <div className="note mt-3">
+              <b>Extra cuts to plan for:</b>{" "}
+              {extras.map((r) => `${fmt(r.left)} ${r.part.name.toLowerCase()}`).join(", ")}.
+              {(seeFreezer || seeCutSheet || seeHalfWhole) && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="small">Decide where they go:</span>
+                  {seeFreezer && (
+                    <Link href="/freezer" className="btn">
+                      Freezer
+                    </Link>
+                  )}
+                  {seeCutSheet && (
+                    <Link href="/cut-sheet" className="btn">
+                      Grind (on the cut sheet)
+                    </Link>
+                  )}
+                  {seeHalfWhole && (
+                    <Link href="/half-whole" className="btn">
+                      Half and whole orders
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <p className="small muted mt-2.5">Extras are estimates until the cut sheet comes back from {processor}.</p>
         </div>
       </div>
 
@@ -383,7 +423,8 @@ function StatusTag({ row }: { row: PartRow }) {
     case "even":
       return <span className="tag even">Even</span>;
     case "extra":
-      return <span className="tag extra">{fmt(row.left)} extra</span>;
+      // Main cuts stand out; what comes with every lamb stays quiet.
+      return <span className={row.planned ? "tag extra" : "tag plain"}>{fmt(row.left)} extra</span>;
     default:
       return null;
   }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { freezerOnHand, freezerTakes, halfWholeLines, halfWholeNeeds, slotCount, slotOptions, slotParts } from "./halfWhole";
 import { seedParts, seedProducts } from "./testData";
 import type { HalfWholeOrder } from "./types";
-import { calcWeek } from "./week";
+import { calcWeek, plannedExtras } from "./week";
 
 const row = (c: ReturnType<typeof calcWeek>, part: string) => c.rows.find((r) => r.part.id === part)!;
 
@@ -14,7 +14,7 @@ describe("6.1 weekly lamb guide", () => {
     expect(c.driver?.part.id).toBe("leg");
     expect(row(c, "leg")).toMatchObject({ need: 100, lambs: 50, supply: 100, left: 0, status: "sets" });
     // Other parts come out extra.
-    expect(row(c, "shoulder")).toMatchObject({ need: 0, supply: 100, left: 100, status: "none" });
+    expect(row(c, "shoulder")).toMatchObject({ need: 0, supply: 100, left: 100, status: "extra" });
   });
 
   it("adds up several orders and rounds up to whole lambs", () => {
@@ -198,5 +198,39 @@ describe("customer products and byproducts (10/2026 changes)", () => {
     const order: HalfWholeOrder = { id: "h", size: "half", status: "pending", choices: [{ part_id: "loin", slot: 0, product_id: "chops" }] };
     expect(halfWholeLines(order, parts, [chops])).toEqual({ chops: 2.5 });
     expect(slotOptions("loin", [chops, pepper, { ...chops, id: "off", active: false }]).map((p) => p.id)).toEqual(["chops", "pepper"]);
+  });
+});
+
+describe("extras when nothing is ordered from a part", () => {
+  it("a part nobody ordered shows everything the lambs give as extra", () => {
+    // 25 lambs from shoulders alone: legs, racks, shanks, necks all come anyway.
+    const c = calcWeek({ parts: seedParts, products: seedProducts, orders: [{ s7: 50 }] });
+    expect(c.final).toBe(25);
+    for (const r of c.rows.filter((x) => x.need === 0 && x.supply > 0))
+      expect(r).toMatchObject({ left: r.supply, status: "extra" });
+    expect(row(c, "leg")).toMatchObject({ need: 0, supply: 50, left: 50, status: "extra" });
+    expect(row(c, "neck")).toMatchObject({ need: 0, status: "extra" });
+  });
+
+  it("no lambs and no orders shows no tag", () => {
+    const c = calcWeek({ parts: seedParts, products: seedProducts, orders: [] });
+    expect(c.rows.every((r) => r.status === "none")).toBe(true);
+  });
+
+  it("with a count from the cut sheet or Kathy, unordered parts are extra too", () => {
+    const c = calcWeek({ parts: seedParts, products: seedProducts, orders: [], cutSheetLambs: 10 });
+    expect(row(c, "leg")).toMatchObject({ need: 0, supply: 20, status: "extra" });
+    const o = calcWeek({ parts: seedParts, products: seedProducts, orders: [], override: 3 });
+    expect(row(o, "rack")).toMatchObject({ need: 0, supply: 6, status: "extra" });
+  });
+
+  it("main cuts are planned for; necks, ribs and trim come with every lamb", () => {
+    const c = calcWeek({ parts: seedParts, products: seedProducts, orders: [{ s7: 50 }] });
+    const planned = c.rows.filter((r) => r.planned).map((r) => r.part.id).sort();
+    expect(planned).toEqual(["fshank", "hshank", "leg", "loin", "rack", "shoulder"]);
+    const extras = plannedExtras(c.rows).map((r) => r.part.id);
+    expect(extras).toContain("leg");
+    expect(extras).not.toContain("shoulder");
+    expect(extras).not.toContain("neck");
   });
 });

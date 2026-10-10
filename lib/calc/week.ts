@@ -6,8 +6,11 @@
 // cut sheet, otherwise the count recommended from orders. The headline, the
 // producer message, and the carcass balance all use it.
 
+import { BALANCE_PARTS } from "./cutsheet";
 import { addInto, ceilSafe, EPS, num } from "./num";
 import type { Part, Product, Qty } from "./types";
+
+const MAIN_CUTS = new Set(BALANCE_PARTS.map((p) => p.id));
 
 export type PartStatus = "none" | "short" | "sets" | "even" | "extra";
 
@@ -24,6 +27,13 @@ export type PartRow = {
   /** supply - need. Negative means short. */
   left: number;
   status: PartStatus;
+  /**
+   * A main cut that Kathy plans for: the six parts every cut sheet set must
+   * add up to (leg, shoulder, rack, short loin, front and hind shank). False
+   * for what simply comes with every lamb (necks, Denver ribs, trim, bones,
+   * organs, and any part added in Setup).
+   */
+  planned: boolean;
 };
 
 export type LambSource = "your number" | "cut sheet" | "orders";
@@ -103,16 +113,23 @@ export function calcWeek(input: {
     const supply = final * num(r.part.per_lamb);
     const left = supply - r.need;
     let status: PartStatus;
-    if (r.need === 0) status = "none";
+    // Nothing ordered and nothing coming: no tag. Nothing ordered but the
+    // lambs still give some: all of it is extra.
+    if (r.need === 0 && supply < EPS) status = "none";
     else if (left < -EPS) status = "short";
     else if (r.drives && source === "orders" && recommended > 0 && r.lambs === recommended) status = "sets";
     else if (Math.abs(left) < EPS) status = "even";
     else status = "extra";
-    return { ...r, supply, left, status };
+    return { ...r, supply, left, status, planned: MAIN_CUTS.has(r.part.id) };
   });
 
   const driver = recommended > 0 ? (rows.find((r) => r.drives && r.lambs === recommended) ?? null) : null;
   return { totals, withShort, rows, recommended, driver, final, source, overridden, cutSheetLambs };
+}
+
+/** Main cuts with some left over: the extras Kathy has to find a home for. */
+export function plannedExtras(rows: PartRow[]): PartRow[] {
+  return rows.filter((r) => r.planned && r.left > EPS);
 }
 
 /**

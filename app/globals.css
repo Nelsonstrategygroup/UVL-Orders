@@ -398,6 +398,10 @@
   .tag.extra {
     background: var(--warn);
   }
+  .tag.plain {
+    background: var(--field);
+    color: var(--ink-soft);
+  }
   .tag.short {
     background: var(--bad);
     color: var(--barn);
@@ -886,6 +890,16 @@
     padding: 0.5rem 0.4rem;
     border-bottom: 1px solid var(--line);
     vertical-align: middle;
+  }
+  .bal .bal-group th {
+    padding-top: 0.9rem;
+    color: var(--ink);
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--line);
+  }
+  .bal .bal-group th span {
+    color: var(--ink-soft);
   }
   .bar {
     height: 10px;
