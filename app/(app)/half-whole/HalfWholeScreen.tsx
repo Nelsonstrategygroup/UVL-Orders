@@ -3,6 +3,8 @@
 // Half and whole lambs (SPEC 5.7), ported from the prototype's renderHW and
 // openHW: a list of orders, and a guided form with one choice per slot.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import { useCallback, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -38,6 +40,7 @@ export default function HalfWholeScreen() {
   const load = useCallback((d: SupabaseClient) => loadHalfWhole(d), []);
   const { data, error, refresh } = useLive("halfwhole", load, ["half_whole_orders", "freezer_log"]);
   const [open, setOpen] = useState<HWOrder | "new" | null>(null);
+  const canChange = useCan("halfwhole").change;
   const close = useCallback(() => setOpen(null), []);
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load half and whole orders: {loadError || error}</p>;
@@ -74,10 +77,13 @@ export default function HalfWholeScreen() {
             Walk the customer through each part. The freezer covers what it can and the rest goes on this week&apos;s order.
           </span>
         </div>
-        <button type="button" className="btn" onClick={() => setOpen("new")}>
-          New order
-        </button>
+        {canChange && (
+          <button type="button" className="btn" onClick={() => setOpen("new")}>
+            New order
+          </button>
+        )}
       </div>
+      {!canChange && <ViewOnly what="half and whole orders" />}
 
       {shortList.length > 0 && (
         <p className="note small">
@@ -106,7 +112,7 @@ export default function HalfWholeScreen() {
                 <span className="small">
                   {Object.entries(lines)
                     .filter(([, v]) => v > 0)
-                    .map(([k, v]) => `${fmt(v)}${catalog.productById.get(k)?.unit === "lb" ? " lb" : ""} ${nameOf(k).toLowerCase()}`)
+                    .map(([k, v]) => `${qtyText(v, catalog.productById.get(k)?.unit ?? "each")} ${nameOf(k).toLowerCase()}`)
                     .join(", ")}
                 </span>
                 {o.notes && <span className="small muted whitespace-pre-wrap">{o.notes}</span>}
@@ -114,7 +120,7 @@ export default function HalfWholeScreen() {
                   <button type="button" className="btn ghost" onClick={() => setOpen(o)}>
                     Open
                   </button>
-                  {o.status === "pending" && (
+                  {canChange && o.status === "pending" && (
                     <button
                       type="button"
                       className="btn"
@@ -178,6 +184,7 @@ function HWForm({
   /** `fill`: the form asked for Filled, which goes through Mark filled. */
   onSaved: (id: string, fill: boolean) => void | Promise<void>;
 }) {
+  const canChange = useCan("halfwhole").change;
   const [draft, setDraft] = useState<Draft>(() => {
     const choices: Draft["choices"] = {};
     for (const c of order?.choices ?? []) {
@@ -247,6 +254,7 @@ function HWForm({
 
   return (
     <Sheet title={order ? "Half or whole order" : "New half or whole order"} onClose={onClose}>
+      <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
       <div className="flex flex-wrap gap-3">
         <div className="min-w-[200px] flex-[2]">
           <label className="lbl" htmlFor="hw-name">
@@ -362,15 +370,18 @@ function HWForm({
         Notes from the call
       </label>
       <textarea id="hw-notes" className="field" rows={2} value={draft.notes} onChange={(e) => set("notes", e.target.value)} />
+      </fieldset>
 
       {error && <p className="note bad mt-3">{error}</p>}
       <div className="mt-4 flex justify-end gap-2">
         <button type="button" className="btn ghost" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="btn" disabled={busy} onClick={() => void save()}>
-          {busy ? "Saving..." : "Save order"}
-        </button>
+        {canChange && (
+          <button type="button" className="btn" disabled={busy} onClick={() => void save()}>
+            {busy ? "Saving..." : "Save order"}
+          </button>
+        )}
       </div>
     </Sheet>
   );

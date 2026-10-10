@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useState } from "react";
-import { navFor, type NavItem, type Role } from "@/lib/auth/roles";
+import { navFor, onlyPacking, type NavItem, type Perms, type Role } from "@/lib/auth/roles";
 import { logout } from "@/app/login/actions";
 import Sheet from "./Sheet";
 import { StaffDataProvider } from "./data/StaffData";
@@ -18,16 +18,20 @@ function isCurrent(pathname: string, href: string) {
 export default function AppShell({
   userId,
   role,
+  perms,
   displayName,
   children,
 }: {
   userId: string;
   role: Role;
+  perms: Perms;
   displayName: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const nav = navFor(role);
+  // Someone who can only pack gets the big, simple Packing screen with no menus.
+  const simple = onlyPacking(perms, role);
+  const nav = simple ? [] : navFor(perms, role);
   const bottom = nav.filter((n) => n.bottom);
   const more = nav.filter((n) => !n.bottom);
   const moreCurrent = more.some((n) => isCurrent(pathname, n.href));
@@ -66,10 +70,10 @@ export default function AppShell({
       </header>
 
       <main className="mx-auto max-w-[1280px] px-4 pt-4 pb-24">
-        <CurrentUserProvider me={{ id: userId, role, displayName }}>
+        <CurrentUserProvider me={{ id: userId, role, displayName, perms }}>
           <ToastProvider>
             <WeekProvider>
-              {role === "packing" ? children : <StaffDataProvider>{children}</StaffDataProvider>}
+              {simple ? children : <StaffDataProvider>{children}</StaffDataProvider>}
             </WeekProvider>
           </ToastProvider>
         </CurrentUserProvider>

@@ -3,6 +3,8 @@
 // This week (SPEC 5.4): how many lambs to order, whether the carcass
 // balances, and how the week is going.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -32,6 +34,9 @@ export default function WeekScreen() {
   const { data, error, refresh } = useWeekData(week);
   const toast = useToast();
   const db = getDb();
+  const canChange = useCan("week").change;
+  const seeCutSheet = useCan("cutsheet").view;
+  const seeNotes = useCan("callnotes").view;
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load this week: {loadError || error}</p>;
   if (!catalog || !customers || !data)
@@ -82,6 +87,7 @@ export default function WeekScreen() {
   return (
     <>
       <WeekBar processDate={w?.process_date} />
+      {!canChange && <ViewOnly what="this week's settings" />}
 
       {unconfirmed > 0 && (
         <p className="note small">
@@ -108,6 +114,7 @@ export default function WeekScreen() {
             </div>
           </div>
 
+          <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
           <OverrideField
             key={`${week}:${w?.lamb_override ?? ""}`}
             value={w?.lamb_override ?? null}
@@ -146,6 +153,7 @@ export default function WeekScreen() {
               />
             </div>
           </div>
+          </fieldset>
 
           <div className="msg">
             <span>{message}</span>
@@ -230,14 +238,14 @@ export default function WeekScreen() {
         </div>
       </div>
 
-      <FollowUps week={week} />
+      {seeNotes && <FollowUps week={week} />}
 
       <div className="panel mt-4">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="mr-auto">Cut sheet for {processor}</h3>
-          <Link href="/cut-sheet" className="btn">
+          {seeCutSheet && <Link href="/cut-sheet" className="btn">
             {cs.total ? "Open cut sheet" : "Start this week's cut sheet"}
-          </Link>
+          </Link>}
         </div>
         {cs.total ? (
           <>
@@ -259,6 +267,7 @@ export default function WeekScreen() {
 /** Follow-ups due this week or overdue, with Done buttons (SPEC 5.4). */
 function FollowUps({ week }: { week: string }) {
   const { customers } = useStaffData();
+  const canMark = useCan("callnotes").change;
   const toast = useToast();
   const db = getDb();
   const [state, setState] = useState<{ week: string; list: DueFollowUp[] } | null>(null);
@@ -313,7 +322,7 @@ function FollowUps({ week }: { week: string }) {
                 {late ? "Overdue, " : ""}
                 {niceDate(f.follow_up_date)}
               </span>
-              <button type="button" className="btn ghost shrink-0" onClick={() => void done(f.id, true)}>
+              <button type="button" className="btn ghost shrink-0" disabled={!canMark} onClick={() => void done(f.id, true)}>
                 Done
               </button>
             </li>

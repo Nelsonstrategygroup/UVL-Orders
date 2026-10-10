@@ -4,12 +4,13 @@
 // 2. Sends anyone not logged in to /login.
 // 3. Signs out people who are turned off, or who last logged in before
 //    this morning's 3:00 AM Pacific cutoff (lib/auth/session.ts).
-// 4. Keeps each role on the screens it is allowed to open.
+// 4. Keeps each person on the screens they may open (role defaults plus
+//    their own changes, from my_permissions).
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { needsDailyLogin } from "@/lib/auth/session";
-import { canOpen, homeFor, isRole } from "@/lib/auth/roles";
+import { ALL_ACCESS, canOpen, homeFor, isRole, permsFrom } from "@/lib/auth/roles";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
 
 export async function proxy(request: NextRequest) {
@@ -72,8 +73,15 @@ export async function proxy(request: NextRequest) {
     return onLogin ? response : redirectTo("/login", reason);
   }
 
+  // What this person may open: their role's defaults plus their own changes.
   const role = profile!.role;
-  if (onLogin || path === "/" || !canOpen(role, path)) return redirectTo(homeFor(role));
+  let perms = ALL_ACCESS;
+  if (role !== "admin") {
+    const { data, error: permErr } = await supabase.rpc("my_permissions");
+    if (permErr) return response; // RLS still protects the data
+    perms = permsFrom(data);
+  }
+  if (onLogin || path === "/" || !canOpen(perms, role, path)) return redirectTo(homeFor(perms, role));
 
   return response;
 }

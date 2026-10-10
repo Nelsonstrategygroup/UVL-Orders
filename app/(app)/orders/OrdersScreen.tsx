@@ -3,6 +3,8 @@
 // Orders (SPEC 5.3): "One customer at a time" cards by default, or a
 // spreadsheet grid on wide screens.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -29,6 +31,10 @@ export default function OrdersScreen() {
   const { week } = useWeek();
   const { catalog, customers, error: loadError } = useStaffData();
   const { data, error, patchOrder, refresh } = useWeekData(week);
+  const ordersCan = useCan("orders");
+  const callsCan = useCan("calls");
+  const canChange = ordersCan.change || callsCan.change;
+  const canDownload = useCan("downloads").view;
   const [view, setView] = useState<View>(() => {
     try {
       return typeof window !== "undefined" && localStorage.getItem(VIEW_KEY) === "grid" ? "grid" : "list";
@@ -84,8 +90,10 @@ export default function OrdersScreen() {
   return (
     <>
       {header}
+      {!canChange && <ViewOnly what="orders" />}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Orders</h2>
+        {canDownload && (
         <button
           type="button"
           className="btn ghost"
@@ -102,6 +110,7 @@ export default function OrdersScreen() {
         >
           Download this week
         </button>
+        )}
         <div className="desk-only">
           <div className="seg" role="group" aria-label="Layout">
             <button type="button" aria-pressed={view === "list"} onClick={() => choose("list")}>
@@ -118,7 +127,9 @@ export default function OrdersScreen() {
         <>
           <div className="desk-only">
             <div className="w-full min-w-0">
-              <OrderGrid list={list} data={data} patchOrder={patchOrder} refresh={refresh} />
+              <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
+                <OrderGrid list={list} data={data} patchOrder={patchOrder} refresh={refresh} />
+              </fieldset>
             </div>
           </div>
           <div className="mob-only">

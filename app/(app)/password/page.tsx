@@ -14,7 +14,7 @@ export default async function PasswordPage() {
       <p className="muted mt-0">
         {reset ? `You're logged in as ${me.email}. Pick a new password.` : `For ${me.email}.`}
       </p>
-      <PasswordForm askCurrent={!reset} home={homeFor(me.role)} />
+      <PasswordForm askCurrent={!reset} home={homeFor(me.perms, me.role)} />
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 // Calls (SPEC 5.1): one customer at a time, with big buttons.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -18,6 +20,10 @@ import type { Customer, Order, OrderStatus, Qty, Units } from "@/lib/db/types";
 import { hasLines, snapshot, STATUS_LABEL } from "@/lib/orders";
 
 export default function CallsScreen() {
+  // Taking answers needs Change on Calls or Orders; anyone else just looks.
+  const canCalls = useCan("calls").change;
+  const canOrders = useCan("orders").change;
+  const canAnswer = canCalls || canOrders;
   const { week } = useWeek();
   const { catalog, customers, error: loadError } = useStaffData();
   const { data, error, patchOrder, refresh } = useWeekData(week);
@@ -140,7 +146,7 @@ export default function CallsScreen() {
                 : "Saved."}
         </p>
         {status === "ordered" && <ReadBack lines={order?.lines ?? {}} products={catalog.products} />}
-        {status === "ordered" && (
+        {status === "ordered" && canAnswer && (
           <button type="button" className="bigbtn alt" onClick={() => setEditingId(current.id)}>
             Fix something
           </button>
@@ -181,7 +187,7 @@ export default function CallsScreen() {
         ) : (
           <p className="muted">No order last week.</p>
         )}
-        {hasPrev && status !== "ordered" && (
+        {canAnswer && hasPrev && status !== "ordered" && (
           <button
             type="button"
             className="bigbtn"
@@ -192,23 +198,27 @@ export default function CallsScreen() {
             Same as last week
           </button>
         )}
-        <button
-          type="button"
-          className={`bigbtn ${hasPrev && status !== "ordered" ? "alt" : ""}`}
-          onClick={() => setEditingId(current.id)}
-        >
-          {status === "ordered" ? "Change the order" : hasPrev ? "Different order this week" : "Enter their order"}
-        </button>
-        <button
-          type="button"
-          className="bigbtn quiet"
-          onClick={() => void apply({ status: "none", lines: {} }, "No order this week")}
-        >
-          No order this week
-        </button>
-        <button type="button" className="bigbtn quiet" onClick={() => setCallbackId(current.id)}>
-          Call back later
-        </button>
+        {canAnswer && (
+          <>
+            <button
+              type="button"
+              className={`bigbtn ${hasPrev && status !== "ordered" ? "alt" : ""}`}
+              onClick={() => setEditingId(current.id)}
+            >
+              {status === "ordered" ? "Change the order" : hasPrev ? "Different order this week" : "Enter their order"}
+            </button>
+            <button
+              type="button"
+              className="bigbtn quiet"
+              onClick={() => void apply({ status: "none", lines: {} }, "No order this week")}
+            >
+              No order this week
+            </button>
+            <button type="button" className="bigbtn quiet" onClick={() => setCallbackId(current.id)}>
+              Call back later
+            </button>
+          </>
+        )}
         {status === "callback" && order?.notes && <p className="small muted">{order.notes}</p>}
       </>
     );
@@ -219,6 +229,7 @@ export default function CallsScreen() {
   return (
     <>
       {header}
+      {!canAnswer && <ViewOnly what="calls" />}
       <div className="callprog">
         <h2>Calls</h2>
         <span className="muted">

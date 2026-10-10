@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/current-user";
+import { homeFor, onlyPacking } from "@/lib/auth/roles";
 
 export const metadata = { title: "How to use this · Umpqua Valley Lamb" };
 
@@ -36,7 +37,9 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 
 export default async function HelpPage() {
   const user = await requireUser();
-  const packer = user.role === "packing";
+  // Someone who only packs gets Chris's steps first.
+  const packer = onlyPacking(user.perms, user.role);
+  const home = homeFor(user.perms, user.role);
 
   const chris = (
     <section className="panel mt-4" aria-labelledby="for-chris">
@@ -175,8 +178,8 @@ export default async function HelpPage() {
       {!packer && chris}
 
       <p className="mt-6">
-        <Link href={packer ? "/packing" : "/calls"} className="btn">
-          {packer ? "Back to Packing" : "Back to Calls"}
+        <Link href={home} className="btn">
+          Back
         </Link>
       </p>
     </div>

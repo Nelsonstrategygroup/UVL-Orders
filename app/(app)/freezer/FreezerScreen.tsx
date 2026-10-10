@@ -3,6 +3,8 @@
 // Freezer (SPEC 5.8), ported from the prototype's renderFreezer: what's on
 // hand, what pending half and whole orders are counting on, and what's free.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -26,6 +28,7 @@ export default function FreezerScreen() {
   const { data, error, refresh } = useLive("freezer", load, ["freezer_log", "half_whole_orders"]);
   const [adding, setAdding] = useState(false);
   const close = useCallback(() => setAdding(false), []);
+  const canChange = useCan("freezer").change;
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load the freezer: {loadError || error}</p>;
   if (!catalog || !data) return <div className="empty">Loading...</div>;
@@ -50,10 +53,13 @@ export default function FreezerScreen() {
     <>
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Freezer</h2>
-        <button type="button" className="btn" onClick={() => setAdding(true)}>
-          Add or take out
-        </button>
+        {canChange && (
+          <button type="button" className="btn" onClick={() => setAdding(true)}>
+            Add or take out
+          </button>
+        )}
       </div>
+      {!canChange && <ViewOnly what="the freezer" />}
 
       <div className="grid2">
         <section className="panel">
@@ -107,7 +113,7 @@ export default function FreezerScreen() {
                     </td>
                     <td className="small muted">{e.note}</td>
                     <td>
-                      {e.half_whole_order_id ? (
+                      {!canChange ? null : e.half_whole_order_id ? (
                         <span className="small muted" title="Change the order on Half and whole to put these back">
                           Order
                         </span>

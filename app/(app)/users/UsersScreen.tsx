@@ -29,7 +29,7 @@ export type UserRow = {
 // Sections that open and close. Role sections start open; "Turned off"
 // starts closed. What someone opens or closes is remembered on this device.
 type SectionKey = Role | "off";
-const DEFAULT_OPEN: Record<SectionKey, boolean> = { admin: true, office: true, packing: true, off: false };
+const DEFAULT_OPEN: Record<SectionKey, boolean> = { admin: true, office: true, packing: true, viewer: true, off: false };
 const STORE = "uvl.users.sections";
 
 function useSections() {

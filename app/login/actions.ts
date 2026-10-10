@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { homeFor, isRole } from "@/lib/auth/roles";
+import { ALL_ACCESS, homeFor, isRole, permsFrom } from "@/lib/auth/roles";
 
 export type LoginState = { error?: string; email?: string };
 
@@ -38,13 +38,16 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
 
   const { data: claims } = await supabase.auth.getClaims();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", claims?.claims?.sub ?? "")
-    .maybeSingle();
+  const [{ data: profile }, { data: perms }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", claims?.claims?.sub ?? "").maybeSingle(),
+    supabase.rpc("my_permissions"),
+  ]);
 
-  redirect(profile && isRole(profile.role) ? homeFor(profile.role) : "/");
+  redirect(
+    profile && isRole(profile.role)
+      ? homeFor(profile.role === "admin" ? ALL_ACCESS : permsFrom(perms), profile.role)
+      : "/",
+  );
 }
 
 export async function logout() {

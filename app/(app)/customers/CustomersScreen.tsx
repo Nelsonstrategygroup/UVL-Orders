@@ -5,6 +5,7 @@
 // Shows active customers unless "Inactive" or "All" is picked. Counts leave
 // out chains that have locations; each location is the customer.
 
+import { useCan } from "@/components/CurrentUser";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useStaffData } from "@/components/data/StaffData";
@@ -22,6 +23,7 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState("");
   const [show, setShow] = useState<Show>("active");
+  const canChange = useCan("customers").change;
 
   const counted = useMemo(() => (customers ? countable(customers.list) : []), [customers]);
   const groups = useMemo(() => {
@@ -46,9 +48,11 @@ export default function CustomersScreen({ isAdmin }: { isAdmin: boolean }) {
             Import customers from a spreadsheet
           </Link>
         )}
-        <button type="button" className="btn" onClick={() => setAdding(true)}>
-          Add customer
-        </button>
+        {canChange && (
+          <button type="button" className="btn" onClick={() => setAdding(true)}>
+            Add customer
+          </button>
+        )}
       </div>
 
       {customers.list.length > 0 && (

@@ -20,7 +20,9 @@ import {
   STATUS_LABEL,
   statusAfterLines,
 } from "@/lib/orders";
+import { useCan } from "./CurrentUser";
 import { getDb, useStaffData } from "./data/StaffData";
+import ViewOnly from "./ViewOnly";
 import ReadBack from "./ReadBack";
 import Sheet from "./Sheet";
 import { useToast } from "./Toast";
@@ -42,6 +44,13 @@ export type OrderEditorProps = {
 export default function OrderEditor(props: OrderEditorProps) {
   const { week, customer, order, lastWeek, patchOrder, refresh, onClose } = props;
   const { catalog, customers, reloadCustomers } = useStaffData();
+  // Changing an order needs Change on Orders or Calls; logging a call needs Call notes.
+  const ordersCan = useCan("orders");
+  const callsCan = useCan("calls");
+  const notesCan = useCan("callnotes");
+  const canChange = ordersCan.change || callsCan.change;
+  const canLog = notesCan.change;
+  const seeNotes = notesCan.view;
   const toast = useToast();
   const db = getDb();
 
@@ -267,16 +276,19 @@ export default function OrderEditor(props: OrderEditorProps) {
         )}
       </p>
       {customer.notes && <div className="pin small">{customer.notes}</div>}
-      {last && (
+      {!canChange && <ViewOnly what="this order" />}
+      {last && seeNotes && (
         <div className="lastc">
           Last contact {ago(last.created_at)}: {last.summary}
         </div>
       )}
 
       <div className="my-1 flex flex-wrap items-center gap-3">
-        <button type="button" className="btn ghost" onClick={() => setLogging((v) => !v)}>
-          Log this call
-        </button>
+        {canLog && (
+          <button type="button" className="btn ghost" onClick={() => setLogging((v) => !v)}>
+            Log this call
+          </button>
+        )}
         <Link href={`/customers/${customer.id}`} className="copy text-[.9rem]" onClick={() => void flush()}>
           Customer page
         </Link>
@@ -292,6 +304,7 @@ export default function OrderEditor(props: OrderEditorProps) {
         />
       )}
 
+      <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
       <div className="seg my-2" role="group" aria-label="Status">
         {STATUSES.map((s) => (
           <button key={s} type="button" aria-pressed={s === status} onClick={() => void save({ status: s })}>
@@ -343,6 +356,8 @@ export default function OrderEditor(props: OrderEditorProps) {
           if (e.target.value !== (order?.notes ?? "")) void save({ notes: e.target.value });
         }}
       />
+
+      </fieldset>
 
       {saveError && (
         <p className="note bad mt-3" role="alert">

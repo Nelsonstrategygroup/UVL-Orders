@@ -4,6 +4,8 @@
 // prototype's renderPack: one large row per line, tap anywhere on it to
 // mark it packed, with Undo.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb } from "@/components/data/db";
@@ -40,6 +42,7 @@ export default function PackingScreen() {
   const db = getDb();
   const load = useCallback((d: SupabaseClient) => loadPacking(d, week), [week]);
   const { data, error, refresh, patch } = useLive(`packing-${week}`, load, LIVE_TABLES);
+  const canPack = useCan("packing").change;
   const [filter, setFilter] = useState<PackFilter>("todo");
   // Customers finished while "To pack" is showing stay on screen, so the
   // packer can still see "All packed" and fill in boxes and pallet.
@@ -151,6 +154,7 @@ export default function PackingScreen() {
           <div className="empty">{filter === "todo" ? "Everything is packed." : "Nothing here yet."}</div>
         ) : (
           shown.map((o) => (
+            <fieldset key={o.id} disabled={!canPack} className="m-0 min-w-0 border-0 p-0">
             <CustomerCard
               key={o.id}
               order={o}
@@ -159,10 +163,12 @@ export default function PackingScreen() {
               onAdjust={(pid) => setAdjusting({ orderId: o.id, productId: pid })}
               onMeta={(m) => void setMeta(o, m)}
             />
+            </fieldset>
           ))
         )}
       </div>
 
+      {!canPack && <ViewOnly what="packing" />}
       <PrintCopy data={data} />
 
       {adjusting && adjustOrder && (

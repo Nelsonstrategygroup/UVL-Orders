@@ -2,6 +2,8 @@
 
 // Cut sheet (SPEC 5.5), ported from the prototype's renderCutsheet.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import { useCallback, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -34,6 +36,7 @@ export default function CutSheetScreen() {
   const [confirmSend, setConfirmSend] = useState<null | "print" | "email">(null);
   // After printing or emailing: "Did this go to Mohawk?" Remembers what was sent.
   const [askSent, setAskSent] = useState<null | { how: "print" | "email"; hash: string }>(null);
+  const canChange = useCan("cutsheet").change;
 
   const specMap = useMemo(
     () => new Map<string, CutSpecLite>((catalog?.cutSpecs ?? []).map((s) => [s.id, s])),
@@ -68,6 +71,8 @@ export default function CutSheetScreen() {
         <WeekBar processDate={data.processDate} />
         <div className="panel empty mx-auto max-w-[560px]">
           <h3 className="mb-2">No cut sheet for this week yet</h3>
+          {canChange && (
+          <>
           <p>
             {from
               ? "Most weeks look a lot like the last one, so the quickest start is a copy."
@@ -95,6 +100,8 @@ export default function CutSheetScreen() {
           >
             Start a blank sheet
           </button>
+          </>
+          )}
         </div>
       </>
     );
@@ -134,6 +141,46 @@ export default function CutSheetScreen() {
     );
     toast("Opening your email. Check it and press Send.");
   }
+
+  if (!canChange)
+    return (
+      <>
+        <div className="screen-only">
+          <WeekBar processDate={data.processDate} />
+          <h2 className="mb-1">Cut sheet</h2>
+          <ViewOnly what="the cut sheet" />
+          <section className="panel mt-2">
+            <h3>What {processor} gets</h3>
+            <p className="small muted mt-1">
+              {when ? `Sent ${when}${changed ? ". Changed since then." : "."}` : "Not sent yet."} {totals.total} lambs.
+            </p>
+            <div className="my-2">
+              <MohawkSheet data={data} specs={specMap} sizes={catalog.sizes} standing={standing} />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn" onClick={() => window.print()}>
+                Print
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() =>
+                  (navigator.clipboard ? navigator.clipboard.writeText(plain) : Promise.reject()).then(
+                    () => toast("Copied."),
+                    () => toast("Couldn't copy on this device"),
+                  )
+                }
+              >
+                Copy as text
+              </button>
+            </div>
+          </section>
+        </div>
+        <div className="print-only">
+          <MohawkSheet data={data} specs={specMap} sizes={catalog.sizes} standing={standing} />
+        </div>
+      </>
+    );
 
   const send = (how: "print" | "email") => {
     if (problems.length) setConfirmSend(how);

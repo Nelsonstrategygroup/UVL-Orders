@@ -11,7 +11,7 @@ import { useWeekData } from "@/components/data/useWeekData";
 import OrderEditor from "@/components/OrderEditor";
 import Sheet from "@/components/Sheet";
 import { orderSummary } from "@/components/ReadBack";
-import { useMe } from "@/components/CurrentUser";
+import { useCan, useMe } from "@/components/CurrentUser";
 import { useToast } from "@/components/Toast";
 import { useWeek } from "@/components/Week";
 import { billedThrough, deleteBlockers, rolesLabel, type DeleteCheck } from "@/lib/calc/contacts";
@@ -38,6 +38,9 @@ export default function CustomerPage({ id }: { id: string }) {
   const { customers, catalog, error, reloadCustomers } = useStaffData();
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [editing, setEditing] = useState(false);
+  const canChange = useCan("customers").change;
+  const notesCan = useCan("callnotes");
+  const canDownload = useCan("downloads").view;
 
   const reloadHistory = useCallback(async () => {
     try {
@@ -88,9 +91,11 @@ export default function CustomerPage({ id }: { id: string }) {
           <h2>{displayName(c, customers.byId)}</h2>
           <p className="small muted mt-1 mb-0">{meta.join(", ")}</p>
         </div>
-        <button type="button" className="btn ghost" onClick={() => setEditing(true)}>
-          Edit details and contacts
-        </button>
+        {canChange && (
+          <button type="button" className="btn ghost" onClick={() => setEditing(true)}>
+            Edit details and contacts
+          </button>
+        )}
       </div>
 
       {parent && (
@@ -148,18 +153,18 @@ export default function CustomerPage({ id }: { id: string }) {
 
       {orders && <ThisWeekOrder customer={c} />}
 
-      <StandingNotes customer={c} onSaved={reloadCustomers} />
+      <StandingNotes customer={c} onSaved={reloadCustomers} canEdit={canChange} />
 
-      <LogContactForm
+      {notesCan.change && <LogContactForm
         customerId={c.id}
         onSaved={async () => {
           await Promise.all([reloadHistory(), reloadCustomers()]);
         }}
-      />
+      />}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <h3 className="mr-auto">History</h3>
-        <DownloadHistory customer={c} name={displayName(c, customers.byId)} />
+        {canDownload && <DownloadHistory customer={c} name={displayName(c, customers.byId)} />}
       </div>
       {history === null ? (
         <p className="small muted">Loading...</p>
@@ -180,10 +185,12 @@ export default function CustomerPage({ id }: { id: string }) {
           )}
         </ul>
       ) : (
-        <p className="small muted">Nothing yet. Calls you log and weekly orders show up here.</p>
+        <p className="small muted">
+          Nothing yet. {notesCan.view ? "Calls you log and weekly orders show up here." : "Weekly orders show up here."}
+        </p>
       )}
 
-      <DeleteCustomer customer={c} name={displayName(c, customers.byId)} recheck={[history, kids.length]} />
+      {canChange && <DeleteCustomer customer={c} name={displayName(c, customers.byId)} recheck={[history, kids.length]} />}
 
       {editing && <EditCustomer customer={c} onClose={() => setEditing(false)} />}
     </div>
@@ -240,7 +247,7 @@ function DeleteCustomer({ customer, name, recheck }: { customer: Customer; name:
     const err = await deleteCustomer(getDb(), customer.id);
     if (err) {
       setBusy(false);
-      setError(err.startsWith("Only") || err.includes("Active") || err.includes("locations") ? err : `Couldn't delete: ${err}`);
+      setError((err.startsWith("Only") || err.startsWith("You don't have permission")) || err.includes("Active") || err.includes("locations") ? err : `Couldn't delete: ${err}`);
       return;
     }
     await reloadCustomers();
@@ -294,11 +301,12 @@ function ContactEntry({ entry: e, onChanged }: { entry: ContactItem; onChanged: 
   const toast = useToast();
   const db = getDb();
   const [editing, setEditing] = useState(false);
-  const mine = e.created_by === me.id;
+  const canNote = useCan("callnotes").change;
+  const mine = e.created_by === me.id && canNote;
 
   async function act(p: Promise<string | null>, ok: string, undo?: () => Promise<string | null>) {
     const err = await p;
-    if (err) return toast(err.startsWith("Only") ? err : "Couldn't save. Check the internet connection.");
+    if (err) return toast((err.startsWith("Only") || err.startsWith("You don't have permission")) ? err : "Couldn't save. Check the internet connection.");
     await onChanged();
     toast(ok, undo ? () => void undo().then(onChanged) : undefined);
   }
@@ -319,7 +327,7 @@ function ContactEntry({ entry: e, onChanged }: { entry: ContactItem; onChanged: 
           onCancel={() => setEditing(false)}
           onSave={async (patch) => {
             const err = await updateContact(db, e.id, patch);
-            if (err) return toast(err.startsWith("Only") ? err : "Couldn't save. Check the internet connection.");
+            if (err) return toast((err.startsWith("Only") || err.startsWith("You don't have permission")) ? err : "Couldn't save. Check the internet connection.");
             setEditing(false);
             await onChanged();
             toast("Saved");
@@ -333,7 +341,7 @@ function ContactEntry({ entry: e, onChanged }: { entry: ContactItem; onChanged: 
       )}
       {!editing && (
         <div className="flex flex-wrap gap-x-4">
-          {e.follow_up_date && !e.follow_up_done && (
+          {canNote && e.follow_up_date && !e.follow_up_done && (
             <button
               type="button"
               className="copy min-h-[44px] text-[.9rem]"
@@ -461,7 +469,15 @@ function ThisWeekOrder({ customer }: { customer: Customer }) {
   );
 }
 
-function StandingNotes({ customer, onSaved }: { customer: Customer; onSaved: () => Promise<void> }) {
+function StandingNotes({
+  customer,
+  onSaved,
+  canEdit,
+}: {
+  customer: Customer;
+  onSaved: () => Promise<void>;
+  canEdit: boolean;
+}) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(customer.notes);
@@ -470,7 +486,7 @@ function StandingNotes({ customer, onSaved }: { customer: Customer; onSaved: () 
     <section className="mt-4">
       <div className="flex items-center">
         <h3 className="mr-auto text-base!">Standing notes</h3>
-        {!editing && (
+        {!editing && canEdit && (
           <button
             type="button"
             className="copy min-h-[44px] px-2"
