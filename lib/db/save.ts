@@ -220,7 +220,16 @@ export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<
     const { error } = await db.from("products").update(row).eq("id", id);
     if (error) return error.message;
   } else {
-    const { data: last } = await db.from("products").select("sort").order("sort", { ascending: false }).limit(1);
+    // At the end of its own group, so the order form doesn't show the group twice.
+    const { data: inGroup } = await db
+      .from("products")
+      .select("sort")
+      .eq("group_name", p.group_name)
+      .order("sort", { ascending: false })
+      .limit(1);
+    const { data: last } = inGroup?.length
+      ? { data: inGroup }
+      : await db.from("products").select("sort").order("sort", { ascending: false }).limit(1);
     const sort = ((last?.[0]?.sort as number | undefined) ?? -1) + 1;
     const { data, error } = await db.from("products").insert({ ...row, sort }).select("id").single();
     if (error) return error.message;
