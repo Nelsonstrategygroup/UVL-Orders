@@ -45,6 +45,16 @@ export function StaffDataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [db]);
 
+  // Coming back to this tab or app (say, after adding a product on another
+  // device) fetches the product list again.
+  useEffect(() => {
+    const onShow = () => {
+      if (document.visibilityState === "visible") void reloadCatalog();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, [reloadCatalog]);
+
   useEffect(() => {
     let live = true;
     const fail = (e: unknown) => live && setError(e instanceof Error ? e.message : String(e));

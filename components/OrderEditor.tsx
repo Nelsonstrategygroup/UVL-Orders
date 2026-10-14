@@ -9,6 +9,7 @@ import { ago, niceDate } from "@/lib/dates";
 import { fmt, num } from "@/lib/calc/num";
 import { logContact, setOrder } from "@/lib/db/save";
 import { lineUnit, unitWord } from "@/lib/calc/units";
+import { findProducts } from "@/lib/calc/products";
 import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
 import {
   cleanLines,
@@ -43,7 +44,7 @@ export type OrderEditorProps = {
 
 export default function OrderEditor(props: OrderEditorProps) {
   const { week, customer, order, lastWeek, patchOrder, refresh, onClose } = props;
-  const { catalog, customers, reloadCustomers } = useStaffData();
+  const { catalog, customers, reloadCustomers, reloadCatalog } = useStaffData();
   // Changing an order needs Change on Orders or Calls; logging a call needs Call notes.
   const ordersCan = useCan("orders");
   const callsCan = useCan("calls");
@@ -63,6 +64,15 @@ export default function OrderEditor(props: OrderEditorProps) {
   const [saveError, setSaveError] = useState<string | null>(null);
   // Which product's info note is open.
   const [info, setInfo] = useState<string | null>(null);
+  // The "Add a product" search box, and products added from it this time.
+  const [search, setSearch] = useState("");
+  const [added, setAdded] = useState<string[]>([]);
+
+  // Fetch the product list fresh when the editor opens, so a product just
+  // added in Setup (on this device or another) is there.
+  useEffect(() => {
+    void reloadCatalog();
+  }, [reloadCatalog]);
 
   const lines = useMemo(() => draft?.lines ?? order?.lines ?? {}, [draft, order]);
   const units = useMemo(() => draft?.units ?? order?.units ?? {}, [draft, order]);
@@ -164,8 +174,19 @@ export default function OrderEditor(props: OrderEditorProps) {
   });
 
   const visible = products.filter((p) => p.active || (lines[p.id] ?? 0) > 0);
-  const first = visible.filter((p) => usual.has(p.id));
-  const rest = visible.filter((p) => !usual.has(p.id));
+  const onTop = (p: CatalogProduct) => usual.has(p.id) || added.includes(p.id);
+  const first = visible.filter(onTop);
+  const rest = visible.filter((p) => !onTop(p));
+  const found = findProducts(products, search);
+
+  /** Picked from "Add a product": put it with their usual cuts and start it at one step. */
+  function pick(p: CatalogProduct) {
+    setAdded((a) => (a.includes(p.id) ? a : [...a, p.id]));
+    if (!(lines[p.id] ?? 0)) setQty(p.id, p.order_step || 1);
+    setSearch("");
+    // Bring the new line into view so they can change the amount.
+    setTimeout(() => document.getElementById(`qty-${p.id}`)?.focus(), 50);
+  }
   const phone = customer.contacts.find((k) => k.phone)?.phone;
   const last = customers?.lastContact.get(customer.id);
   const lastWeekHasLines = hasLines(lastWeek?.lines);
@@ -213,6 +234,7 @@ export default function OrderEditor(props: OrderEditorProps) {
               &minus;
             </button>
             <input
+              id={`qty-${p.id}`}
               inputMode="decimal"
               value={shown}
               aria-label={p.name}
@@ -340,6 +362,37 @@ export default function OrderEditor(props: OrderEditorProps) {
             Show {rest.length} other products
           </button>
         ))}
+
+      <div className="addprod mt-4">
+        <label className="lbl" htmlFor="add-product">
+          Add a product
+        </label>
+        <input
+          id="add-product"
+          type="search"
+          className="field"
+          autoComplete="off"
+          placeholder="Type part of the name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {search.trim() && (
+          <ul className="picklist" aria-label="Matching products">
+            {found.length === 0 && <li className="small muted p-2">No product by that name. Add it in Setup first.</li>}
+            {found.map((p) => (
+              <li key={p.id}>
+                <button type="button" onClick={() => pick(p)}>
+                  <span>
+                    {p.name}
+                    {p.short_name ? <span className="small muted"> ({p.short_name})</span> : null}
+                  </span>
+                  <span className="small muted">{(lines[p.id] ?? 0) > 0 ? "on this order" : unitWord(p.unit)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <p className="small muted mt-4 mb-0">Read back to the customer</p>
       <ReadBack lines={lines} units={units} products={products} />

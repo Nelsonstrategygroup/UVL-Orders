@@ -61,3 +61,23 @@ export function needsChecking(products: ProductLite[], parts: Pick<Part, "id" | 
   for (const pt of parts) if (!pt.confirmed) out.push({ kind: "part", id: pt.id, name: pt.name, why: "per lamb not confirmed" });
   return out;
 }
+
+/**
+ * The "Add a product" picker on the order form: active products whose name
+ * or short name contains every word typed, names that start with it first.
+ */
+export function findProducts<P extends Pick<Product, "id" | "name" | "short_name" | "active">>(
+  products: P[],
+  query: string,
+  limit = 8,
+): P[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const text = (x: P) => `${x.name} ${x.short_name ?? ""}`.toLowerCase();
+  const starts = (x: P) =>
+    x.name.toLowerCase().startsWith(words[0]) || (x.short_name ?? "").toLowerCase().startsWith(words[0]);
+  return products
+    .filter((x) => x.active && words.every((w) => text(x).includes(w)))
+    .sort((a, b) => Number(starts(b)) - Number(starts(a)))
+    .slice(0, limit);
+}

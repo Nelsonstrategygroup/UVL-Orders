@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drivesLambCount, needsChecking, partAmountQty, partAmountRow } from "./products";
+import { drivesLambCount, findProducts, needsChecking, partAmountQty, partAmountRow } from "./products";
 
 describe("part amounts, either way round", () => {
   it("shows small amounts per part and big ones per unit", () => {
@@ -51,5 +51,33 @@ describe("Setup", () => {
     );
     expect(list.map((x) => `${x.kind}:${x.id}`)).toEqual(["product:new", "product:shoulder", "product:stew", "part:hshank"]);
     expect(list[1].why).toMatch(/no weight for one piece/);
+  });
+});
+
+describe("Add a product picker", () => {
+  const list = [
+    { id: "a", name: "BLS Legs", short_name: "", active: true },
+    { id: "b", name: "Hind Shanks", short_name: "HS", active: true },
+    { id: "c", name: "Labeled Hind Shanks", short_name: "", active: true },
+    { id: "d", name: "Old Legs", short_name: "", active: false },
+    { id: "e", name: "Front Shanks", short_name: "FS", active: true },
+  ];
+  const ids = (q: string) => findProducts(list, q).map((x) => x.id);
+
+  it("finds by any part of the name, names starting with it first", () => {
+    expect(ids("hind")).toEqual(["b", "c"]);
+    expect(ids("shank")).toEqual(["b", "c", "e"]);
+    expect(ids("legs")).toEqual(["a"]);
+  });
+
+  it("finds by short name and by several words", () => {
+    expect(ids("fs")).toEqual(["e"]);
+    expect(ids("lab hind")).toEqual(["c"]);
+    expect(ids("HIND")).toEqual(["b", "c"]);
+  });
+
+  it("never shows retired products, and nothing for an empty box", () => {
+    expect(ids("old")).toEqual([]);
+    expect(ids("   ")).toEqual([]);
   });
 });
