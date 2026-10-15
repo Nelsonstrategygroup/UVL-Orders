@@ -371,7 +371,7 @@ export default function OrderEditor(props: OrderEditorProps) {
       )}
 
       {usual.size > 0 && <p className="small muted mt-2 mb-0">What they usually buy</p>}
-      {first.map(row)}
+      {grouped(first)}
       {rest.length > 0 &&
         (showAll || usual.size === 0 ? (
           <>
