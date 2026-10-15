@@ -81,3 +81,20 @@ export function findProducts<P extends Pick<Product, "id" | "name" | "short_name
     .sort((a, b) => Number(starts(b)) - Number(starts(a)))
     .slice(0, limit);
 }
+
+/**
+ * Products by group, for the order form and the paper order sheet. Each
+ * group shows once, in the place of its first product, however products
+ * were added; inside a group, by sort order then name.
+ */
+export function groupProducts<P extends { name: string; group_name: string; sort: number }>(
+  products: P[],
+): { group: string; products: P[] }[] {
+  const byName = (a: P, b: P) => a.sort - b.sort || a.name.localeCompare(b.name);
+  const groups = new Map<string, P[]>();
+  for (const x of [...products].sort(byName)) {
+    const g = x.group_name || "Other";
+    groups.set(g, [...(groups.get(g) ?? []), x]);
+  }
+  return [...groups].map(([group, list]) => ({ group, products: list }));
+}

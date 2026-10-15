@@ -9,7 +9,7 @@ import { ago, niceDate } from "@/lib/dates";
 import { fmt, num } from "@/lib/calc/num";
 import { logContact, setOrder } from "@/lib/db/save";
 import { lineUnit, unitWord } from "@/lib/calc/units";
-import { findProducts } from "@/lib/calc/products";
+import { findProducts, groupProducts } from "@/lib/calc/products";
 import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
 import {
   cleanLines,
@@ -262,22 +262,13 @@ export default function OrderEditor(props: OrderEditorProps) {
     );
   };
 
-  const grouped = (list: CatalogProduct[]) => {
-    const out: React.ReactNode[] = [];
-    let lastGroup = "";
-    for (const p of list) {
-      if (p.group_name !== lastGroup) {
-        out.push(
-          <h4 className="grouphead" key={`g-${p.group_name}`}>
-            {p.group_name}
-          </h4>,
-        );
-        lastGroup = p.group_name;
-      }
-      out.push(row(p));
-    }
-    return out;
-  };
+  const grouped = (list: CatalogProduct[]) =>
+    groupProducts(list).flatMap((g) => [
+      <h4 className="grouphead" key={`g-${g.group}`}>
+        {g.group}
+      </h4>,
+      ...g.products.map(row),
+    ]);
 
   const close = async () => {
     await flush();

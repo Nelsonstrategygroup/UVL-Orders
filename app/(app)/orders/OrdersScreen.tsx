@@ -93,6 +93,9 @@ export default function OrdersScreen() {
       {!canChange && <ViewOnly what="orders" />}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Orders</h2>
+        <Link href="/orders/sheet" className="btn ghost">
+          Print order sheets
+        </Link>
         {canDownload && (
         <button
           type="button"

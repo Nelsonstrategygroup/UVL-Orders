@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drivesLambCount, findProducts, needsChecking, partAmountQty, partAmountRow } from "./products";
+import { drivesLambCount, findProducts, groupProducts, needsChecking, partAmountQty, partAmountRow } from "./products";
 
 describe("part amounts, either way round", () => {
   it("shows small amounts per part and big ones per unit", () => {
@@ -79,5 +79,22 @@ describe("Add a product picker", () => {
   it("never shows retired products, and nothing for an empty box", () => {
     expect(ids("old")).toEqual([]);
     expect(ids("   ")).toEqual([]);
+  });
+});
+
+describe("product groups on the order form", () => {
+  it("shows each group once, even when a product was added out of order", () => {
+    const list = [
+      { name: "Whole Loin", group_name: "Loins and chops", sort: 34 },
+      { name: "Whole Lamb", group_name: "Whole lambs", sort: 100 },
+      { name: "Chops", group_name: "Loins and chops", sort: 200 },
+      { name: "AO Legs", group_name: "Legs", sort: 522 },
+      { name: "BLS Legs", group_name: "Legs", sort: 500 },
+    ];
+    expect(groupProducts(list).map((g) => `${g.group}: ${g.products.map((x) => x.name).join(", ")}`)).toEqual([
+      "Loins and chops: Whole Loin, Chops",
+      "Whole lambs: Whole Lamb",
+      "Legs: BLS Legs, AO Legs",
+    ]);
   });
 });
