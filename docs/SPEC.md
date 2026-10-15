@@ -206,14 +206,14 @@ Port these from the prototype into `lib/calc/` with unit tests.
 
 Whole loin model, confirmed by Kathy and Chris on 10/15/26. For the selected week:
 
-1.  = sum of  across all orders (in each product's own unit), plus the half and whole shortfall (6.2).
-2. Carcass lambs = sum of totals for products with . They use no parts and are not in the balance.
-3. Products with a  (Le Trim) take nothing from the balance; they are listed on their own.
-4.  = sum over the other products of .
-5. For a part that others are cut from ():  = whole loins ordered intact (Whole Loin, and 2 inside each boxed Whole Lamb) + max(, ). The other one comes out extra.
-6.  =  for parts that drive the count:  true and not cut from another part (legs, shoulders, whole loins). Only products that count toward lambs feed this.
-7. Lambs for parts = max of ; the part with that max "sets the count." Recommended = lambs for parts + carcass lambs.
-8. Final =  if set, else the cut sheet total, else recommended.
+1. `totals[product]` = sum of `order_lines.qty` across all orders (in each product's own unit), plus the half and whole shortfall (6.2).
+2. Carcass lambs = sum of totals for products with `carcass`. They use no parts and are not in the balance.
+3. Products with a `fill_note` (Le Trim) take nothing from the balance; they are listed on their own.
+4. `need[part]` = sum over the other products of `totals[product] * product_part_uses.qty`.
+5. For a part that others are cut from (`wholeloin`): `need[wholeloin]` = whole loins ordered intact (Whole Loin, and 2 inside each boxed Whole Lamb) + max(`need[rack]`, `need[loin]`). The other one comes out extra.
+6. `lambs[part]` = `ceil(need[part] / parts.per_lamb)` for parts that drive the count: `drives_count` true and not cut from another part (legs, shoulders, whole loins). Only products that count toward lambs feed this.
+7. Lambs for parts = max of `lambs`; the part with that max "sets the count." Recommended = lambs for parts + carcass lambs.
+8. Final = `weeks.lamb_override` if set, else the cut sheet total, else recommended.
 9. For each part: supply = (final - carcass lambs) * per_lamb (a rack or short loin gets one per whole loin); left over = supply minus need. Status: short, sets the count, comes out even, or extra.
 
 Front and hind shanks are shown (need vs. get) but never set the count ("We will not kill lambs to get shanks," Kathy 10/14). Hind shanks stay on the legs and are not part of a boxed Whole Lamb.
