@@ -32,7 +32,7 @@ In Vercel: project **uvl-orders** → Deployments → find the last production d
 Then revert the merge on `main` so the next push doesn't bring it back:
 
 ```bash
-git revert -m 1 <merge commit>
+git revert -m 1 17c82ce
 ```
 
 ### 3. Undo step 1 (model migration)
