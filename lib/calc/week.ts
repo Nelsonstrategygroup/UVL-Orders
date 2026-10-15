@@ -144,8 +144,12 @@ export function calcWeek(input: {
     const most = kids.reduce((m, k) => Math.max(m, from[k.id] ?? 0), 0);
     return (from[id] ?? 0) + most;
   };
+  // Whole loins that go out whole (ordered whole, or inside a boxed Whole
+  // Lamb) are never cut, so they give no racks or short loins.
+  const intact: Qty = {};
   for (const p of parts) {
     if (!children(p.id).length) continue;
+    intact[p.id] = need[p.id] ?? 0;
     need[p.id] = parentNeed(p.id, need);
     driveNeed[p.id] = parentNeed(p.id, driveNeed);
   }
@@ -168,7 +172,11 @@ export function calcWeek(input: {
   const partsLambs = Math.max(0, final - carcass);
 
   const toRow = (r: (typeof base)[number]): PartRow => {
-    const supply = partsLambs * num(r.part.per_lamb);
+    const up = parentOf(r.part);
+    // A cut-from part gets one per whole loin that is cut (not those that go out whole).
+    const supply = up
+      ? Math.max(0, partsLambs * num(byId.get(up)!.per_lamb) - (intact[up] ?? 0))
+      : partsLambs * num(r.part.per_lamb);
     const left = supply - r.need;
     let status: PartStatus;
     // Nothing ordered and nothing coming: no tag. Nothing ordered but the
@@ -216,7 +224,9 @@ export function calcWeek(input: {
 
 /** Main cuts with some left over: the extras Kathy has to find a home for. */
 export function plannedExtras(rows: PartRow[]): PartRow[] {
-  return rows.filter((r) => r.planned && r.left > EPS);
+  // A spare whole loin is already counted as a spare rack and short loin.
+  const parents = new Set(rows.map((r) => r.parent).filter(Boolean));
+  return rows.filter((r) => r.planned && r.left > EPS && !parents.has(r.part.id));
 }
 
 /** "78 for parts + 2 carcass = 80 lambs", or null when there are no carcass lambs. */

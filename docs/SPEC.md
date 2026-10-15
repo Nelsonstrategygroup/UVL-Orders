@@ -214,7 +214,7 @@ Whole loin model, confirmed by Kathy and Chris on 10/15/26. For the selected wee
 6. `lambs[part]` = `ceil(need[part] / parts.per_lamb)` for parts that drive the count: `drives_count` true and not cut from another part (legs, shoulders, whole loins). Only products that count toward lambs feed this.
 7. Lambs for parts = max of `lambs`; the part with that max "sets the count." Recommended = lambs for parts + carcass lambs.
 8. Final = `weeks.lamb_override` if set, else the cut sheet total, else recommended.
-9. For each part: supply = (final - carcass lambs) * per_lamb (a rack or short loin gets one per whole loin); left over = supply minus need. Status: short, sets the count, comes out even, or extra.
+9. For each part: supply = (final - carcass lambs) * per_lamb (a rack or short loin gets one per whole loin that is cut: whole loins going out whole, ordered intact or inside a Whole Lamb, give none); left over = supply minus need. Status: short, sets the count, comes out even, or extra.
 
 Front and hind shanks are shown (need vs. get) but never set the count ("We will not kill lambs to get shanks," Kathy 10/14). Hind shanks stay on the legs and are not part of a boxed Whole Lamb.
 

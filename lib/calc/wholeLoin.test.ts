@@ -131,9 +131,10 @@ describe("week of Oct 12, 2026 under the whole loin model", () => {
     expect(c.driver?.part.id).toBe("wholeloin");
     expect(row(c, "wholeloin").status).toBe("sets");
     expect(c.rows.map((r) => r.part.id).slice(0, 5)).toEqual(["leg", "shoulder", "wholeloin", "rack", "loin"]);
-    expect(row(c, "rack")).toMatchObject({ parent: "wholeloin", drives: false, supply: 158, left: 21, status: "extra" });
-    expect(row(c, "loin")).toMatchObject({ parent: "wholeloin", drives: false, supply: 158 });
-    expect(row(c, "loin").left).toBeCloseTo(31);
+    // 158 whole loins, 20 go out whole: 138 are cut into a rack and a short loin each.
+    expect(row(c, "rack")).toMatchObject({ parent: "wholeloin", drives: false, supply: 138, left: 1, status: "extra" });
+    expect(row(c, "loin")).toMatchObject({ parent: "wholeloin", drives: false, supply: 138 });
+    expect(row(c, "loin").left).toBeCloseTo(11);
   });
 
   it("front shanks: 116 + 10 from whole lambs = 126, shown but never setting the count", () => {
@@ -141,6 +142,8 @@ describe("week of Oct 12, 2026 under the whole loin model", () => {
     // Hind shanks come off the legs: available, not planned, never in the extras list.
     expect(row(c, "hshank")).toMatchObject({ need: 12, lambs: 0, drives: false, planned: false, availableOnly: true });
     expect(plannedExtras(c.rows).map((r) => r.part.id)).not.toContain("hshank");
+    // The spare whole loin shows as its spare rack and short loin, not twice.
+    expect(plannedExtras(c.rows).map((r) => `${r.part.id} ${Math.round(r.left)}`)).toEqual(["leg 33", "shoulder 75", "rack 1", "loin 11", "fshank 32"]);
   });
 
   it("Le Trim is listed on its own, 720 lb, and not in the balance", () => {
