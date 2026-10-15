@@ -11,6 +11,8 @@ export type Part = {
   sort: number;
   /** False for byproducts (neck, trim, Denver ribs): tracked per lamb, never sets the count. Missing means true. */
   drives_count?: boolean;
+  /** The part this one is cut from (rack and short loin: "wholeloin"). One of the parent gives one of this. */
+  made_from?: string | null;
 };
 
 export type PartUse = { part_id: string; qty: number };
@@ -34,6 +36,10 @@ export type Product = {
   counts_toward_lambs?: boolean;
   /** Not from a lamb at all (pepper sticks). */
   not_lamb?: boolean;
+  /** Set when Kathy fills it from extras (Le Trim): kept out of the balance and listed on its own. */
+  fill_note?: string;
+  /** An uncut carcass lamb: uses no parts, adds one lamb on top of the lambs for parts. */
+  carcass?: boolean;
 };
 
 /** Units an order line can be taken in. */

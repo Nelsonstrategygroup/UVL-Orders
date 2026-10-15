@@ -1,0 +1,367 @@
+{
+ "table": "public.product_cut_specs",
+ "exported_at": "20261015T212656Z",
+ "count": 45,
+ "rows": [
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "cut_spec_id": "s1",
+   "product_id": "cp-bi-legs",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s2",
+   "product_id": "cp-bls-legs",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s7",
+   "product_id": "cp-bls-shoulder",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s25",
+   "product_id": "cp-chops",
+   "sort": 0,
+   "units_per_cut": 2.5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s14",
+   "product_id": "cp-french-rack",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "cut_spec_id": "s27",
+   "product_id": "cp-front-shanks",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s28",
+   "product_id": "cp-hind-shanks",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s25",
+   "product_id": "cp-labeled-chops",
+   "sort": 0,
+   "units_per_cut": 2.5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s28",
+   "product_id": "cp-labeled-hind-shanks",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s22",
+   "product_id": "cp-short-loin",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s33",
+   "product_id": "cp-whole-lamb",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": "2026-10-15T20:24:38.640283+00:00"
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s1",
+   "product_id": "s1",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s10",
+   "product_id": "s10",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s11",
+   "product_id": "s11",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s12",
+   "product_id": "s12",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s13",
+   "product_id": "s13",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s14",
+   "product_id": "s14",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s15",
+   "product_id": "s15",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s16",
+   "product_id": "s16",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s17",
+   "product_id": "s17",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s18",
+   "product_id": "s18",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s19",
+   "product_id": "s19",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s2",
+   "product_id": "s2",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s20",
+   "product_id": "s20",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s21",
+   "product_id": "s21",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s22",
+   "product_id": "s22",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s23",
+   "product_id": "s23",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s24",
+   "product_id": "s24",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s25",
+   "product_id": "s25",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s26",
+   "product_id": "s26",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s27",
+   "product_id": "s27",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s28",
+   "product_id": "s28",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s29",
+   "product_id": "s29",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s3",
+   "product_id": "s3",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s30",
+   "product_id": "s30",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s31",
+   "product_id": "s31",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s32",
+   "product_id": "s32",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s33",
+   "product_id": "s33",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s34",
+   "product_id": "s34",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s4",
+   "product_id": "s4",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s5",
+   "product_id": "s5",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s6",
+   "product_id": "s6",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s7",
+   "product_id": "s7",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s8",
+   "product_id": "s8",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s9",
+   "product_id": "s9",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  }
+ ]
+}

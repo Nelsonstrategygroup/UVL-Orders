@@ -42,11 +42,11 @@ function must<T>(r: { data: T | null; error: { message: string } | null }): T {
 
 export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
   const [parts, products, uses, cutSpecs, sizes, settings] = await Promise.all([
-    db.from("parts").select("id, name, per_lamb, unit, balance_check, confirmed, sort, source_note, drives_count").order("sort"),
+    db.from("parts").select("id, name, per_lamb, unit, balance_check, confirmed, sort, source_note, drives_count, made_from").order("sort"),
     db
       .from("products")
       .select(
-        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, per_box, product_cut_specs(cut_spec_id, units_per_cut, sort)",
+        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, product_cut_specs(cut_spec_id, units_per_cut, sort)",
       )
       .order("sort")
       .order("name"),

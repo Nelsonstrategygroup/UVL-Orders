@@ -57,6 +57,14 @@ async function main() {
   if (cpErr) throw new Error(`seed_customer_products: ${cpErr.message}`);
   console.log(`  ${done}`);
 
+  // The whole loin model (10/15/26): the same data changes the migrations make
+  // on a database that already had its catalog. Safe to run more than once.
+  for (const fn of ["whole_loin_model_expand", "whole_loin_model_cleanup"]) {
+    const { error } = await db.rpc(fn);
+    // Step 2 only exists once its migration is applied.
+    if (error && !/could not find|does not exist/i.test(error.message)) throw new Error(`${fn}: ${error.message}`);
+  }
+
   console.log("Saving goals");
   const { count, error: goalErr } = await db.from("saving_goals").select("id", { count: "exact", head: true });
   if (goalErr) throw new Error(`saving_goals: ${goalErr.message}`);

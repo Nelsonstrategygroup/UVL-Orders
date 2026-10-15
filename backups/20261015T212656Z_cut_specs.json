@@ -1,0 +1,313 @@
+{
+ "table": "public.cut_specs",
+ "exported_at": "20261015T212656Z",
+ "count": 34,
+ "rows": [
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s1",
+   "sort": 0,
+   "text": "legs Bone In to VAC",
+   "updated_at": null,
+   "use_type": "leg"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s10",
+   "sort": 9,
+   "text": "BI Shoulder to Vac",
+   "updated_at": null,
+   "use_type": "shoulder"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s11",
+   "sort": 10,
+   "text": "Shoulders Bone In to VAC",
+   "updated_at": null,
+   "use_type": "shoulder"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s12",
+   "sort": 11,
+   "text": "BLS Shoulder to Grind (TO TUBS FOR NANCY)",
+   "updated_at": null,
+   "use_type": "shoulder"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s13",
+   "sort": 12,
+   "text": "Shoulders - to 1\" steaks 2/pack",
+   "updated_at": null,
+   "use_type": "shoulder"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s14",
+   "sort": 13,
+   "text": "French Rack to Vac",
+   "updated_at": null,
+   "use_type": "rack"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s15",
+   "sort": 14,
+   "text": "Frenched Rack to Vac",
+   "updated_at": null,
+   "use_type": "rack"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s16",
+   "sort": 15,
+   "text": "UVL racks to Vac (SINGLE PACK)",
+   "updated_at": null,
+   "use_type": "rack"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s17",
+   "sort": 16,
+   "text": "UVL racks to Vac (SHORT BONE SPEC)",
+   "updated_at": null,
+   "use_type": "rack"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s18",
+   "sort": 17,
+   "text": "Chop Ready Racks (KEEP SEPARATE)",
+   "updated_at": null,
+   "use_type": "rack"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s19",
+   "sort": 18,
+   "text": "Dish Dash Racks (9.5 bone, NEW 7 INCH Fence Please)",
+   "updated_at": null,
+   "use_type": "rack"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s2",
+   "sort": 1,
+   "text": "BLS legs to Vac",
+   "updated_at": null,
+   "use_type": "leg"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s20",
+   "sort": 19,
+   "text": "Whole Loins to VAC",
+   "updated_at": null,
+   "use_type": "wholeloin"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s21",
+   "sort": 20,
+   "text": "whole loin to 1.25 inch chops 2/pak",
+   "updated_at": null,
+   "use_type": "wholeloin"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s22",
+   "sort": 21,
+   "text": "Shortloins - NSM Spec lean trim::1 PK,",
+   "updated_at": null,
+   "use_type": "loin"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s23",
+   "sort": 22,
+   "text": "BLS Shortloin to Vac (1/4 Fat, Tenderloin ON)",
+   "updated_at": null,
+   "use_type": "loin"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s24",
+   "sort": 23,
+   "text": "BLS Loin NY Strip, (TenderOff PLEASE Trim 1/4 inch Cap)",
+   "updated_at": null,
+   "use_type": "loin"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s25",
+   "sort": 24,
+   "text": "Short Loins to 1 1/4 inch chops 4/pak, sirloins out!",
+   "updated_at": null,
+   "use_type": "loin"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s26",
+   "sort": 25,
+   "text": "Loin Saddle to Vac (Standard Cut, Full Fat Cap)",
+   "updated_at": null,
+   "use_type": "saddle"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s27",
+   "sort": 26,
+   "text": "Front Shanks 2/pack",
+   "updated_at": null,
+   "use_type": "fshank"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s28",
+   "sort": 27,
+   "text": "Hind Shanks 2/pack",
+   "updated_at": null,
+   "use_type": "hshank"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s29",
+   "sort": 28,
+   "text": "Hind Shanks - Volcano Cut (Just like Last time, Keep Separate)",
+   "updated_at": null,
+   "use_type": "hshank"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s3",
+   "sort": 2,
+   "text": "AO Leg to Vac",
+   "updated_at": null,
+   "use_type": "legshank"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s30",
+   "sort": 29,
+   "text": "Hind Shanks TRIMMED OUT TO Stew Meat",
+   "updated_at": null,
+   "use_type": "hshank"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s31",
+   "sort": 30,
+   "text": "All shanks to Osso Bucco",
+   "updated_at": null,
+   "use_type": "allshank"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s32",
+   "sort": 31,
+   "text": "SAVE NECK to Vac (drop to later Necks)",
+   "updated_at": null,
+   "use_type": "none"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s33",
+   "sort": 32,
+   "text": "Well finished lamb for Carcass (70-80# Target)",
+   "updated_at": null,
+   "use_type": "carcass"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s34",
+   "sort": 33,
+   "text": "XS 50-55 of the day lambs for Behman",
+   "updated_at": null,
+   "use_type": "carcass"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s4",
+   "sort": 3,
+   "text": "AO ODD LEGS (AO, Cut to 3\" \"Steak Roast\")",
+   "updated_at": null,
+   "use_type": "leg"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s5",
+   "sort": 4,
+   "text": "BLS Legs to Grind",
+   "updated_at": null,
+   "use_type": "leg"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s6",
+   "sort": 5,
+   "text": "Legs, 1\" Steaks 2/pack",
+   "updated_at": null,
+   "use_type": "leg"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s7",
+   "sort": 6,
+   "text": "BLS Shoulder to Vac",
+   "updated_at": null,
+   "use_type": "shoulder"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s8",
+   "sort": 7,
+   "text": "BLS Shoulder (Cut in 1/2 and Netted)",
+   "updated_at": null,
+   "use_type": "shoulder"
+  },
+  {
+   "active": true,
+   "created_at": "2026-10-02T07:45:55.296228+00:00",
+   "id": "s9",
+   "sort": 8,
+   "text": "shoulders BLS, netted (CUT IN 1/2 PLEASE)",
+   "updated_at": null,
+   "use_type": "shoulder"
+  }
+ ]
+}

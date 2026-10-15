@@ -1,7 +1,7 @@
 // Text and totals shown on This week (SPEC 5.4, 6.5).
 
 import { longDate } from "../dates";
-import { lambSourceLine, type WeekCalc } from "./week";
+import { carcassLine, lambSourceLine, type WeekCalc } from "./week";
 import { fmt, num } from "./num";
 import type { Product, Qty } from "./types";
 
@@ -52,16 +52,18 @@ export function weekNumbers(
   c: WeekCalc,
   cutSheet: { total: number; bySize: SizeTotal[] },
   processDate: string | null,
-): { headline: number; sourceLine: string | null; message: string; balanceLambs: number } {
+): { headline: number; sourceLine: string | null; carcassLine: string | null; message: string; balanceLambs: number } {
   return {
     headline: c.final,
     sourceLine: lambSourceLine(c),
+    carcassLine: carcassLine(c),
     message: producerMessage({
       lambs: c.final,
       processDate,
       cutSheet: c.source === "cut sheet" ? cutSheet : null,
     }),
-    balanceLambs: c.final,
+    // Carcass lambs leave uncut: the balance is for the rest.
+    balanceLambs: c.partsLambs,
   };
 }
 

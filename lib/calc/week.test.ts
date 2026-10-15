@@ -227,7 +227,8 @@ describe("extras when nothing is ordered from a part", () => {
   it("main cuts are planned for; necks, ribs and trim come with every lamb", () => {
     const c = calcWeek({ parts: seedParts, products: seedProducts, orders: [{ s7: 50 }] });
     const planned = c.rows.filter((r) => r.planned).map((r) => r.part.id).sort();
-    expect(planned).toEqual(["fshank", "hshank", "leg", "loin", "rack", "shoulder"]);
+    // Hind shanks come off the legs: shown as available, not planned for.
+    expect(planned).toEqual(["fshank", "leg", "loin", "rack", "shoulder"]);
     const extras = plannedExtras(c.rows).map((r) => r.part.id);
     expect(extras).toContain("leg");
     expect(extras).not.toContain("shoulder");
