@@ -5,6 +5,7 @@ import {
   customerListCsv,
   fileSafe,
   freezerCsv,
+  orderGridTable,
   packingRecordCsv,
   productTotalsCsv,
   salesCsv,
@@ -215,6 +216,38 @@ describe("freezer on hand", () => {
     expect(r.slice(1).map((x) => x.slice(1))).toEqual([
       ["legs Bone In to VAC", "Legs", "legs (not packs)", "5", "2", "3"],
       ["French Rack to Vac", "Racks", "each", "0", "1", "-1"],
+    ]);
+  });
+});
+
+describe('order grid for Excel', () => {
+  const prods = [
+    { id: 'leg', name: 'BLS Legs', unit: 'each', sort: 1 },
+    { id: 'sh', name: 'BLS Shoulder', unit: 'each', sort: 2, alt_unit: 'lb', lb_per_unit: 5 },
+  ];
+  const a = cust('a', 'Key City', { contacts: [{ id: 'k', name: 'Sam', phone: '555-1000', email: '', roles: [] } as never] });
+  const b = cust('b', 'Newport Ave');
+  const byId = new Map([[a.id, a], [b.id, b]]);
+
+  it('has customers down the side, products across, and a total', () => {
+    const orders = new Map<string, Order>([
+      ['a', { id: 'o1', customer_id: 'a', status: 'ordered', notes: 'Before 10', lines: { leg: 6, sh: 20 }, units: { sh: 'lb' } }],
+      ['b', { id: 'o2', customer_id: 'b', status: 'ordered', notes: '', lines: { leg: 2, sh: 3 }, units: {} }],
+    ]);
+    const t = orderGridTable([a, b], byId, orders, prods);
+    expect(t.header).toEqual(['Customer', 'Phone', 'BLS Legs (pcs)', 'BLS Shoulder (pcs or lb)', 'Notes']);
+    expect(t.rows).toEqual([
+      ['Key City', '555-1000', 6, '20 lb', 'Before 10'],
+      ['Newport Ave', '', 2, 3, ''],
+      ['Total', '', 8, 7, ''], // 20 lb of shoulder at 5 lb each is 4 pieces
+    ]);
+  });
+
+  it('is blank to write on when there are no orders', () => {
+    const t = orderGridTable([a, b], byId, null, prods);
+    expect(t.rows).toEqual([
+      ['Key City', '555-1000', '', '', ''],
+      ['Newport Ave', '', '', '', ''],
     ]);
   });
 });

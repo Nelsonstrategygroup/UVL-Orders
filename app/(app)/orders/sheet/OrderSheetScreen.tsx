@@ -8,6 +8,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { useStaffData } from "@/components/data/StaffData";
 import { useWeek } from "@/components/Week";
+import { downloadTable } from "@/components/download";
+import { orderGridTable } from "@/lib/reports";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { fmt } from "@/lib/calc/num";
 import { groupProducts } from "@/lib/calc/products";
@@ -160,6 +162,20 @@ export default function OrderSheetScreen() {
           </label>
           <button type="button" className="btn" onClick={() => window.print()}>
             Print
+          </button>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() =>
+              void downloadTable(
+                "blank-order-grid",
+                orderGridTable(list, customers.byId, null, groups.flatMap((g) => g.products)),
+                "Orders",
+                "xlsx",
+              )
+            }
+          >
+            Blank grid for Excel
           </button>
         </div>
       </div>

@@ -14,7 +14,8 @@ import { orderSummary } from "@/components/ReadBack";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { downloadTable } from "@/components/download";
-import { weekOrdersTable } from "@/lib/reports";
+import { orderGridTable, weekOrdersTable } from "@/lib/reports";
+import { groupProducts } from "@/lib/calc/products";
 import { toProductUnit, unitWord } from "@/lib/calc/units";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
@@ -114,6 +115,18 @@ export default function OrdersScreen() {
         >
           Download this week
         </button>
+        )}
+        {canDownload && (
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              const shown = groupProducts(catalog.products.filter((p) => p.active)).flatMap((g) => g.products);
+              void downloadTable(`order-grid-week-of-${week}`, orderGridTable(list, customers.byId, data.orders, shown), "Orders", "xlsx");
+            }}
+          >
+            Excel grid
+          </button>
         )}
         <div className="desk-only">
           <div className="seg" role="group" aria-label="Layout">

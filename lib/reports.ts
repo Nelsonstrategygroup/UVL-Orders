@@ -6,7 +6,7 @@ import { billedThrough, mainContact, rolesLabel } from "./calc/contacts";
 import { displayName } from "./calc/customers";
 import { STATUS_LABEL } from "./orders";
 import type { Customer, Order, OrderStatus, Qty, Units } from "./db/types";
-import { lineUnit, toProductUnit } from "./calc/units";
+import { lineUnit, toProductUnit, unitWord } from "./calc/units";
 import { csvCell } from "./import/csv";
 
 type Cell = string | number | null | undefined;
@@ -364,3 +364,43 @@ export const customerListCsv = (...a: Parameters<typeof customerListTable>): str
 export const salesCsv = (...a: Parameters<typeof salesTable>): string => tableCsv(salesTable(...a));
 export const packingRecordCsv = (...a: Parameters<typeof packingRecordTable>): string => tableCsv(packingRecordTable(...a));
 export const freezerCsv = (...a: Parameters<typeof freezerTable>): string => tableCsv(freezerTable(...a));
+
+// ---------------------------------------------------------------------------
+// The order grid as a spreadsheet: customers down the side, products across
+// the top in their order-form groups. With a week's orders filled in, or
+// blank to print and write on.
+// ---------------------------------------------------------------------------
+
+type GridProduct = ProductLite & { alt_unit?: string | null };
+
+/** "BLS Legs (pcs)", or "BLS Shoulder (pcs or lb)" when it can be taken either way. */
+export function gridHeader(p: GridProduct): string {
+  return `${p.name} (${unitWord(p.unit)}${p.alt_unit ? ` or ${unitWord(p.alt_unit)}` : ""})`;
+}
+
+export function orderGridTable(
+  customers: Customer[],
+  byId: Map<string, Customer>,
+  /** The week's orders, or null for a blank grid. */
+  orders: Map<string, Order> | null,
+  /** Products in order-form order (by group). */
+  products: GridProduct[],
+): Table {
+  const header = ["Customer", "Phone", ...products.map(gridHeader), "Notes"];
+  const totals = products.map(() => 0);
+  const rows: Cell[][] = customers.map((c) => {
+    const o = orders?.get(c.id);
+    const phone = mainContact(c.contacts)?.phone ?? c.contacts.find((k) => k.phone)?.phone ?? "";
+    const cells = products.map((p, i): Cell => {
+      const q = o?.lines[p.id] ?? 0;
+      if (!(q > 0)) return "";
+      totals[i] += toProductUnit(q, o?.units?.[p.id], p);
+      const unit = lineUnit(p.id, p, o?.units);
+      // Taken in the other unit: say so in the cell.
+      return unit === p.unit ? q : `${q} ${unitWord(unit)}`;
+    });
+    return [displayName(c, byId), phone, ...cells, o?.notes ?? ""];
+  });
+  if (orders) rows.push(["Total", "", ...totals.map((t) => (t > 0 ? Math.round(t * 100) / 100 : "")), ""]);
+  return table(header, rows);
+}
