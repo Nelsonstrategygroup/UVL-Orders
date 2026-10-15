@@ -23,6 +23,10 @@ import type { Part, Product, Qty } from "./types";
 
 const MAIN_CUTS = new Set(BALANCE_PARTS.map((p) => p.id));
 
+// Hind shanks come off the back legs. They are there when they are there:
+// shown as available, not planned for, never "extra" (Lucas, 10/15/26).
+const AVAILABLE_ONLY = new Set(["hshank"]);
+
 export type PartStatus = "none" | "short" | "sets" | "even" | "extra";
 
 export type PartRow = {
@@ -46,6 +50,8 @@ export type PartRow = {
   planned: boolean;
   /** The part this one is cut from (rack and short loin: whole loin); shown under it. */
   parent: string | null;
+  /** Shown as available rather than extra (hind shanks: they come off the legs). */
+  availableOnly: boolean;
 };
 
 /** A product filled from extras instead of the balance (Le Trim). */
@@ -178,8 +184,9 @@ export function calcWeek(input: {
       supply,
       left,
       status,
-      planned: MAIN_CUTS.has(r.part.id) || children(r.part.id).length > 0 || !!parent,
+      planned: (MAIN_CUTS.has(r.part.id) && !AVAILABLE_ONLY.has(r.part.id)) || children(r.part.id).length > 0 || !!parent,
       parent,
+      availableOnly: AVAILABLE_ONLY.has(r.part.id),
     };
   };
   // Parents first, each followed by the parts cut from it.

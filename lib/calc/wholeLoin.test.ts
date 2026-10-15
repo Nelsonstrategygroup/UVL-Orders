@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Part, Product } from "./types";
-import { calcWeek, carcassLine } from "./week";
+import { calcWeek, carcassLine, plannedExtras } from "./week";
 
 const part = (id: string, name: string, per_lamb: number, drives: boolean, made_from: string | null = null, sort = 0): Part => ({
   id,
@@ -138,7 +138,9 @@ describe("week of Oct 12, 2026 under the whole loin model", () => {
 
   it("front shanks: 116 + 10 from whole lambs = 126, shown but never setting the count", () => {
     expect(row(c, "fshank")).toMatchObject({ need: 126, lambs: 0, supply: 158, left: 32, drives: false });
-    expect(row(c, "hshank")).toMatchObject({ need: 12, lambs: 0, drives: false });
+    // Hind shanks come off the legs: available, not planned, never in the extras list.
+    expect(row(c, "hshank")).toMatchObject({ need: 12, lambs: 0, drives: false, planned: false, availableOnly: true });
+    expect(plannedExtras(c.rows).map((r) => r.part.id)).not.toContain("hshank");
   });
 
   it("Le Trim is listed on its own, 720 lb, and not in the balance", () => {

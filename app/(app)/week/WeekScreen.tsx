@@ -458,6 +458,7 @@ function StatusTag({ row }: { row: PartRow }) {
       return <span className="tag even">Even</span>;
     case "extra":
       // Main cuts stand out; what comes with every lamb stays quiet.
+      if (row.availableOnly) return <span className="tag plain">{fmt(row.left)} available</span>;
       return <span className={row.planned ? "tag extra" : "tag plain"}>{fmt(row.left)} extra</span>;
     default:
       return null;
