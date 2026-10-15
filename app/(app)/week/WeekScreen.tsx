@@ -21,7 +21,7 @@ import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
 import { cutSheetTotals, legBreakdown, legBreakdownText, weekNumbers } from "@/lib/calc/summary";
 import { calcWeek, plannedExtras, type PartRow } from "@/lib/calc/week";
-import { inProductUnits } from "@/lib/calc/units";
+import { cantConvert, inProductUnits, unitWord } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
 import { loadCutSheet } from "@/lib/db/cutsheet";
@@ -72,6 +72,8 @@ export default function WeekScreen() {
   ];
   const extras = plannedExtras(c.rows);
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
+  // Lines in pounds for a product with no weight per piece count as nothing.
+  const uncounted = [...data.orders.values()].flatMap((o) => cantConvert(o.lines, o.units, catalog.productById));
 
   const ordering = orderingCustomers(customers.list);
   const answered = ordering.filter((cu) => isDone(data.orders.get(cu.id)?.status)).length;
@@ -126,10 +128,13 @@ export default function WeekScreen() {
             <div className="max-w-[34ch] pb-1.5">
               <h2>lambs to order</h2>
               {n.sourceLine && <div className="font-semibold">{n.sourceLine}.</div>}
+              {n.carcassLine && <div className="font-semibold">{n.carcassLine}.</div>}
               <div className="muted">
                 {c.recommended === 0
                   ? "No orders entered for this week yet."
-                  : `${c.source === "orders" ? "Set" : "Orders: set"} by ${c.driver!.part.name.toLowerCase()}. ${fmt(c.driver!.need)}${unit(c.driver!)} needed, ${fmt(c.driver!.part.per_lamb)}${unit(c.driver!)} per lamb.`}
+                  : c.driver
+                    ? `${c.source === "orders" ? "Set" : "Orders: set"} by ${c.driver.part.name.toLowerCase()}. ${fmt(c.driver.need)}${unit(c.driver)} needed, ${fmt(c.driver.part.per_lamb)}${unit(c.driver)} per lamb.`
+                    : "Only carcass lambs so far."}
               </div>
             </div>
           </div>
@@ -215,6 +220,7 @@ export default function WeekScreen() {
           <h3>Does the carcass balance?</h3>
           <p className="small muted mt-1 mb-2">
             What this week&apos;s orders need from each part, against what {n.balanceLambs} lambs will give you.
+            {c.carcass > 0 && <> The {fmt(c.carcass)} carcass lamb{c.carcass === 1 ? "" : "s"} go out uncut and aren&apos;t in this table.</>}
           </p>
           <table className="bal">
             <thead>
@@ -240,9 +246,17 @@ export default function WeekScreen() {
                       </th>
                     </tr>
                     {g.rows.map((r) => (
-                      <tr key={r.part.id}>
+                      <tr key={r.part.id} className={r.parent ? "bal-sub" : undefined}>
                         <td>
-                          <b>{r.part.name}</b> <span className="small muted">{r.part.unit === "lb" ? "lb" : ""}</span>
+                          {r.parent ? (
+                            <span title={`Cut from ${catalog.parts.find((x) => x.id === r.parent)?.name.toLowerCase() ?? r.parent}s`}>
+                              <span aria-hidden="true">↳ </span>
+                              {r.part.name}
+                            </span>
+                          ) : (
+                            <b>{r.part.name}</b>
+                          )}{" "}
+                          <span className="small muted">{r.part.unit === "lb" ? "lb" : ""}</span>
                         </td>
                         <td className="num">{fmt(r.need)}</td>
                         <td className="num">{fmt(r.supply)}</td>
@@ -286,6 +300,26 @@ export default function WeekScreen() {
                 </div>
               )}
             </div>
+          )}
+          {c.filled.length > 0 && (
+            <div className="note mt-3">
+              <b>Filled from extras, not in the table:</b>
+              {c.filled.map((f) => {
+                const step = catalog.productById.get(f.product.id)?.order_step ?? 1;
+                return (
+                  <div key={f.product.id} className="mt-1">
+                    {f.product.name}: {fmt(f.qty)} {unitWord(f.product.unit, f.qty)}
+                    {step > 1 && ` (${fmt(f.qty / step)} × ${fmt(step)} ${unitWord(f.product.unit, step)})`}. {f.note}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {uncounted.length > 0 && (
+            <p className="note bad small mt-3">
+              Not counted: {uncounted.map((u) => `${u.name} ${fmt(u.qty)} ${unitWord(u.unit, u.qty)}`).join(", ")}. Add a weight
+              per piece in Setup so these count.
+            </p>
           )}
           <p className="small muted mt-2.5">Extras are estimates until the cut sheet comes back from {processor}.</p>
         </div>

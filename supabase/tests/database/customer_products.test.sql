@@ -6,7 +6,7 @@ select plan(13);
 
 -- The starting list ran once, after the catalog was loaded.
 select is(
-  (select count(*)::int from public.products where id like 'cp-%' and active), 22,
+  (select count(*)::int from public.products where id like 'cp-%' and active and id not in ('cp-chop-ready-rack', 'cp-carcass-lamb')), 22,
   'the 22 starting customer products are on');
 select is(
   (select count(*)::int from public.products where id not like 'cp-%' and active and created_at < now()), 0,
@@ -17,7 +17,7 @@ select is(
 select is(public.seed_customer_products(), 'already done', 'running it again changes nothing');
 select is(
   (select string_agg(id, ',' order by id) from public.parts where not drives_count), 'denver,hshank,neck,trim',
-  'byproduct parts (and hind shanks, for now) do not drive the lamb count');
+  'byproduct parts (and hind shanks) do not drive the lamb count');
 select is(
   (select units_per_cut from public.product_cut_specs pc join public.cut_specs s on s.id = pc.cut_spec_id
    where pc.product_id = 'cp-chops' and s.text like 'Short Loins to 1 1/4 inch chops%'), 2.5::numeric,

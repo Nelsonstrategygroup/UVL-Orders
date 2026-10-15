@@ -73,9 +73,9 @@ Create these tables with Supabase migrations. Use `uuid` primary keys with `gen_
 
 ### 4.2 Catalog
 
-- `parts`: `id text` PK (`leg`, `shoulder`, `rack`, `loin`, `fshank`, `hshank`, `neck`, `trim`, `denver`, and any added in Setup), `name`, `per_lamb numeric`, `unit text` (`each` or `lb`), `balance_check boolean` (counts in set and half/whole balance), `drives_count boolean` (false for byproducts such as neck, trim, Denver ribs: tracked per lamb but never set the lamb count; hind shank starts false until Kathy confirms), `confirmed boolean`, `source_note text`, `sort int`.
+- `parts`: `id text` PK (`leg`, `shoulder`, `rack`, `loin`, `fshank`, `hshank`, `neck`, `trim`, `denver`, and any added in Setup), `name`, `per_lamb numeric`, `unit text` (`each` or `lb`), `balance_check boolean` (counts in set and half/whole balance), `drives_count boolean` (false for byproducts such as neck, trim, Denver ribs: tracked per lamb but never set the lamb count; hind shank starts false until Kathy confirms), `confirmed boolean`, `source_note text`, `sort int`, `made_from text` (references `parts`: the part this one is cut from; rack and short loin are cut from `wholeloin`, one of each per whole loin; a part cut from another never sets the lamb count). Since 10/15/26 one lamb gives 2 legs, 2 shoulders, 2 whole loins (`wholeloin`), 2 front shanks; only legs, shoulders and whole loins set the count.
 - `cut_specs`: Mohawk's instruction lines. `id text` PK, `text text` (exact wording printed on the cut sheet), `use_type text` (see 6.3), `active boolean`, `sort int`.
-- `products`: customer products (change requests 10/2026): what customers order, in their words. `id text` PK, `name` (the name customers see), `short_name`, `unit` (`each`, `pack`, `lb`, `case`; old rows may have `leg`, `loin`, `lamb`), `alt_unit` (a second unit it may be ordered in, or null), `lb_per_unit` (about how much one unit weighs, to turn pounds into pieces), `pieces_per_pack`, `order_step` (Le Trim: 10), `billed_by_weight`, `counts_toward_lambs`, `not_lamb` (pepper sticks), `group_name` (free text), `fresh_only`, `active`, `confirmed` (false = listed under Needs checking in Setup), `sort`, `note` (shown behind an info button on the order screen). `cut_spec_id` is the old single link, replaced by `product_cut_specs`. The 36 original products (copies of Mohawk lines) are turned off and kept for history; the starting list comes from `seed_customer_products()`.
+- `products`: customer products (change requests 10/2026): what customers order, in their words. `id text` PK, `name` (the name customers see), `short_name`, `unit` (`each`, `pack`, `lb`, `case`; old rows may have `leg`, `loin`, `lamb`), `alt_unit` (a second unit it may be ordered in, or null), `lb_per_unit` (about how much one unit weighs, to turn pounds into pieces), `pieces_per_pack`, `order_step` (Le Trim: 10), `billed_by_weight`, `counts_toward_lambs`, `not_lamb` (pepper sticks), `group_name` (free text), `fresh_only`, `active`, `confirmed` (false = listed under Needs checking in Setup), `sort`, `note` (shown behind an info button on the order screen), `per_box` (how many fit in a box; products never share a box), `fill_note` (when set, Kathy fills it from extras, e.g. Le Trim: it takes nothing from the balance and is listed on its own with this note), `carcass` (an uncut carcass lamb: uses no parts, adds one lamb on top of the lambs for parts). `cut_spec_id` is the old single link, replaced by `product_cut_specs`. The 36 original products (copies of Mohawk lines) are turned off and kept for history; the starting list comes from `seed_customer_products()`.
 - `product_cut_specs`: `product_id`, `cut_spec_id`, `units_per_cut` (how much of the product's unit one Mohawk line gives: Chops 2.5 lb per short loin), `sort`. A product can link to several Mohawk lines. Mohawk wording appears only on the cut sheet.
 - `product_part_uses`: `product_id`, `part_id`, `qty numeric`. PK (`product_id`, `part_id`). How much of each part one unit consumes (Chops: 0.4 short loin per lb). Setup lets it be entered either way round.
 - `size_classes`: `id text` PK (`XL`, `Large`, `Medium`, `Small`, `XS`), `label`, `weight_range`, `sort`.
@@ -159,7 +159,8 @@ Default layout: "One customer at a time," a list of customer cards with status a
 
 - Large "lambs to order" number with the part that sets it, an override field, producer name, and processing day.
 - When a cut sheet exists for the week, the producer message uses the cut sheet's total by size: "Please bring 70 lambs for processing on Wednesday, Oct 21: 40 Large, 16 Medium, ..." Otherwise it uses the order-based count. Copy button.
-- "Does the carcass balance?" table: each part's need, what the lamb count gives, and a status tag.
+- "Does the carcass balance?" table: each part's need, what the lambs for parts give, and a status tag, in two groups (main cuts; what comes with every lamb). Rack and short loin show as sub-rows under Whole loin. Below it: extra main cuts with links to the freezer, cut sheet, and half and whole orders; products filled from extras (Le Trim, in lb and 10 lb units, "Kathy fills from extra shoulders or legs."); and any pound lines that can't be counted because the product has no weight per piece.
+- With carcass lambs ordered, the headline adds a line such as "78 for parts + 2 carcass = 80 lambs"; the producer message uses the total.
 - Leg breakdown line under the table: bone-in, AO, boneless, and other leg products, then the total, because Kathy summarizes legs this way.
 - Progress: customers answered, lines packed, cuts added for half and whole orders.
 - Follow-ups due this week or overdue, with Done buttons.
@@ -203,14 +204,19 @@ Port these from the prototype into `lib/calc/` with unit tests.
 
 ### 6.1 Weekly lamb guide (order based)
 
-For the selected week:
+Whole loin model, confirmed by Kathy and Chris on 10/15/26. For the selected week:
 
-1. `totals[product]` = sum of `order_lines.qty` across all orders, plus the half and whole shortfall (6.2).
-2. `need[part]` = sum over products of `totals[product] * product_part_uses.qty`.
-3. `lambs[part]` = `ceil(need[part] / parts.per_lamb)` when need > 0.
-4. Recommended = max of `lambs`. The part with that max "sets the count."
-5. Final = `weeks.lamb_override` if set, else recommended.
-6. For each part: supply = final * per_lamb; left over = supply minus need. Status: short, sets the count, comes out even, or extra.
+1.  = sum of  across all orders (in each product's own unit), plus the half and whole shortfall (6.2).
+2. Carcass lambs = sum of totals for products with . They use no parts and are not in the balance.
+3. Products with a  (Le Trim) take nothing from the balance; they are listed on their own.
+4.  = sum over the other products of .
+5. For a part that others are cut from ():  = whole loins ordered intact (Whole Loin, and 2 inside each boxed Whole Lamb) + max(, ). The other one comes out extra.
+6.  =  for parts that drive the count:  true and not cut from another part (legs, shoulders, whole loins). Only products that count toward lambs feed this.
+7. Lambs for parts = max of ; the part with that max "sets the count." Recommended = lambs for parts + carcass lambs.
+8. Final =  if set, else the cut sheet total, else recommended.
+9. For each part: supply = (final - carcass lambs) * per_lamb (a rack or short loin gets one per whole loin); left over = supply minus need. Status: short, sets the count, comes out even, or extra.
+
+Front and hind shanks are shown (need vs. get) but never set the count ("We will not kill lambs to get shanks," Kathy 10/14). Hind shanks stay on the legs and are not part of a boxed Whole Lamb.
 
 ### 6.2 Half and whole shortfall and freezer
 

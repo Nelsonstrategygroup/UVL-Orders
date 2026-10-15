@@ -68,3 +68,23 @@ export function inProductUnits(lines: Qty, units: Units | undefined, productById
   }
   return out;
 }
+
+/**
+ * Lines taken in pounds (or pieces) that can't be turned into the product's
+ * own unit because it has no weight per piece. They count as 0 in the
+ * balance, so This week lists them.
+ */
+export function cantConvert(
+  lines: Qty,
+  units: Units | undefined,
+  productById: Map<string, Pick<Product, "name" | "unit" | "lb_per_unit">>,
+): { name: string; qty: number; unit: string }[] {
+  const out: { name: string; qty: number; unit: string }[] = [];
+  for (const [id, q] of Object.entries(lines)) {
+    const p = productById.get(id);
+    const u = units?.[id];
+    if (!p || !u || u === p.unit || !(q > 0)) continue;
+    if (!(p.lb_per_unit && p.lb_per_unit > 0) && (u === "lb" || p.unit === "lb")) out.push({ name: p.name, qty: q, unit: u });
+  }
+  return out;
+}
