@@ -18,6 +18,7 @@ import { weekOrdersTable } from "@/lib/reports";
 import { toProductUnit, unitWord } from "@/lib/calc/units";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
+import { boxesNeeded, boxesText } from "@/lib/calc/products";
 import { fmt, num } from "@/lib/calc/num";
 import { todayName } from "@/lib/dates";
 import { setOrder } from "@/lib/db/save";
@@ -170,6 +171,7 @@ function OrderCards({ list, data, onOpen }: { list: Customer[]; data: WeekData; 
           const o = data.orders.get(c.id);
           const st: OrderStatus = o?.status ?? "todo";
           const sum = o ? orderSummary(o.lines, catalog!.products, o.units) : "";
+          const bx = o ? boxesText(boxesNeeded(o.lines, o.units, catalog!.productById)) : "";
           return (
             <button key={c.id} type="button" className="ccard" onClick={() => onOpen(c.id)}>
               <span className="min-w-0">
@@ -177,6 +179,7 @@ function OrderCards({ list, data, onOpen }: { list: Customer[]; data: WeekData; 
                 {c.call_day === today && st === "todo" && <span className="small text-barn"> Call today</span>}
                 <br />
                 <span className="sum">{sum || o?.notes || "Nothing yet"}</span>
+                {bx && <span className="small muted"> · {bx}</span>}
               </span>
               <span className={`st ${st}`}>{STATUS_LABEL[st]}</span>
             </button>

@@ -25,6 +25,7 @@ const blank = {
   lb_per_unit: null as number | null,
   pieces_per_pack: null as number | null,
   order_step: 1,
+  per_box: null as number | null,
   billed_by_weight: true,
   counts_toward_lambs: true,
   not_lamb: false,
@@ -62,6 +63,7 @@ export default function EditProduct({
     lb: numText(start.lb_per_unit),
     perPack: numText(start.pieces_per_pack),
     step: fmt(start.order_step || 1),
+    perBox: numText(start.per_box),
     useRows: start.uses.map((u): UseDraft => {
       const r = partAmountRow(u.qty);
       return { part_id: u.part_id, mode: r.mode, amount: fmt(r.amount) };
@@ -95,6 +97,7 @@ export default function EditProduct({
       lb_per_unit: num(f.lb) > 0 ? num(f.lb) : null,
       pieces_per_pack: num(f.perPack) > 0 ? num(f.perPack) : null,
       order_step: num(f.step) > 0 ? num(f.step) : 1,
+      per_box: num(f.perBox) > 0 ? num(f.perBox) : null,
       billed_by_weight: f.billed_by_weight,
       counts_toward_lambs: f.counts_toward_lambs,
       not_lamb: f.not_lamb,
@@ -202,6 +205,19 @@ export default function EditProduct({
           </label>
           <input id="pr-step" className="field num" inputMode="decimal" value={f.step} onChange={(e) => set("step", clean(e.target.value))} />
           <p className="small muted mt-1 mb-0">For example 10 for Le Trim (10, 20, 30 lb).</p>
+        </div>
+        <div>
+          <label className="lbl" htmlFor="pr-perbox">
+            How many fit in a box ({unitWord(f.unit)})
+          </label>
+          <input
+            id="pr-perbox"
+            className="field num"
+            inputMode="decimal"
+            value={f.perBox}
+            onChange={(e) => set("perBox", clean(e.target.value))}
+          />
+          <p className="small muted mt-1 mb-0">Products never share a box. Leave blank if you don&apos;t know yet.</p>
         </div>
       </div>
 

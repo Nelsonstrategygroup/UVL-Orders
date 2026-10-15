@@ -9,7 +9,7 @@ import { ago, niceDate } from "@/lib/dates";
 import { fmt, num } from "@/lib/calc/num";
 import { logContact, setOrder } from "@/lib/db/save";
 import { lineUnit, unitWord } from "@/lib/calc/units";
-import { findProducts, groupProducts } from "@/lib/calc/products";
+import { boxesNeeded, boxesText, findProducts, groupProducts } from "@/lib/calc/products";
 import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
 import {
   cleanLines,
@@ -275,6 +275,36 @@ export default function OrderEditor(props: OrderEditorProps) {
     onClose();
   };
 
+  // The phone or browser Back button closes the order and stays on this
+  // screen: opening it adds a step to the history ("#order"), and Back takes
+  // that step away. Closing it any other way takes the step away too.
+  const closeRef = useRef(close);
+  useEffect(() => {
+    closeRef.current = close;
+  });
+  const alive = useRef(false);
+  useEffect(() => {
+    alive.current = true;
+    let backed = false;
+    if (window.location.hash !== "#order") window.history.pushState(null, "", `${window.location.pathname}${window.location.search}#order`);
+    const onPop = () => {
+      backed = true;
+      void closeRef.current();
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      alive.current = false;
+      window.removeEventListener("popstate", onPop);
+      // Wait a moment: in development React mounts twice, and the editor
+      // may be opening again rather than closing.
+      setTimeout(() => {
+        if (!alive.current && !backed && window.location.hash === "#order") window.history.back();
+      }, 0);
+    };
+  }, []);
+
+  const box = boxesNeeded(lines, units, catalog?.productById ?? new Map());
+
   return (
     <Sheet title={props.displayName} onClose={() => void close()}>
       <p className="small muted -mt-2 mb-1">
@@ -387,6 +417,12 @@ export default function OrderEditor(props: OrderEditorProps) {
 
       <p className="small muted mt-4 mb-0">Read back to the customer</p>
       <ReadBack lines={lines} units={units} products={products} />
+      {(box.boxes > 0 || box.unknown.length > 0) && (
+        <p className="small muted mt-1 mb-0">
+          {box.boxes > 0 && <>About {boxesText(box)}. </>}
+          {box.unknown.length > 0 && <>No box size yet for {box.unknown.join(", ")} (set it in Setup).</>}
+        </p>
+      )}
 
       <label className="lbl" htmlFor="order-notes">
         Notes

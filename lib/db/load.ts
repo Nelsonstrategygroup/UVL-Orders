@@ -46,7 +46,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     db
       .from("products")
       .select(
-        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, product_cut_specs(cut_spec_id, units_per_cut, sort)",
+        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, per_box, product_cut_specs(cut_spec_id, units_per_cut, sort)",
       )
       .order("sort")
       .order("name"),
@@ -71,6 +71,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     lb_per_unit: p.lb_per_unit == null ? null : num(p.lb_per_unit),
     pieces_per_pack: p.pieces_per_pack == null ? null : num(p.pieces_per_pack),
     order_step: num(p.order_step) || 1,
+    per_box: p.per_box == null ? null : num(p.per_box),
     uses: usesBy.get(p.id) ?? [],
     links: (product_cut_specs ?? [])
       .map((l) => ({ ...l, units_per_cut: num(l.units_per_cut) || 1 }))

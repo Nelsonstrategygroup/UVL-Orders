@@ -29,6 +29,8 @@ export type CatalogProduct = Product & {
   lb_per_unit: number | null;
   pieces_per_pack: number | null;
   order_step: number;
+  /** How many fit in one box, in the product's own unit; null if not known yet. */
+  per_box: number | null;
   billed_by_weight: boolean;
   counts_toward_lambs: boolean;
   not_lamb: boolean;

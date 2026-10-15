@@ -29,6 +29,7 @@ import {
 import { niceDate } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
+import { boxesNeeded, boxesText } from "@/lib/calc/products";
 import {
   addWeight,
   loadPacking,
@@ -94,6 +95,12 @@ export default function PackingScreen() {
   const withLines = data.orders.map((o) => ({ o, lines: packLines(o, data.products) }));
   const stats = packStats(withLines.map((x) => ({ lines: x.lines.map(([, l]) => l) })));
   const shown = withLines.filter(({ o, lines }) => showOrder(lines.map(([, l]) => l), filter) || !!keepIds?.has(o.id));
+  // Boxes for a whole pallet group, from every order in it.
+  const groupBoxes = (g: string) => {
+    const all = data.orders.filter((x) => x.group === g).map((x) => boxesNeeded(x.lines, x.units, data.products));
+    const t = boxesText({ boxes: all.reduce((s, b) => s + b.boxes, 0), unknown: all.flatMap((b) => b.unknown) });
+    return t ? `${t} on this pallet` : "";
+  };
   const wOrder = weighing && data.orders.find((o) => o.id === weighing.orderId);
 
   return (
@@ -149,7 +156,12 @@ export default function PackingScreen() {
         ) : (
           shown.map(({ o, lines }, i) => (
             <div key={o.id}>
-              {o.group && o.group !== shown[i - 1]?.o.group && <h3 className="mt-5 mb-1">{o.group}</h3>}
+              {o.group && o.group !== shown[i - 1]?.o.group && (
+                <h3 className="mt-5 mb-1">
+                  {o.group}{" "}
+                  <span className="small muted font-normal">{groupBoxes(o.group)}</span>
+                </h3>
+              )}
               <CustomerCard
                 order={o}
                 lines={lines}
@@ -209,6 +221,8 @@ function CustomerCard({
   const done = lines.filter(([, l]) => lineLook(l) !== "todo").length;
   const bx = boxes(o.weights);
   const name = (pid: string) => data.products.get(pid)?.name ?? pid;
+  // Boxes this order should fill, from each product's box size.
+  const expect = boxesText(boxesNeeded(o.lines, o.units, data.products));
 
   return (
     <section className="pcust" aria-label={o.customerName}>
@@ -216,6 +230,7 @@ function CustomerCard({
         <b>{o.customerName}</b>
         {o.spot && <span className="tag even">{o.spot}</span>}
         <span className="flex-1" />
+        {expect && <span className="small muted">{expect}</span>}
         <span className="small num">
           {done}/{lines.length}
         </span>

@@ -9,7 +9,15 @@ import { num } from "../calc/num";
 import type { PackLine, Weight } from "../calc/packing";
 import type { Qty } from "../calc/types";
 
-export type PackProduct = { id: string; name: string; unit: string; sort: number };
+export type PackProduct = {
+  id: string;
+  name: string;
+  unit: string;
+  sort: number;
+  lb_per_unit: number | null;
+  /** How many fit in one box; null if not known yet. */
+  per_box: number | null;
+};
 
 /** Marks on one line: an optional piece count, not filled, and a flag. */
 export type LineMark = { count: number | null; shorted: boolean; flagged: boolean; flagNote: string };
@@ -84,7 +92,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, pallet_group_id, pallet_spot, pallet_sort"),
     db.from("pallet_groups").select("id, name, sort"),
-    db.from("products").select("id, name, unit, sort").order("sort"),
+    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box").order("sort"),
     db.from("profiles").select("id, display_name"),
   ]);
 
@@ -200,7 +208,11 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       (custOrder.get(a.rank[2]) ?? 1e9) - (custOrder.get(b.rank[2]) ?? 1e9),
   );
 
-  const prods = (must(products) as PackProduct[]) ?? [];
+  const prods = ((must(products) as PackProduct[]) ?? []).map((x) => ({
+    ...x,
+    lb_per_unit: x.lb_per_unit == null ? null : num(x.lb_per_unit),
+    per_box: x.per_box == null ? null : num(x.per_box),
+  }));
   const wr = must(weekRow) as { process_date: string | null } | null;
   return {
     week,
