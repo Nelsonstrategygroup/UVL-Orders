@@ -16,8 +16,8 @@ select is(
   'every starting value is marked not confirmed');
 select is(public.seed_customer_products(), 'already done', 'running it again changes nothing');
 select is(
-  (select string_agg(id, ',' order by id) from public.parts where not drives_count), 'denver,hshank,neck,trim',
-  'byproduct parts (and hind shanks) do not drive the lamb count');
+  (select string_agg(id, ',' order by id) from public.parts where not drives_count), 'denver,fshank,hshank,loin,neck,rack,trim',
+  'byproducts, shanks, and the parts cut from whole loins do not drive the lamb count');
 select is(
   (select units_per_cut from public.product_cut_specs pc join public.cut_specs s on s.id = pc.cut_spec_id
    where pc.product_id = 'cp-chops' and s.text like 'Short Loins to 1 1/4 inch chops%'), 2.5::numeric,

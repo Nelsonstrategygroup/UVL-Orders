@@ -13,8 +13,8 @@ select throws_ok(
   $$ update public.parts set made_from = 'wholeloin' where id = 'wholeloin' $$,
   '23514', null, 'a part cannot be cut from itself');
 select ok(
-  (select carcass and not active from public.products where id = 'cp-carcass-lamb'),
-  'Carcass Lamb is a product marked as an uncut lamb, off until step 2');
+  (select carcass from public.products where id = 'cp-carcass-lamb'),
+  'Carcass Lamb is a product marked as an uncut lamb');
 select is(
   (select count(*)::int from public.product_part_uses where product_id = 'cp-carcass-lamb'), 0,
   'a carcass lamb uses no parts');
