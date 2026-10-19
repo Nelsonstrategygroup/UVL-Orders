@@ -273,9 +273,10 @@ As described in 5.1. A customer is "done" for the week when status is `ordered` 
 ## 8. Out of scope for version 1 (design the schema so these can be added)
 
 - Select suppliers and lamb lots: producer per lot, arrival date, 60-day hold eligibility date, antibiotic identification, and producer label (Cedar Park Grazing and others) per cut set.
-- Importing Mohawk's daily data file (actual weights by cut).
+- Importing Mohawk's daily data file (actual weights by cut). Live scanning of box labels (section 11) is the primary capture.
+- Ranch-level traceability (lots trace back to the Mohawk lot only, for now).
 - Pricing and invoicing (requires actual weights).
-- Offline use at the plant.
+- Offline use at the plant, except Packing and scanning (section 11.7).
 - Server-sent email and text messages.
 
 ## 9. Required unit tests
@@ -305,3 +306,82 @@ Stop after each phase for review.
 **Phase 5: CRM, half and whole, freezer.** Contact log with author-only edits, follow-ups on This week, half and whole flow, freezer, shortfall feeding the weekly totals.
 
 **Phase 6: Polish.** Home screen install, larger text setting, undo everywhere listed, data export, print styles, accessibility check (labels, focus order, contrast), and a short "How to use this" page for Kathy and Chris with screenshots.
+
+## 11. Barcode scanning, lots, pallets, and manifests (change request 10/19/26)
+
+Packing today uses manual weight entry only. This section adds scanning Mohawk's box labels with the phone camera, lot capture, physical pallets, and a same-day manifest. Build it in stages (11.10) and check each stage with Lucas before the next.
+
+### 11.1 Context
+
+- Mohawk prints a GS1-128 label on every box when it is weighed. Chris packs at Mohawk and scans with his own phone camera inside the app (no separate scanner app). A Bluetooth scanner that types into a focused field must also work, in case the camera can't read these dense barcodes reliably.
+- There is no cell signal inside the Mohawk freezer. Packing and scanning must work offline (11.7).
+- Manifests must be complete the same day, before the truck leaves.
+- Traceability starts at the Mohawk lot. Ranch-level tracking is deferred; the data model leaves room for it (a lot can later point to its source lambs or ranch).
+- Mohawk does not mix products in a box. Mohawk leaves the pieces field at 0, so pieces per box come from the product's `per_box`.
+
+### 11.2 GS1-128 parser
+
+- Parse by Application Identifier (AI), not by fixed position. Strip a leading `]C1` symbology identifier if present. A GS character (ASCII 29) ends a variable-length field if one is sent.
+- AIs: `01` GTIN (14 digits, fixed); `11` pack date YYMMDD (6, fixed); `3202` net weight in lb with 2 decimals (6, fixed); `21` serial (variable, last in the string); `10` batch/lot (variable). Also read the other `320x` (lb, x decimals) and `310x` (kg, x decimals) weight AIs; store kg converted to lb and keep the original.
+- Validate the GTIN check digit (GS1 mod-10) on every scan. A failed check is a misread: reject it and ask for a rescan.
+- Serial (`21`) is YY + day of year + case number, per Mohawk: `2628710066` = 2026, day 287 (Oct 14), case 10066. Store the serial date and the case number as separate fields. The unique box ID is GTIN + full serial. The serial date is when the label printed and can differ from the pack date; store both.
+- If AI `10` is present it overrides the stored lot.
+- Required tests (real labels):
+  1. Raw scan `]C10110602581209420112610133202001000212628720003`: GTIN 10602581209420, pack date 2026-10-13, net 10.00 lb, serial 2628720003 (2026, day 287 = Oct 14, case 20003). Snack stick, not lamb.
+  2. `0110698746488816112610143202002215212628710066`: GTIN 10698746488816, pack 2026-10-14, net 22.15 lb, serial 2628710066. French rack.
+  3. `0110698746489288112610143202000240212628720063`: GTIN 10698746489288, pack 2026-10-14, net 2.40 lb, serial 2628720063. Lamb fat (small weights are normal for vacuum-packed items).
+  4. With and without `]C1`; with a GS separator; a bad check digit (rejected); a string with AI `10` (lot taken from it).
+
+### 11.3 Product mapping
+
+- GTINs differ per product and use different company prefixes. Never derive the product from the GTIN. Keep a GTIN-to-product table.
+- First scan of an unknown GTIN: ask the packer once which product it is and save the mapping (works offline, synced with the scan). Admins edit mappings in Setup.
+- Store Mohawk's item number (3111, 3083, 3078, ...) on the product. It is not in the barcode.
+- Each product has a normal box weight range. A box outside it gets a warning, never a block.
+
+### 11.4 Lots
+
+- Every box has a lot. The lot is printed on the label but not in the barcode. Never default it to the scan date or the pack date.
+- On scan, look up a known lot for the same GTIN + pack date. If found, fill it in and show it on the confirmation.
+- If not found, ask for the 6-digit lot from the label (number keypad, one field) and save it so later boxes with that GTIN + pack date fill in by themselves.
+- Show the lot on every confirmation. A box's lot can be changed afterward; each change records who, when, and the old value.
+
+### 11.5 Scan flow
+
+- Chris picks the customer location and the pallet, then scans continuously. Each scan becomes a box on that customer's order line for the matched product, with weight, GTIN, pack date, serial, serial date, case number, and lot.
+- A product not on that customer's order: warn, then let him assign it anyway or cancel.
+- A duplicate box (same GTIN + serial) is rejected with a clear message.
+- Built for a cold room and gloves: a large scan button, fast continuous scanning, a beep and a vibration on success, a different sound on an error. The running total against the amount ordered stays visible for the current line.
+- Manual entry for an unreadable label needs product, weight, and lot; a compressed photo is optional (Supabase Storage).
+- The existing manual weigh panel keeps working until scanning is proven on Chris's phone.
+
+### 11.6 Pallets and manifest
+
+- Pallet groups are set per customer location (example: PCC Pallet 1 holds Kirkland, Issaquah, Fremont, Bothell, Burien). Packing order follows pallet groups.
+- The manifest lists each pallet (X of Y), its stores, its case count, and its total weight. Pallet tags print with customer, location, "Pallet X of Y", and total cases.
+- The manifest and the tags warn when any of the day's scans haven't uploaded yet.
+
+### 11.7 Offline
+
+- Packing and scanning work with no connection: a service worker lets the pages load offline. An offline phone stays signed in (the login already lasts until 3 a.m.).
+- Before going into the freezer the phone already holds the week's orders, customers, pallets, products, the GTIN map, and known lots. It refreshes whenever there's signal and Packing shows "Last updated [time]".
+- Every scan and manual weight is saved on the phone immediately (IndexedDB), never waiting on the server.
+- Duplicates are checked on the phone against synced and unsent scans, and again on the server at upload.
+- Unknown-GTIN and lot prompts work offline and sync with the scan.
+- A large indicator: "Online" or "Offline, 12 scans waiting". Uploads start by themselves when signal returns, oldest first, retrying until confirmed. Unsent scans survive the app closing or the phone restarting.
+- If two phones scanned offline and the server finds a conflict (the same box twice, or an order that changed), it is flagged for Kathy rather than overwritten.
+
+### 11.8 Freezer and trace (later stage)
+
+- Leftover boxes scan into Freezer inventory with their lot. Boxes pulled for half and whole orders scan out.
+- When product is combined into ground lamb or Le Trim, record the input lots.
+- Trace reports: which customers received lot X, and which lots went to customer Y.
+
+### 11.9 Not yet
+
+- End-of-day case number gap check: waiting on Mohawk to confirm whether the case counter is UVL-only and resets daily.
+- Anything that depends on importing Mohawk's own label records. Live scanning is the primary capture.
+
+### 11.10 Stages
+
+Stage 1 is the parser (11.2) with its tests, since it can be checked without a phone. Later stages are proposed to Lucas and confirmed one at a time.
