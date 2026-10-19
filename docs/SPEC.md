@@ -317,6 +317,8 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 - There is no cell signal inside the Mohawk freezer. Packing and scanning must work offline (11.7).
 - Manifests must be complete the same day, before the truck leaves.
 - Traceability starts at the Mohawk lot. Ranch-level tracking is deferred; the data model leaves room for it (a lot can later point to its source lambs or ranch).
+- Scanning must work on both iPhone and Android phones (Chris's phone type is not known): use the browser's barcode reader where it has one and a bundled reader where it doesn't.
+- One shipment a week, on Monday (Monday and Wednesday before 10/2026).
 - Mohawk does not mix products in a box. Mohawk leaves the pieces field at 0, so pieces per box come from the product's `per_box`.
 
 ### 11.2 GS1-128 parser
@@ -335,16 +337,16 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 ### 11.3 Product mapping
 
 - GTINs differ per product and use different company prefixes. Never derive the product from the GTIN. Keep a GTIN-to-product table.
-- First scan of an unknown GTIN: ask the packer once which product it is and save the mapping (works offline, synced with the scan). Admins edit mappings in Setup.
+- First scan of an unknown GTIN: first warn "This product isn't known" and offer a rescan, since the wrong label may have been scanned, the wrong label may be on the box, or the wrong box may be on the pallet. Only then ask which product it is (or add a new product) and save the mapping (works offline, synced with the scan). Teaching a new GTIN, adding a product from a scan, and editing mappings are admin-only (Chris is an admin during setup).
 - Store Mohawk's item number (3111, 3083, 3078, ...) on the product. It is not in the barcode.
-- Each product has a normal box weight range. A box outside it gets a warning, never a block.
+- Each product has a normal box weight range. A box outside it gets a warning, never a block. Ranges start blank (no warnings); after the first quarter of scanning, Setup suggests a range from the weights seen, for Kathy to accept.
 
 ### 11.4 Lots
 
 - Every box has a lot. The lot is printed on the label but not in the barcode. Never default it to the scan date or the pack date.
 - On scan, look up a known lot for the same GTIN + pack date. If found, fill it in and show it on the confirmation.
 - If not found, ask for the 6-digit lot from the label (number keypad, one field) and save it so later boxes with that GTIN + pack date fill in by themselves.
-- Show the lot on every confirmation. A box's lot can be changed afterward; each change records who, when, and the old value.
+- Show the lot on every confirmation. A box's lot can be changed afterward, by an admin only; each change records who, when, and the old value.
 
 ### 11.5 Scan flow
 
@@ -357,7 +359,8 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 
 ### 11.6 Pallets and manifest
 
-- Pallet groups are set per customer location (example: PCC Pallet 1 holds Kirkland, Issaquah, Fremont, Bothell, Burien). Packing order follows pallet groups.
+- Pallet groups are set per customer location (example: PCC Pallet 1 holds Kirkland, Issaquah, Fremont, Bothell, Burien). Packing order follows pallet groups. For a chain (today only PCC), a set of stores can fill more than one pallet (two pallets for three stores).
+- "Pallet X of Y": Y is the number of pallets in that day's shipment, all customers together. "1 of 2" means two pallets go out that day.
 - The manifest lists each pallet (X of Y), its stores, its case count, and its total weight. Pallet tags print with customer, location, "Pallet X of Y", and total cases.
 - The manifest and the tags warn when any of the day's scans haven't uploaded yet.
 
