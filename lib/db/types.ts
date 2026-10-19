@@ -31,6 +31,11 @@ export type CatalogProduct = Product & {
   order_step: number;
   /** How many fit in one box, in the product's own unit; null if not known yet. */
   per_box: number | null;
+  /** Mohawk's item number (not in the barcode). */
+  mohawk_item_no: string;
+  /** Normal box weight range in lb; a scanned box outside it is warned about. Null: no warning. */
+  box_lb_min: number | null;
+  box_lb_max: number | null;
   billed_by_weight: boolean;
   counts_toward_lambs: boolean;
   not_lamb: boolean;

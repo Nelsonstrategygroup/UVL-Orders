@@ -388,3 +388,14 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 ### 11.10 Stages
 
 Stage 1 is the parser (11.2) with its tests, since it can be checked without a phone. Later stages are proposed to Lucas and confirmed one at a time.
+
+### 11.11 Data model (stage 2, migration 20261019000100)
+
+- `products`: `mohawk_item_no`, `box_lb_min`, `box_lb_max` (blank: no weight warning).
+- `gtin_products`: `gtin` (14 digits, PK) to `product_id`. Read by Packing and Setup; written by admins only.
+- `lots`: `gtin`, `pack_date`, `lot` (unique per GTIN + pack date), `source_note` (room for ranch tracing). Packers add the first lot seen; admins change one.
+- `pallets`: `week_id`, `ship_date`, `number` (X; Y is the count for that ship date), `pallet_group_id`, `label`, `note`.
+- `packing_weights` (one row per box): `source` (`weigh`, `scan`, `manual`), `gtin`, `serial`, `serial_date`, `case_no`, `pack_date`, `lot` (required for scan and manual), `pallet_id`, `raw_scan`, `photo_path`, `client_id` (unique; made on the phone so a retried upload saves once), `scanned_at`, `off_order`. GTIN + serial is unique. Only an admin changes a lot once set; the audit log keeps who, when, and the old value.
+- `packing_conflicts`: `kind` (`duplicate-box`, `order-changed`, `order-gone`, `lot-differs`, `gtin-differs`), `message`, the upload as sent (`details`), and resolution fields, for Kathy.
+- `record_box(p jsonb)`: saves one scanned or hand-entered box. Returns `saved`, `already` (same client_id), `duplicate` (same GTIN + serial; flagged, not saved) or `gone` (order deleted; flagged). A box for a product no longer on the order is saved and flagged unless the packer chose "add it anyway". A lot that differs from the one on file is saved and flagged.
+- Storage bucket `box-photos` (private) for photos of labels that would not scan.

@@ -26,6 +26,9 @@ const blank = {
   pieces_per_pack: null as number | null,
   order_step: 1,
   per_box: null as number | null,
+  mohawk_item_no: "",
+  box_lb_min: null as number | null,
+  box_lb_max: null as number | null,
   billed_by_weight: true,
   counts_toward_lambs: true,
   not_lamb: false,
@@ -64,6 +67,8 @@ export default function EditProduct({
     perPack: numText(start.pieces_per_pack),
     step: fmt(start.order_step || 1),
     perBox: numText(start.per_box),
+    boxMin: numText(start.box_lb_min),
+    boxMax: numText(start.box_lb_max),
     useRows: start.uses.map((u): UseDraft => {
       const r = partAmountRow(u.qty);
       return { part_id: u.part_id, mode: r.mode, amount: fmt(r.amount) };
@@ -86,6 +91,8 @@ export default function EditProduct({
 
   async function save() {
     if (!f.name.trim()) return setError("Add the name customers see.");
+    if (num(f.boxMin) > 0 && num(f.boxMax) > 0 && num(f.boxMin) > num(f.boxMax))
+      return setError("The normal box weight's low end is more than its high end.");
     setBusy(true);
     const err = await saveProduct(getDb(), {
       id: f.id,
@@ -98,6 +105,9 @@ export default function EditProduct({
       pieces_per_pack: num(f.perPack) > 0 ? num(f.perPack) : null,
       order_step: num(f.step) > 0 ? num(f.step) : 1,
       per_box: num(f.perBox) > 0 ? num(f.perBox) : null,
+      mohawk_item_no: f.mohawk_item_no.trim(),
+      box_lb_min: num(f.boxMin) > 0 ? num(f.boxMin) : null,
+      box_lb_max: num(f.boxMax) > 0 ? num(f.boxMax) : null,
       billed_by_weight: f.billed_by_weight,
       counts_toward_lambs: f.counts_toward_lambs,
       not_lamb: f.not_lamb,
@@ -218,6 +228,45 @@ export default function EditProduct({
             onChange={(e) => set("perBox", clean(e.target.value))}
           />
           <p className="small muted mt-1 mb-0">Products never share a box. Leave blank if you don&apos;t know yet.</p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="lbl" htmlFor="pr-item">
+            Mohawk item number
+          </label>
+          <input
+            id="pr-item"
+            className="field num"
+            inputMode="numeric"
+            value={f.mohawk_item_no}
+            onChange={(e) => set("mohawk_item_no", e.target.value.replace(/[^0-9A-Za-z-]/g, ""))}
+          />
+          <p className="small muted mt-1 mb-0">For example 3111. It&apos;s on Mohawk&apos;s paperwork, not in the barcode.</p>
+        </div>
+        <div>
+          <span className="lbl">Normal box weight (lb)</span>
+          <div className="flex items-center gap-2">
+            <input
+              aria-label="Normal box weight, low"
+              className="field num"
+              inputMode="decimal"
+              placeholder="low"
+              value={f.boxMin}
+              onChange={(e) => set("boxMin", clean(e.target.value))}
+            />
+            <span aria-hidden="true">to</span>
+            <input
+              aria-label="Normal box weight, high"
+              className="field num"
+              inputMode="decimal"
+              placeholder="high"
+              value={f.boxMax}
+              onChange={(e) => set("boxMax", clean(e.target.value))}
+            />
+          </div>
+          <p className="small muted mt-1 mb-0">A scanned box outside this gets a warning. Leave blank for now.</p>
         </div>
       </div>
 

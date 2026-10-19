@@ -3,6 +3,8 @@
 // Setup (SPEC 5.10): parts per lamb, cut specs, products, size classes, and
 // the processor. Admin and office can look; only admins can change things.
 
+import { deleteGtin, loadGtins, saveGtin } from "@/lib/db/scanning";
+import { gtinCheckDigitOk } from "@/lib/scan/gs1";
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -399,6 +401,15 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
           everyone else comes after, by name.
         </p>
         <PalletGroups canEdit={canEdit} />
+      </section>
+
+      <section className="panel mt-4">
+        <h3>Box labels (GTINs)</h3>
+        <p className="small muted mt-1">
+          Which product each Mohawk box label is. Every product has its own GTIN, so the app is told once, here or the
+          first time a box is scanned. Only an admin can add or change one.
+        </p>
+        <GtinMap canEdit={canEdit} />
       </section>
 
       {canEdit && (
@@ -822,6 +833,123 @@ function PalletGroups({ canEdit }: { canEdit: boolean }) {
           >
             Add group
           </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The GTIN on a box label, and which product it is (SPEC 11.3). Admins edit. */
+function GtinMap({ canEdit }: { canEdit: boolean }) {
+  const { catalog } = useStaffData();
+  const toast = useToast();
+  const db = getDb();
+  const load = useCallback((d: SupabaseClient) => loadGtins(d), []);
+  const { data: rows, refresh } = useLive("gtin-products", load, ["gtin_products"]);
+  const [gtin, setGtin] = useState("");
+  const [productId, setProductId] = useState("");
+  if (!rows || !catalog) return <p className="small muted">Loading...</p>;
+
+  const products = catalog.products.filter((p) => p.active);
+  const name = (id: string) => catalog.productById.get(id)?.name ?? id;
+  const after = (err: string | null) => {
+    if (err) toast(`Couldn't save: ${err}`);
+    refresh();
+  };
+  const clean = gtin.replace(/\D/g, "");
+  const gtinProblem =
+    !clean ? null : clean.length !== 14 ? "A GTIN has 14 digits." : !gtinCheckDigitOk(clean) ? "That GTIN's last digit doesn't check out. Look again." : rows.some((r) => r.gtin === clean) ? "That GTIN is already listed." : null;
+
+  return (
+    <>
+      {rows.length === 0 ? (
+        <p className="small muted">None yet. They&apos;re added the first time each kind of box is scanned.</p>
+      ) : (
+        <table className="simple mb-3">
+          <thead>
+            <tr>
+              <th>GTIN</th>
+              <th>Product</th>
+              {canEdit && <th className="sr-only">Remove</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.gtin}>
+                <td className="num">{r.gtin}</td>
+                <td>
+                  {canEdit ? (
+                    <select
+                      className="field"
+                      aria-label={`Product for GTIN ${r.gtin}`}
+                      value={r.product_id}
+                      onChange={(e) => void saveGtin(db, r.gtin, e.target.value, r.note).then(after)}
+                    >
+                      {!products.some((p) => p.id === r.product_id) && <option value={r.product_id}>{name(r.product_id)}</option>}
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    name(r.product_id)
+                  )}
+                </td>
+                {canEdit && (
+                  <td>
+                    <button
+                      type="button"
+                      className="iconbtn"
+                      aria-label={`Remove GTIN ${r.gtin}`}
+                      onClick={() => {
+                        if (confirm(`Remove GTIN ${r.gtin} (${name(r.product_id)})? Boxes already scanned keep their product.`))
+                          void deleteGtin(db, r.gtin).then(after);
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {canEdit && (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="grid gap-1">
+            <span className="lbl m-0">GTIN (14 digits, from the label)</span>
+            <input className="field num" inputMode="numeric" value={gtin} onChange={(e) => setGtin(e.target.value)} placeholder="10698746488816" />
+          </label>
+          <label className="grid gap-1">
+            <span className="lbl m-0">Product</span>
+            <select className="field" value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <option value="">Choose a product...</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="btn"
+            disabled={!clean || !productId || !!gtinProblem}
+            onClick={() =>
+              void saveGtin(db, clean, productId).then((e) => {
+                after(e);
+                if (!e) {
+                  setGtin("");
+                  setProductId("");
+                }
+              })
+            }
+          >
+            Add
+          </button>
+          {gtinProblem && <p className="small text-barn m-0 w-full">{gtinProblem}</p>}
         </div>
       )}
     </>
