@@ -5,6 +5,7 @@
 // box or case), a piece count, Not filled (the X), or a flag with a note.
 // Customers are in pallet group order.
 
+import Link from "next/link";
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useCan } from "@/components/CurrentUser";
@@ -111,6 +112,11 @@ export default function PackingScreen() {
         <div className="packhead">
           <div>
             <h2>Packing</h2>
+            {canPack && data.orders.length > 0 && (
+              <Link href="/packing/scan" className="btn my-2 mr-2">
+                Scan boxes
+              </Link>
+            )}
             <span className="muted">
               {stats.done} of {stats.total} lines packed
             </span>{" "}

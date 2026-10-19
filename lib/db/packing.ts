@@ -17,15 +17,32 @@ export type PackProduct = {
   lb_per_unit: number | null;
   /** How many fit in one box; null if not known yet. */
   per_box: number | null;
+  active: boolean;
+  group_name: string;
+  /** Normal box weight in lb; a scanned box outside it gets a warning. */
+  box_lb_min: number | null;
+  box_lb_max: number | null;
 };
 
 /** Marks on one line: an optional piece count, not filled, and a flag. */
 export type LineMark = { count: number | null; shorted: boolean; flagged: boolean; flagNote: string };
 
-export type PackWeight = Weight & { id: string; by: string | null; at: string };
+export type PackWeight = Weight & {
+  id: string;
+  by: string | null;
+  at: string;
+  /** weigh (the weigh panel), scan, or manual (a label typed in). */
+  source: string;
+  gtin: string | null;
+  serial: string | null;
+  lot: string | null;
+  case_no: string | null;
+  pallet_id: string | null;
+};
 
 export type PackOrder = {
   id: string;
+  customerId: string;
   customerName: string;
   /** The customer's standing notes (delivery times and so on). */
   standingNotes: string;
@@ -87,12 +104,12 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, created_by, created_at), packing_orders(pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id), packing_orders(pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, pallet_group_id, pallet_spot, pallet_sort"),
     db.from("pallet_groups").select("id, name, sort"),
-    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box").order("sort"),
+    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max").order("sort"),
     db.from("profiles").select("id, display_name"),
   ]);
 
@@ -126,7 +143,20 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       packed_by: string | null;
       packed_at: string;
     }[];
-    packing_weights: { id: string; product_id: string; weight: number; box_no: number | null; created_by: string | null; created_at: string }[];
+    packing_weights: {
+      id: string;
+      product_id: string;
+      weight: number;
+      box_no: number | null;
+      created_by: string | null;
+      created_at: string;
+      source: string;
+      gtin: string | null;
+      serial: string | null;
+      lot: string | null;
+      case_no: string | null;
+      pallet_id: string | null;
+    }[];
     packing_orders:
       | { pallet: string; updated_by: string | null; updated_at: string | null; created_at: string }
       | { pallet: string; updated_by: string | null; updated_at: string | null; created_at: string }[]
@@ -170,6 +200,12 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
         box_no: w.box_no,
         by: w.created_by ? (names.get(w.created_by) ?? "Someone") : null,
         at: w.created_at,
+        source: w.source ?? "weigh",
+        gtin: w.gtin,
+        serial: w.serial,
+        lot: w.lot,
+        case_no: w.case_no,
+        pallet_id: w.pallet_id,
       }))
       .sort((a, b) => a.at.localeCompare(b.at));
     for (const w of o.packing_weights ?? []) touch(w.created_at, w.created_by);
@@ -182,6 +218,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     const name = cust ? displayName(cust, byId) : "Unknown customer";
     list.push({
       id: o.id,
+      customerId: o.customer_id,
       customerName: name,
       standingNotes: (cust?.notes ?? "").trim(),
       orderNotes: (o.notes ?? "").trim(),
@@ -212,6 +249,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     ...x,
     lb_per_unit: x.lb_per_unit == null ? null : num(x.lb_per_unit),
     per_box: x.per_box == null ? null : num(x.per_box),
+    box_lb_min: x.box_lb_min == null ? null : num(x.box_lb_min),
+    box_lb_max: x.box_lb_max == null ? null : num(x.box_lb_max),
   }));
   const wr = must(weekRow) as { process_date: string | null } | null;
   return {

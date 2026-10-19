@@ -1648,3 +1648,84 @@
     print-color-adjust: exact;
   }
 }
+
+/* Scanning boxes (Packing > Scan boxes): big targets for gloves. */
+.scanbtn {
+  width: 100%;
+  min-height: 84px;
+  border-radius: 14px;
+  border: 0;
+  background: var(--forest);
+  color: var(--on-forest);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.scanbtn.on {
+  background: var(--barn);
+}
+.scanbtn:disabled {
+  opacity: 0.5;
+}
+.scanview {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+.scanview video {
+  display: block;
+  width: 100%;
+  max-height: 46vh;
+  object-fit: cover;
+}
+.scanguide {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 50%;
+  border-top: 3px solid #e5483b;
+  box-shadow: 0 0 6px rgba(229, 72, 59, 0.8);
+}
+.scanbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+.scanresult {
+  margin-top: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  font-size: 1.15rem;
+}
+.scanresult b {
+  display: block;
+  font-size: 1.35rem;
+}
+.scanresult.ok {
+  background: var(--ok);
+}
+.scanresult.bad {
+  background: var(--bad);
+}
+.scanwarn {
+  margin-top: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 8px;
+  background: var(--warn);
+  font-size: 1rem;
+}
+.scanq {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 2px solid var(--barn);
+  background: var(--paper);
+}
+tr.scancur td {
+  background: var(--warn);
+  font-weight: 600;
+}
