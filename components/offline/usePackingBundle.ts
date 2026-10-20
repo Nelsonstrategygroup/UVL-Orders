@@ -27,7 +27,8 @@ function timeout<T>(p: Promise<T>): Promise<T> {
 export function usePackingBundle(week: string, shipDate: string) {
   const outbox = useOutbox();
   const { reportOnline } = outbox;
-  const key = `packing:${week}:${shipDate}`;
+  // By week only: a copy loaded the day before still opens on packing day.
+  const key = `packing:${week}`;
 
   const load = useCallback(
     async (d: SupabaseClient) => {
@@ -44,7 +45,9 @@ export function usePackingBundle(week: string, shipDate: string) {
         const snap = await snapshotGet<PackingBundle>(key).catch(() => null);
         if (!snap) throw e;
         reportOnline(false);
-        return { bundle: snap.value, savedAt: snap.savedAt, fromPhone: true };
+        // Pallets kept for another day aren't today's shipment.
+        const bundle = { ...snap.value, pallets: snap.value.pallets.filter((p) => p.ship_date === shipDate) };
+        return { bundle, savedAt: snap.savedAt, fromPhone: true };
       }
     },
     [week, shipDate, key, reportOnline],
