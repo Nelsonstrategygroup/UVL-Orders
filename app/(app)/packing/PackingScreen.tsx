@@ -7,10 +7,10 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { useCan } from "@/components/CurrentUser";
-import { getDb } from "@/components/data/db";
-import { useLive } from "@/components/data/useLive";
+import OfflineStatus from "@/components/offline/OfflineStatus";
+import { useOutbox } from "@/components/offline/OutboxProvider";
+import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import ViewOnly from "@/components/ViewOnly";
@@ -27,23 +27,12 @@ import {
   type PackFilter,
   type PackLine,
 } from "@/lib/calc/packing";
-import { niceDate } from "@/lib/dates";
+import { niceDate, todayISO } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { boxesNeeded, boxesText } from "@/lib/calc/products";
-import {
-  addWeight,
-  loadPacking,
-  packLines,
-  removeWeight,
-  saveMark,
-  savePallet,
-  type LineMark,
-  type PackingData,
-  type PackOrder,
-} from "@/lib/db/packing";
-
-const LIVE_TABLES = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders"];
+import { packLines, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
+import { isLocal } from "@/lib/offline/outbox";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
   ["done", "Done"],
@@ -55,9 +44,11 @@ const MARK: Record<string, string> = { done: "✓", short: "−", over: "+", fla
 export default function PackingScreen() {
   const { week } = useWeek();
   const toast = useToast();
-  const db = getDb();
-  const load = useCallback((d: SupabaseClient) => loadPacking(d, week), [week]);
-  const { data, error, refresh } = useLive(`packing-${week}`, load, LIVE_TABLES);
+  const { enqueue } = useOutbox();
+  // Loaded with signal and kept on the phone for the freezer (SPEC 11.7).
+  const bundle = usePackingBundle(week, todayISO());
+  const data = bundle.data?.packing ?? null;
+  const { error } = bundle;
   const canPack = useCan("packing").change;
   const [filter, setFilter] = useState<PackFilter>("todo");
   // Customers finished while "To pack" is showing stay on screen, so the
@@ -72,7 +63,10 @@ export default function PackingScreen() {
     return (
       <>
         <WeekBar />
-        <p className="note bad">Couldn&apos;t load the packing list. Check the internet connection. ({error})</p>
+        <p className="note bad">
+          Couldn&apos;t load the packing list, and this phone has no copy of this week yet. Find signal and open Packing
+          once. ({error})
+        </p>
       </>
     );
   if (!data)
@@ -87,11 +81,8 @@ export default function PackingScreen() {
     if (filter === "todo")
       setFinished((f) => ({ key: finishedKey, ids: new Set([...(f.key === finishedKey ? f.ids : []), orderId]) }));
   };
-  const saved = (err: string | null) => {
-    if (err) toast("Couldn't save. Check the internet connection.");
-    refresh();
-    return !err;
-  };
+  // Everything is saved on the phone first and uploads when there's signal.
+  const save = (p: Promise<void>) => p.catch(() => toast("Couldn't save on this phone. Try again."));
 
   const withLines = data.orders.map((o) => ({ o, lines: packLines(o, data.products) }));
   const stats = packStats(withLines.map((x) => ({ lines: x.lines.map(([, l]) => l) })));
@@ -108,6 +99,7 @@ export default function PackingScreen() {
     <>
       <div className="screen-only">
         <WeekBar processDate={data.processDate} />
+        <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
 
         <div className="packhead">
           <div>
@@ -174,7 +166,7 @@ export default function PackingScreen() {
                 data={data}
                 canPack={canPack}
                 onOpen={(pid) => setWeighing({ orderId: o.id, productId: pid })}
-                onPallet={(v) => void savePallet(db, o.id, v).then(saved)}
+                onPallet={(v) => void save(enqueue({ type: "pallet-text", order_id: o.id, pallet: v }))}
               />
             </div>
           ))
@@ -192,16 +184,26 @@ export default function PackingScreen() {
           onClose={closeWeigh}
           onAdd={async (weight, box) => {
             keep(wOrder.id);
-            const r = await addWeight(db, wOrder.id, weighing.productId, weight, box);
-            if (saved(r.error) && r.id) {
-              const id = r.id;
-              toast(`${fmt(weight)} lb saved`, () => void removeWeight(db, id).then(saved));
-            }
+            const clientId = crypto.randomUUID();
+            const orderId = wOrder.id;
+            await save(
+              enqueue({ type: "weight-add", client_id: clientId, order_id: orderId, product_id: weighing.productId, weight, box_no: box, at: new Date().toISOString() }),
+            );
+            toast(`${fmt(weight)} lb saved`, () => void save(enqueue({ type: "weight-remove", order_id: orderId, client_id: clientId })));
           }}
-          onRemove={(id) => void removeWeight(db, id).then(saved)}
+          onRemove={(id) => {
+            const w = wOrder.weights.find((x) => x.id === id);
+            void save(
+              enqueue(
+                w && isLocal(w)
+                  ? { type: "weight-remove", order_id: wOrder.id, client_id: w.client_id ?? "" }
+                  : { type: "weight-remove", order_id: wOrder.id, weight_id: id },
+              ),
+            );
+          }}
           onMark={(m) => {
             keep(wOrder.id);
-            void saveMark(db, wOrder.id, weighing.productId, m).then(saved);
+            void save(enqueue({ type: "mark", order_id: wOrder.id, product_id: weighing.productId, mark: m }));
           }}
         />
       )}

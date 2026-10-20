@@ -10,6 +10,8 @@ import { StaffDataProvider } from "./data/StaffData";
 import { CurrentUserProvider } from "./CurrentUser";
 import { ToastProvider } from "./Toast";
 import { WeekProvider } from "./Week";
+import { OutboxProvider } from "./offline/OutboxProvider";
+import RegisterServiceWorker from "./offline/RegisterServiceWorker";
 
 function isCurrent(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -73,7 +75,10 @@ export default function AppShell({
         <CurrentUserProvider me={{ id: userId, role, displayName, perms }}>
           <ToastProvider>
             <WeekProvider>
-              {simple ? children : <StaffDataProvider>{children}</StaffDataProvider>}
+              <OutboxProvider>
+                <RegisterServiceWorker />
+                {simple ? children : <StaffDataProvider>{children}</StaffDataProvider>}
+              </OutboxProvider>
             </WeekProvider>
           </ToastProvider>
         </CurrentUserProvider>

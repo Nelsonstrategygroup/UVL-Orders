@@ -38,6 +38,8 @@ export type PackWeight = Weight & {
   lot: string | null;
   case_no: string | null;
   pallet_id: string | null;
+  /** Made on the phone; set for weights saved through the outbox. */
+  client_id: string | null;
 };
 
 export type PackOrder = {
@@ -104,7 +106,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id), packing_orders(pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, pallet_group_id, pallet_spot, pallet_sort"),
@@ -156,6 +158,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       lot: string | null;
       case_no: string | null;
       pallet_id: string | null;
+      client_id: string | null;
     }[];
     packing_orders:
       | { pallet: string; updated_by: string | null; updated_at: string | null; created_at: string }
@@ -206,6 +209,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
         lot: w.lot,
         case_no: w.case_no,
         pallet_id: w.pallet_id,
+        client_id: w.client_id,
       }))
       .sort((a, b) => a.at.localeCompare(b.at));
     for (const w of o.packing_weights ?? []) touch(w.created_at, w.created_by);

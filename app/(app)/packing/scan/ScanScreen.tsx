@@ -1,6 +1,6 @@
 "use client";
 
-// Scanning boxes (SPEC 11.5), online. Chris picks the customer and pallet,
+// Scanning boxes (SPEC 11.5), with or without signal (11.7). Chris picks the customer and pallet,
 // then scans box after box. Each good scan is saved as a box on that
 // customer's order with its weight, label details, and lot.
 //
@@ -10,11 +10,13 @@
 // still works alongside this.
 
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useCan, useMe } from "@/components/CurrentUser";
 import { getDb } from "@/components/data/db";
-import { useLive } from "@/components/data/useLive";
+import OfflineStatus from "@/components/offline/OfflineStatus";
+import { useOutbox } from "@/components/offline/OutboxProvider";
+import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import CameraScanner from "@/components/scan/CameraScanner";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
@@ -22,24 +24,14 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { fmt, num } from "@/lib/calc/num";
 import { unitWord } from "@/lib/calc/units";
 import { todayISO } from "@/lib/dates";
-import { loadPacking, type PackOrder, type PackProduct } from "@/lib/db/packing";
-import {
-  addPallet,
-  loadGtins,
-  loadLots,
-  loadPallets,
-  recordBox,
-  saveGtin,
-  setBoxLot,
-  uploadBoxPhoto,
-  type BoxUpload,
-} from "@/lib/db/scanning";
+import { type PackOrder, type PackProduct } from "@/lib/db/packing";
+import { isLocal } from "@/lib/offline/outbox";
+import { setBoxLot, type BoxUpload } from "@/lib/db/scanning";
 import { badScan, goodScan, unlockSound } from "@/lib/scan/feedback";
 import { decideScan, LOT_PATTERN, lotKey, type ScanContext, type ScanStep } from "@/lib/scan/flow";
 import type { Gs1Box } from "@/lib/scan/gs1";
 import { qtyText } from "@/lib/orders";
 
-const LIVE = ["orders", "order_lines", "packing_weights", "pallets", "gtin_products", "lots"];
 
 type Shown = { ok: boolean; title: string; detail?: string; warnings?: string[] };
 type Answers = { addOffOrder?: boolean; productId?: string; lot?: string };
@@ -53,15 +45,10 @@ export default function ScanScreen() {
   const toast = useToast();
   const db = getDb();
   const shipDate = todayISO();
-
-  const load = useCallback(
-    async (d: SupabaseClient) => {
-      const [packing, gtins, lots, pallets] = await Promise.all([loadPacking(d, week), loadGtins(d), loadLots(d), loadPallets(d, shipDate)]);
-      return { packing, gtins, lots, pallets };
-    },
-    [week, shipDate],
-  );
-  const { data, error, refresh } = useLive(`scan-${week}-${shipDate}`, load, LIVE);
+  const { enqueue, online } = useOutbox();
+  // The same copy Packing keeps on the phone (SPEC 11.7).
+  const bundle = usePackingBundle(week, shipDate);
+  const { data, error, refresh } = bundle;
 
   const [orderId, setOrderId] = useState("");
   const [palletId, setPalletId] = useState("");
@@ -126,25 +113,23 @@ export default function ScanScreen() {
       show({ ok: false, title: "This label has no weight.", detail: "Use \"Label won't scan\" and type the weight." });
       return;
     }
-    const r = await recordBox(db, upload);
-    if (r.status === "saved" || r.status === "already") {
-      if (b.serial) savedHere.current.set(`${b.gtin}:${b.serial}`, order.customerName);
-      setLastProduct(step.productId);
-      show({
-        ok: true,
-        title: `${p?.name ?? "Box"} · ${fmt(upload.weight)} lb`,
-        detail: `Lot ${step.lot}${b.caseNo ? ` · Case ${b.caseNo}` : ""}${r.status === "saved" ? ` · Box ${r.box_no}` : ""}`,
-        warnings: step.warnings,
-      });
-      refresh();
-    } else if (r.status === "duplicate") {
-      show({ ok: false, title: "Already scanned", detail: `This box is already packed for ${r.customer}. Don't pack it twice.` });
-    } else if (r.status === "gone") {
-      show({ ok: false, title: "This order is gone", detail: "It was deleted. The box was not saved; Kathy will see it." });
-      refresh();
-    } else {
-      show({ ok: false, title: "Couldn't save", detail: "Check the signal, then scan the box again." });
+    // Saved on the phone first; it uploads when there's signal. The server
+    // checks for duplicates again and flags anything odd for Kathy.
+    const boxNo = Math.max(0, ...order.weights.map((w) => w.box_no ?? 0)) + 1;
+    try {
+      await enqueue({ type: "box", box: upload });
+    } catch {
+      show({ ok: false, title: "Couldn't save on this phone", detail: "Scan the box again." });
+      return;
     }
+    if (b.serial) savedHere.current.set(`${b.gtin}:${b.serial}`, order.customerName);
+    setLastProduct(step.productId);
+    show({
+      ok: true,
+      title: `${p?.name ?? "Box"} · ${fmt(upload.weight)} lb`,
+      detail: `Lot ${step.lot}${b.caseNo ? ` · Case ${b.caseNo}` : ""} · Box ${boxNo}${online ? "" : " · on this phone"}`,
+      warnings: step.warnings,
+    });
   }
 
   async function handle(raw: string, answers: Answers = {}) {
@@ -172,7 +157,12 @@ export default function ScanScreen() {
     });
   };
 
-  if (error) return <p className="note bad">Couldn&apos;t load: {error}</p>;
+  if (error)
+    return (
+      <p className="note bad">
+        Couldn&apos;t load, and this phone has no copy of this week yet. Find signal and open Packing once. ({error})
+      </p>
+    );
   if (!data || !products)
     return (
       <>
@@ -188,11 +178,13 @@ export default function ScanScreen() {
   return (
     <>
       <WeekBar processDate={data.packing.processDate} />
+      <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Scan boxes</h2>
-        <Link href="/packing" className="btn ghost">
+        {/* A plain link, so it opens from the phone's copy with no signal. */}
+        <a href="/packing" className="btn ghost">
           Back to Packing
-        </Link>
+        </a>
       </div>
       {!canPack && <p className="note">You can look, but not pack.</p>}
 
@@ -236,11 +228,10 @@ export default function ScanScreen() {
             disabled={!canPack}
             onClick={() => {
               const next = Math.max(0, ...pallets.map((x) => x.number)) + 1;
-              void addPallet(db, week, shipDate, next, order?.group ?? "", null).then(({ pallet: made, error: e }) => {
-                if (e || !made) return toast(`Couldn't add a pallet: ${e}`);
-                setPalletId(made.id);
-                refresh();
-              });
+              const id = crypto.randomUUID();
+              void enqueue({ type: "pallet-add", id, week_id: week, ship_date: shipDate, number: next, label: order?.group ?? "" })
+                .then(() => setPalletId(id))
+                .catch(() => toast("Couldn't add a pallet on this phone. Try again."));
             }}
           >
             New pallet
@@ -297,9 +288,7 @@ export default function ScanScreen() {
                 });
               }}
               onMap={async (gtin, productId) => {
-                const e = await saveGtin(db, gtin, productId);
-                if (e) return toast(`Couldn't save: ${e}`);
-                refresh();
+                await enqueue({ type: "gtin-map", gtin, product_id: productId });
                 const next = { ...question.answers, productId };
                 void handle(question.raw, next);
               }}
@@ -546,7 +535,9 @@ function RecentBoxes({
               {w.case_no && <span className="small muted"> · case {w.case_no}</span>}
               {w.source === "manual" && <span className="small muted"> · typed</span>}
             </span>
-            {isAdmin && (
+            {!isLocal(w) && <span className="sr-only">uploaded</span>}
+            {isLocal(w) && <span className="small muted">on this phone</span>}
+            {isAdmin && !isLocal(w) && (
               <button
                 type="button"
                 className="copy text-[.9rem]"
@@ -587,7 +578,7 @@ function ManualBox({
   onClose: () => void;
   onSaved: (title: string, detail: string) => void;
 }) {
-  const db = getDb();
+  const { enqueue } = useOutbox();
   const [productId, setProductId] = useState(Object.keys(order.lines)[0] ?? "");
   const [weight, setWeight] = useState("");
   const [lot, setLot] = useState("");
@@ -602,16 +593,10 @@ function ManualBox({
     setBusy(true);
     setProblem(null);
     const clientId = crypto.randomUUID();
-    let photoPath: string | null = null;
-    if (photo) {
-      photoPath = `${week}/${clientId}.jpg`;
-      const e = await uploadBoxPhoto(db, photoPath, await shrink(photo));
-      if (e) {
-        setBusy(false);
-        return setProblem(`The photo didn't upload (${e}). Try again, or save without it.`);
-      }
-    }
-    const r = await recordBox(db, {
+    // The photo is kept on the phone with the box and uploads first.
+    const photoPath = photo ? `${week}/${clientId}.jpg` : null;
+    const blob = photo ? await shrink(photo) : null;
+    const box: BoxUpload = {
       client_id: clientId,
       order_id: order.id,
       product_id: productId,
@@ -622,11 +607,15 @@ function ManualBox({
       photo_path: photoPath,
       scanned_at: new Date().toISOString(),
       off_order: !onOrder.includes(productId),
-    });
+    };
+    try {
+      await enqueue({ type: "box", box, photo: blob && photoPath ? { path: photoPath, blob } : undefined });
+    } catch {
+      setBusy(false);
+      return setProblem("Couldn't save on this phone. Try again.");
+    }
     setBusy(false);
-    if (r.status === "saved" || r.status === "already")
-      return onSaved(`${products.get(productId)?.name ?? "Box"} · ${fmt(num(weight))} lb`, `Lot ${lot} · typed in`);
-    setProblem(r.status === "error" ? "Couldn't save. Check the signal and try again." : "Not saved: this order is gone.");
+    onSaved(`${products.get(productId)?.name ?? "Box"} · ${fmt(num(weight))} lb`, `Lot ${lot} · typed in`);
   }
 
   return (
