@@ -27,7 +27,7 @@ import {
   type PackFilter,
   type PackLine,
 } from "@/lib/calc/packing";
-import { niceDate, todayISO } from "@/lib/dates";
+import { todayISO, weekName } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { boxesNeeded, boxesText } from "@/lib/calc/products";
@@ -497,7 +497,7 @@ function PackNotes({ o }: { o: PackOrder }) {
 function PrintCopy({ data }: { data: PackingData }) {
   return (
     <div className="print-only printsheet">
-      <h1>Packing list, week of {niceDate(data.week)}</h1>
+      <h1>Packing list, {weekName(data.week)}</h1>
       {data.orders.map((o) => (
         <table key={o.id}>
           <thead>

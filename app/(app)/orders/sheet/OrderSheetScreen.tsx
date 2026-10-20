@@ -14,7 +14,7 @@ import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/cu
 import { fmt } from "@/lib/calc/num";
 import { groupProducts } from "@/lib/calc/products";
 import { unitWord } from "@/lib/calc/units";
-import { niceDate } from "@/lib/dates";
+import { niceDate, weekName } from "@/lib/dates";
 import type { CatalogProduct, Customer } from "@/lib/db/types";
 
 const BLANK = "";
@@ -58,7 +58,7 @@ function Sheet({
           {name}
         </div>
         <div>
-          <b>Week of</b>
+          <b>Packing Mon</b>
           {week ? niceDate(week) : ""}
         </div>
         <div>
@@ -158,7 +158,7 @@ export default function OrderSheetScreen() {
           </label>
           <label className="flex min-h-[44px] items-center gap-2">
             <input type="checkbox" className="h-6 w-6 accent-forest" checked={withWeek} onChange={(e) => setWithWeek(e.target.checked)} />
-            Fill in the week of {niceDate(week)}
+            Fill in packing {weekName(week)}
           </label>
           <button type="button" className="btn" onClick={() => window.print()}>
             Print

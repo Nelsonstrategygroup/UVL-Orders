@@ -1,4 +1,9 @@
-// Calendar dates as "YYYY-MM-DD" strings, in Pacific time. Weeks start on Monday.
+// Calendar dates as "YYYY-MM-DD" strings, in Pacific time.
+//
+// The order week (Lucas, 10/20/26) runs Thursday through Wednesday: orders
+// are taken Thursday, Mohawk processes and staff pack on Monday, invoices go
+// out Tuesday, and boxes ship Tuesday or Thursday. Each week is named and
+// stored by its packing Monday (weeks.id is that Monday).
 
 import { TIME_ZONE, zonedParts } from "./auth/session";
 
@@ -38,8 +43,29 @@ export function mondayOf(date: string): string {
   return addDays(date, -k);
 }
 
+/**
+ * The packing Monday of the order week containing `date` (Thursday through
+ * Wednesday): Thursday to Sunday look ahead to the coming Monday; Monday to
+ * Wednesday belong to that Monday.
+ */
+export function packingMonday(date: string): string {
+  const day = parse(date).getUTCDay(); // 0 Sunday ... 6 Saturday
+  return addDays(date, day >= 4 || day === 0 ? (8 - day) % 7 : 1 - day);
+}
+
+/** The order week we're in today, by its packing Monday. */
 export function currentWeek(now: Date = new Date()): string {
-  return mondayOf(todayISO(now));
+  return packingMonday(todayISO(now));
+}
+
+/** The seven days of an order week, Thursday through Wednesday. */
+export function weekDays(week: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDays(week, i - 4));
+}
+
+/** "Mon Oct 26": how a week is named everywhere. */
+export function weekName(week: string): string {
+  return `Mon ${niceDate(week)}`;
 }
 
 /** "Oct 5" */

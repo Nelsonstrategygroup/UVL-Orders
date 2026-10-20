@@ -1729,3 +1729,59 @@ tr.scancur td {
   background: var(--warn);
   font-weight: 600;
 }
+
+/* The order week under the week bar: Thursday through Wednesday. */
+.weekstrip {
+  display: none;
+  list-style: none;
+  margin: -0.35rem 0 0.9rem;
+  padding: 0;
+  gap: 4px;
+  max-width: 640px;
+}
+.weekstrip li {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.25rem 0.35rem;
+  text-align: center;
+  line-height: 1.2;
+  background: var(--paper);
+}
+.weekstrip .dow {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.weekstrip .dom {
+  display: block;
+  font-size: 0.85rem;
+}
+.weekstrip .what {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--forest);
+}
+.weekstrip li.busy {
+  border-color: var(--forest);
+}
+.weekstrip li.today {
+  background: var(--warn);
+  border-color: var(--barn);
+}
+.weekline {
+  margin: -0.35rem 0 0.8rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+@media (min-width: 900px) {
+  .weekstrip {
+    display: flex;
+  }
+  .weekline {
+    display: none;
+  }
+}

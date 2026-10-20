@@ -16,7 +16,7 @@ import { useToast } from "@/components/Toast";
 import { useWeek } from "@/components/Week";
 import { billedThrough, deleteBlockers, rolesLabel, type DeleteCheck } from "@/lib/calc/contacts";
 import { displayName, orderingCustomers } from "@/lib/calc/customers";
-import { niceDate } from "@/lib/dates";
+import { niceDate, weekName } from "@/lib/dates";
 import { downloadTable } from "@/components/download";
 import { loadCustomerHistory, loadCustomerOrders, type HistoryEntry } from "@/lib/db/load";
 import { customerHistoryTable, fileSafe } from "@/lib/reports";
@@ -175,7 +175,7 @@ export default function CustomerPage({ id }: { id: string }) {
               <ContactEntry key={e.id} entry={e} onChanged={async () => { await Promise.all([reloadHistory(), reloadCustomers()]); }} />
             ) : (
               <li key={`o-${e.week}`}>
-                <div className="when">Order, week of {niceDate(e.week)}</div>
+                <div className="when">Order, packing {weekName(e.week)}</div>
                 <div className="small">
                   {e.status === "none" ? "No order this week" : orderSummary(e.lines, catalog.products, e.units) || STATUS_LABEL[e.status]}
                 </div>
@@ -445,7 +445,7 @@ function ThisWeekOrder({ customer }: { customer: Customer }) {
     <section className="panel mt-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="mr-auto min-w-0">
-          <h3 className="mb-1">Week of {niceDate(week)}</h3>
+          <h3 className="mb-1">Packing {weekName(week)}</h3>
           <span className={`st ${st}`}>{STATUS_LABEL[st]}</span>
           {sum && <span className="small ml-2">{sum}</span>}
         </div>

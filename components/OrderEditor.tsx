@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ago, niceDate } from "@/lib/dates";
+import { ago, weekName } from "@/lib/dates";
 import { fmt, num } from "@/lib/calc/num";
 import { logContact, setOrder } from "@/lib/db/save";
 import { lineUnit, unitWord } from "@/lib/calc/units";
@@ -308,7 +308,7 @@ export default function OrderEditor(props: OrderEditorProps) {
   return (
     <Sheet title={props.displayName} onClose={() => void close()}>
       <p className="small muted -mt-2 mb-1">
-        Week of {niceDate(week)}
+        Packing {weekName(week)}
         {phone && (
           <>
             {" · "}

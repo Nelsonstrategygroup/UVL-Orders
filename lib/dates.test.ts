@@ -1,5 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { addDays, ago, currentWeek, longDate, mondayOf, niceDate, todayISO, todayName } from "./dates";
+import { addDays, ago, currentWeek, longDate, mondayOf, niceDate, packingMonday, todayISO, todayName, weekDays, weekName } from "./dates";
+
+describe("the order week: Thursday through Wednesday, named by its packing Monday", () => {
+  it("Thursday to Sunday look ahead to the coming Monday", () => {
+    expect(packingMonday("2026-10-22")).toBe("2026-10-26"); // Thursday: orders day
+    expect(packingMonday("2026-10-23")).toBe("2026-10-26"); // Friday
+    expect(packingMonday("2026-10-24")).toBe("2026-10-26"); // Saturday
+    expect(packingMonday("2026-10-25")).toBe("2026-10-26"); // Sunday
+  });
+
+  it("Monday to Wednesday belong to that Monday", () => {
+    expect(packingMonday("2026-10-26")).toBe("2026-10-26"); // Monday: Mohawk processes, staff pack
+    expect(packingMonday("2026-10-27")).toBe("2026-10-26"); // Tuesday: invoices, may ship
+    expect(packingMonday("2026-10-28")).toBe("2026-10-26"); // Wednesday: last day of the week
+    expect(packingMonday("2026-10-29")).toBe("2026-11-02"); // next Thursday starts the next week
+  });
+
+  it("works across months and years", () => {
+    expect(packingMonday("2026-12-31")).toBe("2027-01-04"); // Thursday
+    expect(packingMonday("2026-09-30")).toBe("2026-09-28"); // Wednesday
+  });
+
+  it("lists the week's days and names it", () => {
+    expect(weekDays("2026-10-26")).toEqual(["2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25", "2026-10-26", "2026-10-27", "2026-10-28"]);
+    expect(weekName("2026-10-26")).toBe("Mon Oct 26");
+  });
+
+  it("orders taken Thursday and packed Monday are the same week", () => {
+    const thursday = new Date("2026-10-22T17:00:00Z"); // 10 AM Pacific
+    const monday = new Date("2026-10-26T15:00:00Z"); // 8 AM Pacific
+    expect(currentWeek(thursday)).toBe(currentWeek(monday));
+  });
+});
 
 describe("dates", () => {
   it("finds the Monday of a week", () => {
@@ -14,7 +46,8 @@ describe("dates", () => {
     const lateSunday = new Date("2026-10-05T06:00:00Z");
     expect(todayISO(lateSunday)).toBe("2026-10-04");
     expect(todayName(lateSunday)).toBe("Sunday");
-    expect(currentWeek(lateSunday)).toBe("2026-09-28");
+    // Sunday belongs to the order week that packs the next day.
+    expect(currentWeek(lateSunday)).toBe("2026-10-05");
   });
 
   it("adds days across months", () => {

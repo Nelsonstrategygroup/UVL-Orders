@@ -17,7 +17,7 @@ import { setTitle, sheetProblems, sheetStatus, sheetText } from "@/lib/cutsheetV
 import { orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { num } from "@/lib/calc/num";
 import { cutSheetTotals } from "@/lib/calc/summary";
-import { niceDate } from "@/lib/dates";
+import { niceDate, weekName } from "@/lib/dates";
 import { formatDateTime } from "@/lib/format";
 import * as cs from "@/lib/db/cutsheet";
 import type { SheetLine, SheetSet } from "@/lib/db/cutsheet";
@@ -86,7 +86,7 @@ export default function CutSheetScreen() {
                   toast("Copied. Change the numbers for this week.", () => void run(cs.removeUnsentSheet(db, week)));
               }}
             >
-              Copy the week of {niceDate(from)}
+              Copy the sheet for {weekName(from)}
             </button>
           )}
           <button

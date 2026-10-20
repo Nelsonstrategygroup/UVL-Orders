@@ -12,7 +12,7 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { countUnit } from "@/lib/calc/units";
-import { addDays, currentWeek, mondayOf, niceDate, todayISO } from "@/lib/dates";
+import { addDays, currentWeek, packingMonday, niceDate, todayISO, weekName } from "@/lib/dates";
 import { loadCustomerOrders, loadOrdersBetween, loadPackingRecord } from "@/lib/db/load";
 import { formatDateTime } from "@/lib/format";
 import {
@@ -104,7 +104,7 @@ export default function DownloadsScreen() {
       <WeekBar processDate={data.weekRow?.process_date} />
 
       <section className="panel mt-2">
-        <h3 className="mb-1">For the week of {niceDate(week)}</h3>
+        <h3 className="mb-1">For packing {weekName(week)}</h3>
         <Item
           title="This week's orders"
           action={btn("week", () =>
@@ -210,8 +210,8 @@ export default function DownloadsScreen() {
           {btn(
             "sales",
             async () => {
-              const a = mondayOf(from);
-              const b = mondayOf(to);
+              const a = packingMonday(from);
+              const b = packingMonday(to);
               const orders = await loadOrdersBetween(getDb(), a, b);
               await downloadTable(`sales-${a}-to-${b}`, salesTable(a, b, orders, customers.byId, catalog.products), "Sales", fileType);
             },
@@ -220,7 +220,7 @@ export default function DownloadsScreen() {
         </div>
         <p className="small muted mb-0">
           {rangeOk
-            ? `Weeks of ${niceDate(mondayOf(from))} through ${niceDate(mondayOf(to))}.`
+            ? `Packing Mondays ${niceDate(packingMonday(from))} through ${niceDate(packingMonday(to))}.`
             : "Pick a From date on or before the To date."}
         </p>
       </section>

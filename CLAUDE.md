@@ -27,7 +27,7 @@ An internal web app for a small pasture-raised lamb company in Oregon. Kathy tak
 3. Every table gets Row Level Security enabled in the same migration that creates it, with policies written at the same time.
 4. The service role key is used only in server-side code (server actions, route handlers). Never expose it to the browser, never prefix it with `NEXT_PUBLIC_`.
 5. All calculation logic lives in `lib/calc/` as pure functions with unit tests. The tests in SPEC.md section 9 must pass.
-6. Use the `America/Los_Angeles` time zone for dates. Weeks start on Monday.
+6. Use the `America/Los_Angeles` time zone for dates. An order week runs Thursday through Wednesday and is named and stored by its packing Monday (`weeks.id`; see `lib/dates.ts`).
 7. Write user-facing text in plain, short sentences. No jargon. Match the prototype's wording where it exists.
 8. Commit after each meaningful step with a clear message.
 

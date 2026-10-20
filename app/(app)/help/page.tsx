@@ -109,7 +109,7 @@ export default async function HelpPage() {
         />
       </Step>
       <Step n={5} title="The cut sheet">
-        Open <b>Cut sheet</b> from <b>More</b>. For a new week, tap <b>Copy the week of ...</b> and change the numbers. Red counts
+        Open <b>Cut sheet</b> from <b>More</b>. For a new week, tap <b>Copy the sheet for ...</b> and change the numbers. Red counts
         mean a set doesn&apos;t add up to whole lambs.
         <Shot
           src="/help/cut-sheet-check.jpg"
