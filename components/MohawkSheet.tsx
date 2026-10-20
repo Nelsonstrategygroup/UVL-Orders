@@ -75,8 +75,9 @@ export default function MohawkSheet({
             </div>
             <div>
               {s.headline.trim() && <div className="cs-hl">{s.headline}</div>}
-              {printLines(s).map((l) => (
-                <div key={l.id} className={`cs-line ${l.highlight ?? ""}`}>
+              {printLines(s).map((l, i) => (
+                // Grey on every other line, except lines Kathy highlighted (their colour wins).
+                <div key={l.id} className={`cs-line ${l.highlight ?? (i % 2 ? "zebra" : "")}`}>
                   <span className="q">{l.kind === "note" || l.qty == null ? "" : fmt(l.qty)}</span>
                   <span>{lineText(l, specs)}</span>
                   <span className="sd">{l.side_note}</span>

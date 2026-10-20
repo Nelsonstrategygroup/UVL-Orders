@@ -13,7 +13,12 @@ type Cell = string | number | null | undefined;
 type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
 
 /** A download: column names and rows, saved as CSV or Excel. */
-export type Table = { header: string[]; rows: Cell[][] };
+export type Table = {
+  header: string[];
+  rows: Cell[][];
+  /** Excel: keep the first column (names) on screen and on every printed page. */
+  freezeFirstColumn?: boolean;
+};
 
 function table(header: string[], rows: Cell[][]): Table {
   return { header, rows };
@@ -402,5 +407,5 @@ export function orderGridTable(
     return [displayName(c, byId), phone, ...cells, o?.notes ?? ""];
   });
   if (orders) rows.push(["Total", "", ...totals.map((t) => (t > 0 ? Math.round(t * 100) / 100 : "")), ""]);
-  return table(header, rows);
+  return { ...table(header, rows), freezeFirstColumn: true };
 }

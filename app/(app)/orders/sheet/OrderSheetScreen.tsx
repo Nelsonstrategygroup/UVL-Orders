@@ -92,8 +92,8 @@ function Sheet({
             <tr className="os-group">
               <th colSpan={4}>{g.group}</th>
             </tr>
-            {g.products.map((p) => (
-              <tr key={p.id}>
+            {g.products.map((p, i) => (
+              <tr key={p.id} className={i % 2 ? "zebra" : undefined}>
                 <td>{p.name}</td>
                 <td className="os-unit">{comesIn(p)}</td>
                 <td className="os-qty" />

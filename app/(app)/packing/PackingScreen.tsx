@@ -518,8 +518,8 @@ function PrintCopy({ data }: { data: PackingData }) {
             </tr>
           </thead>
           <tbody>
-            {packLines(o, data.products).map(([pid, l]) => (
-              <tr key={pid}>
+            {packLines(o, data.products).map(([pid, l], i) => (
+              <tr key={pid} className={i % 2 ? "zebra" : undefined}>
                 <td className="ck">☐</td>
                 <td>{data.products.get(pid)?.name ?? pid}</td>
                 <td>{qtyText(l.ordered, l.unit)}</td>

@@ -30,9 +30,24 @@ describe("Excel files", () => {
     expect(s1).toContain('<c r="A1" s="1" t="inlineStr"><is><t xml:space="preserve">Customer</t></is></c>');
     expect(s1).toContain("Abe's &lt;Deli&gt; &amp; Co");
     expect(s1).toContain('<c r="B2"><v>16.5</v></c>');
-    expect(s1).not.toContain('r="B3"'); // empty cells are left out
+    // Every other row is grey, empty cells included, so the stripe runs the full width.
+    expect(s1).toContain('<c r="A3" s="2" t="inlineStr"><is><t xml:space="preserve">Key City</t></is></c><c r="B3" s="2"/>');
     expect(s1).toContain('state="frozen"');
+    expect(s1).toContain('<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>');
     const wb = await zip.file("xl/workbook.xml")!.async("string");
     expect(wb).toContain('<sheet name="Orders" sheetId="1" r:id="rId1"/>');
+    // The header row prints at the top of every page.
+    expect(wb).toContain(`<definedName name="_xlnm.Print_Titles" localSheetId="0">'Orders'!$1:$1</definedName>`);
+    const styles = await zip.file("xl/styles.xml")!.async("string");
+    expect(styles).toContain('rgb="FFEEEEEE"');
+  });
+
+  it("keeps a grid's name column on screen and on every printed page", async () => {
+    const bytes = await xlsxFile([{ name: "Grid", header: ["Customer", "Racks"], rows: [["Key City", 4]], freezeFirstColumn: true }]);
+    const zip = await JSZip.loadAsync(bytes);
+    const s1 = await zip.file("xl/worksheets/sheet1.xml")!.async("string");
+    expect(s1).toContain('xSplit="1" ySplit="1" topLeftCell="B2"');
+    const wb = await zip.file("xl/workbook.xml")!.async("string");
+    expect(wb).toContain(`'Grid'!$A:$A,'Grid'!$1:$1`);
   });
 });

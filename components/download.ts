@@ -60,7 +60,7 @@ export function useFileType(): [FileType, (t: FileType) => void] {
 export async function downloadTable(base: string, t: Table, sheet: string, type: FileType = getFileType()) {
   if (type === "xlsx") {
     const { xlsxFile, XLSX_TYPE } = await import("@/lib/xlsx");
-    const bytes = await xlsxFile([{ name: sheet, header: t.header, rows: t.rows }]);
+    const bytes = await xlsxFile([{ name: sheet, header: t.header, rows: t.rows, freezeFirstColumn: t.freezeFirstColumn }]);
     save(`${base}.xlsx`, new Blob([bytes as BlobPart], { type: XLSX_TYPE }));
   } else {
     downloadText(`${base}.csv`, tableCsv(t));

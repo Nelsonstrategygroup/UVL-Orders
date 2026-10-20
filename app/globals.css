@@ -1785,3 +1785,44 @@ tr.scancur td {
     display: none;
   }
 }
+
+/* Grey on every other row (Lucas, 10/20/26): on screen in tables, and kept
+   when printing (browsers drop backgrounds unless told to keep them). */
+:root {
+  --stripe: #f1f1ee;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --stripe: #2b2f26;
+  }
+}
+:root[data-theme="dark"] {
+  --stripe: #2b2f26;
+}
+table.simple tbody tr:nth-child(even) td,
+table.og tbody tr:nth-child(even):not(.grp):not(.sf):not(.tot) td {
+  background: var(--stripe);
+}
+tr.zebra td,
+.cs-line.zebra {
+  background: #ececec;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.ordersheet tr.os-group th {
+  background: #dfe4d8;
+}
+@media print {
+  table.simple tbody tr:nth-child(even) td {
+    background: #ececec;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* The heading row prints again at the top of each page. */
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}
