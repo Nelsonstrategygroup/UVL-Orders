@@ -23,7 +23,7 @@ export function useWeek(): WeekValue {
 }
 
 // What happens on each day of the order week.
-const PLAN: Record<number, string> = { 0: "Orders", 4: "Mohawk, pack", 5: "Invoice, ship" };
+const PLAN: Record<number, string> = { 0: "Orders", 4: "Mohawk, pack", 5: "Invoice, ship", 6: "Ship" };
 
 /** Previous / "Packing Mon Oct 26" / next, the week's days, and the processing day. */
 export function WeekBar({ processDate }: { processDate?: string | null }) {
@@ -61,7 +61,7 @@ export function WeekBar({ processDate }: { processDate?: string | null }) {
       ))}
     </ol>
     <p className="weekline noprint">
-      Orders Thu {niceDate(days[0])} · Pack Mon {niceDate(days[4])} · Invoice Tue {niceDate(days[5])} · Ships Tue or Thu
+      Orders Thu {niceDate(days[0])} · Pack Mon {niceDate(days[4])} · Invoice Tue {niceDate(days[5])} · Ships Tue or Wed
     </p>
     </>
   );

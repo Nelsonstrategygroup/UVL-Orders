@@ -2,7 +2,7 @@
 //
 // The order week (Lucas, 10/20/26) runs Thursday through Wednesday: orders
 // are taken Thursday, Mohawk processes and staff pack on Monday, invoices go
-// out Tuesday, and boxes ship Tuesday or Thursday. Each week is named and
+// out Tuesday, and boxes ship Tuesday or Wednesday. Each week is named and
 // stored by its packing Monday (weeks.id is that Monday).
 
 import { TIME_ZONE, zonedParts } from "./auth/session";

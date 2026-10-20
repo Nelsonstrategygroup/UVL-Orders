@@ -90,7 +90,7 @@ Seed all of the above from `reference/seed-data.json`. When a user adds a new cu
 
 ### 4.4 Weekly orders and packing
 
-- `weeks`: `id date` PK (the packing Monday; the order week runs Thursday through Wednesday around it: orders Thursday, Mohawk processes and staff pack Monday, invoices Tuesday, ships Tuesday or Thursday; Lucas, 10/20/26), `process_date date`, `producer text`, `lamb_override int` nullable, `notes text`.
+- `weeks`: `id date` PK (the packing Monday; the order week runs Thursday through Wednesday around it: orders Thursday, Mohawk processes and staff pack Monday, invoices Tuesday, ships Tuesday or Wednesday (Thursday before 10/2026); Lucas, 10/20/26), `process_date date`, `producer text`, `lamb_override int` nullable, `notes text`.
 - `orders`: `week_id`, `customer_id`, `status` (`todo`, `ordered`, `none`, `callback`), `notes text`. Unique (`week_id`, `customer_id`).
 - `order_lines`: `order_id`, `product_id`, `qty numeric check (qty > 0)`, `unit` (null = the product's unit; set when taken in its other unit, for example a BLS Shoulder in pounds). PK (`order_id`, `product_id`). Delete the row when qty becomes 0.
 - `packing_lines`: `order_id`, `product_id`, `packed_qty numeric`, `packed_by uuid`, `packed_at timestamptz`. PK (`order_id`, `product_id`).
@@ -318,7 +318,7 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 - Manifests must be complete the same day, before the truck leaves.
 - Traceability starts at the Mohawk lot. Ranch-level tracking is deferred; the data model leaves room for it (a lot can later point to its source lambs or ranch).
 - Scanning must work on both iPhone and Android phones (Chris's phone type is not known): use the browser's barcode reader where it has one and a bundled reader where it doesn't.
-- One packing day a week, Monday, the same day Mohawk processes (Monday and Wednesday before 10/2026). Boxes ship Tuesday or Thursday.
+- One packing day a week, Monday, the same day Mohawk processes (Monday and Wednesday before 10/2026). Boxes ship Tuesday or Wednesday (Thursday before 10/2026).
 - Mohawk does not mix products in a box. Mohawk leaves the pieces field at 0, so pieces per box come from the product's `per_box`.
 
 ### 11.2 GS1-128 parser
