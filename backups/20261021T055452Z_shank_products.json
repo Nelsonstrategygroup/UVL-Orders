@@ -1,0 +1,142 @@
+{
+ "exported_at": "20261021T055452Z",
+ "note": "Shank products, part uses and cut sheet links before switching to packs",
+ "product_cut_specs": [
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s28",
+   "product_id": "cp-labeled-hind-shanks",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": "s28",
+   "product_id": "cp-hind-shanks",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "cut_spec_id": "s27",
+   "product_id": "cp-front-shanks",
+   "sort": 0,
+   "units_per_cut": 1,
+   "updated_at": null
+  }
+ ],
+ "product_part_uses": [
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "hshank",
+   "product_id": "cp-labeled-hind-shanks",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "hshank",
+   "product_id": "cp-hind-shanks",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "part_id": "fshank",
+   "product_id": "cp-front-shanks",
+   "qty": 1,
+   "updated_at": null
+  }
+ ],
+ "products": [
+  {
+   "active": true,
+   "alt_unit": null,
+   "billed_by_weight": true,
+   "box_lb_max": null,
+   "box_lb_min": null,
+   "carcass": false,
+   "confirmed": false,
+   "counts_toward_lambs": true,
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "cut_spec_id": null,
+   "fill_note": "",
+   "fresh_only": false,
+   "group_name": "Shanks",
+   "id": "cp-front-shanks",
+   "label_name": "",
+   "lb_per_unit": null,
+   "mohawk_item_no": "",
+   "name": "Front Shanks",
+   "not_lamb": false,
+   "note": "",
+   "order_step": 1,
+   "per_box": null,
+   "pieces_per_pack": null,
+   "short_name": "",
+   "sort": 405,
+   "unit": "each",
+   "updated_at": null
+  },
+  {
+   "active": true,
+   "alt_unit": null,
+   "billed_by_weight": true,
+   "box_lb_max": null,
+   "box_lb_min": null,
+   "carcass": false,
+   "confirmed": false,
+   "counts_toward_lambs": true,
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": null,
+   "fill_note": "",
+   "fresh_only": false,
+   "group_name": "Shanks",
+   "id": "cp-hind-shanks",
+   "label_name": "",
+   "lb_per_unit": null,
+   "mohawk_item_no": "",
+   "name": "Hind Shanks",
+   "not_lamb": false,
+   "note": "2 per pack.",
+   "order_step": 1,
+   "per_box": null,
+   "pieces_per_pack": 2,
+   "short_name": "",
+   "sort": 400,
+   "unit": "each",
+   "updated_at": null
+  },
+  {
+   "active": true,
+   "alt_unit": null,
+   "billed_by_weight": true,
+   "box_lb_max": null,
+   "box_lb_min": null,
+   "carcass": false,
+   "confirmed": false,
+   "counts_toward_lambs": true,
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "cut_spec_id": null,
+   "fill_note": "",
+   "fresh_only": false,
+   "group_name": "Shanks",
+   "id": "cp-labeled-hind-shanks",
+   "label_name": "",
+   "lb_per_unit": null,
+   "mohawk_item_no": "",
+   "name": "Labeled Hind Shanks",
+   "not_lamb": false,
+   "note": "2 per pack. Each pack weighed and labeled for retail sale.",
+   "order_step": 1,
+   "per_box": null,
+   "pieces_per_pack": 2,
+   "short_name": "",
+   "sort": 410,
+   "unit": "each",
+   "updated_at": null
+  }
+ ]
+}
