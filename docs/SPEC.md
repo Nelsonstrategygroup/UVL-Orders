@@ -431,7 +431,7 @@ Front shanks, hind shanks, and labeled hind shanks are ordered and counted in pa
 
 - Kathy prints a customer label for every box before packing day. Each label has two lines: the customer (with the location and store number for chain stores, e.g. "PCC #02 Kirkland"), then the count and the product's label name, e.g. "10 Single Pack Rack (Cap ON)".
 - `products.label_name`: what is printed on the label. Defaults to the product name; Kathy edits it in Setup.
-- A "Box labels" print button on Packing, with a link from This week, for the selected week.
+- A "Box Label Report" print button on Packing, with a link from This week, for the selected week.
 - One table per product that has orders that week, in the order form's product groups. Products with no orders are left out.
 - One row per box (one row = one label): label line 1 (customer and location), label line 2 (count and label name, in the product's unit; pounds shown as "45 lb"), box type, "1 of 2" when a customer gets more than one box of that product, and a checkbox.
 - Within each product, customers sort by pallet group, then name.

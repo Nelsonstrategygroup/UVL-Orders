@@ -28,7 +28,7 @@ export default function LabelsChanged({
         <>
           {" "}
           <Link href="/packing/labels" className="copy">
-            Box labels
+            Box Label Report
           </Link>
         </>
       )}

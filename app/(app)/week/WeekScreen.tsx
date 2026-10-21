@@ -346,9 +346,9 @@ export default function WeekScreen() {
       {seePacking && labels.total + labels.problems.length > 0 && (
         <div className="panel mt-4">
           <div className="flex flex-wrap items-center gap-3">
-            <h3 className="mr-auto">Box labels</h3>
+            <h3 className="mr-auto">Box Label Report</h3>
             <Link href="/packing/labels" className="btn">
-              Box labels ({labels.total})
+              Box Label Report ({labels.total} labels)
             </Link>
           </div>
           <p className="small muted mt-1 mb-0">

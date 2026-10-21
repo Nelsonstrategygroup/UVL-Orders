@@ -114,7 +114,7 @@ export default function PackingScreen() {
             )}
             {data.orders.length > 0 && (
               <Link href="/packing/labels" className="btn ghost my-2 mr-2">
-                Box labels
+                Box Label Report
               </Link>
             )}
             <span className="muted">

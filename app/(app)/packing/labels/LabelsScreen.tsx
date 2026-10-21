@@ -60,12 +60,12 @@ export default function LabelsScreen() {
       <div className="screen-only">
         <WeekBar processDate={data.processDate} />
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="mr-auto">Box labels</h2>
+          <h2 className="mr-auto">Box Label Report</h2>
           <Link href="/packing" className="btn ghost">
             Back to Packing
           </Link>
           <button type="button" className="btn" disabled={!list.total} onClick={() => void print()}>
-            Print {list.total} labels
+            Print report ({list.total} labels)
           </button>
         </div>
         <p className="small muted mt-1">
@@ -77,7 +77,7 @@ export default function LabelsScreen() {
 
       <div className="labelsheet">
         <header className="ls-head">
-          <h1>Box labels · Packing {weekName(week)}</h1>
+          <h1>Box Label Report · Packing {weekName(week)}</h1>
           <div>
             {data.invNumber && <>INV# {data.invNumber} · </>}
             Printed {formatWhen(stamp)} · {list.total} labels
