@@ -1,7 +1,6 @@
-import DownloadsScreen from "./DownloadsScreen";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Downloads · Umpqua Valley Lamb" };
-
+// Downloads is now Print and download (change request 10/21/26); old links still work.
 export default function DownloadsPage() {
-  return <DownloadsScreen />;
+  redirect("/print");
 }

@@ -131,12 +131,13 @@ Enable Supabase Realtime on `orders`, `order_lines`, `packing_lines`, `packing_o
 
 Port each screen from the prototype. Navigation by role:
 
-- `admin`, `office`: Calls, This week, Orders, Cut sheet, Packing, Half and whole, Freezer, Customers, Setup (plus Users for admin).
+- `admin`, `office` (change request 10/21/26, stage 2): the phone bottom bar is Week, Calls, Orders, Packing, More. More lists, in order: Cut sheet, Print and download, Half and whole, Freezer, Customers, Setup, Users (admin). Wide screens show the same order across the top.
 - `packing`: Packing only, with no other navigation.
+- The button at the top right is "My account": larger text, How to use this, change password, log out. It is separate from Setup.
 
 A week picker appears on Calls, This week, Orders, Cut sheet, Packing, and the Box Label Report. Default to the current week. It is one line (change request 10/21/26): "‹ Week of Oct 19 · Inv 3000 ›", leaving out the invoice part when the week's cut sheet has no INV#. On another week, a small "Back to this week" chip sits next to it. The schedule (the week's days on wide screens; "Orders Thu · Pack Mon · Invoice Tue · Ships Tue or Wed" on phones) shows only on This week.
 
-**Which week is "now"** (Kathy, 10/21/26): an order week runs Thursday through Wednesday and is named by its packing Monday. The current week switches at 12:00 AM Thursday, Pacific time: Thu Oct 15 through Wed Oct 21 is "Packing Mon Oct 19" (orders Thu Oct 15, pack Mon Oct 19, invoice Tue Oct 20, ship Tue or Wed). On Monday, "this week's orders" means the orders taken the Thursday before. The switchover day is one constant (`WEEK_STARTS` in `lib/dates.ts`), and every screen and download uses it: the picker's default, "last week" and "Same as last week" (the week before, by packing Monday), follow-ups due "this week" (up to its Wednesday), and the Downloads date range. A screen left open on the current week moves to the new week when Thursday starts.
+**Which week is "now"** (Kathy, 10/21/26): an order week runs Thursday through Wednesday and is named by its packing Monday. The current week switches at 12:00 AM Thursday, Pacific time: Thu Oct 15 through Wed Oct 21 is "Packing Mon Oct 19" (orders Thu Oct 15, pack Mon Oct 19, invoice Tue Oct 20, ship Tue or Wed). On Monday, "this week's orders" means the orders taken the Thursday before. The switchover day is one constant (`WEEK_STARTS` in `lib/dates.ts`), and every screen and download uses it: the picker's default, "last week" and "Same as last week" (the week before, by packing Monday), follow-ups due "this week" (up to its Wednesday), and the Print and download date range. A screen left open on the current week moves to the new week when Thursday starts.
 
 ### 5.1 Calls (home for office users)
 
@@ -193,6 +194,19 @@ Port from the prototype: list of orders, "New order," guided form with half or w
 ### 5.8 Freezer
 
 On hand, held for pending half and whole orders, and free, per product. "Add or take out" form. Recent changes with remove.
+
+### 5.8a Print and download
+
+Everything to print or download, at `/print` (`/downloads` redirects there), with the week picker at the top. One card per stage of the week; an item shows only to people who can open its page, and an empty card isn't shown:
+
+- Thursday, orders: order sheets (print, `/orders/sheet`); this week's orders (download); order grid (Excel download).
+- Weekend, cut sheet: cut sheet for Mohawk (opens the cut sheet, which keeps its own Print); product totals (download).
+- Before packing day: Box Label Report (print, `/packing/labels`).
+- Monday, packing: paper packing copy (print, `/packing/print`); packing record (download).
+- Anytime: customer list, one customer's history, sales over a date range, freezer on hand.
+- Later, Tuesday, shipping and billing: manifest and invoices.
+
+Orders and Packing have no print or download buttons. The "Spreadsheet grid" layout on Orders is for entering orders and stays there.
 
 ### 5.9 Customers
 

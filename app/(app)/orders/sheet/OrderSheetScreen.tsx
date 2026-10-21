@@ -135,8 +135,8 @@ export default function OrderSheetScreen() {
       <div className="screen-only mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="mr-auto">Order sheets</h2>
-          <Link href="/orders" className="btn ghost">
-            Back to Orders
+          <Link href="/print" className="btn ghost">
+            &larr; Print and download
           </Link>
         </div>
         <p className="small muted mt-1">

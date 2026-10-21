@@ -46,7 +46,7 @@ export const AREA_INFO: Record<Area, { label: string; sub: string }> = {
   freezer: { label: "Freezer", sub: "What's on hand" },
   customers: { label: "Customers", sub: "Customer list, contacts, standing notes" },
   callnotes: { label: "Call notes", sub: "The history of calls and follow-ups" },
-  downloads: { label: "Downloads", sub: "Spreadsheets (looking only)" },
+  downloads: { label: "Print and download", sub: "Order sheets, labels, spreadsheets (looking only)" },
   setup: { label: "Setup", sub: "Products and parts. Only admins can change it" },
 };
 
@@ -97,7 +97,7 @@ export const NAV: NavItem[] = [
   { href: "/orders", label: "Orders", short: "Orders", icon: "✎", bottom: true, sub: "Every customer's order", area: "orders" },
   { href: "/packing", label: "Packing", short: "Packing", icon: "✓", bottom: true, sub: "Pack and check off orders", area: "packing" },
   { href: "/cut-sheet", label: "Cut sheet", short: "Cut sheet", icon: "✂", bottom: false, sub: "This week's sheet for Mohawk", area: "cutsheet" },
-  { href: "/downloads", label: "Downloads", short: "Downloads", icon: "⤓", bottom: false, sub: "Spreadsheets of orders, customers, and more", area: "downloads" },
+  { href: "/print", label: "Print and download", short: "Print", icon: "⎙", bottom: false, sub: "Order sheets, cut sheet, labels, packing copy, spreadsheets", area: "downloads" },
   { href: "/half-whole", label: "Half and whole", short: "Half/​whole", icon: "½", bottom: false, sub: "Half and whole lamb orders", area: "halfwhole" },
   { href: "/freezer", label: "Freezer", short: "Freezer", icon: "❄", bottom: false, sub: "What's on hand, add or remove cuts", area: "freezer" },
   { href: "/customers", label: "Customers", short: "Customers", icon: "☺", bottom: false, sub: "Customer list and call days", area: "customers" },

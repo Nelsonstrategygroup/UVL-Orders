@@ -13,9 +13,6 @@ import OrderEditor from "@/components/OrderEditor";
 import { orderSummary } from "@/components/ReadBack";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { downloadTable } from "@/components/download";
-import { orderGridTable, weekOrdersTable } from "@/lib/reports";
-import { groupProducts } from "@/lib/calc/products";
 import { toProductUnit, unitWord } from "@/lib/calc/units";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
@@ -36,7 +33,6 @@ export default function OrdersScreen() {
   const ordersCan = useCan("orders");
   const callsCan = useCan("calls");
   const canChange = ordersCan.change || callsCan.change;
-  const canDownload = useCan("downloads").view;
   const [view, setView] = useState<View>(() => {
     try {
       return typeof window !== "undefined" && localStorage.getItem(VIEW_KEY) === "grid" ? "grid" : "list";
@@ -95,39 +91,6 @@ export default function OrdersScreen() {
       {!canChange && <ViewOnly what="orders" />}
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Orders</h2>
-        <Link href="/orders/sheet" className="btn ghost">
-          Print order sheets
-        </Link>
-        {canDownload && (
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => {
-            // Everyone who orders this week, plus anyone else with an answer saved.
-            const ordering = new Set(orderingCustomers(customers.list).map((c) => c.id));
-            const list = customers.list.filter((c) => ordering.has(c.id) || data.orders.has(c.id));
-            void downloadTable(
-              `orders-week-of-${week}`,
-              weekOrdersTable(week, list, customers.byId, data.orders, data.packed, catalog.products),
-              "Orders",
-            );
-          }}
-        >
-          Download this week
-        </button>
-        )}
-        {canDownload && (
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => {
-              const shown = groupProducts(catalog.products.filter((p) => p.active)).flatMap((g) => g.products);
-              void downloadTable(`order-grid-week-of-${week}`, orderGridTable(list, customers.byId, data.orders, shown), "Orders", "xlsx");
-            }}
-          >
-            Excel grid
-          </button>
-        )}
         <div className="desk-only">
           <div className="seg" role="group" aria-label="Layout">
             <button type="button" aria-pressed={view === "list"} onClick={() => choose("list")}>

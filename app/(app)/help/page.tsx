@@ -66,8 +66,8 @@ export default async function HelpPage() {
         up by themselves within a few seconds.
       </Step>
       <Step n={6} title="Paper copy">
-        Print the Packing page (Ctrl+P on a computer) for a checklist with spaces for weights, boxes, not filled, pallet, and
-        initials.
+        Open the <Link href="/packing/print">paper packing copy</Link> and tap <b>Print</b> for a checklist with spaces for
+        weights, boxes, not filled, pallet, and initials. In the office it&apos;s also under <b>More</b>, <b>Print and download</b>.
       </Step>
     </section>
   );
@@ -133,8 +133,9 @@ export default async function HelpPage() {
         <b>Half and whole</b> walks you through each cut. It says <b>In freezer</b> or <b>Cut fresh</b> for each, and anything
         the freezer can&apos;t cover is added to this week&apos;s order. Tap <b>Mark filled</b> when it&apos;s picked up.{" "}
         <b>Freezer</b> shows what&apos;s on hand. On a customer&apos;s page, <b>Log a contact</b> keeps notes and follow-ups.{" "}
-        <b>Downloads</b>, under <b>More</b>, makes spreadsheets: the week&apos;s orders, product totals, packing record,
-        customer list, a customer&apos;s history, sales over a date range, and the freezer.
+        <b>Print and download</b>, under <b>More</b>, has everything to print or download, by day of the week: order sheets,
+        the cut sheet, the Box Label Report, the paper packing copy, and spreadsheets of the week&apos;s orders, product totals,
+        the packing record, customers, a customer&apos;s history, sales over a date range, and the freezer.
       </Step>
     </section>
   );

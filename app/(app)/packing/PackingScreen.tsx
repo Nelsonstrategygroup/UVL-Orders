@@ -492,7 +492,7 @@ function PackNotes({ o }: { o: PackOrder }) {
 }
 
 /** The paper checklist: blanks for weights, box, not filled, pallet, and initials. */
-function PrintCopy({ data }: { data: PackingData }) {
+export function PrintCopy({ data }: { data: PackingData }) {
   return (
     <div className="print-only printsheet">
       <h1>Packing list, {weekName(data.week)}</h1>

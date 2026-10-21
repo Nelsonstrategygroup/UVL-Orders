@@ -33,7 +33,7 @@ describe("screens by permission", () => {
     expect(nav.filter((n) => n.bottom).map((n) => n.short)).toEqual(["Week", "Calls", "Orders", "Packing"]);
     expect(nav.filter((n) => !n.bottom).map((n) => n.href)).toEqual([
       "/cut-sheet",
-      "/downloads",
+      "/print",
       "/half-whole",
       "/freezer",
       "/customers",
