@@ -1,0 +1,176 @@
+product,unit,box_type,max_count,max_lb,status,product_note
+Whole Lamb,pcs,MVM,1,,ok,
+Whole Lamb,pcs,Roll Stock,,,does_not_fit,
+Whole Lamb,pcs,Jerky,,,does_not_fit,
+Whole Lamb,pcs,White,,,does_not_fit,
+Whole Lamb,pcs,Baby,,,does_not_fit,
+Carcass Lamb,pcs,MVM,,,does_not_fit,"Goes out in a shroud, never boxed. No labels."
+Carcass Lamb,pcs,Roll Stock,,,does_not_fit,"Goes out in a shroud, never boxed. No labels."
+Carcass Lamb,pcs,Jerky,,,does_not_fit,"Goes out in a shroud, never boxed. No labels."
+Carcass Lamb,pcs,White,,,does_not_fit,"Goes out in a shroud, never boxed. No labels."
+Carcass Lamb,pcs,Baby,,,does_not_fit,"Goes out in a shroud, never boxed. No labels."
+Whole Loin,pcs,MVM,4,,ok,
+Whole Loin,pcs,Roll Stock,2,,ok,
+Whole Loin,pcs,Jerky,,,does_not_fit,
+Whole Loin,pcs,White,,,does_not_fit,
+Whole Loin,pcs,Baby,,,does_not_fit,
+Chops,lb,MVM,,45,ok,
+Chops,lb,Roll Stock,,25,ok,
+Chops,lb,Jerky,,15,ok,
+Chops,lb,White,,12,ok,
+Chops,lb,Baby,,,needs_checking,
+Thick Chops,lb,MVM,,,needs_checking,Sheet says NA; Kathy called it irrelevant. Confirm it's still sold.
+Thick Chops,lb,Roll Stock,,,needs_checking,Sheet says NA; Kathy called it irrelevant. Confirm it's still sold.
+Thick Chops,lb,Jerky,,,needs_checking,Sheet says NA; Kathy called it irrelevant. Confirm it's still sold.
+Thick Chops,lb,White,,,needs_checking,Sheet says NA; Kathy called it irrelevant. Confirm it's still sold.
+Thick Chops,lb,Baby,,,needs_checking,Sheet says NA; Kathy called it irrelevant. Confirm it's still sold.
+Labeled Chops,lb,MVM,,45,ok,
+Labeled Chops,lb,Roll Stock,,25,ok,
+Labeled Chops,lb,Jerky,,15,ok,
+Labeled Chops,lb,White,,12,ok,
+Labeled Chops,lb,Baby,,,needs_checking,
+Short Loin,pcs,MVM,16,,ok,White 6 is from the sheet; in the recording Kathy also said White 4. Baby 2 from the recording.
+Short Loin,pcs,Roll Stock,12,,ok,White 6 is from the sheet; in the recording Kathy also said White 4. Baby 2 from the recording.
+Short Loin,pcs,Jerky,8,,ok,White 6 is from the sheet; in the recording Kathy also said White 4. Baby 2 from the recording.
+Short Loin,pcs,White,6,,ok,White 6 is from the sheet; in the recording Kathy also said White 4. Baby 2 from the recording.
+Short Loin,pcs,Baby,2,,ok,White 6 is from the sheet; in the recording Kathy also said White 4. Baby 2 from the recording.
+BNLS Loins,pcs,MVM,10,,ok,
+BNLS Loins,pcs,Roll Stock,5,,ok,
+BNLS Loins,pcs,Jerky,4,,ok,
+BNLS Loins,pcs,White,2,,ok,
+BNLS Loins,pcs,Baby,,,needs_checking,
+French Rack,pcs,MVM,18,,ok,
+French Rack,pcs,Roll Stock,10,,ok,
+French Rack,pcs,Jerky,8,,ok,
+French Rack,pcs,White,,,does_not_fit,
+French Rack,pcs,Baby,,,does_not_fit,
+Cap On Rack,pcs,MVM,10,,ok,Kathy: an order of 12 = 10 + 2.
+Cap On Rack,pcs,Roll Stock,6,,ok,Kathy: an order of 12 = 10 + 2.
+Cap On Rack,pcs,Jerky,6,,ok,Kathy: an order of 12 = 10 + 2.
+Cap On Rack,pcs,White,2,,ok,Kathy: an order of 12 = 10 + 2.
+Cap On Rack,pcs,Baby,,,needs_checking,Kathy: an order of 12 = 10 + 2.
+Chop Ready Rack,pcs,MVM,16,,ok,"Sheet '4 or 2' = White 4, Baby 2. Kathy called this product not relevant in the recording; confirm it's still sold."
+Chop Ready Rack,pcs,Roll Stock,12,,ok,"Sheet '4 or 2' = White 4, Baby 2. Kathy called this product not relevant in the recording; confirm it's still sold."
+Chop Ready Rack,pcs,Jerky,8,,ok,"Sheet '4 or 2' = White 4, Baby 2. Kathy called this product not relevant in the recording; confirm it's still sold."
+Chop Ready Rack,pcs,White,4,,ok,"Sheet '4 or 2' = White 4, Baby 2. Kathy called this product not relevant in the recording; confirm it's still sold."
+Chop Ready Rack,pcs,Baby,2,,ok,"Sheet '4 or 2' = White 4, Baby 2. Kathy called this product not relevant in the recording; confirm it's still sold."
+Hind Shanks,packs,MVM,16,,ok,2 shanks per pack; one pack counts as one.
+Hind Shanks,packs,Roll Stock,10,,ok,2 shanks per pack; one pack counts as one.
+Hind Shanks,packs,Jerky,8,,ok,2 shanks per pack; one pack counts as one.
+Hind Shanks,packs,White,5,,ok,2 shanks per pack; one pack counts as one.
+Hind Shanks,packs,Baby,,,needs_checking,2 shanks per pack; one pack counts as one.
+Front Shanks,packs,MVM,18,,ok,Sheet says pcs; Kathy said change to packs. 2 per pack.
+Front Shanks,packs,Roll Stock,12,,ok,Sheet says pcs; Kathy said change to packs. 2 per pack.
+Front Shanks,packs,Jerky,12,,ok,Sheet says pcs; Kathy said change to packs. 2 per pack.
+Front Shanks,packs,White,6,,ok,Sheet says pcs; Kathy said change to packs. 2 per pack.
+Front Shanks,packs,Baby,,,needs_checking,Sheet says pcs; Kathy said change to packs. 2 per pack.
+Labeled Hind Shanks,packs,MVM,15,,ok,MVM 15 vs 16 unlabeled; Kathy said labels don't change the count. Confirm.
+Labeled Hind Shanks,packs,Roll Stock,10,,ok,MVM 15 vs 16 unlabeled; Kathy said labels don't change the count. Confirm.
+Labeled Hind Shanks,packs,Jerky,8,,ok,MVM 15 vs 16 unlabeled; Kathy said labels don't change the count. Confirm.
+Labeled Hind Shanks,packs,White,5,,ok,MVM 15 vs 16 unlabeled; Kathy said labels don't change the count. Confirm.
+Labeled Hind Shanks,packs,Baby,,,needs_checking,MVM 15 vs 16 unlabeled; Kathy said labels don't change the count. Confirm.
+BNLS Legs,pcs,MVM,6,,ok,Kathy: an order of 8 = 6 + 2.
+BNLS Legs,pcs,Roll Stock,5,,ok,Kathy: an order of 8 = 6 + 2.
+BNLS Legs,pcs,Jerky,4,,ok,Kathy: an order of 8 = 6 + 2.
+BNLS Legs,pcs,White,2,,ok,Kathy: an order of 8 = 6 + 2.
+BNLS Legs,pcs,Baby,,,needs_checking,Kathy: an order of 8 = 6 + 2.
+BI Legs,pcs,MVM,4,,ok,
+BI Legs,pcs,Roll Stock,2,,ok,
+BI Legs,pcs,Jerky,,,does_not_fit,
+BI Legs,pcs,White,,,does_not_fit,
+BI Legs,pcs,Baby,,,does_not_fit,
+AO Legs,pcs,MVM,4,,ok,
+AO Legs,pcs,Roll Stock,2,,ok,
+AO Legs,pcs,Jerky,,,does_not_fit,
+AO Legs,pcs,White,,,does_not_fit,
+AO Legs,pcs,Baby,,,does_not_fit,
+BNLS Shoulder,pcs,MVM,,,needs_checking,"MVM sheet says 8-10/45#. Kathy also said 8 would weigh 55-60 lb; a box of 9 weighed 45.15 lb on 10/12. Needs one number. '4 or 2' = White 4, Baby 2."
+BNLS Shoulder,pcs,Roll Stock,8,,ok,"MVM sheet says 8-10/45#. Kathy also said 8 would weigh 55-60 lb; a box of 9 weighed 45.15 lb on 10/12. Needs one number. '4 or 2' = White 4, Baby 2."
+BNLS Shoulder,pcs,Jerky,5,,ok,"MVM sheet says 8-10/45#. Kathy also said 8 would weigh 55-60 lb; a box of 9 weighed 45.15 lb on 10/12. Needs one number. '4 or 2' = White 4, Baby 2."
+BNLS Shoulder,pcs,White,4,,ok,"MVM sheet says 8-10/45#. Kathy also said 8 would weigh 55-60 lb; a box of 9 weighed 45.15 lb on 10/12. Needs one number. '4 or 2' = White 4, Baby 2."
+BNLS Shoulder,pcs,Baby,2,,ok,"MVM sheet says 8-10/45#. Kathy also said 8 would weigh 55-60 lb; a box of 9 weighed 45.15 lb on 10/12. Needs one number. '4 or 2' = White 4, Baby 2."
+BI Shoulder,pcs,MVM,6,,ok,Won't fit a Baby box.
+BI Shoulder,pcs,Roll Stock,4,,ok,Won't fit a Baby box.
+BI Shoulder,pcs,Jerky,3,,ok,Won't fit a Baby box.
+BI Shoulder,pcs,White,2,,ok,Won't fit a Baby box.
+BI Shoulder,pcs,Baby,,,does_not_fit,Won't fit a Baby box.
+Stew Meat,lb,MVM,,45,ok,
+Stew Meat,lb,Roll Stock,,30,ok,
+Stew Meat,lb,Jerky,,25,ok,
+Stew Meat,lb,White,,15,ok,
+Stew Meat,lb,Baby,,,needs_checking,
+Ground Lamb 1 lb,packs,MVM,45,,ok,Sheet gives lb; 1 lb packs so count = lb.
+Ground Lamb 1 lb,packs,Roll Stock,30,,ok,Sheet gives lb; 1 lb packs so count = lb.
+Ground Lamb 1 lb,packs,Jerky,25,,ok,Sheet gives lb; 1 lb packs so count = lb.
+Ground Lamb 1 lb,packs,White,15,,ok,Sheet gives lb; 1 lb packs so count = lb.
+Ground Lamb 1 lb,packs,Baby,,,needs_checking,Sheet gives lb; 1 lb packs so count = lb.
+Ground Lamb 5 lb,packs,MVM,9,,ok,
+Ground Lamb 5 lb,packs,Roll Stock,8,,ok,
+Ground Lamb 5 lb,packs,Jerky,5,,ok,
+Ground Lamb 5 lb,packs,White,4,,ok,
+Ground Lamb 5 lb,packs,Baby,,,needs_checking,
+Le Trim,lb,MVM,,40,ok,
+Le Trim,lb,Roll Stock,,30,ok,
+Le Trim,lb,Jerky,,20,ok,
+Le Trim,lb,White,,10,ok,
+Le Trim,lb,Baby,,,needs_checking,
+Trim 5 lb,packs,MVM,8,,ok,
+Trim 5 lb,packs,Roll Stock,6,,ok,
+Trim 5 lb,packs,Jerky,4,,ok,
+Trim 5 lb,packs,White,2,,ok,
+Trim 5 lb,packs,Baby,,,needs_checking,
+Trim 6 lb,packs,MVM,8,,ok,"MVM 8 x 6 lb = 48 lb, over the 45 lb cap; the cap makes it 7. Confirm."
+Trim 6 lb,packs,Roll Stock,6,,ok,"MVM 8 x 6 lb = 48 lb, over the 45 lb cap; the cap makes it 7. Confirm."
+Trim 6 lb,packs,Jerky,4,,ok,"MVM 8 x 6 lb = 48 lb, over the 45 lb cap; the cap makes it 7. Confirm."
+Trim 6 lb,packs,White,2,,ok,"MVM 8 x 6 lb = 48 lb, over the 45 lb cap; the cap makes it 7. Confirm."
+Trim 6 lb,packs,Baby,,,needs_checking,"MVM 8 x 6 lb = 48 lb, over the 45 lb cap; the cap makes it 7. Confirm."
+Trim 10 lb,packs,MVM,4,,ok,Kathy: nothing in the Baby box.
+Trim 10 lb,packs,Roll Stock,4,,ok,Kathy: nothing in the Baby box.
+Trim 10 lb,packs,Jerky,2,,ok,Kathy: nothing in the Baby box.
+Trim 10 lb,packs,White,1,,ok,Kathy: nothing in the Baby box.
+Trim 10 lb,packs,Baby,,,does_not_fit,Kathy: nothing in the Baby box.
+Organ Grind,pcs,MVM,,,does_not_fit,Sheet says 35 and 18; per the recording those are lb (a 35 lb Roll Stock box or an 18 lb Jerky box). One case per box. May be the same product as Pet Mix.
+Organ Grind,pcs,Roll Stock,1,,ok,Sheet says 35 and 18; per the recording those are lb (a 35 lb Roll Stock box or an 18 lb Jerky box). One case per box. May be the same product as Pet Mix.
+Organ Grind,pcs,Jerky,1,,ok,Sheet says 35 and 18; per the recording those are lb (a 35 lb Roll Stock box or an 18 lb Jerky box). One case per box. May be the same product as Pet Mix.
+Organ Grind,pcs,White,,,does_not_fit,Sheet says 35 and 18; per the recording those are lb (a 35 lb Roll Stock box or an 18 lb Jerky box). One case per box. May be the same product as Pet Mix.
+Organ Grind,pcs,Baby,,,does_not_fit,Sheet says 35 and 18; per the recording those are lb (a 35 lb Roll Stock box or an 18 lb Jerky box). One case per box. May be the same product as Pet Mix.
+Denver Ribs,lb,MVM,,,needs_checking,Kathy didn't know.
+Denver Ribs,lb,Roll Stock,,,needs_checking,Kathy didn't know.
+Denver Ribs,lb,Jerky,,,needs_checking,Kathy didn't know.
+Denver Ribs,lb,White,,,needs_checking,Kathy didn't know.
+Denver Ribs,lb,Baby,,,needs_checking,Kathy didn't know.
+Heart,packs,MVM,,,does_not_fit,Needs a weight per pack for the lb limit.
+Heart,packs,Roll Stock,,,does_not_fit,Needs a weight per pack for the lb limit.
+Heart,packs,Jerky,,25,ok,Needs a weight per pack for the lb limit.
+Heart,packs,White,,15,ok,Needs a weight per pack for the lb limit.
+Heart,packs,Baby,,,needs_checking,Needs a weight per pack for the lb limit.
+Liver,packs,MVM,,45,ok,Needs a weight per pack for the lb limit.
+Liver,packs,Roll Stock,,30,ok,Needs a weight per pack for the lb limit.
+Liver,packs,Jerky,,25,ok,Needs a weight per pack for the lb limit.
+Liver,packs,White,,15,ok,Needs a weight per pack for the lb limit.
+Liver,packs,Baby,,,needs_checking,Needs a weight per pack for the lb limit.
+Kidney,packs,MVM,,,does_not_fit,Needs a weight per pack for the lb limit.
+Kidney,packs,Roll Stock,,,does_not_fit,Needs a weight per pack for the lb limit.
+Kidney,packs,Jerky,,25,ok,Needs a weight per pack for the lb limit.
+Kidney,packs,White,,15,ok,Needs a weight per pack for the lb limit.
+Kidney,packs,Baby,,,needs_checking,Needs a weight per pack for the lb limit.
+Necks,pcs,MVM,,45,ok,Needs a weight per neck for the MVM lb limit.
+Necks,pcs,Roll Stock,12,,ok,Needs a weight per neck for the MVM lb limit.
+Necks,pcs,Jerky,12,,ok,Needs a weight per neck for the MVM lb limit.
+Necks,pcs,White,6,,ok,Needs a weight per neck for the MVM lb limit.
+Necks,pcs,Baby,,,needs_checking,Needs a weight per neck for the MVM lb limit.
+Bones,packs,MVM,,45,ok,"5 lb bags: MVM 9 bags, Jerky 4 bags."
+Bones,packs,Roll Stock,,,does_not_fit,"5 lb bags: MVM 9 bags, Jerky 4 bags."
+Bones,packs,Jerky,,20,ok,"5 lb bags: MVM 9 bags, Jerky 4 bags."
+Bones,packs,White,,,does_not_fit,"5 lb bags: MVM 9 bags, Jerky 4 bags."
+Bones,packs,Baby,,,does_not_fit,"5 lb bags: MVM 9 bags, Jerky 4 bags."
+Pet Mix,lb,MVM,,,does_not_fit,Always Roll Stock 35 lb or Jerky 18 lb. May be the same product as Organ Grind.
+Pet Mix,lb,Roll Stock,,35,ok,Always Roll Stock 35 lb or Jerky 18 lb. May be the same product as Organ Grind.
+Pet Mix,lb,Jerky,,18,ok,Always Roll Stock 35 lb or Jerky 18 lb. May be the same product as Organ Grind.
+Pet Mix,lb,White,,,does_not_fit,Always Roll Stock 35 lb or Jerky 18 lb. May be the same product as Organ Grind.
+Pet Mix,lb,Baby,,,does_not_fit,Always Roll Stock 35 lb or Jerky 18 lb. May be the same product as Organ Grind.
+Tongue,packs,MVM,,,does_not_fit,"Kathy: tongue goes in a White box, 10 packs."
+Tongue,packs,Roll Stock,,,does_not_fit,"Kathy: tongue goes in a White box, 10 packs."
+Tongue,packs,Jerky,,,does_not_fit,"Kathy: tongue goes in a White box, 10 packs."
+Tongue,packs,White,10,,ok,"Kathy: tongue goes in a White box, 10 packs."
+Tongue,packs,Baby,,,needs_checking,"Kathy: tongue goes in a White box, 10 packs."

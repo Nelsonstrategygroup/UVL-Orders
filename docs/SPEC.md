@@ -399,3 +399,43 @@ Stage 1 is the parser (11.2) with its tests, since it can be checked without a p
 - `packing_conflicts`: `kind` (`duplicate-box`, `order-changed`, `order-gone`, `lot-differs`, `gtin-differs`), `message`, the upload as sent (`details`), and resolution fields, for Kathy.
 - `record_box(p jsonb)`: saves one scanned or hand-entered box. Returns `saved`, `already` (same client_id), `duplicate` (same GTIN + serial; flagged, not saved) or `gone` (order deleted; flagged). A box for a product no longer on the order is saved and flagged unless the packer chose "add it anyway". A lot that differs from the one on file is saved and flagged.
 - Storage bucket `box-photos` (private) for photos of labels that would not scan.
+
+## 12. Box types, box limits, the 45 lb cap, shank packs, and box labels (change request 10/20/26, part 2)
+
+Kathy's box limits are in `reference/UVL_Box_Limits_for_Claude_Code.csv` (one row per product and box type). Invoicing and the order week (Thursday through Wednesday) are not part of this change.
+
+### 12.1 Box types
+
+Five types, largest first: MVM, Roll Stock, Jerky, White, Baby. White and Baby are separate boxes. (Before this change the app had one "how many fit in a box" number per product, `products.per_box`, and no box types.)
+
+### 12.2 Box limits
+
+- Each product and box type can have a maximum count (in the product's unit), a maximum in lb, or both.
+- Loading the CSV: status `ok` loads the limit; `does_not_fit` means the product never goes in that box; `needs_checking` loads no limit, marks the cell for Kathy in Setup, and keeps the `product_note`.
+- Products are matched by name. CSV products that can't be matched, and active products with no limits at all, are listed for Lucas; no product is created or renamed without asking.
+- Setup shows a grid of products by box type. `needs_checking` cells stand out, with the note available.
+
+### 12.3 The 45 lb cap and splitting an order into boxes
+
+- No box is ever planned over 45 lb, for any product or box type. 45 is a setting, not hard-coded.
+- For products ordered in pieces or packs, `lb_per_unit` checks the cap. If `lb_per_unit` is blank, the box math still runs on the count, but the line shows "can't check weight".
+- A box's limit is the lowest of: its max count, what fits under its max lb, and what fits under the cap.
+- Products never share a box. For each order line: the smallest box that holds it all; if it takes more than one box, full boxes of the largest type the product fits in, then the smallest box that holds the rest.
+- Required tests: 8 BNLS legs = MVM 6 + White 2; 12 cap-on racks = MVM 10 + White 2; Trim 6 lb packs never go over 45 lb in an MVM box.
+
+### 12.4 Shanks in packs
+
+Front shanks, hind shanks, and labeled hind shanks are ordered and counted in packs: 2 shanks per pack, one pack counts as one. The carcass balance still works in shanks per lamb (2 front, 2 hind), so a pack uses 2 shanks. Every place shanks are counted in pieces is listed for Lucas before anything changes.
+
+### 12.5 Box label list (printed)
+
+- Kathy prints a customer label for every box before packing day. Each label has two lines: the customer (with the location for chain stores, e.g. "PCC Kirkland"), then the count and the product's label name, e.g. "10 Single Pack Rack (Cap ON)".
+- `products.label_name`: what is printed on the label. Defaults to the product name; Kathy edits it in Setup.
+- A "Box labels" print button on Packing, with a link from This week, for the selected week.
+- One table per product that has orders that week, in the order form's product groups. Products with no orders are left out.
+- One row per box (one row = one label): label line 1 (customer and location), label line 2 (count and label name, in the product's unit; pounds shown as "45 lb"), box type, "1 of 2" when a customer gets more than one box of that product, and a checkbox.
+- Within each product, customers sort by pallet group, then name.
+- Header: week, invoice number if set, printed date and time, total labels.
+- At the top, in red: every ordered product that can't be split into boxes (no limits, or a `needs_checking` cell the split would need), with the customer and amount, so nothing is left unlabeled.
+- Print layout: portrait, letter, 11 pt minimum, tables flowing in two columns, a table never split across a column or page, darker row lines than the current grid, row shading as on the Setup grid.
+- When labels are printed, a fingerprint of the list is saved. If orders change afterward, Packing and This week show "Orders changed since you printed labels".
