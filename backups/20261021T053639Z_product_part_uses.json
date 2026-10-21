@@ -1,0 +1,581 @@
+{
+ "table": "public.product_part_uses",
+ "exported_at": "20261021T053639Z",
+ "count": 82,
+ "rows": [
+  {
+   "created_at": "2026-10-15T21:42:35.356692+00:00",
+   "part_id": "wholeloin",
+   "product_id": "200e6f61-72e7-47db-b012-48c7a09efc90",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T23:44:10.745782+00:00",
+   "part_id": "leg",
+   "product_id": "60bab032-3ad4-4aa9-8b26-2fabcae7634f",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "part_id": "leg",
+   "product_id": "cp-bi-legs",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "leg",
+   "product_id": "cp-bls-legs",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "shoulder",
+   "product_id": "cp-bls-shoulder",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "part_id": "loin",
+   "product_id": "cp-boneless-loins",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "rack",
+   "product_id": "cp-cap-on-rack",
+   "qty": 1,
+   "updated_at": "2026-10-19T20:09:53.854167+00:00"
+  },
+  {
+   "created_at": "2026-10-15T21:42:35.356692+00:00",
+   "part_id": "rack",
+   "product_id": "cp-chop-ready-rack",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "loin",
+   "product_id": "cp-chops",
+   "qty": 0.4,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "rack",
+   "product_id": "cp-french-rack",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "part_id": "fshank",
+   "product_id": "cp-front-shanks",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "trim",
+   "product_id": "cp-ground-1",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "trim",
+   "product_id": "cp-ground-5",
+   "qty": 5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "hshank",
+   "product_id": "cp-hind-shanks",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "loin",
+   "product_id": "cp-labeled-chops",
+   "qty": 0.4,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "hshank",
+   "product_id": "cp-labeled-hind-shanks",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "neck",
+   "product_id": "cp-necks",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "loin",
+   "product_id": "cp-short-loin",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "loin",
+   "product_id": "cp-thick-chops",
+   "qty": 0.4,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "part_id": "trim",
+   "product_id": "cp-trim-10",
+   "qty": 10,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "part_id": "trim",
+   "product_id": "cp-trim-5",
+   "qty": 5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-14T22:57:46.950607+00:00",
+   "part_id": "trim",
+   "product_id": "cp-trim-6",
+   "qty": 6,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-15T21:42:35.356692+00:00",
+   "part_id": "wholeloin",
+   "product_id": "cp-whole-lamb",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "leg",
+   "product_id": "cp-whole-lamb",
+   "qty": 2,
+   "updated_at": "2026-10-15T20:24:38.015046+00:00"
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "shoulder",
+   "product_id": "cp-whole-lamb",
+   "qty": 2,
+   "updated_at": "2026-10-15T20:24:38.015046+00:00"
+  },
+  {
+   "created_at": "2026-10-09T21:32:52.383926+00:00",
+   "part_id": "fshank",
+   "product_id": "cp-whole-lamb",
+   "qty": 2,
+   "updated_at": "2026-10-15T20:24:38.015046+00:00"
+  },
+  {
+   "created_at": "2026-10-14T23:17:40.334934+00:00",
+   "part_id": "shoulder",
+   "product_id": "ec6d92db-b330-40ed-95ad-20f06bb9abf9",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "trim",
+   "product_id": "ground",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "letrim",
+   "qty": 0.125,
+   "updated_at": "2026-10-05T17:50:56.62415+00:00"
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "trim",
+   "product_id": "letrim",
+   "qty": 0.5,
+   "updated_at": "2026-10-05T17:50:56.62415+00:00"
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s1",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s10",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s11",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s12",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s13",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s14",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s15",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s16",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s17",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s18",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s19",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s2",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s20",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s20",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s21",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s21",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s22",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s23",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s24",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s25",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s26",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "fshank",
+   "product_id": "s27",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "hshank",
+   "product_id": "s28",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "hshank",
+   "product_id": "s29",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "hshank",
+   "product_id": "s3",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s3",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "hshank",
+   "product_id": "s30",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "fshank",
+   "product_id": "s31",
+   "qty": 0.5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "hshank",
+   "product_id": "s31",
+   "qty": 0.5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "neck",
+   "product_id": "s32",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "fshank",
+   "product_id": "s33",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "trim",
+   "product_id": "s33",
+   "qty": 5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "neck",
+   "product_id": "s33",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "hshank",
+   "product_id": "s33",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s33",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s33",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s33",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s33",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "trim",
+   "product_id": "s34",
+   "qty": 5,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "hshank",
+   "product_id": "s34",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s34",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "rack",
+   "product_id": "s34",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "loin",
+   "product_id": "s34",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s34",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "fshank",
+   "product_id": "s34",
+   "qty": 2,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "neck",
+   "product_id": "s34",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s4",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s5",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "leg",
+   "product_id": "s6",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s7",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s8",
+   "qty": 1,
+   "updated_at": null
+  },
+  {
+   "created_at": "2026-10-02T07:45:55.699078+00:00",
+   "part_id": "shoulder",
+   "product_id": "s9",
+   "qty": 1,
+   "updated_at": null
+  }
+ ]
+}

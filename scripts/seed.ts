@@ -59,7 +59,7 @@ async function main() {
 
   // The whole loin model (10/15/26): the same data changes the migrations make
   // on a database that already had its catalog. Safe to run more than once.
-  for (const fn of ["whole_loin_model_expand", "whole_loin_model_cleanup"]) {
+  for (const fn of ["whole_loin_model_expand", "whole_loin_model_cleanup", "load_box_limits"]) {
     const { error } = await db.rpc(fn);
     // Step 2 only exists once its migration is applied.
     if (error && !/could not find|does not exist/i.test(error.message)) throw new Error(`${fn}: ${error.message}`);

@@ -46,6 +46,11 @@ describe("leg breakdown", () => {
     expect(legBreakdownText(b)).toBe("Legs: 40 bone-in, 12 AO, 80 boneless, 3 other. 135 total.");
   });
 
+  it("counts BNLS legs (Kathy's box sheet name) as boneless", () => {
+    const p = [{ ...seedProducts[0], id: "bnls", name: "BNLS Legs", short_name: "", group_name: "Legs", uses: [{ part_id: "leg", qty: 1 }] }];
+    expect(legBreakdownText(legBreakdown({ bnls: 77 }, p))).toBe("Legs: 77 boneless. 77 total.");
+  });
+
   it("is empty with no legs", () => {
     expect(legBreakdownText(legBreakdown({ s7: 4 }, seedProducts))).toBe("");
   });

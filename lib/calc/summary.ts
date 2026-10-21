@@ -73,7 +73,7 @@ export function weekNumbers(
 export const LEG_KINDS: { key: string; label: string; test: RegExp }[] = [
   { key: "bonein", label: "bone-in", test: /\bbone[ -]?in\b|\bBI\b/i },
   { key: "ao", label: "AO", test: /\bAO\b/ },
-  { key: "boneless", label: "boneless", test: /\bBLS\b|\bboneless\b/i },
+  { key: "boneless", label: "boneless", test: /\bBN?LS\b|\bboneless\b/i },
 ];
 
 export type LegBreakdown = { parts: { label: string; qty: number }[]; total: number };
