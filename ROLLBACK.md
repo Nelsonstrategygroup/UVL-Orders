@@ -51,3 +51,13 @@ Each revert file also removes its migration from Supabase's list, so `npx supaba
 
 - This week for the week of Oct 12, 2026 shows 78 lambs set by shoulder (155 needed) on the old model, and 79 set by whole loins on the new one (see `lib/calc/wholeLoin.test.ts`).
 - `npx supabase migration list --linked` shows which of the two migrations are applied.
+
+## Moving the Oct 5 and Oct 12 weeks forward (10/21/26)
+
+`20261021000300_move_order_weeks.sql` moves the orders filed under Packing Mon Oct 12 to Mon Oct 19, then Mon Oct 5 to Mon Oct 12 (with their packing marks, weights, producer and cut sheet). Rows as they were before are in `backups/20261021T194628Z_move_order_weeks_*.json`. To put them back:
+
+```bash
+npx supabase db query --linked -f supabase/rollback/20261021000300_revert.sql
+```
+
+It stops with a message if orders were entered into Oct 5 or Oct 12 in the meantime.
