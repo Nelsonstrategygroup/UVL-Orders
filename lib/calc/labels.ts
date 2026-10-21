@@ -21,7 +21,7 @@ export type LabelProduct = {
 };
 
 export type LabelOrder = {
-  /** Label line 1: "PCC Kirkland". */
+  /** Label line 1: "PCC #02 Kirkland". */
   customer: string;
   /** Pallet group order, then name: customers sort by this. */
   sortKey: string;
@@ -57,10 +57,10 @@ export type LabelList = {
   hash: string;
 };
 
-/** Line 1 for a chain store: the chain and the store, without its number ("PCC Kirkland"). */
+/** Line 1 for a chain store: the chain and the store, store number kept ("PCC #02 Kirkland"; Lucas, 10/21/26). */
 export function labelCustomer(name: string, parentName: string | null | undefined): string {
   if (!parentName) return name.trim();
-  return `${parentName.trim()} ${name.replace(/^#\s*\d+\s*/, "").trim()}`;
+  return `${parentName.trim()} ${name.trim()}`;
 }
 
 const amountText = (n: number, unit: string, name: string) => (unit === "lb" ? `${fmt(n)} lb ${name}` : `${fmt(n)} ${name}`);

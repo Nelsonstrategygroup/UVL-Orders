@@ -50,7 +50,7 @@ export type PackOrder = {
   id: string;
   customerId: string;
   customerName: string;
-  /** Box label line 1: "PCC Kirkland". */
+  /** Box label line 1: "PCC #02 Kirkland". */
   labelCustomer: string;
   /** Pallet group order, then name. */
   sortKey: string;

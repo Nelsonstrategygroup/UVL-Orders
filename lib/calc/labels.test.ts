@@ -89,8 +89,8 @@ describe("labels", () => {
     expect(table("Le Trim").weightUnknown).toBe(false);
   });
 
-  it("names chain stores as the chain and the store, without its number", () => {
-    expect(labelCustomer("#02 Kirkland", "PCC")).toBe("PCC Kirkland");
+  it("names chain stores as the chain and the store, with its number", () => {
+    expect(labelCustomer("#02 Kirkland", "PCC")).toBe("PCC #02 Kirkland");
     expect(labelCustomer("SAC", "Corfini Gourmet")).toBe("Corfini Gourmet SAC");
     expect(labelCustomer("Key City", null)).toBe("Key City");
   });
