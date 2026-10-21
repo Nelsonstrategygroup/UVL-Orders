@@ -1,7 +1,7 @@
 "use client";
 
-// "Orders changed since you printed labels" (SPEC 12.5): shown on Packing,
-// This week, and the label list when the labels printed for this week no
+// "Orders changed since you printed labels" (SPEC 12.5): shown on This week
+// and the Box Label Report when the labels printed for this week no
 // longer match the orders.
 
 import Link from "next/link";

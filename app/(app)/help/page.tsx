@@ -66,7 +66,8 @@ export default async function HelpPage() {
         up by themselves within a few seconds.
       </Step>
       <Step n={6} title="Paper copy">
-        Tap <b>Print a paper copy</b> for a checklist with spaces for weights, boxes, not filled, pallet, and initials.
+        Print the Packing page (Ctrl+P on a computer) for a checklist with spaces for weights, boxes, not filled, pallet, and
+        initials.
       </Step>
     </section>
   );

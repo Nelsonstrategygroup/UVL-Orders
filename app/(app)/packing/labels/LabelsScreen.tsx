@@ -2,7 +2,7 @@
 
 // The box label list (SPEC 12.5): one row per box, so Kathy can print every
 // customer label before packing day. Printing saves a fingerprint of the
-// list; Packing and This week then say if orders change afterward.
+// list; This week then says if orders change afterward.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -12,6 +12,7 @@ import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { todayISO, weekName } from "@/lib/dates";
+import { boxCellsToCheck } from "@/lib/calc/boxes";
 import { formatWhen } from "@/lib/format";
 import { packingLabels } from "@/lib/db/packing";
 import { saveWeek } from "@/lib/db/save";
@@ -36,19 +37,27 @@ export default function LabelsScreen() {
   const data = bundle.data.packing;
   const list = packingLabels(data, bundle.data.boxes);
   const stamp = printedAt ?? new Date().toISOString();
-  // One line per product and reason, listing the customers and amounts.
-  const problemGroups: { product: string; why: string; who: string[] }[] = [];
+  // One line per product that can't go in any box: the customers and amounts.
+  const problemGroups: { product: string; why: string[]; who: string[] }[] = [];
   for (const x of list.problems) {
-    const g = problemGroups.find((y) => y.product === x.product && y.why === x.why);
+    const g = problemGroups.find((y) => y.product === x.product);
     const who = `${x.customer} ${x.amount}`;
-    if (g) g.who.push(who);
-    else problemGroups.push({ product: x.product, why: x.why, who: [who] });
+    if (!g) problemGroups.push({ product: x.product, why: [x.why], who: [who] });
+    else {
+      g.who.push(who);
+      if (!g.why.includes(x.why)) g.why.push(x.why);
+    }
   }
+  // Boxes still to check are simply not used; one quiet line, not a warning.
+  const toCheck = boxCellsToCheck(
+    bundle.data.boxes.limits,
+    [...data.products.values()].filter((p) => p.active).map((p) => p.id),
+  );
 
   async function print() {
     const now = new Date().toISOString();
     setPrintedAt(now);
-    // Remember what was printed, so a later order change shows on Packing and This week.
+    // Remember what was printed, so a later order change shows on This week.
     const err = await saveWeek(getDb(), week, { labels_hash: list.hash, labels_printed_at: now, labels_printed_by: me.id });
     if (err) toast("Printed, but couldn't note it. Check the signal.");
     bundle.refresh();
@@ -58,11 +67,11 @@ export default function LabelsScreen() {
   return (
     <>
       <div className="screen-only">
-        <WeekBar processDate={data.processDate} />
+        <WeekBar inv={data.invNumber} />
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="mr-auto">Box Label Report</h2>
-          <Link href="/packing" className="btn ghost">
-            Back to Packing
+          <Link href="/week" className="btn ghost">
+            &larr; This week
           </Link>
           <button type="button" className="btn" disabled={!list.total} onClick={() => void print()}>
             Print report ({list.total} labels)
@@ -86,15 +95,24 @@ export default function LabelsScreen() {
 
         {list.problems.length > 0 && (
           <div className="ls-problems" role="alert">
-            <b>Fix these in Setup &gt; Boxes, then print again:</b>
+            <b>These can&apos;t go in any box yet. Fix them in Setup &gt; Boxes, then print again:</b>
             <ul>
               {problemGroups.map((g) => (
-                <li key={g.product + g.why}>
-                  <b>{g.product}</b>: {g.why}. {g.who.join("; ")}.
+                <li key={g.product}>
+                  <b>{g.product}</b>: {g.who.join("; ")}. <span className="ls-why">({g.why.join("; ")})</span>
                 </li>
               ))}
             </ul>
           </div>
+        )}
+        {toCheck > 0 && (
+          <p className="ls-tocheck">
+            Some box sizes are still to be checked in{" "}
+            <Link href="/setup#boxes" className="copy">
+              Setup &gt; Boxes
+            </Link>{" "}
+            ({toCheck}).
+          </p>
         )}
 
         {!list.tables.length && !list.problems.length && <p className="empty">No orders to label for this week.</p>}

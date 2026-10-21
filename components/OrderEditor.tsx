@@ -304,7 +304,7 @@ export default function OrderEditor(props: OrderEditorProps) {
     };
   }, []);
 
-  const box = catalog ? orderBoxes(lines, units, catalog.productById, catalog.boxes) : { boxes: 0, problems: [], unconfirmed: [] };
+  const box = catalog ? orderBoxes(lines, units, catalog.productById, catalog.boxes) : { boxes: 0, problems: [] };
 
   return (
     <Sheet title={props.displayName} onClose={() => void close()}>

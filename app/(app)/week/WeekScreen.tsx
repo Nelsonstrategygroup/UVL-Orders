@@ -85,8 +85,7 @@ export default function WeekScreen() {
     catalog.productById,
     catalog.boxes,
   );
-  const blocked = labels.problems.filter((x) => x.kind === "blocked").length;
-  const unconfirmedBoxes = labels.problems.filter((x) => x.kind === "unconfirmed").length;
+  const blocked = labels.problems.length;
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
   // Lines in pounds for a product with no weight per piece count as nothing.
   const uncounted = [...data.orders.values()].flatMap((o) => cantConvert(o.lines, o.units, catalog.productById));
@@ -124,7 +123,7 @@ export default function WeekScreen() {
 
   return (
     <>
-      <WeekBar processDate={w?.process_date} />
+      <WeekBar processDate={w?.process_date} schedule />
       {!canChange && <ViewOnly what="this week's settings" />}
 
       {unconfirmed > 0 && (
@@ -353,8 +352,7 @@ export default function WeekScreen() {
           </div>
           <p className="small muted mt-1 mb-0">
             {w?.labels_printed_at ? `Printed ${formatDateTime(w.labels_printed_at)}.` : "Not printed yet for this week."}
-            {blocked > 0 && ` ${blocked} ${blocked === 1 ? "order line" : "order lines"} can't be labeled until Setup > Boxes is filled in.`}
-            {unconfirmedBoxes > 0 && ` ${unconfirmedBoxes} use a box not confirmed yet.`}
+            {blocked > 0 && ` ${blocked} ${blocked === 1 ? "order line" : "order lines"} can't go in any box until Setup > Boxes is filled in.`}
           </p>
           <LabelsChanged hash={labels.hash} printedHash={w?.labels_hash} printedAt={w?.labels_printed_at} />
         </div>

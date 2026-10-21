@@ -8,7 +8,8 @@
 // starts, so Thursday's orders never go into last week by accident.
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { addDays, currentWeek, DAYS, longDate, niceDate, todayISO, WEEK_STARTS, weekDays, weekName } from "@/lib/dates";
+import { getDb } from "@/components/data/db";
+import { addDays, currentWeek, DAYS, longDate, niceDate, todayISO, WEEK_STARTS, weekDays } from "@/lib/dates";
 
 type WeekValue = { week: string; setWeek: (w: string) => void };
 const Ctx = createContext<WeekValue | null>(null);
@@ -41,47 +42,80 @@ export function useWeek(): WeekValue {
 // What happens on each weekday (0 Sunday ... 6 Saturday).
 const PLAN: Record<number, string> = { 4: "Orders", 1: "Mohawk, pack", 2: "Invoice, ship", 3: "Ship" };
 
-/** Previous / "Packing Mon Oct 26" / next, the week's days, and the processing day. */
-export function WeekBar({ processDate }: { processDate?: string | null }) {
+/** The week's INV# from the cut sheet, unless the screen already has it; null offline or for packers. */
+function useInvNumber(week: string, given: string | null | undefined): string | null {
+  const [found, setFound] = useState<{ week: string; inv: string | null } | null>(null);
+  useEffect(() => {
+    if (given !== undefined) return;
+    let live = true;
+    getDb()
+      .from("cut_sheets")
+      .select("inv_number")
+      .eq("week_id", week)
+      .maybeSingle()
+      .then(
+        ({ data }) => live && setFound({ week, inv: (data as { inv_number: string } | null)?.inv_number?.trim() || null }),
+        () => {},
+      );
+    return () => {
+      live = false;
+    };
+  }, [week, given]);
+  if (given !== undefined) return given?.trim() || null;
+  return found?.week === week ? found.inv : null;
+}
+
+/**
+ * One line: ‹ Week of Oct 19 · Inv 3000 › and, on another week, a small
+ * "Back to this week" chip. `schedule` (This week only) adds the order
+ * week's days and what happens on each.
+ */
+export function WeekBar({ processDate, inv, schedule = false }: { processDate?: string | null; inv?: string | null; schedule?: boolean }) {
   const { week, setWeek } = useWeek();
   const isCurrent = week === currentWeek();
+  const invNumber = useInvNumber(week, inv);
   const days = weekDays(week);
   const today = todayISO();
   return (
     <>
-    <div className="weekbar noprint">
-      <button type="button" className="iconbtn text-xl" onClick={() => setWeek(addDays(week, -7))} aria-label="Previous week">
-        &#8249;
-      </button>
-      <div className="min-w-[11ch] text-center font-display text-[1.15rem]" aria-live="polite">
-        Packing {weekName(week)}
-      </div>
-      <button type="button" className="iconbtn text-xl" onClick={() => setWeek(addDays(week, 7))} aria-label="Next week">
-        &#8250;
-      </button>
-      {!isCurrent && (
-        <button type="button" className="linkbtn" onClick={() => setWeek(currentWeek())}>
-          Back to this week
+      <div className="weekbar noprint">
+        <button type="button" className="iconbtn text-xl" onClick={() => setWeek(addDays(week, -7))} aria-label="Previous week">
+          &#8249;
         </button>
+        <div className="weekname" aria-live="polite">
+          Week of {niceDate(week)}
+          {invNumber && <span className="muted"> · Inv {invNumber}</span>}
+        </div>
+        <button type="button" className="iconbtn text-xl" onClick={() => setWeek(addDays(week, 7))} aria-label="Next week">
+          &#8250;
+        </button>
+        {!isCurrent && (
+          <button type="button" className="chip weekchip" onClick={() => setWeek(currentWeek())}>
+            Back to this week
+          </button>
+        )}
+      </div>
+      {schedule && (
+        <>
+          {/* The order week at a glance: a strip on wider screens, one line on phones. */}
+          <ol className="weekstrip noprint" aria-label={`Order week ${niceDate(days[0])} to ${niceDate(days[6])}`}>
+            {days.map((d, i) => {
+              const dow = (WEEK_STARTS + i) % 7;
+              return (
+                <li key={d} className={`${d === today ? "today" : ""} ${PLAN[dow] ? "busy" : ""}`} aria-current={d === today ? "date" : undefined}>
+                  <span className="dow">{DAYS[dow].slice(0, 3)}</span>
+                  <span className="dom">{niceDate(d)}</span>
+                  {PLAN[dow] && <span className="what">{PLAN[dow]}</span>}
+                </li>
+              );
+            })}
+          </ol>
+          <p className="weekline noprint">
+            Orders Thu {niceDate(days[0])} · Pack Mon {niceDate(week)} · Invoice Tue {niceDate(addDays(week, 1))} · Ships Tue or Wed
+            {processDate && processDate !== week && <> · Processing {longDate(processDate)}</>}
+          </p>
+        </>
       )}
-      {processDate && processDate !== week && <span className="muted small">Processing {longDate(processDate)}</span>}
-    </div>
-    {/* The order week at a glance: a strip on wider screens, one line on phones. */}
-    <ol className="weekstrip noprint" aria-label={`Order week ${niceDate(days[0])} to ${niceDate(days[6])}`}>
-      {days.map((d, i) => {
-        const dow = (WEEK_STARTS + i) % 7;
-        return (
-          <li key={d} className={`${d === today ? "today" : ""} ${PLAN[dow] ? "busy" : ""}`} aria-current={d === today ? "date" : undefined}>
-            <span className="dow">{DAYS[dow].slice(0, 3)}</span>
-            <span className="dom">{niceDate(d)}</span>
-            {PLAN[dow] && <span className="what">{PLAN[dow]}</span>}
-          </li>
-        );
-      })}
-    </ol>
-    <p className="weekline noprint">
-      Orders Thu {niceDate(days[0])} · Pack Mon {niceDate(week)} · Invoice Tue {niceDate(addDays(week, 1))} · Ships Tue or Wed
-    </p>
     </>
   );
 }

@@ -134,7 +134,7 @@ Port each screen from the prototype. Navigation by role:
 - `admin`, `office`: Calls, This week, Orders, Cut sheet, Packing, Half and whole, Freezer, Customers, Setup (plus Users for admin).
 - `packing`: Packing only, with no other navigation.
 
-A week picker (previous, "Packing Mon Oct 19", next) appears on Calls, This week, Orders, Cut sheet, Packing, and the Box Label Report. Default to the current week.
+A week picker appears on Calls, This week, Orders, Cut sheet, Packing, and the Box Label Report. Default to the current week. It is one line (change request 10/21/26): "‹ Week of Oct 19 · Inv 3000 ›", leaving out the invoice part when the week's cut sheet has no INV#. On another week, a small "Back to this week" chip sits next to it. The schedule (the week's days on wide screens; "Orders Thu · Pack Mon · Invoice Tue · Ships Tue or Wed" on phones) shows only on This week.
 
 **Which week is "now"** (Kathy, 10/21/26): an order week runs Thursday through Wednesday and is named by its packing Monday. The current week switches at 12:00 AM Thursday, Pacific time: Thu Oct 15 through Wed Oct 21 is "Packing Mon Oct 19" (orders Thu Oct 15, pack Mon Oct 19, invoice Tue Oct 20, ship Tue or Wed). On Monday, "this week's orders" means the orders taken the Thursday before. The switchover day is one constant (`WEEK_STARTS` in `lib/dates.ts`), and every screen and download uses it: the picker's default, "last week" and "Same as last week" (the week before, by packing Monday), follow-ups due "this week" (up to its Wednesday), and the Downloads date range. A screen left open on the current week moves to the new week when Thursday starts.
 
@@ -182,7 +182,9 @@ Port the prototype's Cut sheet screen exactly. Key behaviors:
 
 ### 5.6 Packing
 
-Port the prototype's Packing screen. Grouped by customer (and location), one large row per line: tap anywhere on the row to mark packed, with undo. "Packed a different amount?" appears after a row is checked and opens a number picker. Partial and over states are shown in words. Per customer: boxes stepper, pallet field, "All packed" banner, who packed it and when. Filters: To pack, Done, All. Progress bar. "Print a paper copy" prints a checklist with blanks for packed count, boxes, pallet, and initials.
+Port the prototype's Packing screen. Grouped by customer (and location), one large row per line: tap anywhere on the row to mark packed, with undo. "Packed a different amount?" appears after a row is checked and opens a number picker. Partial and over states are shown in words. Per customer: boxes stepper, pallet field, "All packed" banner, who packed it and when. Filters: To pack, Done, All. Progress bar. Printing the page prints a checklist with blanks for packed count, boxes, pallet, and initials.
+
+Packing is only for packing (change request 10/21/26, stage 1). At the top, in order: "Scan boxes" (large), then "3 of 152 lines packed" with the progress bar, then the To pack / Done / All filter, so the first customer shows without scrolling on a phone. The Box Label Report and "Print a paper copy" links are not on Packing; both pages still work at their own addresses, and This week links to the Box Label Report.
 
 ### 5.7 Half and whole
 
@@ -433,11 +435,13 @@ Front shanks, hind shanks, and labeled hind shanks are ordered and counted in pa
 
 - Kathy prints a customer label for every box before packing day. Each label has two lines: the customer (with the location and store number for chain stores, e.g. "PCC #02 Kirkland"), then the count and the product's label name, e.g. "10 Single Pack Rack (Cap ON)".
 - `products.label_name`: what is printed on the label. Defaults to the product name; Kathy edits it in Setup.
-- A "Box Label Report" print button on Packing, with a link from This week, for the selected week.
+- A "Box Label Report" page for the selected week, linked from This week (`/packing/labels`).
 - One table per product that has orders that week, in the order form's product groups. Products with no orders are left out.
 - One row per box (one row = one label): label line 1 (customer and location), label line 2 (count and label name, in the product's unit; pounds shown as "45 lb"), box type, "1 of 2" when a customer gets more than one box of that product, and a checkbox.
 - Within each product, customers sort by pallet group, then name.
 - Header: week, invoice number if set, printed date and time, total labels.
-- At the top, in red: every ordered product that can't be split into boxes (no limits, or a `needs_checking` cell the split would need), with the customer and amount, so nothing is left unlabeled.
+- A `needs_checking` cell is treated as "not used" when splitting (change request 10/21/26); it is never a warning on its own.
+- At the top, in red: only order lines that can't go in any box (no usable limit at all), one line per product with its customers and amounts, so nothing is left unlabeled.
+- Under that, when any `needs_checking` cells exist, one quiet line: "Some box sizes are still to be checked in Setup > Boxes (30)." with a link.
 - Print layout: portrait, letter, 11 pt minimum, tables flowing in two columns, a table never split across a column or page, darker row lines than the current grid, row shading as on the Setup grid.
-- When labels are printed, a fingerprint of the list is saved. If orders change afterward, Packing and This week show "Orders changed since you printed labels".
+- When labels are printed, a fingerprint of the list is saved. If orders change afterward, This week and the report show "Orders changed since you printed labels".

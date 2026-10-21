@@ -101,7 +101,7 @@ export default function DownloadsScreen() {
         </span>
       </div>
 
-      <WeekBar processDate={data.weekRow?.process_date} />
+      <WeekBar />
 
       <section className="panel mt-2">
         <h3 className="mb-1">For packing {weekName(week)}</h3>

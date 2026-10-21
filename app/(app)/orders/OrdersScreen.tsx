@@ -70,7 +70,7 @@ export default function OrdersScreen() {
     }
   };
 
-  const header = <WeekBar processDate={data.weekRow?.process_date} />;
+  const header = <WeekBar />;
   if (!list.length) {
     return (
       <>

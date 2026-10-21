@@ -178,7 +178,7 @@ export default function ScanScreen() {
 
   return (
     <>
-      <WeekBar processDate={data.packing.processDate} />
+      <WeekBar inv={data.packing.invNumber} />
       <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Scan boxes</h2>

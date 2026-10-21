@@ -64,7 +64,7 @@ export default function CallsScreen() {
       </>
     );
 
-  const header = <WeekBar processDate={data.weekRow?.process_date} />;
+  const header = <WeekBar />;
   if (!queue.length) {
     return (
       <>

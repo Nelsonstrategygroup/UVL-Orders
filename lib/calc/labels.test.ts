@@ -1,7 +1,7 @@
 // SPEC 12.5: the box label list.
 
 import { describe, expect, it } from "vitest";
-import type { BoxLimit, BoxType } from "./boxes";
+import { boxCellsToCheck, type BoxLimit, type BoxType } from "./boxes";
 import { labelCustomer, labelList, type LabelOrder, type LabelProduct } from "./labels";
 
 const TYPES: BoxType[] = [
@@ -64,11 +64,14 @@ describe("labels", () => {
     expect(table("Cap On Rack").rows.map((r) => r.customer)).toEqual(["PCC Kirkland", "PCC Kirkland", "Key City"]);
   });
 
-  it("in red: what can't be boxed, and splits that need an unconfirmed box", () => {
+  it("in red: only lines that can't go in any box; a box that needs checking is just not used", () => {
     expect(list.problems).toEqual([
-      expect.objectContaining({ product: "BNLS Legs", customer: "Key City", why: expect.stringMatching(/Baby/) }),
       expect.objectContaining({ product: "Denver Ribs", customer: "Key City", amount: "10 lb", why: expect.stringMatching(/need checking/) }),
     ]);
+  });
+
+  it("counts the box cells still to check", () => {
+    expect(boxCellsToCheck(boxes.limits, products.keys())).toBe(6); // legs Baby + 5 for Denver Ribs
   });
 
   it("Carcass Lamb goes out in a shroud: no labels and not a problem", () => {

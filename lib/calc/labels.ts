@@ -39,13 +39,12 @@ export type LabelRow = {
 };
 
 export type LabelTable = { product: LabelProduct; group: string; rows: LabelRow[]; weightUnknown: boolean };
+/** An order line that can't go in any box: no labels until it's fixed in Setup. */
 export type LabelProblem = {
   product: string;
   customer: string;
   amount: string;
   why: string;
-  /** blocked: no labels until it's fixed. unconfirmed: labeled, but a box isn't confirmed yet. */
-  kind: "blocked" | "unconfirmed";
 };
 
 export type LabelList = {
@@ -88,23 +87,15 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
         const amount = toProductUnit(q, taken, { unit: p.unit, lb_per_unit: p.lb_per_unit ?? null });
         const asOrdered = taken && taken !== p.unit ? `${fmt(q)} ${taken}` : amountText(q, p.unit, "").trim();
         if (!(amount > 0)) {
-          problems.push({ product: p.name, customer: o.customer, amount: asOrdered, why: "Ordered in pounds, but the product has no weight per piece", kind: "blocked" });
+          problems.push({ product: p.name, customer: o.customer, amount: asOrdered, why: "Ordered in pounds, but the product has no weight per piece" });
           continue;
         }
         const plan = planBoxes(amount, p, boxes.limits.get(p.id) ?? [], boxes.types, boxes.capLb);
         if (plan.notBoxed) continue; // never boxed (Carcass Lamb): no labels
         if (plan.problem) {
-          problems.push({ product: p.name, customer: o.customer, amount: asOrdered, why: plan.problem, kind: "blocked" });
+          problems.push({ product: p.name, customer: o.customer, amount: asOrdered, why: plan.problem });
           continue;
         }
-        if (plan.unconfirmed.length)
-          problems.push({
-            product: p.name,
-            customer: o.customer,
-            amount: asOrdered,
-            why: `Box not confirmed in Setup (${plan.unconfirmed.join(", ")}); the labels below may change`,
-            kind: "unconfirmed",
-          });
         if (plan.weightUnknown) table.weightUnknown = true;
         plan.boxes.forEach((b, i) =>
           table.rows.push({

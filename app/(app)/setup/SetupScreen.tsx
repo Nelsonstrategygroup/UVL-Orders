@@ -404,7 +404,7 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
         <PalletGroups canEdit={canEdit} />
       </section>
 
-      <section className="panel mt-4">
+      <section className="panel mt-4" id="boxes">
         <h3>Boxes</h3>
         <p className="small muted mt-1">
           How much of each product fits in each box, largest box first. Products never share a box. Orders, Packing and the box

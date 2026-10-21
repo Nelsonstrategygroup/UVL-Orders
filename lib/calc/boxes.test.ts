@@ -89,16 +89,13 @@ describe("what goes in red", () => {
     expect(p.problem).toMatch(/weight per unit/);
   });
 
-  it("an unconfirmed smaller box that might have held the rest", () => {
-    const p = plan(8, legs, BNLS_LEGS);
+  it("a box that needs checking is not used, and is not a problem", () => {
+    const p = plan(8, legs, BNLS_LEGS); // Baby needs checking
     expect(planText(p, "each")).toBe("MVM 6 + White 2");
-    expect(p.unconfirmed).toEqual(["Baby"]);
-  });
-
-  it("an unconfirmed bigger box that might have taken the full boxes", () => {
-    const p = plan(20, { name: "BNLS Shoulder", unit: "each" }, BNLS_SHOULDER);
-    expect(planText(p, "each")).toBe("Roll Stock 8 + Roll Stock 8 + White 4");
-    expect(p.unconfirmed).toEqual(["MVM"]);
+    expect(p.problem).toBeNull();
+    const q = plan(20, { name: "BNLS Shoulder", unit: "each" }, BNLS_SHOULDER); // MVM needs checking
+    expect(planText(q, "each")).toBe("Roll Stock 8 + Roll Stock 8 + White 4");
+    expect(q.problem).toBeNull();
   });
 
   it("pieces with no weight per piece: the count still works, the weight can't be checked", () => {
@@ -126,7 +123,7 @@ describe("boxes for a whole order", () => {
 
   it("adds up each product's boxes", () => {
     const b = orderBoxes({ legs: 8 }, {}, products, setup);
-    expect(b).toMatchObject({ boxes: 2, problems: [], unconfirmed: ["BNLS Legs"] });
+    expect(b).toMatchObject({ boxes: 2, problems: [] });
     expect(orderBoxesText(b)).toBe("2 boxes");
   });
 

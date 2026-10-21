@@ -31,8 +31,7 @@ import { todayISO, weekName } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
-import { packLines, packingLabels, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
-import LabelsChanged from "./labels/LabelsChanged";
+import { packLines, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
@@ -92,7 +91,7 @@ export default function PackingScreen() {
   // Boxes for a whole pallet group, from every order in it.
   const groupBoxes = (g: string) => {
     const all = data.orders.filter((x) => x.group === g).map((x) => orderBoxes(x.lines, x.units, data.products, boxSetup));
-    const t = orderBoxesText({ boxes: all.reduce((s, b) => s + b.boxes, 0), problems: all.flatMap((b) => b.problems), unconfirmed: [] });
+    const t = orderBoxesText({ boxes: all.reduce((s, b) => s + b.boxes, 0), problems: all.flatMap((b) => b.problems) });
     return t ? `${t} on this pallet` : "";
   };
   const wOrder = weighing && data.orders.find((o) => o.id === weighing.orderId);
@@ -100,32 +99,20 @@ export default function PackingScreen() {
   return (
     <>
       <div className="screen-only">
-        <WeekBar processDate={data.processDate} />
+        <WeekBar inv={data.invNumber} />
         <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
-        <LabelsChanged hash={packingLabels(data, boxSetup).hash} printedHash={data.labelsHash} printedAt={data.labelsPrintedAt} link />
 
+        {/* Packing is only for packing (change request 10/21/26): scan, progress, filter, then the customers. */}
+        <h2 className="sr-only">Packing</h2>
+        {canPack && data.orders.length > 0 && (
+          <Link href="/packing/scan" className="btn big scanbtn">
+            Scan boxes
+          </Link>
+        )}
         <div className="packhead">
-          <div>
-            <h2>Packing</h2>
-            {canPack && data.orders.length > 0 && (
-              <Link href="/packing/scan" className="btn my-2 mr-2">
-                Scan boxes
-              </Link>
-            )}
-            {data.orders.length > 0 && (
-              <Link href="/packing/labels" className="btn ghost my-2 mr-2">
-                Box Label Report
-              </Link>
-            )}
-            <span className="muted">
-              {stats.done} of {stats.total} lines packed
-            </span>{" "}
-            {data.orders.length > 0 && (
-              <button type="button" className="copy ml-1 text-[.95rem]" onClick={() => window.print()}>
-                Print a paper copy
-              </button>
-            )}
-          </div>
+          <span className="muted">
+            {stats.done} of {stats.total} lines packed
+          </span>
           <div className="seg" role="group" aria-label="Show">
             {FILTERS.map(([k, label]) => (
               <button

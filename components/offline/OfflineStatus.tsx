@@ -36,19 +36,19 @@ export default function OfflineStatus({ savedAt, fromPhone }: { savedAt: string 
 
   return (
     <div className={`netstatus ${tone}`} role="status" aria-live="polite">
-      <div className="flex flex-wrap items-center gap-2">
-        <b className="mr-auto">{line}</b>
+      <div className="flex flex-wrap items-center gap-x-2">
+        <b>{line}</b>
+        {savedAt && (
+          <span className="small mr-auto">
+            {fromPhone ? "Showing the copy on this phone. " : ""}Updated {formatWhen(savedAt)}.
+          </span>
+        )}
         {o.waiting > 0 && !offline && (
-          <button type="button" className="btn ghost" onClick={o.syncNow}>
+          <button type="button" className="btn ghost ml-auto" onClick={o.syncNow}>
             Upload now
           </button>
         )}
       </div>
-      {savedAt && (
-        <div className="small">
-          {fromPhone ? "Showing the copy on this phone. " : ""}Last updated {formatWhen(savedAt)}.
-        </div>
-      )}
       {o.needLogin && <div className="small">Nothing is lost. Log in again (with signal) and it uploads.</div>}
       {o.notes.map((n, i) => (
         <div key={i} className="small mt-1">

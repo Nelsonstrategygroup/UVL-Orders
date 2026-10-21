@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useStaffData, getDb } from "@/components/data/StaffData";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
-import { boxCapacity, type BoxLimit, type BoxType } from "@/lib/calc/boxes";
+import { boxCapacity, boxCellsToCheck, type BoxLimit, type BoxType } from "@/lib/calc/boxes";
 import { fmt, num } from "@/lib/calc/num";
 import { groupProducts } from "@/lib/calc/products";
 import { unitWord } from "@/lib/calc/units";
@@ -35,7 +35,7 @@ export default function BoxLimits({ canEdit }: { canEdit: boolean }) {
   const { types, limits, capLb } = catalog.boxes;
   const products = catalog.products.filter((p) => p.active);
   const cell = (pid: string, tid: string) => limits.get(pid)?.find((l) => l.box_type_id === tid) as Cell | undefined;
-  const toCheck = products.reduce((n, p) => n + (limits.get(p.id) ?? []).filter((l) => l.status === "needs_checking").length, 0);
+  const toCheck = boxCellsToCheck(limits, products.map((p) => p.id));
   // No confirmed box, leaving out products that never go in a box on purpose.
   const none = products.filter((p) => {
     const ls = limits.get(p.id) ?? [];
