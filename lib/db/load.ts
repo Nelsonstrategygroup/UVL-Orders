@@ -2,7 +2,7 @@
 // Level Security applies.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addDays } from "../dates";
+import { addDays, weekEnd } from "../dates";
 import { num } from "../calc/num";
 import type { HalfWholeOrder } from "../calc/types";
 import { loadBoxSetup } from "./boxes";
@@ -320,7 +320,7 @@ export type DueFollowUp = {
   summary: string;
 };
 
-/** Open follow-ups due on or before the last day of the week (SPEC 5.4). */
+/** Open follow-ups due on or before the last day of the order week, its Wednesday (SPEC 5.4). */
 export async function loadDueFollowUps(db: SupabaseClient, week: string): Promise<DueFollowUp[]> {
   const { data, error } = await db
     .from("contact_log")
@@ -328,7 +328,7 @@ export async function loadDueFollowUps(db: SupabaseClient, week: string): Promis
     .is("deleted_at", null)
     .eq("follow_up_done", false)
     .not("follow_up_date", "is", null)
-    .lte("follow_up_date", addDays(week, 6))
+    .lte("follow_up_date", weekEnd(week))
     .order("follow_up_date");
   if (error) throw new Error(error.message);
   return (data ?? []) as DueFollowUp[];

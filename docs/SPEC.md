@@ -134,7 +134,9 @@ Port each screen from the prototype. Navigation by role:
 - `admin`, `office`: Calls, This week, Orders, Cut sheet, Packing, Half and whole, Freezer, Customers, Setup (plus Users for admin).
 - `packing`: Packing only, with no other navigation.
 
-A week picker (previous, "Week of Oct 19", next) appears on Calls, This week, Orders, Cut sheet, and Packing. Default to the current week.
+A week picker (previous, "Packing Mon Oct 19", next) appears on Calls, This week, Orders, Cut sheet, Packing, and the Box Label Report. Default to the current week.
+
+**Which week is "now"** (Kathy, 10/21/26): an order week runs Thursday through Wednesday and is named by its packing Monday. The current week switches at 12:00 AM Thursday, Pacific time: Thu Oct 15 through Wed Oct 21 is "Packing Mon Oct 19" (orders Thu Oct 15, pack Mon Oct 19, invoice Tue Oct 20, ship Tue or Wed). On Monday, "this week's orders" means the orders taken the Thursday before. The switchover day is one constant (`WEEK_STARTS` in `lib/dates.ts`), and every screen and download uses it: the picker's default, "last week" and "Same as last week" (the week before, by packing Monday), follow-ups due "this week" (up to its Wednesday), and the Downloads date range. A screen left open on the current week moves to the new week when Thursday starts.
 
 ### 5.1 Calls (home for office users)
 
@@ -163,7 +165,7 @@ Default layout: "One customer at a time," a list of customer cards with status a
 - With carcass lambs ordered, the headline adds a line such as "78 for parts + 2 carcass = 80 lambs"; the producer message uses the total.
 - Leg breakdown line under the table: bone-in, AO, boneless, and other leg products, then the total, because Kathy summarizes legs this way.
 - Progress: customers answered, lines packed, cuts added for half and whole orders.
-- Follow-ups due this week or overdue, with Done buttons.
+- Follow-ups due this week (by its Wednesday) or overdue, with Done buttons.
 - Cut sheet summary card with sent status and a link to the Cut sheet screen.
 
 ### 5.5 Cut sheet
