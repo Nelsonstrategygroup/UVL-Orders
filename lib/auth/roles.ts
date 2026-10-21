@@ -89,16 +89,18 @@ export type NavItem = {
   adminOnly?: boolean;
 };
 
+// Bottom bar on phones: Week, Calls, Orders, Packing, then More with the rest
+// in this order (change request 10/21/26, stage 2).
 export const NAV: NavItem[] = [
   { href: "/week", label: "This week", short: "Week", icon: "◉", bottom: true, sub: "Lambs to order and progress", area: "week" },
   { href: "/calls", label: "Calls", short: "Calls", icon: "☎", bottom: true, sub: "Call customers one at a time", area: "calls" },
   { href: "/orders", label: "Orders", short: "Orders", icon: "✎", bottom: true, sub: "Every customer's order", area: "orders" },
-  { href: "/cut-sheet", label: "Cut sheet", short: "Cut sheet", icon: "✂", bottom: false, sub: "This week's sheet for Mohawk", area: "cutsheet" },
   { href: "/packing", label: "Packing", short: "Packing", icon: "✓", bottom: true, sub: "Pack and check off orders", area: "packing" },
-  { href: "/half-whole", label: "Half and whole", short: "Half/​whole", icon: "½", bottom: true, sub: "Half and whole lamb orders", area: "halfwhole" },
+  { href: "/cut-sheet", label: "Cut sheet", short: "Cut sheet", icon: "✂", bottom: false, sub: "This week's sheet for Mohawk", area: "cutsheet" },
+  { href: "/downloads", label: "Downloads", short: "Downloads", icon: "⤓", bottom: false, sub: "Spreadsheets of orders, customers, and more", area: "downloads" },
+  { href: "/half-whole", label: "Half and whole", short: "Half/​whole", icon: "½", bottom: false, sub: "Half and whole lamb orders", area: "halfwhole" },
   { href: "/freezer", label: "Freezer", short: "Freezer", icon: "❄", bottom: false, sub: "What's on hand, add or remove cuts", area: "freezer" },
   { href: "/customers", label: "Customers", short: "Customers", icon: "☺", bottom: false, sub: "Customer list and call days", area: "customers" },
-  { href: "/downloads", label: "Downloads", short: "Downloads", icon: "⤓", bottom: false, sub: "Spreadsheets of orders, customers, and more", area: "downloads" },
   { href: "/setup", label: "Setup", short: "Setup", icon: "⚙", bottom: false, sub: "Parts per lamb and products", area: "setup" },
   { href: "/users", label: "Users", short: "Users", icon: "☻", bottom: false, sub: "Who can log in", adminOnly: true },
 ];

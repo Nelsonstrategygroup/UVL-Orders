@@ -21,11 +21,25 @@ describe("screens by permission", () => {
 
   it("lets a packer with overrides see orders and the cut sheet too", () => {
     const lead: Perms = { ...packing, orders: 1, cutsheet: 1 };
-    expect(navFor(lead, "packing").map((n) => n.href)).toEqual(["/orders", "/cut-sheet", "/packing"]);
+    expect(navFor(lead, "packing").map((n) => n.href)).toEqual(["/orders", "/packing", "/cut-sheet"]);
     expect(onlyPacking(lead, "packing")).toBe(false);
     expect(canOpen(lead, "packing", "/cut-sheet")).toBe(true);
     expect(can(lead, "cutsheet", "view")).toBe(true);
     expect(can(lead, "cutsheet", "change")).toBe(false);
+  });
+
+  it("bottom bar: Week, Calls, Orders, Packing; the rest under More, in order", () => {
+    const nav = navFor(ALL_ACCESS, "admin");
+    expect(nav.filter((n) => n.bottom).map((n) => n.short)).toEqual(["Week", "Calls", "Orders", "Packing"]);
+    expect(nav.filter((n) => !n.bottom).map((n) => n.href)).toEqual([
+      "/cut-sheet",
+      "/downloads",
+      "/half-whole",
+      "/freezer",
+      "/customers",
+      "/setup",
+      "/users",
+    ]);
   });
 
   it("hides Users and the import from everyone but admins", () => {

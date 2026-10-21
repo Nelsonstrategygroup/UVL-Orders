@@ -39,9 +39,9 @@ export default function AppShell({
   const moreCurrent = more.some((n) => isCurrent(pathname, n.href));
 
   // A sheet belongs to the screen it was opened on, so it closes after moving to another screen.
-  const [opened, setOpened] = useState<{ kind: "more" | "settings"; path: string } | null>(null);
+  const [opened, setOpened] = useState<{ kind: "more" | "account"; path: string } | null>(null);
   const sheet = opened && opened.path === pathname ? opened.kind : null;
-  const setSheet = (kind: "more" | "settings") => setOpened({ kind, path: pathname });
+  const setSheet = (kind: "more" | "account") => setOpened({ kind, path: pathname });
   const close = useCallback(() => setOpened(null), []);
 
   return (
@@ -65,9 +65,9 @@ export default function AppShell({
         <button
           type="button"
           className={`topbtn ${nav.length > 0 ? "" : "ml-auto"} max-[899px]:ml-auto`}
-          onClick={() => setSheet("settings")}
+          onClick={() => setSheet("account")}
         >
-          Settings
+          My account
         </button>
       </header>
 
@@ -105,9 +105,10 @@ export default function AppShell({
           <MoreList items={more} />
         </Sheet>
       )}
-      {sheet === "settings" && (
-        <Sheet title="Settings for this device" onClose={close}>
-          <DeviceSettings displayName={displayName} onDone={close} />
+      {/* "My account", kept apart from Setup: larger text, help, password, log out. */}
+      {sheet === "account" && (
+        <Sheet title="My account" onClose={close}>
+          <MyAccount displayName={displayName} onDone={close} />
         </Sheet>
       )}
     </>
@@ -132,7 +133,7 @@ function MoreList({ items }: { items: NavItem[] }) {
   );
 }
 
-function DeviceSettings({ displayName, onDone }: { displayName: string; onDone: () => void }) {
+function MyAccount({ displayName, onDone }: { displayName: string; onDone: () => void }) {
   // Only rendered after a tap, never on the server, so reading the DOM here is safe.
   const [large, setLarge] = useState(() => document.documentElement.classList.contains("large"));
 
