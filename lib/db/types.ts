@@ -1,3 +1,4 @@
+import type { BoxSetup } from "../calc/boxes";
 // Row shapes as the screens use them (SPEC 4).
 
 import type { Part, Product, Qty, OrderStatus, HalfWholeOrder, FreezerEntry, OrderUnit, Units } from "../calc/types";
@@ -14,6 +15,8 @@ export type AppSettings = {
   processor_email: string;
   standing_instructions: string;
   company_name: string;
+  /** No box is planned heavier (SPEC 12.3). */
+  box_cap_lb: number;
 };
 
 export type CatalogPart = Part & { source_note: string; drives_count: boolean };
@@ -33,6 +36,8 @@ export type CatalogProduct = Product & {
   per_box: number | null;
   /** Mohawk's item number (not in the barcode). */
   mohawk_item_no: string;
+  /** Printed on box labels; blank means the name. */
+  label_name: string;
   /** Normal box weight range in lb; a scanned box outside it is warned about. Null: no warning. */
   box_lb_min: number | null;
   box_lb_max: number | null;
@@ -51,6 +56,8 @@ export type Catalog = {
   cutSpecs: CutSpec[];
   sizes: SizeClass[];
   settings: AppSettings | null;
+  /** Box types, limits per product, and the cap (SPEC 12). */
+  boxes: BoxSetup;
 };
 
 export type Contact = {

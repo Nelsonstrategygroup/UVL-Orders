@@ -1826,3 +1826,44 @@ tr.zebra td,
     break-inside: avoid;
   }
 }
+
+/* Setup > Boxes: products by box type. */
+.boxgrid th,
+.boxgrid td {
+  white-space: nowrap;
+}
+.boxgrid tr.grp th {
+  background: var(--field);
+  font-weight: 600;
+  color: var(--ink);
+}
+.boxcell {
+  position: relative;
+  min-width: 4.5rem;
+  min-height: 36px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.boxcell.no {
+  color: var(--ink-soft);
+  background: transparent;
+}
+.boxcell.check {
+  background: var(--warn);
+  border-color: var(--barn);
+  font-weight: 600;
+}
+.boxcell .dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--barn);
+}

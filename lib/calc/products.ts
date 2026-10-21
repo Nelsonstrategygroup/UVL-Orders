@@ -1,9 +1,8 @@
 // Customer products in Setup: entering part amounts the way Kathy thinks of
 // them, and what still needs checking.
 
-import { EPS, num } from "./num";
-import type { OrderUnit, Part, Product, Qty } from "./types";
-import { toProductUnit } from "./units";
+import { num } from "./num";
+import type { OrderUnit, Part, Product } from "./types";
 
 /**
  * A part amount can be said two ways:
@@ -100,36 +99,3 @@ export function groupProducts<P extends { name: string; group_name: string; sort
   return [...groups].map(([group, list]) => ({ group, products: list }));
 }
 
-export type BoxProduct = { name: string; unit: string; lb_per_unit?: number | null; per_box?: number | null };
-
-/**
- * Boxes an order needs. Products never share a box, so each product takes
- * ceil(amount / how many fit). Products with no box size yet (or an amount in
- * pounds with no weight per piece to convert) are listed in `unknown`.
- */
-export function boxesNeeded(
-  lines: Qty,
-  units: Record<string, string> | undefined,
-  byId: Map<string, BoxProduct>,
-): { boxes: number; unknown: string[] } {
-  let boxes = 0;
-  const unknown: string[] = [];
-  for (const [id, q] of Object.entries(lines)) {
-    if (!(num(q) > 0)) continue;
-    const p = byId.get(id);
-    if (!p) continue;
-    const amount = toProductUnit(num(q), units?.[id], p);
-    if (!p.per_box || !(amount > 0)) {
-      unknown.push(p.name);
-      continue;
-    }
-    boxes += Math.ceil(amount / p.per_box - EPS);
-  }
-  return { boxes, unknown };
-}
-
-/** "3 boxes", "at least 3 boxes" when some products have no box size, or "" when none do. */
-export function boxesText(b: { boxes: number; unknown: string[] }): string {
-  if (!b.boxes) return "";
-  return `${b.unknown.length ? "at least " : ""}${b.boxes} box${b.boxes === 1 ? "" : "es"}`;
-}

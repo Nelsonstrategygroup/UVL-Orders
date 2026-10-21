@@ -162,6 +162,7 @@ export type ProductInput = {
   order_step: number;
   per_box: number | null;
   mohawk_item_no: string;
+  label_name: string;
   box_lb_min: number | null;
   box_lb_max: number | null;
   billed_by_weight: boolean;
@@ -213,6 +214,7 @@ export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<
     order_step: p.order_step,
     per_box: p.per_box,
     mohawk_item_no: p.mohawk_item_no,
+    label_name: p.label_name,
     box_lb_min: p.box_lb_min,
     box_lb_max: p.box_lb_max,
     billed_by_weight: p.billed_by_weight,

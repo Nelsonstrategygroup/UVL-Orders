@@ -9,7 +9,8 @@ import { ago, weekName } from "@/lib/dates";
 import { fmt, num } from "@/lib/calc/num";
 import { logContact, setOrder } from "@/lib/db/save";
 import { lineUnit, unitWord } from "@/lib/calc/units";
-import { boxesNeeded, boxesText, findProducts, groupProducts } from "@/lib/calc/products";
+import { findProducts, groupProducts } from "@/lib/calc/products";
+import { orderBoxes, orderBoxesText } from "@/lib/calc/boxes";
 import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
 import {
   cleanLines,
@@ -303,7 +304,7 @@ export default function OrderEditor(props: OrderEditorProps) {
     };
   }, []);
 
-  const box = boxesNeeded(lines, units, catalog?.productById ?? new Map());
+  const box = catalog ? orderBoxes(lines, units, catalog.productById, catalog.boxes) : { boxes: 0, problems: [], unconfirmed: [] };
 
   return (
     <Sheet title={props.displayName} onClose={() => void close()}>
@@ -417,10 +418,12 @@ export default function OrderEditor(props: OrderEditorProps) {
 
       <p className="small muted mt-4 mb-0">Read back to the customer</p>
       <ReadBack lines={lines} units={units} products={products} />
-      {(box.boxes > 0 || box.unknown.length > 0) && (
+      {(box.boxes > 0 || box.problems.length > 0) && (
         <p className="small muted mt-1 mb-0">
-          {box.boxes > 0 && <>About {boxesText(box)}. </>}
-          {box.unknown.length > 0 && <>No box size yet for {box.unknown.join(", ")} (set it in Setup).</>}
+          {box.boxes > 0 && <>About {orderBoxesText(box)}. </>}
+          {box.problems.length > 0 && (
+            <>Can&apos;t box yet: {box.problems.map((x) => `${x.name} (${x.problem.toLowerCase()})`).join("; ")}.</>
+          )}
         </p>
       )}
 

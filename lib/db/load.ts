@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays } from "../dates";
 import { num } from "../calc/num";
 import type { HalfWholeOrder } from "../calc/types";
+import { loadBoxSetup } from "./boxes";
 import type {
   Catalog,
   CatalogPart,
@@ -41,19 +42,20 @@ function must<T>(r: { data: T | null; error: { message: string } | null }): T {
 }
 
 export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
-  const [parts, products, uses, cutSpecs, sizes, settings] = await Promise.all([
+  const [parts, products, uses, cutSpecs, sizes, settings, boxes] = await Promise.all([
     db.from("parts").select("id, name, per_lamb, unit, balance_check, confirmed, sort, source_note, drives_count, made_from").order("sort"),
     db
       .from("products")
       .select(
-        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, box_lb_min, box_lb_max, product_cut_specs(cut_spec_id, units_per_cut, sort)",
+        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, label_name, box_lb_min, box_lb_max, product_cut_specs(cut_spec_id, units_per_cut, sort)",
       )
       .order("sort")
       .order("name"),
     db.from("product_part_uses").select("product_id, part_id, qty"),
     db.from("cut_specs").select("id, text, use_type, active, sort").order("sort"),
     db.from("size_classes").select("id, label, weight_range, sort").order("sort"),
-    db.from("app_settings").select("processor_name, processor_email, standing_instructions, company_name").maybeSingle(),
+    db.from("app_settings").select("processor_name, processor_email, standing_instructions, company_name, box_cap_lb").maybeSingle(),
+    loadBoxSetup(db),
   ]);
 
   const usesBy = new Map<string, { part_id: string; qty: number }[]>();
@@ -87,6 +89,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     cutSpecs: must(cutSpecs) ?? [],
     sizes: must(sizes) ?? [],
     settings: settings.error ? null : settings.data,
+    boxes,
   };
 }
 

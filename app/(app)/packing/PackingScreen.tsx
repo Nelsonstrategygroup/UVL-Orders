@@ -30,7 +30,7 @@ import {
 import { todayISO, weekName } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
-import { boxesNeeded, boxesText } from "@/lib/calc/products";
+import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
 import { packLines, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
 const FILTERS: [PackFilter, string][] = [
@@ -48,6 +48,7 @@ export default function PackingScreen() {
   // Loaded with signal and kept on the phone for the freezer (SPEC 11.7).
   const bundle = usePackingBundle(week, todayISO());
   const data = bundle.data?.packing ?? null;
+  const boxSetup = bundle.data?.boxes ?? { types: [], limits: new Map(), capLb: 45 };
   const { error } = bundle;
   const canPack = useCan("packing").change;
   const [filter, setFilter] = useState<PackFilter>("todo");
@@ -89,8 +90,8 @@ export default function PackingScreen() {
   const shown = withLines.filter(({ o, lines }) => showOrder(lines.map(([, l]) => l), filter) || !!keepIds?.has(o.id));
   // Boxes for a whole pallet group, from every order in it.
   const groupBoxes = (g: string) => {
-    const all = data.orders.filter((x) => x.group === g).map((x) => boxesNeeded(x.lines, x.units, data.products));
-    const t = boxesText({ boxes: all.reduce((s, b) => s + b.boxes, 0), unknown: all.flatMap((b) => b.unknown) });
+    const all = data.orders.filter((x) => x.group === g).map((x) => orderBoxes(x.lines, x.units, data.products, boxSetup));
+    const t = orderBoxesText({ boxes: all.reduce((s, b) => s + b.boxes, 0), problems: all.flatMap((b) => b.problems), unconfirmed: [] });
     return t ? `${t} on this pallet` : "";
   };
   const wOrder = weighing && data.orders.find((o) => o.id === weighing.orderId);
@@ -164,6 +165,7 @@ export default function PackingScreen() {
                 order={o}
                 lines={lines}
                 data={data}
+                boxSetup={boxSetup}
                 canPack={canPack}
                 onOpen={(pid) => setWeighing({ orderId: o.id, productId: pid })}
                 onPallet={(v) => void save(enqueue({ type: "pallet-text", order_id: o.id, pallet: v }))}
@@ -215,6 +217,7 @@ function CustomerCard({
   order: o,
   lines,
   data,
+  boxSetup,
   canPack,
   onOpen,
   onPallet,
@@ -222,6 +225,7 @@ function CustomerCard({
   order: PackOrder;
   lines: [string, PackLine][];
   data: PackingData;
+  boxSetup: BoxSetup;
   canPack: boolean;
   onOpen: (productId: string) => void;
   onPallet: (v: string) => void;
@@ -230,7 +234,7 @@ function CustomerCard({
   const bx = boxes(o.weights);
   const name = (pid: string) => data.products.get(pid)?.name ?? pid;
   // Boxes this order should fill, from each product's box size.
-  const expect = boxesText(boxesNeeded(o.lines, o.units, data.products));
+  const expect = orderBoxesText(orderBoxes(o.lines, o.units, data.products, boxSetup));
 
   return (
     <section className="pcust" aria-label={o.customerName}>

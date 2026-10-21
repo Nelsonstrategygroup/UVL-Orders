@@ -19,7 +19,7 @@ import { groupProducts } from "@/lib/calc/products";
 import { toProductUnit, unitWord } from "@/lib/calc/units";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
-import { boxesNeeded, boxesText } from "@/lib/calc/products";
+import { orderBoxes, orderBoxesText } from "@/lib/calc/boxes";
 import { fmt, num } from "@/lib/calc/num";
 import { todayName } from "@/lib/dates";
 import { setOrder } from "@/lib/db/save";
@@ -184,7 +184,7 @@ function OrderCards({ list, data, onOpen }: { list: Customer[]; data: WeekData; 
           const o = data.orders.get(c.id);
           const st: OrderStatus = o?.status ?? "todo";
           const sum = o ? orderSummary(o.lines, catalog!.products, o.units) : "";
-          const bx = o ? boxesText(boxesNeeded(o.lines, o.units, catalog!.productById)) : "";
+          const bx = o ? orderBoxesText(orderBoxes(o.lines, o.units, catalog!.productById, catalog!.boxes)) : "";
           return (
             <button key={c.id} type="button" className="ccard" onClick={() => onOpen(c.id)}>
               <span className="min-w-0">

@@ -4,6 +4,7 @@
 // the processor. Admin and office can look; only admins can change things.
 
 import { deleteGtin, loadGtins, saveGtin } from "@/lib/db/scanning";
+import BoxLimits from "./BoxLimits";
 import { gtinCheckDigitOk } from "@/lib/scan/gs1";
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -401,6 +402,15 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
           everyone else comes after, by name.
         </p>
         <PalletGroups canEdit={canEdit} />
+      </section>
+
+      <section className="panel mt-4">
+        <h3>Boxes</h3>
+        <p className="small muted mt-1">
+          How much of each product fits in each box, largest box first. Products never share a box. Orders, Packing and the box
+          labels use these to split each order into boxes.
+        </p>
+        <BoxLimits canEdit={canEdit} />
       </section>
 
       <section className="panel mt-4">

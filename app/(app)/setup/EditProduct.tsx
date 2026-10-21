@@ -27,6 +27,7 @@ const blank = {
   order_step: 1,
   per_box: null as number | null,
   mohawk_item_no: "",
+  label_name: "",
   box_lb_min: null as number | null,
   box_lb_max: null as number | null,
   billed_by_weight: true,
@@ -106,6 +107,7 @@ export default function EditProduct({
       order_step: num(f.step) > 0 ? num(f.step) : 1,
       per_box: num(f.perBox) > 0 ? num(f.perBox) : null,
       mohawk_item_no: f.mohawk_item_no.trim(),
+      label_name: f.label_name.trim(),
       box_lb_min: num(f.boxMin) > 0 ? num(f.boxMin) : null,
       box_lb_max: num(f.boxMax) > 0 ? num(f.boxMax) : null,
       billed_by_weight: f.billed_by_weight,
@@ -217,17 +219,17 @@ export default function EditProduct({
           <p className="small muted mt-1 mb-0">For example 10 for Le Trim (10, 20, 30 lb).</p>
         </div>
         <div>
-          <label className="lbl" htmlFor="pr-perbox">
-            How many fit in a box ({unitWord(f.unit)})
+          <label className="lbl" htmlFor="pr-label">
+            Name on box labels
           </label>
           <input
-            id="pr-perbox"
-            className="field num"
-            inputMode="decimal"
-            value={f.perBox}
-            onChange={(e) => set("perBox", clean(e.target.value))}
+            id="pr-label"
+            className="field"
+            value={f.label_name}
+            placeholder={f.name || "Same as the name"}
+            onChange={(e) => set("label_name", e.target.value)}
           />
-          <p className="small muted mt-1 mb-0">Products never share a box. Leave blank if you don&apos;t know yet.</p>
+          <p className="small muted mt-1 mb-0">For example &quot;Single Pack Rack (Cap ON)&quot;. Blank prints the name. Box sizes are under Boxes.</p>
         </div>
       </div>
 

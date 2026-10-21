@@ -13,7 +13,9 @@
 //   ("needs_checking") is never planned; if it could have changed the split,
 //   the plan says so, and the label list shows it in red until it's settled.
 
-import { EPS, fmt } from "./num";
+import { EPS, fmt, num } from "./num";
+import type { Qty } from "./types";
+import { toProductUnit } from "./units";
 
 export type BoxType = { id: string; name: string; size_rank: number };
 export type BoxLimit = {
@@ -35,6 +37,8 @@ export type BoxPlan = {
   unconfirmed: string[];
   /** Pieces or packs with no pounds per unit: the box weight can't be checked. */
   weightUnknown: boolean;
+  /** Never boxed: every box type is "never goes in it" (Carcass Lamb, sent in a shroud). */
+  notBoxed: boolean;
 };
 
 const isLb = (unit: string) => unit === "lb";
@@ -62,8 +66,9 @@ export function boxCapacity(limit: BoxLimit, p: BoxedProduct, capLb: number): nu
 /** Split one order line (amount in the product's own unit) into boxes. */
 export function planBoxes(amount: number, p: BoxedProduct, limits: BoxLimit[], types: BoxType[], capLb: number): BoxPlan {
   const weightUnknown = !isLb(p.unit) && !(p.lb_per_unit && p.lb_per_unit > 0);
-  const plan: BoxPlan = { boxes: [], problem: null, unconfirmed: [], weightUnknown };
-  if (!(amount > EPS)) return plan;
+  const notBoxed = limits.length > 0 && limits.every((l) => l.status === "does_not_fit");
+  const plan: BoxPlan = { boxes: [], problem: null, unconfirmed: [], weightUnknown, notBoxed };
+  if (!(amount > EPS) || notBoxed) return plan;
 
   const byType = new Map(limits.map((l) => [l.box_type_id, l]));
   const ordered = [...types].sort((a, b) => a.size_rank - b.size_rank); // largest first
@@ -116,4 +121,41 @@ export function planBoxes(amount: number, p: BoxedProduct, limits: BoxLimit[], t
 /** "MVM 6 + White 2" */
 export function planText(plan: BoxPlan, unit: string): string {
   return plan.boxes.map((b) => `${b.typeName} ${unit === "lb" ? `${fmt(b.amount)} lb` : fmt(b.amount)}`).join(" + ");
+}
+
+/** Box types, each product's limits, and the cap: everything planBoxes needs. */
+export type BoxSetup = { types: BoxType[]; limits: Map<string, BoxLimit[]>; capLb: number };
+
+export type OrderBoxes = {
+  /** Boxes planned for the whole order. */
+  boxes: number;
+  /** Products that can't be split into boxes yet, with why. */
+  problems: { name: string; problem: string }[];
+  /** Products whose split might change once a box is confirmed. */
+  unconfirmed: string[];
+};
+
+/** Boxes for one order: each line split on its own (products never share a box). */
+export function orderBoxes(
+  lines: Qty,
+  units: Record<string, string> | undefined,
+  products: Map<string, BoxedProduct>,
+  setup: BoxSetup,
+): OrderBoxes {
+  const out: OrderBoxes = { boxes: 0, problems: [], unconfirmed: [] };
+  for (const [id, q] of Object.entries(lines)) {
+    const p = products.get(id);
+    if (!p || !(num(q) > 0)) continue;
+    const plan = planBoxes(toProductUnit(num(q), units?.[id], { unit: p.unit, lb_per_unit: p.lb_per_unit ?? null }), p, setup.limits.get(id) ?? [], setup.types, setup.capLb);
+    out.boxes += plan.boxes.length;
+    if (plan.problem) out.problems.push({ name: p.name, problem: plan.problem });
+    else if (plan.unconfirmed.length) out.unconfirmed.push(p.name);
+  }
+  return out;
+}
+
+/** "3 boxes", or "at least 3 boxes" when some products can't be boxed yet; "" for none. */
+export function orderBoxesText(b: OrderBoxes): string {
+  if (!b.boxes) return "";
+  return `${b.problems.length ? "at least " : ""}${b.boxes} box${b.boxes === 1 ? "" : "es"}`;
 }

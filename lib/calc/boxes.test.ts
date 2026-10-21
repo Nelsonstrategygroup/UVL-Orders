@@ -1,7 +1,7 @@
 // SPEC 12.3: splitting an order into boxes, with Kathy's limits and the 45 lb cap.
 
 import { describe, expect, it } from "vitest";
-import { boxCapacity, planBoxes, planText, type BoxLimit, type BoxType } from "./boxes";
+import { boxCapacity, orderBoxes, orderBoxesText, planBoxes, planText, type BoxLimit, type BoxType } from "./boxes";
 
 const TYPES: BoxType[] = [
   { id: "mvm", name: "MVM", size_rank: 1 },
@@ -107,7 +107,32 @@ describe("what goes in red", () => {
     expect(p.boxes.every((b) => b.lb === null)).toBe(true);
   });
 
+  it("a product that never goes in any box isn't a problem: it's not boxed (Carcass Lamb)", () => {
+    const p = plan(2, { name: "Carcass Lamb", unit: "each" }, TYPES.map((t) => no(t.id)));
+    expect(p).toMatchObject({ boxes: [], problem: null, notBoxed: true });
+  });
+
   it("nothing ordered, nothing planned", () => {
     expect(plan(0, legs, BNLS_LEGS)).toMatchObject({ boxes: [], problem: null });
+  });
+});
+
+describe("boxes for a whole order", () => {
+  const setup = { types: TYPES, limits: new Map([["legs", BNLS_LEGS], ["denver", DENVER]]), capLb: 45 };
+  const products = new Map([
+    ["legs", { name: "BNLS Legs", unit: "each" }],
+    ["denver", { name: "Denver Ribs", unit: "lb" }],
+  ]);
+
+  it("adds up each product's boxes", () => {
+    const b = orderBoxes({ legs: 8 }, {}, products, setup);
+    expect(b).toMatchObject({ boxes: 2, problems: [], unconfirmed: ["BNLS Legs"] });
+    expect(orderBoxesText(b)).toBe("2 boxes");
+  });
+
+  it("says 'at least' when a product can't be boxed yet", () => {
+    const b = orderBoxes({ legs: 8, denver: 10 }, {}, products, setup);
+    expect(b.problems.map((x) => x.name)).toEqual(["Denver Ribs"]);
+    expect(orderBoxesText(b)).toBe("at least 2 boxes");
   });
 });

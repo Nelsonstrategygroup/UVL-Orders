@@ -12,13 +12,15 @@ import { useLive } from "@/components/data/useLive";
 import { snapshotGet, snapshotSave } from "@/lib/offline/idb";
 import { applyQueue } from "@/lib/offline/outbox";
 import { loadPacking, type PackingData } from "@/lib/db/packing";
+import type { BoxSetup } from "@/lib/calc/boxes";
+import { loadBoxSetup } from "@/lib/db/boxes";
 import { loadGtins, loadLots, loadPallets, type GtinRow, type LotRow, type PalletRow } from "@/lib/db/scanning";
 import { useOutbox } from "./OutboxProvider";
 
-export type PackingBundle = { packing: PackingData; gtins: GtinRow[]; lots: LotRow[]; pallets: PalletRow[] };
+export type PackingBundle = { packing: PackingData; gtins: GtinRow[]; lots: LotRow[]; pallets: PalletRow[]; boxes: BoxSetup };
 
 const TIMEOUT_MS = 10000;
-const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets", "gtin_products", "lots"];
+const LIVE = ["product_box_limits", "orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets", "gtin_products", "lots"];
 
 function timeout<T>(p: Promise<T>): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("The request timed out")), TIMEOUT_MS))]);
@@ -33,10 +35,10 @@ export function usePackingBundle(week: string, shipDate: string) {
   const load = useCallback(
     async (d: SupabaseClient) => {
       try {
-        const [packing, gtins, lots, pallets] = await timeout(
-          Promise.all([loadPacking(d, week), loadGtins(d), loadLots(d), loadPallets(d, shipDate)]),
+        const [packing, gtins, lots, pallets, boxes] = await timeout(
+          Promise.all([loadPacking(d, week), loadGtins(d), loadLots(d), loadPallets(d, shipDate), loadBoxSetup(d)]),
         );
-        const bundle: PackingBundle = { packing, gtins, lots, pallets };
+        const bundle: PackingBundle = { packing, gtins, lots, pallets, boxes };
         await snapshotSave(key, bundle).catch(() => undefined);
         reportOnline(true);
         return { bundle, savedAt: new Date().toISOString(), fromPhone: false };
@@ -46,7 +48,12 @@ export function usePackingBundle(week: string, shipDate: string) {
         if (!snap) throw e;
         reportOnline(false);
         // Pallets kept for another day aren't today's shipment.
-        const bundle = { ...snap.value, pallets: snap.value.pallets.filter((p) => p.ship_date === shipDate) };
+        const bundle = {
+          ...snap.value,
+          pallets: snap.value.pallets.filter((p) => p.ship_date === shipDate),
+          // A copy kept before box limits existed.
+          boxes: snap.value.boxes ?? { types: [], limits: new Map(), capLb: 45 },
+        };
         return { bundle, savedAt: snap.savedAt, fromPhone: true };
       }
     },
@@ -92,6 +99,7 @@ export function usePackingBundle(week: string, shipDate: string) {
       gtins,
       lots,
       pallets: pallets.sort((x, y) => x.number - y.number),
+      boxes: b.boxes,
     } satisfies PackingBundle;
   }, [live.data, outbox.queue, shipDate]);
 

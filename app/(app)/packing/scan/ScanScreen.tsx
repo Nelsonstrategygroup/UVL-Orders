@@ -26,6 +26,7 @@ import { unitWord } from "@/lib/calc/units";
 import { todayISO } from "@/lib/dates";
 import { type PackOrder, type PackProduct } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
+import { planBoxes, type BoxSetup } from "@/lib/calc/boxes";
 import { setBoxLot, type BoxUpload } from "@/lib/db/scanning";
 import { badScan, goodScan, unlockSound } from "@/lib/scan/feedback";
 import { decideScan, LOT_PATTERN, lotKey, type ScanContext, type ScanStep } from "@/lib/scan/flow";
@@ -241,7 +242,7 @@ export default function ScanScreen() {
 
       {order && (
         <>
-          <LineTotals order={order} products={products} current={lastProduct} />
+          <LineTotals order={order} products={products} boxes={data.boxes} current={lastProduct} />
 
           <div className="mt-3 grid gap-2">
             <button
@@ -351,14 +352,26 @@ export default function ScanScreen() {
 }
 
 /** For the customer: each product ordered, boxes and pounds scanned so far. */
-function LineTotals({ order, products, current }: { order: PackOrder; products: Map<string, PackProduct>; current: string | null }) {
+function LineTotals({
+  order,
+  products,
+  boxes,
+  current,
+}: {
+  order: PackOrder;
+  products: Map<string, PackProduct>;
+  boxes: BoxSetup;
+  current: string | null;
+}) {
   const rows = Object.entries(order.lines).map(([pid, qty]) => {
     const p = products.get(pid);
     const ws = order.weights.filter((w) => w.product_id === pid);
     const lb = ws.reduce((s, w) => s + num(w.weight), 0);
     const unit = order.units[pid] ?? p?.unit ?? "each";
-    // Mohawk leaves pieces at 0; pieces per box come from the product.
-    const pcs = p?.per_box && unit !== "lb" ? ws.length * p.per_box : null;
+    // Mohawk leaves pieces at 0, so pieces come from the box plan: the boxes
+    // scanned so far, filled as planned (full boxes first).
+    const plan = p && unit !== "lb" ? planBoxes(num(qty), p, boxes.limits.get(pid) ?? [], boxes.types, boxes.capLb) : null;
+    const pcs = plan && plan.boxes.length ? plan.boxes.slice(0, ws.length).reduce((n, b) => n + b.amount, 0) : null;
     return { pid, name: p?.name ?? pid, qty, unit, boxes: ws.length, lb, pcs };
   });
   return (
