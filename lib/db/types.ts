@@ -103,6 +103,10 @@ export type WeekRow = {
   producer: string;
   lamb_override: number | null;
   notes: string;
+  /** When box labels were printed, a fingerprint of the list, and by whom (SPEC 12.5). */
+  labels_hash?: string | null;
+  labels_printed_at?: string | null;
+  labels_printed_by?: string | null;
 };
 
 export type Order = {

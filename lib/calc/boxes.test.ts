@@ -85,7 +85,7 @@ describe("what goes in red", () => {
   });
 
   it("pound limits but no weight per pack", () => {
-    const p = plan(10, { name: "Heart", unit: "pack" }, HEART.filter((l) => l.status !== "needs_checking"));
+    const p = plan(10, { name: "Heart", unit: "pack" }, HEART);
     expect(p.problem).toMatch(/weight per unit/);
   });
 

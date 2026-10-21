@@ -5,6 +5,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { displayName, sortByDisplayName } from "../calc/customers";
+import { labelCustomer, labelList, type LabelList } from "../calc/labels";
+import type { BoxSetup } from "../calc/boxes";
 import { num } from "../calc/num";
 import type { PackLine, Weight } from "../calc/packing";
 import type { Qty } from "../calc/types";
@@ -22,6 +24,8 @@ export type PackProduct = {
   /** Normal box weight in lb; a scanned box outside it gets a warning. */
   box_lb_min: number | null;
   box_lb_max: number | null;
+  /** Printed on box labels; blank means the name. */
+  label_name: string;
 };
 
 /** Marks on one line: an optional piece count, not filled, and a flag. */
@@ -46,6 +50,10 @@ export type PackOrder = {
   id: string;
   customerId: string;
   customerName: string;
+  /** Box label line 1: "PCC Kirkland". */
+  labelCustomer: string;
+  /** Pallet group order, then name. */
+  sortKey: string;
   /** The customer's standing notes (delivery times and so on). */
   standingNotes: string;
   /** Notes on this week's order. */
@@ -67,6 +75,11 @@ export type PackOrder = {
 export type PackingData = {
   week: string;
   processDate: string | null;
+  /** When box labels were printed for this week, and their fingerprint. */
+  labelsHash: string | null;
+  labelsPrintedAt: string | null;
+  /** The cut sheet's INV#, if set (printed on the box label list). */
+  invNumber: string | null;
   products: Map<string, PackProduct>;
   /** Orders with something on them, in pallet group order, then by name. */
   orders: PackOrder[];
@@ -101,8 +114,8 @@ export function packLines(o: PackOrder, products: Map<string, PackProduct>): [st
 }
 
 export async function loadPacking(db: SupabaseClient, week: string): Promise<PackingData> {
-  const [weekRow, orders, customers, groups, products, people] = await Promise.all([
-    db.from("weeks").select("process_date").eq("id", week).maybeSingle(),
+  const [weekRow, orders, customers, groups, products, people, sheet] = await Promise.all([
+    db.from("weeks").select("process_date, labels_hash, labels_printed_at").eq("id", week).maybeSingle(),
     db
       .from("orders")
       .select(
@@ -111,8 +124,10 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, pallet_group_id, pallet_spot, pallet_sort"),
     db.from("pallet_groups").select("id, name, sort"),
-    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max").order("sort"),
+    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name").order("sort"),
     db.from("profiles").select("id, display_name"),
+    // Packers can't read the cut sheet; the INV# is then just left off.
+    db.from("cut_sheets").select("inv_number").eq("week_id", week).maybeSingle(),
   ]);
 
   const custList = must(customers) as {
@@ -220,10 +235,14 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     const cust = byId.get(o.customer_id);
     const group = cust?.pallet_group_id ? groupById.get(cust.pallet_group_id) : undefined;
     const name = cust ? displayName(cust, byId) : "Unknown customer";
+    const parent = cust?.parent_customer_id ? byId.get(cust.parent_customer_id) : undefined;
+    const labelName = cust ? labelCustomer(cust.name, parent?.name) : name;
     list.push({
       id: o.id,
       customerId: o.customer_id,
       customerName: name,
+      labelCustomer: labelName,
+      sortKey: group ? `0|${String(group.sort).padStart(6, "0")}|${String(cust?.pallet_sort ?? 0).padStart(6, "0")}|${name}` : `1|${name}`,
       standingNotes: (cust?.notes ?? "").trim(),
       orderNotes: (o.notes ?? "").trim(),
       group: group?.name ?? null,
@@ -256,10 +275,14 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     box_lb_min: x.box_lb_min == null ? null : num(x.box_lb_min),
     box_lb_max: x.box_lb_max == null ? null : num(x.box_lb_max),
   }));
-  const wr = must(weekRow) as { process_date: string | null } | null;
+  const wr = must(weekRow) as { process_date: string | null; labels_hash: string | null; labels_printed_at: string | null } | null;
+  const inv = sheet.error ? null : ((sheet.data as { inv_number: string | null } | null)?.inv_number ?? null);
   return {
     week,
     processDate: wr?.process_date ?? null,
+    labelsHash: wr?.labels_hash ?? null,
+    labelsPrintedAt: wr?.labels_printed_at ?? null,
+    invNumber: inv?.trim() || null,
     products: new Map(prods.map((p) => [p.id, p])),
     orders: list.map((o) => {
       const { rank, ...rest } = o;
@@ -315,4 +338,13 @@ export async function saveMark(
 export async function savePallet(db: SupabaseClient, orderId: string, pallet: string): Promise<string | null> {
   const { error } = await db.from("packing_orders").upsert({ order_id: orderId, pallet }, { onConflict: "order_id" });
   return error ? error.message : null;
+}
+
+/** The box label list for a week's packing data (SPEC 12.5). */
+export function packingLabels(data: PackingData, boxes: BoxSetup): LabelList {
+  return labelList(
+    data.orders.map((o) => ({ customer: o.labelCustomer, sortKey: o.sortKey, lines: o.lines, units: o.units })),
+    data.products,
+    boxes,
+  );
 }

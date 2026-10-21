@@ -247,7 +247,7 @@ export async function loadCustomerHistory(db: SupabaseClient, customerId: string
 
 export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekData> {
   const [weekRow, orders, weights, marks, hw, freezer, sets, sheet] = await Promise.all([
-    db.from("weeks").select("id, process_date, producer, lamb_override, notes").eq("id", week).maybeSingle(),
+    db.from("weeks").select("id, process_date, producer, lamb_override, notes, labels_hash, labels_printed_at").eq("id", week).maybeSingle(),
     loadOrders(db, week),
     fetchAll<{ order_id: string; product_id: string; weight: number }>((a, b) =>
       db

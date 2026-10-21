@@ -9,6 +9,8 @@ const order = (over: Partial<PackOrder> = {}): PackOrder => ({
   id: "o1",
   customerId: "c1",
   customerName: "Kirkland",
+  labelCustomer: "Kirkland",
+  sortKey: "1|Kirkland",
   standingNotes: "",
   orderNotes: "",
   group: null,
@@ -22,7 +24,15 @@ const order = (over: Partial<PackOrder> = {}): PackOrder => ({
   lastAt: null,
   ...over,
 });
-const data = (orders: PackOrder[] = [order()]): PackingData => ({ week: "2026-10-19", processDate: null, products: new Map(), orders });
+const data = (orders: PackOrder[] = [order()]): PackingData => ({
+  week: "2026-10-19",
+  processDate: null,
+  labelsHash: null,
+  labelsPrintedAt: null,
+  invNumber: null,
+  products: new Map(),
+  orders,
+});
 let n = 0;
 const q = (action: Action, over: Partial<Queued> = {}): Queued => ({ seq: ++n, action, queuedAt: "2026-10-26T15:00:00Z", tries: 0, ...over });
 

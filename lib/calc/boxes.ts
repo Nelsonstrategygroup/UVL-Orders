@@ -82,11 +82,13 @@ export function planBoxes(amount: number, p: BoxedProduct, limits: BoxLimit[], t
       const l = byType.get(t.id);
       return l?.status === "ok" && l.max_count == null && l.max_lb != null;
     });
-    plan.problem = unsure.length
-      ? `Box limits need checking in Setup (${unsure.map((t) => t.name).join(", ")})`
-      : lbOnly && weightUnknown
+    // Pound limits that can't be used come first: that's the fix that unlocks them.
+    plan.problem =
+      lbOnly && weightUnknown
         ? "Needs a weight per unit in Setup to use its pound limits"
-        : "No box limits in Setup";
+        : unsure.length
+          ? `Box limits need checking in Setup (${unsure.map((t) => t.name).join(", ")})`
+          : "No box limits in Setup";
     plan.unconfirmed = unsure.map((t) => t.name);
     return plan;
   }

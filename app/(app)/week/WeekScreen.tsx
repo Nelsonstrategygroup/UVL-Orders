@@ -21,6 +21,8 @@ import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
 import { cutSheetTotals, legBreakdown, legBreakdownText, weekNumbers } from "@/lib/calc/summary";
 import { calcWeek, plannedExtras, type PartRow } from "@/lib/calc/week";
+import { labelCustomer, labelList } from "@/lib/calc/labels";
+import LabelsChanged from "../packing/labels/LabelsChanged";
 import { cantConvert, inProductUnits, unitWord } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
@@ -39,6 +41,7 @@ export default function WeekScreen() {
   const seeNotes = useCan("callnotes").view;
   const seeFreezer = useCan("freezer").view;
   const seeHalfWhole = useCan("halfwhole").view;
+  const seePacking = useCan("packing").view;
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load this week: {loadError || error}</p>;
   if (!catalog || !customers || !data)
@@ -71,6 +74,19 @@ export default function WeekScreen() {
     { title: "Comes with every lamb", sub: "No need to plan.", rows: c.rows.filter((r) => !r.planned) },
   ];
   const extras = plannedExtras(c.rows);
+  // The box label list, to say whether it needs printing again (SPEC 12.5).
+  const labels = labelList(
+    [...data.orders.values()].map((o) => {
+      const cu = customers.byId.get(o.customer_id);
+      const parent = cu?.parent_customer_id ? customers.byId.get(cu.parent_customer_id) : undefined;
+      const name = cu ? labelCustomer(cu.name, parent?.name) : "";
+      return { customer: name, sortKey: name, lines: o.lines, units: o.units };
+    }),
+    catalog.productById,
+    catalog.boxes,
+  );
+  const blocked = labels.problems.filter((x) => x.kind === "blocked").length;
+  const unconfirmedBoxes = labels.problems.filter((x) => x.kind === "unconfirmed").length;
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
   // Lines in pounds for a product with no weight per piece count as nothing.
   const uncounted = [...data.orders.values()].flatMap((o) => cantConvert(o.lines, o.units, catalog.productById));
@@ -326,6 +342,23 @@ export default function WeekScreen() {
       </div>
 
       {seeNotes && <FollowUps week={week} />}
+
+      {seePacking && labels.total + labels.problems.length > 0 && (
+        <div className="panel mt-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <h3 className="mr-auto">Box labels</h3>
+            <Link href="/packing/labels" className="btn">
+              Box labels ({labels.total})
+            </Link>
+          </div>
+          <p className="small muted mt-1 mb-0">
+            {w?.labels_printed_at ? `Printed ${formatDateTime(w.labels_printed_at)}.` : "Not printed yet for this week."}
+            {blocked > 0 && ` ${blocked} ${blocked === 1 ? "order line" : "order lines"} can't be labeled until Setup > Boxes is filled in.`}
+            {unconfirmedBoxes > 0 && ` ${unconfirmedBoxes} use a box not confirmed yet.`}
+          </p>
+          <LabelsChanged hash={labels.hash} printedHash={w?.labels_hash} printedAt={w?.labels_printed_at} />
+        </div>
+      )}
 
       <div className="panel mt-4">
         <div className="flex flex-wrap items-center gap-3">

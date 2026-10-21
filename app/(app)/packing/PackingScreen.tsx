@@ -31,7 +31,8 @@ import { todayISO, weekName } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
-import { packLines, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
+import { packLines, packingLabels, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
+import LabelsChanged from "./labels/LabelsChanged";
 import { isLocal } from "@/lib/offline/outbox";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
@@ -101,6 +102,7 @@ export default function PackingScreen() {
       <div className="screen-only">
         <WeekBar processDate={data.processDate} />
         <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
+        <LabelsChanged hash={packingLabels(data, boxSetup).hash} printedHash={data.labelsHash} printedAt={data.labelsPrintedAt} link />
 
         <div className="packhead">
           <div>
@@ -108,6 +110,11 @@ export default function PackingScreen() {
             {canPack && data.orders.length > 0 && (
               <Link href="/packing/scan" className="btn my-2 mr-2">
                 Scan boxes
+              </Link>
+            )}
+            {data.orders.length > 0 && (
+              <Link href="/packing/labels" className="btn ghost my-2 mr-2">
+                Box labels
               </Link>
             )}
             <span className="muted">
