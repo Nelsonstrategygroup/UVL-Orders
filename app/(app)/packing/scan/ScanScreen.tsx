@@ -465,7 +465,7 @@ function QuestionCard({
               <button type="button" className="btn" disabled={!pick} onClick={() => void onMap(box.gtin, pick)}>
                 Save and use
               </button>
-              <Link href="/setup" className="btn ghost" target="_blank">
+              <Link href="/setup/products" className="btn ghost" target="_blank">
                 Add a new product in Setup
               </Link>
               <button type="button" className="btn ghost" onClick={onCancel}>

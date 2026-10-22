@@ -135,7 +135,7 @@ export default function WeekScreen() {
         <p className="note small">
           {unconfirmed} of the parts-per-lamb numbers are still starting guesses. The lamb count is only as good as
           those numbers.{" "}
-          <Link href="/setup" className="copy text-[.85rem]">
+          <Link href="/setup/parts" className="copy text-[.85rem]">
             Review them in Setup
           </Link>
         </p>

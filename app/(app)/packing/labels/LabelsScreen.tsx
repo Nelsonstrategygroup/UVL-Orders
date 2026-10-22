@@ -108,7 +108,7 @@ export default function LabelsScreen() {
         {toCheck > 0 && (
           <p className="ls-tocheck">
             Some box sizes are still to be checked in{" "}
-            <Link href="/setup#boxes" className="copy">
+            <Link href="/setup/boxes" className="copy">
               Setup &gt; Boxes
             </Link>{" "}
             ({toCheck}).

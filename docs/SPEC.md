@@ -221,6 +221,8 @@ List with type, call day, last contact, and open follow-ups. Customer page: cont
 
 Parts per lamb with confirmed flags, cut specs (edit text, activate or deactivate), products (edit names, group, fresh only, part uses, active), size classes, processor name, email, and standing instructions. Admin only: Users (create, set role, reset password, deactivate) and "Export all data" (download every table as CSV in one zip, because the owners must always be able to take their records with them).
 
+Layout (change request 10/21/26, stage 2): Setup opens to a short menu, each item its own page at `/setup/<page>` with a "← Setup" link: Products, Boxes, Parts per lamb, Instructions for Mohawk, Lamb sizes, Pallet groups, Box labels (GTINs), Processor, Your records (admin). Instead of one "Needs checking" list, each menu item shows how many are left to check ("Boxes · 30 to check"); Products lists its own items to check at the top of its page, and inside each page the items to check are highlighted as before. Nothing about the data or the calculations changed.
+
 ## 6. Business rules and calculations
 
 Port these from the prototype into `lib/calc/` with unit tests.

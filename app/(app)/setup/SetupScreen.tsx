@@ -1,10 +1,15 @@
 "use client";
 
-// Setup (SPEC 5.10): parts per lamb, cut specs, products, size classes, and
-// the processor. Admin and office can look; only admins can change things.
+// Setup (SPEC 5.10): a short menu of pages (products, boxes, parts per lamb,
+// cut specs, sizes, pallet groups, GTINs, the processor, your records), each
+// with how many items are left to check. Admin and office can look; only
+// admins can change things.
 
 import { deleteGtin, loadGtins, saveGtin } from "@/lib/db/scanning";
 import BoxLimits from "./BoxLimits";
+import Link from "next/link";
+import { SETUP_SECTIONS, type SetupSlug } from "./sections";
+import { boxCellsToCheck } from "@/lib/calc/boxes";
 import { gtinCheckDigitOk } from "@/lib/scan/gs1";
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -47,7 +52,8 @@ const USE_LABEL: Record<string, string> = {
   none: "Nothing to count (necks, bellies, bones)",
 };
 
-export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
+/** Setup: the menu when no section is given, else that section's page. */
+export default function SetupScreen({ canEdit, section }: { canEdit: boolean; section?: SetupSlug }) {
   const { catalog, error, reloadCatalog } = useStaffData();
   const toast = useToast();
   const db = getDb();
@@ -138,45 +144,152 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
     );
   }
 
-  return (
-    <>
-      <h2 className="mb-2">Setup</h2>
-      {canEdit ? (
-        <p className="note small">
-          Numbers highlighted in yellow are starting guesses. Correct them here and every calculation updates.
-        </p>
-      ) : (
-        <p className="note small">Only an admin can change these. Ask Kathy or Eric if something looks wrong.</p>
-      )}
+  const productsToCheck = toCheck.filter((c) => c.kind === "product");
+  const partsToCheck = toCheck.filter((c) => c.kind === "part").length;
+  const boxesToCheck = boxCellsToCheck(catalog.boxes.limits, onProducts.map((p) => p.id));
+  const processorName = settings?.processor_name || "Mohawk";
+  const badge: Partial<Record<SetupSlug, number>> = {
+    products: productsToCheck.length,
+    parts: partsToCheck,
+    boxes: boxesToCheck,
+  };
+  const titleOf = (slug: SetupSlug) =>
+    slug === "instructions" ? `Instructions for ${processorName}` : SETUP_SECTIONS.find((s) => s.slug === slug)!.title;
+  const editNote = canEdit ? (
+    <p className="note small">Numbers highlighted in yellow are starting guesses. Correct them here and every calculation updates.</p>
+  ) : (
+    <p className="note small">Only an admin can change these. Ask Kathy or Eric if something looks wrong.</p>
+  );
 
-      {toCheck.length > 0 && (
-        <section className="panel mb-4" aria-labelledby="to-check">
-          <h3 id="to-check">Needs checking ({toCheck.length})</h3>
-          <p className="small muted mt-1">
-            Starting values Kathy hasn&apos;t confirmed yet. Open one, fix anything wrong, and tick &quot;These values are
-            checked&quot;.
+  // ----- The menu -----
+  if (!section)
+    return (
+      <div className="max-w-[640px]">
+        <h2 className="mb-2">Setup</h2>
+        {editNote}
+        <ul className="setupmenu">
+          {SETUP_SECTIONS.filter((s) => !("adminOnly" in s && s.adminOnly) || canEdit).map((s) => {
+            const n = badge[s.slug] ?? 0;
+            return (
+              <li key={s.slug}>
+                <Link href={`/setup/${s.slug}`}>
+                  <span className="min-w-0 flex-1">
+                    <b>{titleOf(s.slug)}</b>
+                    {n > 0 && <span className="tocheck"> · {n} to check</span>}
+                    <span className="block text-[.85rem] text-ink-soft">{s.sub}</span>
+                  </span>
+                  <span aria-hidden="true" className="step-go">
+                    &#8250;
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+
+  const page = (body: React.ReactNode, wide = false) => (
+    <div className={wide ? "" : "max-w-[900px]"}>
+      <Link href="/setup" className="copy">
+        &larr; Setup
+      </Link>
+      <h2 className="mt-1 mb-2">{titleOf(section)}</h2>
+      {editNote}
+      {body}
+      {editingProduct && (
+        <EditProduct
+          key={`${editingProduct === "new" ? "new" : editingProduct.id}-${copying}`}
+          product={editingProduct === "new" ? null : editingProduct}
+          copy={copying}
+          onClose={() => setEditingProduct(null)}
+          onSaved={async (err) => {
+            await done(err);
+            if (!err) setEditingProduct(null);
+          }}
+        />
+      )}
+    </div>
+  );
+
+  switch (section) {
+    case "products":
+      return page(
+        <>
+          {productsToCheck.length > 0 && (
+            <section className="panel mb-4" aria-labelledby="to-check">
+              <h3 id="to-check">To check ({productsToCheck.length})</h3>
+              <p className="small muted mt-1">
+                Starting values Kathy hasn&apos;t confirmed yet. Open one, fix anything wrong, and tick &quot;These values are
+                checked&quot;.
+              </p>
+              <ul className="m-0 grid list-none gap-1 p-0">
+                {productsToCheck.map((c) => {
+                  const prod = catalog.productById.get(c.id);
+                  return (
+                    <li key={c.id} className="flex flex-wrap items-center gap-x-3 border-t border-line py-1.5">
+                      <b>{c.name}</b>
+                      <span className="small muted mr-auto">{c.why}</span>
+                      {prod && canEdit && (
+                        <button type="button" className="btn ghost" onClick={() => open(prod)}>
+                          Check
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+          <section className="panel">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="mr-auto">Products customers order</h3>
+              {canEdit && (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    setCopying(false);
+                    setEditingProduct("new");
+                  }}
+                >
+                  Add a product
+                </button>
+              )}
+            </div>
+            <p className="small muted mt-1">
+              What customers order, in their words: how it&apos;s ordered, what part of the lamb it comes from, and the Mohawk
+              lines it&apos;s cut from. To start a new one from an old one, tap Copy.
+            </p>
+            {productTable(onProducts)}
+            {offProducts.length > 0 && (
+              <details className="mt-3">
+                <summary className="flex min-h-[44px] cursor-pointer items-center font-semibold">
+                  Turned off ({offProducts.length})
+                </summary>
+                <p className="small muted mt-0">Kept so old orders and downloads still work. The old Mohawk-wording products are here.</p>
+                {productTable(offProducts)}
+              </details>
+            )}
+          </section>
+        </>,
+        true,
+      );
+
+    case "boxes":
+      return page(
+        <section className="panel">
+          <p className="small muted mt-0">
+            How much of each product fits in each box, largest box first. Products never share a box. Orders, Packing and the box
+            labels use these to split each order into boxes.
           </p>
-          <ul className="m-0 grid list-none gap-1 p-0">
-            {toCheck.map((c) => {
-              const prod = c.kind === "product" ? catalog.productById.get(c.id) : undefined;
-              return (
-                <li key={`${c.kind}-${c.id}`} className="flex flex-wrap items-center gap-x-3 border-t border-line py-1.5">
-                  <b>{c.name}</b>
-                  <span className="small muted mr-auto">{c.why}</span>
-                  {prod && canEdit && (
-                    <button type="button" className="btn ghost" onClick={() => open(prod)}>
-                      Check
-                    </button>
-                  )}
-                  {c.kind === "part" && <span className="small muted">Below, under parts per lamb</span>}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
+          <BoxLimits canEdit={canEdit} />
+        </section>,
+        true,
+      );
 
-      <div className="grid2">
+    case "parts":
+      return page(
         <section className="panel">
           <h3>What one lamb gives you</h3>
           <table className="simple mt-2">
@@ -257,10 +370,90 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
                 Add a part
               </button>
             ))}
-        </section>
+        </section>,
+      );
 
+    case "instructions":
+      return page(
         <section className="panel">
-          <h3>Processor</h3>
+          <p className="small muted mt-0">
+            The exact wording printed on the cut sheet, in the order the cut sheet lists them. &quot;Counts as&quot; is how a line
+            adds up when a set is checked. Changing it changes every set that uses it, including past weeks.
+          </p>
+          <CutSpecs canEdit={canEdit} done={done} />
+        </section>,
+        true,
+      );
+
+    case "sizes":
+      return page(
+        <section className="panel">
+          <table className="simple">
+            <thead>
+              <tr>
+                <th>Size</th>
+                <th>Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {catalog.sizes.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    <input
+                      className="field"
+                      aria-label={`Name for ${s.id}`}
+                      defaultValue={s.label}
+                      disabled={!canEdit}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== s.label) void updateRow(db, "size_classes", s.id, { label: v }).then(done);
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="field"
+                      aria-label={`Weight for ${s.label}`}
+                      defaultValue={s.weight_range}
+                      disabled={!canEdit}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== s.weight_range) void updateRow(db, "size_classes", s.id, { weight_range: v }).then(done);
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>,
+      );
+
+    case "pallets":
+      return page(
+        <section className="panel">
+          <p className="small muted mt-0">
+            Which customers ship together, and where on the pallet. The Packing screen lists customers in this order; everyone
+            else comes after, by name.
+          </p>
+          <PalletGroups canEdit={canEdit} />
+        </section>,
+      );
+
+    case "gtins":
+      return page(
+        <section className="panel">
+          <p className="small muted mt-0">
+            Which product each Mohawk box label is. Every product has its own GTIN, so the app is told once, here or the first
+            time a box is scanned. Only an admin can add or change one.
+          </p>
+          <GtinMap canEdit={canEdit} />
+        </section>,
+      );
+
+    case "processor":
+      return page(
+        <section className="panel">
           <div className="flex flex-wrap gap-3">
             <div className="min-w-[160px] flex-1">
               <label className="lbl" htmlFor="pname">
@@ -309,123 +502,14 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
               if (v !== (settings?.standing_instructions ?? "")) void updateSettings(db, { standing_instructions: v }).then(done);
             }}
           />
+        </section>,
+      );
 
-          <h3 className="mt-5">Lamb sizes</h3>
-          <table className="simple mt-2">
-            <thead>
-              <tr>
-                <th>Size</th>
-                <th>Weight</th>
-              </tr>
-            </thead>
-            <tbody>
-              {catalog.sizes.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <input
-                      className="field"
-                      aria-label={`Name for ${s.id}`}
-                      defaultValue={s.label}
-                      disabled={!canEdit}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== s.label) void updateRow(db, "size_classes", s.id, { label: v }).then(done);
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="field"
-                      aria-label={`Weight for ${s.label}`}
-                      defaultValue={s.weight_range}
-                      disabled={!canEdit}
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v !== s.weight_range) void updateRow(db, "size_classes", s.id, { weight_range: v }).then(done);
-                      }}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      <section className="panel mt-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h3 className="mr-auto">Products customers order</h3>
-          {canEdit && (
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                setCopying(false);
-                setEditingProduct("new");
-              }}
-            >
-              Add a product
-            </button>
-          )}
-        </div>
-        <p className="small muted mt-1">
-          What customers order, in their words: how it&apos;s ordered, what part of the lamb it comes from, and the Mohawk
-          lines it&apos;s cut from. To start a new one from an old one, tap Copy.
-        </p>
-        {productTable(onProducts)}
-        {offProducts.length > 0 && (
-          <details className="mt-3">
-            <summary className="flex min-h-[44px] cursor-pointer items-center font-semibold">
-              Turned off ({offProducts.length})
-            </summary>
-            <p className="small muted mt-0">
-              Kept so old orders and downloads still work. The old Mohawk-wording products are here.
-            </p>
-            {productTable(offProducts)}
-          </details>
-        )}
-      </section>
-
-      <section className="panel mt-4">
-        <h3>Instructions for {settings?.processor_name || "Mohawk"} (cut specs)</h3>
-        <p className="small muted mt-1">
-          The exact wording printed on the cut sheet, in the order the cut sheet lists them. &quot;Counts as&quot; is how a line
-          adds up when a set is checked. Changing it changes every set that uses it, including past weeks.
-        </p>
-        <CutSpecs canEdit={canEdit} done={done} />
-      </section>
-
-      <section className="panel mt-4">
-        <h3>Pallet groups</h3>
-        <p className="small muted mt-1">
-          Which customers ship together, and where on the pallet. The Packing screen lists customers in this order;
-          everyone else comes after, by name.
-        </p>
-        <PalletGroups canEdit={canEdit} />
-      </section>
-
-      <section className="panel mt-4" id="boxes">
-        <h3>Boxes</h3>
-        <p className="small muted mt-1">
-          How much of each product fits in each box, largest box first. Products never share a box. Orders, Packing and the box
-          labels use these to split each order into boxes.
-        </p>
-        <BoxLimits canEdit={canEdit} />
-      </section>
-
-      <section className="panel mt-4">
-        <h3>Box labels (GTINs)</h3>
-        <p className="small muted mt-1">
-          Which product each Mohawk box label is. Every product has its own GTIN, so the app is told once, here or the
-          first time a box is scanned. Only an admin can add or change one.
-        </p>
-        <GtinMap canEdit={canEdit} />
-      </section>
-
-      {canEdit && (
-        <section className="panel mt-4">
-          <h3>Your records</h3>
-          <p className="small muted mt-1">
+    case "records":
+      if (!canEdit) return page(<p className="note">Only an admin can export all data.</p>);
+      return page(
+        <section className="panel">
+          <p className="small muted mt-0">
             Download everything in the app, one spreadsheet file per list, in a single zip file. Keep a copy somewhere safe.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -437,26 +521,12 @@ export default function SetupScreen({ canEdit }: { canEdit: boolean }) {
             </a>
           </div>
           <p className="small muted mt-2 mb-0">
-            The zip of CSV files is the one to keep for moving the data to new accounts. The Excel workbook is easier to
-            look through: one tab per list.
+            The zip of CSV files is the one to keep for moving the data to new accounts. The Excel workbook is easier to look
+            through: one tab per list.
           </p>
-        </section>
-      )}
-
-      {editingProduct && (
-        <EditProduct
-          key={`${editingProduct === "new" ? "new" : editingProduct.id}-${copying}`}
-          product={editingProduct === "new" ? null : editingProduct}
-          copy={copying}
-          onClose={() => setEditingProduct(null)}
-          onSaved={async (err) => {
-            await done(err);
-            if (!err) setEditingProduct(null);
-          }}
-        />
-      )}
-    </>
-  );
+        </section>,
+      );
+  }
 }
 
 /** Add a part to track per lamb (for example a byproduct like bellies). */
