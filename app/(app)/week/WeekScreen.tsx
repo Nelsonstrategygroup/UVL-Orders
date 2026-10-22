@@ -21,6 +21,7 @@ import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
 import { cutSheetTotals, legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
+import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
 import { calcWeek, plannedExtras, type PartRow } from "@/lib/calc/week";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
 import { cantConvert, inProductUnits, unitWord } from "@/lib/calc/units";
@@ -123,7 +124,12 @@ export default function WeekScreen() {
 
   const unit = (row: PartRow) => (row.part.unit === "lb" ? " lb" : "");
 
-  const shortLine = shortParts(c.rows);
+  // Shanks are ordered in packs, so they show in packs here (the math stays in shanks).
+  const packSizes = partPackSizes(catalog.products);
+  const shortLine = shortParts(c.rows, packSizes);
+  const packIncludes = [...packSizes].flatMap(([id, size]) =>
+    packPartIncludes(id, catalog.parts.find((p) => p.id === id)?.name ?? id, size, catalog.products, c.withShort),
+  );
   const labelsChanged = !!w?.labels_hash && w.labels_hash !== labels.hash;
 
   return (
@@ -209,35 +215,43 @@ export default function WeekScreen() {
                         {g.title} <span className="font-normal">{g.sub}</span>
                       </th>
                     </tr>
-                    {g.rows.map((r) => (
-                      <tr key={r.part.id} className={r.parent ? "bal-sub" : undefined}>
-                        <td>
-                          {r.parent ? (
-                            <span title={`Cut from ${catalog.parts.find((x) => x.id === r.parent)?.name.toLowerCase() ?? r.parent}s`}>
-                              <span aria-hidden="true">↳ </span>
-                              {r.part.name}
-                            </span>
-                          ) : (
-                            <b>{r.part.name}</b>
-                          )}{" "}
-                          <span className="small muted">{r.part.unit === "lb" ? "lb" : ""}</span>
-                        </td>
-                        <td className="num">{fmt(r.need)}</td>
-                        <td className="num">{fmt(r.supply)}</td>
-                        <td>
-                          <div className={`bar ${r.status === "short" ? "short" : ""}`} title={`${fmt(r.need)} of ${fmt(r.supply)}`}>
-                            <i style={{ width: `${Math.min(100, r.supply ? (r.need / r.supply) * 100 : r.need ? 100 : 0)}%` }} />
-                          </div>
-                        </td>
-                        <td>
-                          <StatusTag row={r} />
-                        </td>
-                      </tr>
-                    ))}
+                    {g.rows.map((r) => {
+                      const pack = packSizes.get(r.part.id) ?? 1;
+                      return (
+                        <tr key={r.part.id} className={r.parent ? "bal-sub" : undefined}>
+                          <td>
+                            {r.parent ? (
+                              <span title={`Cut from ${catalog.parts.find((x) => x.id === r.parent)?.name.toLowerCase() ?? r.parent}s`}>
+                                <span aria-hidden="true">↳ </span>
+                                {r.part.name}
+                              </span>
+                            ) : (
+                              <b>{r.part.name}</b>
+                            )}{" "}
+                            <span className="small muted">{pack > 1 ? "packs" : r.part.unit === "lb" ? "lb" : ""}</span>
+                          </td>
+                          <td className="num">{fmt(r.need / pack)}</td>
+                          <td className="num">{fmt(r.supply / pack)}</td>
+                          <td>
+                            <div className={`bar ${r.status === "short" ? "short" : ""}`} title={`${fmt(r.need / pack)} of ${fmt(r.supply / pack)}`}>
+                              <i style={{ width: `${Math.min(100, r.supply ? (r.need / r.supply) * 100 : r.need ? 100 : 0)}%` }} />
+                            </div>
+                          </td>
+                          <td>
+                            <StatusTag row={r} pack={pack} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 ),
             )}
           </table>
+          {packIncludes.map((t) => (
+            <p key={t} className="mt-2 mb-0">
+              {t}
+            </p>
+          ))}
           {legs && <p className="mt-3 mb-0 font-medium">{legs}</p>}
           {uncounted.length > 0 && (
             <p className="note bad small mt-3">
@@ -521,18 +535,20 @@ function FollowUps({ week }: { week: string }) {
   );
 }
 
-function StatusTag({ row }: { row: PartRow }) {
+/** Short, even, extra or available; in packs for parts ordered in packs (pack > 1). */
+function StatusTag({ row, pack = 1 }: { row: PartRow; pack?: number }) {
+  const left = row.left / pack;
   switch (row.status) {
     case "short":
-      return <span className="tag short">Short {fmt(-row.left)}</span>;
+      return <span className="tag short">Short {fmt(-left)}</span>;
     case "sets":
       return <span className="tag sets">Sets count</span>;
     case "even":
       return <span className="tag even">Even</span>;
     case "extra":
       // Main cuts stand out; what comes with every lamb stays quiet.
-      if (row.availableOnly) return <span className="tag plain">{fmt(row.left)} available</span>;
-      return <span className={row.planned ? "tag extra" : "tag plain"}>{fmt(row.left)} extra</span>;
+      if (row.availableOnly) return <span className="tag plain">{fmt(left)} available</span>;
+      return <span className={row.planned ? "tag extra" : "tag plain"}>{fmt(left)} extra</span>;
     default:
       return null;
   }

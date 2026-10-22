@@ -452,6 +452,8 @@ Five types, largest first: MVM, Roll Stock, Jerky, White, Baby. White and Baby a
 
 Front shanks, hind shanks, and labeled hind shanks are ordered and counted in packs: 2 shanks per pack, one pack counts as one. The carcass balance still works in shanks per lamb (2 front, 2 hind), so a pack uses 2 shanks. Every place shanks are counted in pieces is listed for Lucas before anything changes.
 
+On This week (change request 10/21/26), the carcass balance shows front and hind shanks in packs, to match the orders: need, get, and short or extra (week of Oct 19: need 110 packs, get 82, short 28), and the summary line reads "Front shanks short 28 packs". The math stays in shanks. When another product uses shanks, a line under the table says so: "Includes 8 front shanks (4 packs) for 4 whole lambs." The pack size comes from the shank products (`pieces_per_pack`), not a fixed number.
+
 ### 12.5 Box label list (printed)
 
 - Kathy prints a customer label for every box before packing day. Each label has two lines: the customer (with the location and store number for chain stores, e.g. "PCC #02 Kirkland"), then the count and the product's label name, e.g. "10 Single Pack Rack (Cap ON)".

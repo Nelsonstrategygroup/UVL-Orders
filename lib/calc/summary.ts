@@ -3,6 +3,7 @@
 import { longDate } from "../dates";
 import { carcassLine, lambSourceLine, type PartRow, type WeekCalc } from "./week";
 import { fmt, num } from "./num";
+import { packsText } from "./packs";
 import type { Product, Qty } from "./types";
 
 export type SizeTotal = { id: string; label: string; lambs: number };
@@ -106,10 +107,15 @@ export function legBreakdownText(b: LegBreakdown): string {
 /**
  * The carcass balance in a line (change request 10/21/26): each part that's
  * short, with the amount ("Front shank short 56"). Empty when every part
- * comes out even or extra.
+ * comes out even or extra. Parts ordered in packs (shanks) read in packs:
+ * "Front shanks short 28 packs".
  */
-export function shortParts(rows: Pick<PartRow, "part" | "left" | "status">[]): string[] {
+export function shortParts(rows: Pick<PartRow, "part" | "left" | "status">[], packSizes: Map<string, number> = new Map()): string[] {
   return rows
     .filter((r) => r.status === "short")
-    .map((r) => `${r.part.name} short ${fmt(-r.left)}${r.part.unit === "lb" ? " lb" : ""}`);
+    .map((r) => {
+      const pack = packSizes.get(r.part.id);
+      if (pack) return `${r.part.name}s short ${packsText(-r.left / pack)}`;
+      return `${r.part.name} short ${fmt(-r.left)}${r.part.unit === "lb" ? " lb" : ""}`;
+    });
 }
