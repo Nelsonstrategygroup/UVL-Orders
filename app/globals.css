@@ -627,6 +627,19 @@
     color: var(--ink-soft);
     margin: 0.25rem 0;
   }
+  /* Order screen: the last order, to read back, and its amount on each line (change request 10/22/26). */
+  .lastorder {
+    font-size: 0.95rem;
+    background: var(--field);
+    border-radius: 8px;
+    padding: 0.45rem 0.65rem;
+    margin: 0.5rem 0 0.25rem;
+  }
+  .lastq {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+  }
 
   /* Segmented buttons */
   .seg {
@@ -1947,16 +1960,43 @@
 .ordersheet tbody {
   break-inside: avoid;
 }
-.ordersheet .os-unit {
-  width: 1.5in;
-  color: #444;
-  font-size: 9pt;
+/* Column widths (change request 10/22/26): "Comes in" just fits "packs of 2" and
+   wraps longer entries; the width goes to "How many" (a 3-digit number written
+   comfortably) and "Note". Same on screen and on paper. */
+.ordersheet table {
+  table-layout: fixed;
 }
-.ordersheet .os-qty {
+.ordersheet col.os-unit {
+  width: 0.85in;
+}
+.ordersheet col.os-lastq {
   width: 0.8in;
 }
-.ordersheet .os-note {
-  width: 2.3in;
+.ordersheet col.os-qty {
+  width: 1in;
+}
+.ordersheet col.os-note {
+  width: 2.35in;
+}
+.ordersheet td.os-unit {
+  color: #444;
+  font-size: 9pt;
+  line-height: 1.15;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.ordersheet td.os-lastq {
+  color: #444;
+  font-size: 9.5pt;
+}
+.ordersheet tr.os-section th {
+  background: #c9d3bd;
+  font-size: 10.5pt;
+  font-weight: 700;
+  height: 16pt;
+}
+.ordersheet .os-head .os-last {
+  grid-column: 1 / -1;
 }
 .ordersheet .os-foot {
   margin-top: 8pt;

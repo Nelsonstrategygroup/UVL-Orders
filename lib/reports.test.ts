@@ -27,6 +27,7 @@ const cust = (id: string, name: string, extra: Partial<Customer> = {}): Customer
   name,
   type: "Retail",
   call_day: null,
+  delivery_day: null,
   notes: "",
   active: true,
   parent_customer_id: null,

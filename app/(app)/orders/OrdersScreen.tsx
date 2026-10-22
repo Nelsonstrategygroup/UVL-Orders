@@ -127,6 +127,7 @@ export default function OrdersScreen() {
           displayName={displayName(editing, customers.byId)}
           order={data.orders.get(editing.id)}
           lastWeek={data.lastWeek.get(editing.id)}
+          lastOrder={data.lastOrder.get(editing.id)}
           patchOrder={patchOrder}
           refresh={refresh}
           onClose={closeEditor}

@@ -2,6 +2,7 @@ import type { BoxSetup } from "../calc/boxes";
 // Row shapes as the screens use them (SPEC 4).
 
 import type { Part, Product, Qty, OrderStatus, HalfWholeOrder, FreezerEntry, OrderUnit, Units } from "../calc/types";
+import type { LastOrder } from "../calc/lastOrder";
 import type { CustomerType } from "../import/customers";
 import type { ContactRole } from "../calc/contacts";
 
@@ -75,6 +76,8 @@ export type Customer = {
   name: string;
   type: CustomerType;
   call_day: string | null;
+  /** Weekday the boxes are delivered; blank means the chain's day, if any (lib/calc/lastOrder.ts). */
+  delivery_day: string | null;
   notes: string;
   active: boolean;
   parent_customer_id: string | null;
@@ -126,6 +129,8 @@ export type WeekData = {
   orders: Map<string, Order>;
   /** customer id -> order last week */
   lastWeek: Map<string, Order>;
+  /** customer id -> their most recent order before this week ("Last order"); never ordered: missing. */
+  lastOrder: Map<string, LastOrder>;
   /** order id -> product id -> pounds packed */
   packed: Map<string, Qty>;
   /** order id -> products marked not filled */
@@ -133,5 +138,5 @@ export type WeekData = {
   halfWhole: HalfWholeOrder[];
   freezer: FreezerEntry[];
   cutSets: { lambs: number; size_class_id: string | null }[];
-  cutSheet: { sent_at: string | null } | null;
+  cutSheet: { sent_at: string | null; inv_number: string | null } | null;
 };

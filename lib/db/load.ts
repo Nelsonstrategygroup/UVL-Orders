@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, weekEnd } from "../dates";
+import { lastOrders } from "../calc/lastOrder";
 import { num } from "../calc/num";
 import type { HalfWholeOrder } from "../calc/types";
 import { loadBoxSetup } from "./boxes";
@@ -98,7 +99,7 @@ export async function loadCustomers(db: SupabaseClient): Promise<CustomersData> 
     fetchAll<Omit<Customer, "contacts">>((a, b) =>
       db
         .from("customers")
-        .select("id, name, type, call_day, notes, active, parent_customer_id, bills_for_locations, pallet_group_id, pallet_spot, pallet_sort")
+        .select("id, name, type, call_day, delivery_day, notes, active, parent_customer_id, bills_for_locations, pallet_group_id, pallet_spot, pallet_sort")
         .order("name")
         .range(a, b),
     ),
@@ -171,15 +172,35 @@ function toOrders(rows: OrderRow[]): Map<string, Order> {
 
 const ORDER_SELECT = "id, customer_id, status, notes, order_lines(product_id, qty, unit)";
 
-/** Just this week's and last week's orders (refreshed on every live change). */
+/** How far back "Last order" looks (change request 10/22/26). */
+const LAST_ORDER_WEEKS = 26;
+
+/**
+ * This week's and last week's orders, and each customer's last order before
+ * this week (refreshed on every live change).
+ */
 export async function loadOrders(db: SupabaseClient, week: string) {
-  const [orders, last] = await Promise.all([
+  const [orders, last, past] = await Promise.all([
     db.from("orders").select(ORDER_SELECT).eq("week_id", week),
     db.from("orders").select(ORDER_SELECT).eq("week_id", addDays(week, -7)),
+    fetchAll<OrderRow & { week_id: string }>((a, b) =>
+      db
+        .from("orders")
+        .select(`week_id, ${ORDER_SELECT}`)
+        .eq("status", "ordered")
+        .lt("week_id", week)
+        .gte("week_id", addDays(week, -7 * LAST_ORDER_WEEKS))
+        .order("week_id", { ascending: false })
+        .range(a, b),
+    ),
   ]);
   return {
     orders: toOrders(must(orders) as OrderRow[]),
     lastWeek: toOrders(must(last) as OrderRow[]),
+    lastOrder: lastOrders(
+      past.map((o) => ({ customer_id: o.customer_id, week: o.week_id, status: o.status, ...linesOf(o.order_lines) })),
+      week,
+    ),
   };
 }
 
@@ -280,7 +301,7 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
       db.from("freezer_log").select("product_id, qty").range(a, b),
     ),
     db.from("cut_sets").select("lambs, size_class_id").eq("week_id", week),
-    db.from("cut_sheets").select("sent_at").eq("week_id", week).maybeSingle(),
+    db.from("cut_sheets").select("sent_at, inv_number").eq("week_id", week).maybeSingle(),
   ]);
 
   // Pounds packed per line, and lines marked not filled.
@@ -303,6 +324,7 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     weekRow: wr ? { ...wr, lamb_override: wr.lamb_override == null ? null : num(wr.lamb_override) } : null,
     orders: orders.orders,
     lastWeek: orders.lastWeek,
+    lastOrder: orders.lastOrder,
     packed: packedMap,
     shorted: shortedMap,
     halfWhole: hw.map((h) => ({ id: h.id, size: h.size, status: h.status, choices: h.half_whole_choices ?? [] })),

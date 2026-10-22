@@ -4,6 +4,7 @@
 // and a history that merges contact log entries with weekly orders.
 
 import Link from "next/link";
+import { deliveryDayOf } from "@/lib/calc/lastOrder";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -79,7 +80,13 @@ export default function CustomerPage({ id }: { id: string }) {
   const kids = customers.list.filter((k) => k.parent_customer_id === c.id);
   const orders = orderingCustomers(customers.list).some((k) => k.id === c.id);
   const billing = billedThrough(c, customers.byId);
-  const meta = [c.type, c.call_day ? `Call ${c.call_day}` : "", c.active ? "" : "Not active"].filter(Boolean);
+  const delivery = deliveryDayOf(c, customers.byId);
+  const meta = [
+    c.type,
+    c.call_day ? `Call ${c.call_day}` : "",
+    delivery ? `Delivery ${delivery}${c.delivery_day ? "" : ` (same as ${parent?.name ?? "the chain"})`}` : "",
+    c.active ? "" : "Not active",
+  ].filter(Boolean);
 
   return (
     <div className="mx-auto max-w-[720px]">
@@ -460,6 +467,7 @@ function ThisWeekOrder({ customer }: { customer: Customer }) {
           displayName={displayName(customer, customers.byId)}
           order={o}
           lastWeek={data.lastWeek.get(customer.id)}
+          lastOrder={data.lastOrder.get(customer.id)}
           patchOrder={patchOrder}
           refresh={refresh}
           onClose={close}

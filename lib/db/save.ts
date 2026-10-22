@@ -54,6 +54,7 @@ export type CustomerInput = {
   name: string;
   type: string;
   call_day: string | null;
+  delivery_day: string | null;
   parent_customer_id: string | null;
   active: boolean;
   bills_for_locations: boolean;
@@ -70,6 +71,7 @@ export async function saveCustomer(
     name: c.name,
     type: c.type,
     call_day: c.call_day,
+    delivery_day: c.delivery_day,
     parent_customer_id: c.parent_customer_id,
     active: c.active,
     bills_for_locations: c.bills_for_locations,

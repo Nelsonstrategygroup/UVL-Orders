@@ -2,20 +2,26 @@
 
 // Paper order sheets: every product in its group, with room to write the
 // amount and a note, for taking orders by phone away from the screen. One
-// sheet per customer location, or a blank one.
+// sheet per customer location, or a blank one. For a customer: what they
+// usually buy first (the same rule as the order screen), their last order's
+// amounts, the scheduled delivery, and the week's invoice batch
+// (change request 10/22/26).
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStaffData } from "@/components/data/StaffData";
+import { useWeekData } from "@/components/data/useWeekData";
 import { useWeek } from "@/components/Week";
 import { downloadTable } from "@/components/download";
 import { orderGridTable } from "@/lib/reports";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
+import { deliveryDate, deliveryDayOf, type LastOrder } from "@/lib/calc/lastOrder";
 import { fmt } from "@/lib/calc/num";
 import { groupProducts } from "@/lib/calc/products";
-import { unitWord } from "@/lib/calc/units";
-import { niceDate, weekName } from "@/lib/dates";
+import { lineUnit, unitWord } from "@/lib/calc/units";
+import { DAYS, niceDate, weekName } from "@/lib/dates";
 import type { CatalogProduct, Customer } from "@/lib/db/types";
+import { qtyText } from "@/lib/orders";
 
 const BLANK = "";
 const EVERYONE = "__all";
@@ -36,16 +42,27 @@ function comesIn(p: CatalogProduct): string {
   return p.order_step && p.order_step !== 1 ? `${base}, by ${fmt(p.order_step)}` : base;
 }
 
+/** "Sat Oct 31" */
+const dayAndDate = (iso: string) => `${DAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()].slice(0, 3)} ${niceDate(iso)}`;
+
+type Section = { title: string | null; groups: { group: string; products: CatalogProduct[] }[] };
+
 function Sheet({
   customer,
   name,
-  week,
-  groups,
+  sections,
+  lastOrder,
+  delivery,
+  invoice,
 }: {
   customer: Customer | null;
   name: string;
-  week: string | null;
-  groups: { group: string; products: CatalogProduct[] }[];
+  sections: Section[];
+  lastOrder: LastOrder | undefined;
+  /** "Sat Oct 31", or "" to write in. */
+  delivery: string;
+  /** The week's invoice number, or "" to write in. */
+  invoice: string;
 }) {
   const phone = customer?.contacts.find((k) => k.phone)?.phone ?? "";
   const contact = customer?.contacts.find((k) => k.name)?.name ?? "";
@@ -58,11 +75,12 @@ function Sheet({
           {name}
         </div>
         <div>
-          <b>Packing Mon</b>
-          {week ? niceDate(week) : ""}
+          <b>Scheduled delivery</b>
+          {delivery}
         </div>
         <div>
-          <b>Taken by</b>
+          <b>Invoice batch</b>
+          {invoice}
         </div>
         <div>
           <b>Contact</b>
@@ -77,30 +95,32 @@ function Sheet({
           <b>Call day</b>
           {customer?.call_day ?? ""}
         </div>
+        {customer && (
+          <div className="os-last">
+            <b>Last order</b>
+            {lastOrder ? weekName(lastOrder.week) : "None yet"}
+          </div>
+        )}
       </div>
       <table>
+        <colgroup>
+          <col className="os-prod" />
+          <col className="os-unit" />
+          <col className="os-lastq" />
+          <col className="os-qty" />
+          <col className="os-note" />
+        </colgroup>
         <thead>
           <tr>
             <th>Product</th>
-            <th className="os-unit">Comes in</th>
-            <th className="os-qty">How many</th>
-            <th className="os-note">Note</th>
+            <th>Comes in</th>
+            <th>Last order</th>
+            <th>How many</th>
+            <th>Note</th>
           </tr>
         </thead>
-        {groups.map((g) => (
-          <tbody key={g.group}>
-            <tr className="os-group">
-              <th colSpan={4}>{g.group}</th>
-            </tr>
-            {g.products.map((p, i) => (
-              <tr key={p.id} className={i % 2 ? "zebra" : undefined}>
-                <td>{p.name}</td>
-                <td className="os-unit">{comesIn(p)}</td>
-                <td className="os-qty" />
-                <td className="os-note" />
-              </tr>
-            ))}
-          </tbody>
+        {sections.map((s) => (
+          <SectionRows key={s.title ?? "all"} section={s} lastOrder={lastOrder} />
         ))}
       </table>
       <div className="os-foot">
@@ -112,23 +132,94 @@ function Sheet({
   );
 }
 
+function SectionRows({ section, lastOrder }: { section: Section; lastOrder: LastOrder | undefined }) {
+  return (
+    <>
+      {section.title && (
+        <tbody>
+          <tr className="os-section">
+            <th colSpan={5}>{section.title}</th>
+          </tr>
+        </tbody>
+      )}
+      {section.groups.map((g) => (
+        <tbody key={g.group}>
+          <tr className="os-group">
+            <th colSpan={5}>{g.group}</th>
+          </tr>
+          {g.products.map((p, i) => {
+            const last = lastOrder?.lines[p.id] ?? 0;
+            return (
+              <tr key={p.id} className={i % 2 ? "zebra" : undefined}>
+                <td>{p.name}</td>
+                <td className="os-unit">{comesIn(p)}</td>
+                <td className="os-lastq">{last > 0 ? qtyText(last, lineUnit(p.id, p, lastOrder?.units)) : ""}</td>
+                <td />
+                <td />
+              </tr>
+            );
+          })}
+        </tbody>
+      ))}
+    </>
+  );
+}
+
 export default function OrderSheetScreen() {
   const { catalog, customers, error } = useStaffData();
   const { week } = useWeek();
+  const { data } = useWeekData(week);
   const [who, setWho] = useState<string>(BLANK);
   const [withWeek, setWithWeek] = useState(true);
+  const [printAll, setPrintAll] = useState(false);
+
+  // "Print all customers": show every sheet, then print once they're on the page.
+  useEffect(() => {
+    if (!printAll || who !== EVERYONE) return;
+    const t = setTimeout(() => {
+      setPrintAll(false);
+      window.print();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [printAll, who]);
 
   if (error) return <p className="note bad">Couldn&apos;t load: {error}</p>;
   if (!catalog || !customers) return <div className="empty">Loading...</div>;
 
-  const groups = groupProducts(catalog.products.filter((p) => p.active));
+  const active = catalog.products.filter((p) => p.active);
+  const everything = groupProducts(active);
   const list = sortByDisplayName(orderingCustomers(customers.list), customers.byId);
-  const sheets: { customer: Customer | null; name: string }[] =
-    who === EVERYONE
-      ? list.map((c) => ({ customer: c, name: displayName(c, customers.byId) }))
-      : who === BLANK
-        ? [{ customer: null, name: "" }]
-        : [{ customer: customers.byId.get(who) ?? null, name: displayName(customers.byId.get(who)!, customers.byId) }];
+  const invoice = withWeek ? (data?.cutSheet?.inv_number?.trim() ?? "") : "";
+
+  /** What they usually buy first (the order screen's rule: anything they've ever ordered, or have on this week's order), then the rest. */
+  const sectionsFor = (c: Customer | null): Section[] => {
+    if (!c) return [{ title: null, groups: everything }];
+    const usual = new Set(customers.usual.get(c.id) ?? []);
+    const now = data?.orders.get(c.id)?.lines ?? {};
+    for (const k in now) if ((now[k] ?? 0) > 0) usual.add(k);
+    const first = active.filter((p) => usual.has(p.id));
+    if (!first.length) return [{ title: null, groups: everything }];
+    return [
+      { title: "What they usually buy", groups: groupProducts(first) },
+      { title: "Other products", groups: groupProducts(active.filter((p) => !usual.has(p.id))) },
+    ];
+  };
+  const sheetFor = (c: Customer | null, i = 0) => {
+    const day = c ? deliveryDayOf(c, customers.byId) : null;
+    const date = withWeek ? deliveryDate(week, day) : null;
+    return (
+      <Sheet
+        key={c?.id ?? `blank-${i}`}
+        customer={c}
+        name={c ? displayName(c, customers.byId) : ""}
+        sections={sectionsFor(c)}
+        lastOrder={c ? data?.lastOrder.get(c.id) : undefined}
+        delivery={date ? dayAndDate(date) : ""}
+        invoice={c ? invoice : ""}
+      />
+    );
+  };
+  const chosen = who !== BLANK && who !== EVERYONE ? (customers.byId.get(who) ?? null) : null;
 
   return (
     <>
@@ -140,8 +231,8 @@ export default function OrderSheetScreen() {
           </Link>
         </div>
         <p className="small muted mt-1">
-          Every product we sell, in the same groups as the order form, with room to write how many. Print one for each
-          customer, or a blank one.
+          Every product we sell, in the same groups as the order form, with room to write how many. A customer&apos;s sheet
+          lists what they usually buy first, with their last order. Print one for each customer, or a blank one.
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="grid gap-1">
@@ -156,9 +247,19 @@ export default function OrderSheetScreen() {
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              setWho(EVERYONE);
+              setPrintAll(true);
+            }}
+          >
+            Print all customers ({list.length})
+          </button>
           <label className="flex min-h-[44px] items-center gap-2">
             <input type="checkbox" className="h-6 w-6 accent-forest" checked={withWeek} onChange={(e) => setWithWeek(e.target.checked)} />
-            Fill in packing {weekName(week)}
+            Fill in delivery and invoice batch for {weekName(week)}
           </label>
           <button type="button" className="btn" onClick={() => window.print()}>
             Print
@@ -169,7 +270,7 @@ export default function OrderSheetScreen() {
             onClick={() =>
               void downloadTable(
                 "blank-order-grid",
-                orderGridTable(list, customers.byId, null, groups.flatMap((g) => g.products)),
+                orderGridTable(list, customers.byId, null, everything.flatMap((g) => g.products)),
                 "Orders",
                 "xlsx",
               )
@@ -179,9 +280,7 @@ export default function OrderSheetScreen() {
           </button>
         </div>
       </div>
-      {sheets.map((s, i) => (
-        <Sheet key={s.customer?.id ?? `blank-${i}`} customer={s.customer} name={s.name} week={withWeek ? week : null} groups={groups} />
-      ))}
+      {who === EVERYONE ? list.map((c, i) => sheetFor(c, i)) : sheetFor(chosen)}
     </>
   );
 }

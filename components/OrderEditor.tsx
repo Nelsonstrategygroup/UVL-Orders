@@ -12,11 +12,13 @@ import { lineUnit, unitWord } from "@/lib/calc/units";
 import { findProducts, groupProducts } from "@/lib/calc/products";
 import { orderBoxes, orderBoxesText } from "@/lib/calc/boxes";
 import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
+import type { LastOrder } from "@/lib/calc/lastOrder";
 import {
   cleanLines,
   cleanQtyInput,
   cleanUnits,
   hasLines,
+  qtyText,
   snapshot,
   STATUSES,
   STATUS_LABEL,
@@ -25,7 +27,7 @@ import {
 import { useCan } from "./CurrentUser";
 import { getDb, useStaffData } from "./data/StaffData";
 import ViewOnly from "./ViewOnly";
-import ReadBack from "./ReadBack";
+import ReadBack, { orderSummary } from "./ReadBack";
 import Sheet from "./Sheet";
 import { useToast } from "./Toast";
 
@@ -37,6 +39,8 @@ export type OrderEditorProps = {
   displayName: string;
   order: Order | undefined;
   lastWeek: Order | undefined;
+  /** Their most recent order before this week ("Last order"); undefined if they never ordered. */
+  lastOrder?: LastOrder;
   /** Show a change right away, before the database confirms it. */
   patchOrder: (customerId: string, order: Order | null) => void;
   refresh: () => void;
@@ -44,7 +48,7 @@ export type OrderEditorProps = {
 };
 
 export default function OrderEditor(props: OrderEditorProps) {
-  const { week, customer, order, lastWeek, patchOrder, refresh, onClose } = props;
+  const { week, customer, order, lastWeek, lastOrder, patchOrder, refresh, onClose } = props;
   const { catalog, customers, reloadCustomers, reloadCatalog } = useStaffData();
   // Changing an order needs Change on Orders or Calls; logging a call needs Call notes.
   const ordersCan = useCan("orders");
@@ -218,6 +222,9 @@ export default function OrderEditor(props: OrderEditorProps) {
               <span className="small muted">{unitWord(unit)}</span>
             )}
             {step !== 1 && <span className="small muted"> by {fmt(step)}</span>}
+            {(lastOrder?.lines[p.id] ?? 0) > 0 && (
+              <span className="lastq">Last: {qtyText(lastOrder!.lines[p.id], lineUnit(p.id, p, lastOrder!.units))}</span>
+            )}
             {p.note && (
               <button
                 type="button"
@@ -349,6 +356,12 @@ export default function OrderEditor(props: OrderEditorProps) {
       )}
 
       <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
+      {lastOrder && (
+        <p className="lastorder">
+          <b>Last order ({weekName(lastOrder.week)}):</b> {orderSummary(lastOrder.lines, products, lastOrder.units)}
+        </p>
+      )}
+
       <div className="seg my-2" role="group" aria-label="Status">
         {STATUSES.map((s) => (
           <button key={s} type="button" aria-pressed={s === status} onClick={() => void save({ status: s })}>

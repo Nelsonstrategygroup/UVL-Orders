@@ -25,6 +25,7 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
   const [name, setName] = useState(customer?.name ?? "");
   const [type, setType] = useState<string>(customer?.type ?? "Retail");
   const [callDay, setCallDay] = useState(customer?.call_day ?? "");
+  const [deliveryDay, setDeliveryDay] = useState(customer?.delivery_day ?? "");
   const [parentId, setParentId] = useState(customer?.parent_customer_id ?? "");
   const [active, setActive] = useState(customer?.active ?? true);
   const [billsAll, setBillsAll] = useState(customer?.bills_for_locations ?? false);
@@ -39,6 +40,10 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
   // customer, and (for a customer that has locations) none at all.
   const hasKids = !!customer && !!customers?.list.some((c) => c.parent_customer_id === customer.id);
   const parents = (customers?.list ?? []).filter((c) => !c.parent_customer_id && c.id !== customer?.id);
+  // A location with no delivery day of its own uses its chain's.
+  const parentRow = parentId ? customers?.byId.get(parentId) : undefined;
+  const parentDay = parentRow?.delivery_day ?? null;
+  const parentName = parentRow?.name ?? "";
 
   const setContact = (i: number, field: "name" | "phone" | "email", value: string) =>
     setContacts((list) => list.map((k, j) => (j === i ? { ...k, [field]: value } : k)));
@@ -60,6 +65,7 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
       name: name.trim(),
       type,
       call_day: callDay || null,
+      delivery_day: deliveryDay || null,
       parent_customer_id: parentId || null,
       active,
       // Only a parent bills for its locations.
@@ -101,6 +107,17 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
           </label>
           <select id="c-day" className="field" value={callDay} onChange={(e) => setCallDay(e.target.value)}>
             <option value="">None</option>
+            {DAYS.map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-[150px] flex-1">
+          <label className="lbl" htmlFor="c-delivery">
+            Delivery day
+          </label>
+          <select id="c-delivery" className="field" value={deliveryDay} onChange={(e) => setDeliveryDay(e.target.value)}>
+            <option value="">{parentDay ? `Same as ${parentName} (${parentDay})` : "None"}</option>
             {DAYS.map((d) => (
               <option key={d}>{d}</option>
             ))}
