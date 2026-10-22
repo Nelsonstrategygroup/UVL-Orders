@@ -21,6 +21,7 @@ import {
   qtyText,
   snapshot,
   STATUSES,
+  stepNote,
   STATUS_LABEL,
   statusAfterLines,
 } from "@/lib/orders";
@@ -132,6 +133,16 @@ export default function OrderEditor(props: OrderEditorProps) {
     queue({ lines: nextLines, units: cleanUnits(base.units, nextLines) });
   }
 
+  /** Plus and minus: change the amount and show it, even if the box still has focus. */
+  function stepBy(productId: string, by: number) {
+    setTyping((t) => {
+      const n = { ...t };
+      delete n[productId];
+      return n;
+    });
+    setQty(productId, (n) => n + by);
+  }
+
   /** Pieces or pounds for one line. The quantity stays; Kathy types the new amount. */
   function setUnit(p: CatalogProduct, unit: OrderUnit) {
     const base = pending.current ?? { lines, units };
@@ -238,7 +249,7 @@ export default function OrderEditor(props: OrderEditorProps) {
             )}
           </div>
           <div className="stepper">
-            <button type="button" onClick={() => setQty(p.id, (n) => n - step)} aria-label={`${fmt(step)} less ${p.name}`}>
+            <button type="button" onClick={() => stepBy(p.id, -step)} aria-label={`${fmt(step)} less ${p.name}`}>
               &minus;
             </button>
             <input
@@ -260,12 +271,16 @@ export default function OrderEditor(props: OrderEditorProps) {
                 })
               }
             />
-            <button type="button" onClick={() => setQty(p.id, (n) => n + step)} aria-label={`${fmt(step)} more ${p.name}`}>
+            <button type="button" onClick={() => stepBy(p.id, step)} aria-label={`${fmt(step)} more ${p.name}`}>
               +
             </button>
           </div>
         </div>
         {info === p.id && <p className="note small mt-1 mb-2">{p.note}</p>}
+        {/* Not in the product's steps (Le Trim, 10 lb): a gentle note once typing stops, never a change to what was typed. */}
+        {typing[p.id] === undefined && stepNote(p.name, lines[p.id] ?? 0, step, unit) && (
+          <p className="small muted mt-0 mb-1">{stepNote(p.name, lines[p.id] ?? 0, step, unit)}</p>
+        )}
       </div>
     );
   };

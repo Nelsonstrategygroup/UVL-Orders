@@ -57,3 +57,27 @@ export function cleanQtyInput(v: string): string {
   const i = s.indexOf(".");
   return i < 0 ? s : s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "");
 }
+
+/**
+ * A quantity box after each key typed, the way the order screen handles it
+ * (onChange: clean the text, keep it as typed, save its number): "80" -> 80.
+ */
+export function typeQty(keys: string, start = ""): { text: string; qty: number } {
+  let text = start;
+  for (const k of keys) text = cleanQtyInput(text + k);
+  return { text, qty: num(text) };
+}
+
+/**
+ * A gentle note when an amount isn't in the product's steps, instead of
+ * changing what was typed: "Le Trim goes in 10 lb steps. Did you mean 80?"
+ */
+export function stepNote(name: string, qty: number, step: number, unit: string): string | null {
+  if (!(step > 1) || !(qty > 0)) return null;
+  const n = qty / step;
+  if (Math.abs(n - Math.round(n)) < 1e-9) return null;
+  const down = Math.floor(n) * step;
+  const up = Math.ceil(n) * step;
+  const guess = down === 0 ? fmt(up) : n - Math.floor(n) === 0.5 ? `${fmt(down)} or ${fmt(up)}` : fmt(Math.round(n) * step);
+  return `${name} goes in ${fmt(step)} ${unitWord(unit, step)} steps. Did you mean ${guess}?`;
+}

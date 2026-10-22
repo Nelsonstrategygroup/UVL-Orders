@@ -13,7 +13,16 @@ export default function Sheet({
   children: React.ReactNode;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
+  // The latest onClose, read when Escape is pressed. Screens often pass a new
+  // function on every render; the focus handling below must not re-run then,
+  // or it pulls focus out of a box someone is typing in after one keystroke
+  // (the order screen's "only one digit goes in", 10/22/26).
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
 
+  // Once, when the sheet opens and closes.
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
     // A field marked autoFocus keeps focus. Otherwise focus the sheet itself,
@@ -21,14 +30,14 @@ export default function Sheet({
     const box = boxRef.current;
     if (box && !box.contains(document.activeElement)) box.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
       before?.focus?.({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div
