@@ -2294,6 +2294,46 @@ tr.zebra td,
   padding-bottom: 4pt;
   margin-bottom: 8pt;
 }
+/* Printing labels (Avery 5963): the panel, the 2 x 5 start grid, and each row's number and print state. */
+.lp .startgrid {
+  display: grid;
+  grid-template-columns: repeat(2, 2.6rem);
+  gap: 3px;
+  margin-top: 0.2rem;
+}
+.lp .startgrid button {
+  height: 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  font-size: 0.85rem;
+}
+.lp .startgrid button[aria-pressed="true"] {
+  background: var(--forest);
+  border-color: var(--forest);
+  color: var(--on-forest);
+  font-weight: 700;
+}
+.ls-table .ls-pick {
+  width: 1.6rem;
+  padding-right: 0;
+}
+.ls-table .ls-num {
+  width: 2.4rem;
+  white-space: nowrap;
+  color: #444;
+}
+.ls-changed {
+  display: block;
+  color: #b00020;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+.ls-printed {
+  display: block;
+  color: #555;
+  font-size: 0.8em;
+}
 /* Products with no box size yet: normal tables, box "?", light red rows, a red note under the heading. */
 .ls-nobox-top {
   color: #b00020;

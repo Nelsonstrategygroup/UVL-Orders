@@ -10,6 +10,8 @@ const order = (over: Partial<PackOrder> = {}): PackOrder => ({
   customerId: "c1",
   customerName: "Kirkland",
   labelCustomer: "Kirkland",
+  labelName: "Kirkland",
+  labelLocation: "",
   sortKey: "1|Kirkland",
   standingNotes: "",
   orderNotes: "",

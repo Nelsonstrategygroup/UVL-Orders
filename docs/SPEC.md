@@ -488,3 +488,17 @@ On This week (change request 10/21/26), the carcass balance shows front and hind
 - Under that, when any `needs_checking` cells exist, one quiet line: "Some box sizes are still to be checked in Setup > Boxes (30)." with a link.
 - Print layout: portrait, letter, 11 pt minimum, tables flowing in two columns, a table never split across a column or page, darker row lines than the current grid, row shading as on the Setup grid.
 - When labels are printed, a fingerprint of the list is saved. If orders change afterward, This week and the report show "Orders changed since you printed labels".
+
+### 12.6 Printing box labels (Avery 5963) (change request 10/23/26)
+
+Kathy prints box labels on Avery 5963 sheets: 4" x 2", ten per US Letter sheet, 2 columns x 5 rows. Each box row on the Box Label Report is one label, printed in report order (grouped by product).
+
+- **Sheet**: top margin 0.5", left margin 0.15625", labels 4.0" x 2.0", 0.1875" between the columns, no gap between rows. Positions 1 to 10, left to right, top to bottom.
+- **PDF**: drawn in code with pdf-lib (`lib/labels/avery5963.ts`), exactly US Letter with no added margins, so browser scaling can't shift it. It opens in a new tab to print; next to the buttons: "Print at Actual size / 100%, not Fit to page."
+- **On each label** (inside 0.18" padding): the customer, bold and large, shrunk to fit one line (never wrapped or cut off); the location underneath, smaller (the store for a chain, "PCC" / "#02 Kirkland"; blank otherwise); a thin rule across the middle; how many and what, bold and large ("6 BLS Legs"; shanks and other pack products in packs, "6 packs Front Shanks"); bottom left "Box 1 of 2" (the box within that customer's order of that product); bottom right the box type as named in Setup > Boxes; top right, small, the label number ("#14"). A product with no box size (Heart, Liver, Kidney) prints one label per customer with the amount and "?" as the box, as on the report.
+- **Label numbers**: each box row gets a number for its week (1, 2, 3...), shown on the report row and the label. A number belongs to its box (customer | product | box number), is given out once in report order, and is never reused or moved, so when an order changes the other labels keep their numbers (`box_labels`, `assign_box_labels`).
+- **Choosing what to print**: "Print all" and "Print selected"; a checkbox on each row; "Select all", "Clear", "Select changed", "Select product", "Select customer", and a range box ("14-20"). "Start at label" (1 to 10) is a small 2 x 5 grid to tap, so a partly used sheet can be reused; after printing it moves on to the next empty position.
+- **Print tracking**: after printing, each row shows "Printed Oct 23, 3:05 PM by Kathy". Every print is logged (`label_prints`: label number, date and time, who, first print or reprint). If an order changes after its labels were printed, the affected rows say "Changed since printed" in red, so Kathy knows to reprint them. Printing all labels also marks the week printed for This week's Box labels step.
+- **Rule**: labels are never edited directly. Corrections go through the order, so the report, the labels, and the packing record agree.
+- **Printer settings**: My account has a printer offset (X and Y, inches, default 0) added to every label, kept on that device. "Alignment test" prints dashed outlines of all ten positions on plain paper.
+- **Numbers need signal**: the report works from the phone's copy offline, but numbering and printing labels need a connection.

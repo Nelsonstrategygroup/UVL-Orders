@@ -52,6 +52,9 @@ export type PackOrder = {
   customerName: string;
   /** Box label line 1: "PCC #02 Kirkland". */
   labelCustomer: string;
+  /** On a printed label: the customer ("PCC", or the business), and the location ("#02 Kirkland", or ""). */
+  labelName: string;
+  labelLocation: string;
   /** Pallet group order, then name. */
   sortKey: string;
   /** The customer's standing notes (delivery times and so on). */
@@ -242,6 +245,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       customerId: o.customer_id,
       customerName: name,
       labelCustomer: labelName,
+      labelName: parent ? parent.name.trim() : (cust?.name ?? name).trim(),
+      labelLocation: parent && cust ? cust.name.trim() : "",
       sortKey: group ? `0|${String(group.sort).padStart(6, "0")}|${String(cust?.pallet_sort ?? 0).padStart(6, "0")}|${name}` : `1|${name}`,
       standingNotes: (cust?.notes ?? "").trim(),
       orderNotes: (o.notes ?? "").trim(),
@@ -343,7 +348,15 @@ export async function savePallet(db: SupabaseClient, orderId: string, pallet: st
 /** The box label list for a week's packing data (SPEC 12.5). */
 export function packingLabels(data: PackingData, boxes: BoxSetup): LabelList {
   return labelList(
-    data.orders.map((o) => ({ customer: o.labelCustomer, sortKey: o.sortKey, lines: o.lines, units: o.units })),
+    data.orders.map((o) => ({
+      customer: o.labelCustomer,
+      customerId: o.customerId,
+      name: o.labelName,
+      location: o.labelLocation,
+      sortKey: o.sortKey,
+      lines: o.lines,
+      units: o.units,
+    })),
     data.products,
     boxes,
   );

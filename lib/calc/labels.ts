@@ -7,7 +7,7 @@ import { planBoxes, type BoxSetup } from "./boxes";
 import { fmt, num } from "./num";
 import { groupProducts } from "./products";
 import type { Qty } from "./types";
-import { toProductUnit } from "./units";
+import { toProductUnit, unitWord } from "./units";
 
 export type LabelProduct = {
   id: string;
@@ -21,8 +21,12 @@ export type LabelProduct = {
 };
 
 export type LabelOrder = {
-  /** Label line 1: "PCC #02 Kirkland". */
+  /** Report line 1: "PCC #02 Kirkland". */
   customer: string;
+  /** For printed labels: the customer (keeps label numbers stable), its name ("PCC"), and location ("#02 Kirkland", or ""). */
+  customerId?: string;
+  name?: string;
+  location?: string;
   /** Pallet group order, then name: customers sort by this. */
   sortKey: string;
   lines: Qty;
@@ -31,13 +35,23 @@ export type LabelOrder = {
 
 export type LabelRow = {
   customer: string;
-  /** Label line 2: "10 Single Pack Rack (Cap ON)", "45 lb Le Trim". */
+  /** Label line 2: "10 Single Pack Rack (Cap ON)", "45 lb Le Trim", "6 packs Front Shanks". */
   line2: string;
   boxType: string;
   /** "1 of 2" when the customer gets more than one box of this product; "" for one. */
   ofN: string;
   /** No box size worked out (no usable box limit): one label for the customer, box "?". */
   noBox?: boolean;
+  /** Which box of this customer's order of this product, and how many boxes ("Box 1 of 2"). */
+  boxNo: number;
+  boxCount: number;
+  /** customer|product|box: what a label number belongs to, so numbers survive order changes. */
+  key: string;
+  /** The printed label's customer name and location ("PCC" / "#02 Kirkland"). */
+  name: string;
+  location: string;
+  /** Fingerprint of what the label says, to tell when it changed after printing. */
+  print: string;
 };
 
 export type LabelTable = {
@@ -68,7 +82,9 @@ export function labelCustomer(name: string, parentName: string | null | undefine
   return `${parentName.trim()} ${name.trim()}`;
 }
 
-const amountText = (n: number, unit: string, name: string) => (unit === "lb" ? `${fmt(n)} lb ${name}` : `${fmt(n)} ${name}`);
+/** "45 lb Le Trim", "6 packs Front Shanks" (shanks count in packs), "10 Single Pack Rack". */
+const amountText = (n: number, unit: string, name: string) =>
+  unit === "lb" ? `${fmt(n)} lb ${name}` : unit === "pack" ? `${fmt(n)} ${unitWord("pack", n)} ${name}` : `${fmt(n)} ${name}`;
 
 function hash(t: string): string {
   let h = 5381;
@@ -85,9 +101,27 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
     for (const p of g.products) {
       const label = (p.label_name ?? "").trim() || p.name;
       const table: LabelTable = { product: p, group: g.group, rows: [], weightUnknown: false, noBox: false };
+      const row = (o: LabelOrder, line2: string, boxType: string, boxNo: number, boxCount: number, noBox?: boolean): LabelRow => {
+        const name = o.name ?? o.customer;
+        const location = o.location ?? "";
+        const ofN = boxCount > 1 ? `${boxNo} of ${boxCount}` : "";
+        return {
+          customer: o.customer,
+          line2,
+          boxType,
+          ofN,
+          ...(noBox ? { noBox: true } : {}),
+          boxNo,
+          boxCount,
+          key: `${o.customerId ?? o.customer}|${p.id}|${boxNo}`,
+          name,
+          location,
+          print: hash([name, location, line2, boxType, boxNo, boxCount].join("|")),
+        };
+      };
       // A line no box can be worked out for still gets one label, with box "?" (Lucas, 10/21/26).
-      const noBoxRow = (customer: string, line2: string) => {
-        table.rows.push({ customer, line2, boxType: "?", ofN: "", noBox: true });
+      const noBoxRow = (o: LabelOrder, line2: string) => {
+        table.rows.push(row(o, line2, "?", 1, 1, true));
         table.noBox = true;
       };
       for (const o of sorted) {
@@ -97,24 +131,17 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
         const amount = toProductUnit(q, taken, { unit: p.unit, lb_per_unit: p.lb_per_unit ?? null });
         const asOrdered = taken && taken !== p.unit ? `${fmt(q)} ${taken}` : amountText(q, p.unit, "").trim();
         if (!(amount > 0)) {
-          noBoxRow(o.customer, `${asOrdered} ${label}`);
+          noBoxRow(o, `${asOrdered} ${label}`);
           continue;
         }
         const plan = planBoxes(amount, p, boxes.limits.get(p.id) ?? [], boxes.types, boxes.capLb);
         if (plan.notBoxed) continue; // never boxed (Carcass Lamb): no labels
         if (plan.problem) {
-          noBoxRow(o.customer, amountText(amount, p.unit, label));
+          noBoxRow(o, amountText(amount, p.unit, label));
           continue;
         }
         if (plan.weightUnknown) table.weightUnknown = true;
-        plan.boxes.forEach((b, i) =>
-          table.rows.push({
-            customer: o.customer,
-            line2: amountText(b.amount, p.unit, label),
-            boxType: b.typeName,
-            ofN: plan.boxes.length > 1 ? `${i + 1} of ${plan.boxes.length}` : "",
-          }),
-        );
+        plan.boxes.forEach((b, i) => table.rows.push(row(o, amountText(b.amount, p.unit, label), b.typeName, i + 1, plan.boxes.length)));
       }
       if (table.rows.length) tables.push(table);
     }
@@ -133,4 +160,18 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
     weightUnknown: tables.some((t) => t.weightUnknown),
     hash: hash(canon),
   };
+}
+
+/** A report row's label number and print state, from the database (box_labels). */
+export type StoredLabel = { number: number; printed_at: string | null; printed_print: string | null; printed_by_name: string | null };
+
+/** Printed, and not changed since: or changed since printed, so it needs printing again. */
+export function labelState(row: Pick<LabelRow, "print">, stored: StoredLabel | undefined): { printed: boolean; changed: boolean } {
+  const printed = !!stored?.printed_at;
+  return { printed, changed: printed && stored!.printed_print !== row.print };
+}
+
+/** Every box row of the report, in report order (grouped by product), as the labels to print. */
+export function reportLabels(list: LabelList): (LabelRow & { productId: string })[] {
+  return list.tables.flatMap((t) => t.rows.map((r) => ({ ...r, productId: t.product.id })));
 }

@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { navFor, onlyPacking, type NavItem, type Perms, type Role } from "@/lib/auth/roles";
 import { logout } from "@/app/login/actions";
 import Sheet from "./Sheet";
+import { getLabelOffset, setLabelOffset } from "./labelOffset";
 import { StaffDataProvider } from "./data/StaffData";
 import { CurrentUserProvider } from "./CurrentUser";
 import { ToastProvider } from "./Toast";
@@ -133,6 +134,46 @@ function MoreList({ items }: { items: NavItem[] }) {
   );
 }
 
+/**
+ * Box labels print a little off on some printers: move every label by this
+ * much (inches) on this device. Check with the Alignment test on the Box
+ * Label Report.
+ */
+function PrinterOffset() {
+  const [o, setO] = useState(() => getLabelOffset());
+  const field = (axis: "x" | "y", label: string, hint: string) => (
+    <label className="grid gap-1">
+      <span className="small">{label}</span>
+      <input
+        className="field num w-24!"
+        inputMode="decimal"
+        defaultValue={o[axis] ? String(o[axis]) : "0"}
+        aria-describedby="offset-hint"
+        onBlur={(e) => {
+          const v = Number(e.target.value.replace(/[^0-9.-]/g, ""));
+          const next = { ...o, [axis]: Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0 };
+          setO(next);
+          setLabelOffset(next);
+        }}
+      />
+      <span className="text-[.78rem] text-ink-soft">{hint}</span>
+    </label>
+  );
+  return (
+    <div className="mt-4 border-t border-line pt-4">
+      <b>Box label printer</b>
+      <p id="offset-hint" className="small muted mt-1 mb-2">
+        If labels print a little off, move them here (inches, this device only). Check with the Alignment test on the Box Label
+        Report.
+      </p>
+      <div className="flex gap-4">
+        {field("x", "Move right", "minus moves left")}
+        {field("y", "Move down", "minus moves up")}
+      </div>
+    </div>
+  );
+}
+
 function MyAccount({ displayName, onDone }: { displayName: string; onDone: () => void }) {
   // Only rendered after a tap, never on the server, so reading the DOM here is safe.
   const [large, setLarge] = useState(() => document.documentElement.classList.contains("large"));
@@ -162,6 +203,8 @@ function MyAccount({ displayName, onDone }: { displayName: string; onDone: () =>
       <Link href="/help" className="mt-3 flex min-h-[44px] items-center text-[1.05rem] text-forest underline">
         How to use this
       </Link>
+
+      <PrinterOffset />
 
       <div className="mt-4 border-t border-line pt-4">
         <p className="muted mb-2">

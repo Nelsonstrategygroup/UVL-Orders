@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { boxCellsToCheck, type BoxLimit, type BoxType } from "./boxes";
-import { labelCustomer, labelList, type LabelOrder, type LabelProduct } from "./labels";
+import { labelCustomer, labelList, labelState, reportLabels, type LabelOrder, type LabelProduct, type StoredLabel } from "./labels";
 
 const TYPES: BoxType[] = [
   { id: "mvm", name: "MVM", size_rank: 1 },
@@ -48,7 +48,7 @@ describe("labels", () => {
   });
 
   it("one row per box: customer, count and label name, box type, 1 of 2", () => {
-    expect(table("Cap On Rack").rows).toEqual([
+    expect(table("Cap On Rack").rows).toMatchObject([
       { customer: "PCC Kirkland", line2: "10 Single Pack Rack (Cap ON)", boxType: "MVM", ofN: "1 of 2" },
       { customer: "PCC Kirkland", line2: "2 Single Pack Rack (Cap ON)", boxType: "White", ofN: "2 of 2" },
       { customer: "Key City", line2: "2 Single Pack Rack (Cap ON)", boxType: "White", ofN: "" },
@@ -66,7 +66,7 @@ describe("labels", () => {
 
   it("a product with no box size still gets one label per customer, box '?', in its usual place", () => {
     expect(table("Denver Ribs").noBox).toBe(true);
-    expect(table("Denver Ribs").rows).toEqual([{ customer: "Key City", line2: "10 lb Denver Ribs", boxType: "?", ofN: "", noBox: true }]);
+    expect(table("Denver Ribs").rows).toMatchObject([{ customer: "Key City", line2: "10 lb Denver Ribs", boxType: "?", ofN: "", noBox: true, boxNo: 1, boxCount: 1 }]);
     expect(list.noBoxProducts).toEqual(["Denver Ribs"]);
     expect(table("BNLS Legs").noBox).toBe(false); // Baby needs checking: just not used
   });
@@ -98,5 +98,44 @@ describe("labels", () => {
     expect(labelCustomer("#02 Kirkland", "PCC")).toBe("PCC #02 Kirkland");
     expect(labelCustomer("SAC", "Corfini Gourmet")).toBe("Corfini Gourmet SAC");
     expect(labelCustomer("Key City", null)).toBe("Key City");
+  });
+
+  describe("printed labels (Avery 5963, 10/23/26)", () => {
+    // With customer ids, names and locations, as the Box Label Report has them.
+    const withIds: LabelOrder[] = [
+      { ...orders[0], customerId: "kirk", name: "PCC", location: "Kirkland" },
+      { ...orders[1], customerId: "key", name: "Key City", location: "" },
+    ];
+    const report = labelList(withIds, products, boxes);
+    const labels = reportLabels(report);
+
+    it("one label per box row on the report, in report order", () => {
+      expect(labels.length).toBe(report.total);
+      expect(labels.map((l) => l.key)).toEqual(report.tables.flatMap((t) => t.rows.map((r) => r.key)));
+    });
+
+    it("each label says what its report row says", () => {
+      for (const t of report.tables)
+        for (const r of t.rows) {
+          const l = labels.find((x) => x.key === r.key)!;
+          expect([l.customer, l.line2, l.boxType, l.productId]).toEqual([r.customer, r.line2, r.boxType, t.product.id]);
+        }
+      expect(labels[0]).toMatchObject({ name: "PCC", location: "Kirkland", line2: "10 Single Pack Rack (Cap ON)", boxType: "MVM", boxNo: 1, boxCount: 2 });
+      expect(labels.find((l) => l.productId === "denver")).toMatchObject({ name: "Key City", boxType: "?", boxNo: 1, boxCount: 1 });
+    });
+
+    it("an order changed after printing flags only its own labels; the others keep their keys (and numbers)", () => {
+      // Everything printed as it was.
+      const stored = new Map<string, StoredLabel>(
+        labels.map((l, i) => [l.key, { number: i + 1, printed_at: "2026-10-23T10:00:00Z", printed_print: l.print, printed_by_name: "Kathy" }]),
+      );
+      // Then Kirkland's racks go from 12 to 13: still 2 boxes, but box 2 holds 3 now.
+      const after = reportLabels(labelList([{ ...withIds[0], lines: { rack: 13, letrim: 70 } }, withIds[1]], products, boxes));
+      const changed = after.filter((l) => labelState(l, stored.get(l.key)).changed).map((l) => l.key);
+      expect(changed).toEqual(["kirk|rack|2"]);
+      // Every label still has the same key, so assign_box_labels keeps its number.
+      expect(after.map((l) => l.key)).toEqual(labels.map((l) => l.key));
+      expect(labelState(after[0], undefined)).toEqual({ printed: false, changed: false });
+    });
   });
 });
