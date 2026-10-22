@@ -36,22 +36,28 @@ export type LabelRow = {
   boxType: string;
   /** "1 of 2" when the customer gets more than one box of this product; "" for one. */
   ofN: string;
+  /** No box size worked out (no usable box limit): one label for the customer, box "?". */
+  noBox?: boolean;
 };
 
-export type LabelTable = { product: LabelProduct; group: string; rows: LabelRow[]; weightUnknown: boolean };
-/** An order line that can't go in any box: no labels until it's fixed in Setup. */
-export type LabelProblem = {
-  product: string;
-  customer: string;
-  amount: string;
-  why: string;
+export type LabelTable = {
+  product: LabelProduct;
+  group: string;
+  rows: LabelRow[];
+  /** Pieces or packs with no weight per piece: the 45 lb limit can't be checked. */
+  weightUnknown: boolean;
+  /** Some rows have no box size yet (shown with "?" and a note under the heading). */
+  noBox: boolean;
 };
 
 export type LabelList = {
   tables: LabelTable[];
-  /** Shown in red at the top: nothing here gets a label until it's fixed. */
-  problems: LabelProblem[];
+  /** Products with at least one line that has no box size yet, in table order. */
+  noBoxProducts: string[];
+  /** Every label, including one per customer for lines with no box size. */
   total: number;
+  /** Any table where the 45 lb limit can't be checked (no weight per piece). */
+  weightUnknown: boolean;
   /** Fingerprint of every label, to tell when orders change after printing. */
   hash: string;
 };
@@ -74,12 +80,16 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
   const sorted = [...orders].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   const ordered = new Set(sorted.flatMap((o) => Object.keys(o.lines).filter((k) => num(o.lines[k]) > 0)));
   const tables: LabelTable[] = [];
-  const problems: LabelProblem[] = [];
 
   for (const g of groupProducts([...products.values()].filter((p) => ordered.has(p.id)))) {
     for (const p of g.products) {
       const label = (p.label_name ?? "").trim() || p.name;
-      const table: LabelTable = { product: p, group: g.group, rows: [], weightUnknown: false };
+      const table: LabelTable = { product: p, group: g.group, rows: [], weightUnknown: false, noBox: false };
+      // A line no box can be worked out for still gets one label, with box "?" (Lucas, 10/21/26).
+      const noBoxRow = (customer: string, line2: string) => {
+        table.rows.push({ customer, line2, boxType: "?", ofN: "", noBox: true });
+        table.noBox = true;
+      };
       for (const o of sorted) {
         const q = num(o.lines[p.id]);
         if (!(q > 0)) continue;
@@ -87,13 +97,13 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
         const amount = toProductUnit(q, taken, { unit: p.unit, lb_per_unit: p.lb_per_unit ?? null });
         const asOrdered = taken && taken !== p.unit ? `${fmt(q)} ${taken}` : amountText(q, p.unit, "").trim();
         if (!(amount > 0)) {
-          problems.push({ product: p.name, customer: o.customer, amount: asOrdered, why: "Ordered in pounds, but the product has no weight per piece" });
+          noBoxRow(o.customer, `${asOrdered} ${label}`);
           continue;
         }
         const plan = planBoxes(amount, p, boxes.limits.get(p.id) ?? [], boxes.types, boxes.capLb);
         if (plan.notBoxed) continue; // never boxed (Carcass Lamb): no labels
         if (plan.problem) {
-          problems.push({ product: p.name, customer: o.customer, amount: asOrdered, why: plan.problem });
+          noBoxRow(o.customer, amountText(amount, p.unit, label));
           continue;
         }
         if (plan.weightUnknown) table.weightUnknown = true;
@@ -114,8 +124,13 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
   // Order-independent: the same labels give the same fingerprint on every screen.
   const canon = tables
     .flatMap((t) => t.rows.map((r) => `${t.product.id}|${r.customer}|${r.line2}|${r.boxType}|${r.ofN}`))
-    .concat(problems.map((x) => `!${x.product}|${x.customer}|${x.amount}|${x.why}`))
     .sort()
     .join("\n");
-  return { tables, problems, total, hash: hash(canon) };
+  return {
+    tables,
+    noBoxProducts: tables.filter((t) => t.noBox).map((t) => t.product.name),
+    total,
+    weightUnknown: tables.some((t) => t.weightUnknown),
+    hash: hash(canon),
+  };
 }

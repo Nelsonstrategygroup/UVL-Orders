@@ -37,17 +37,9 @@ export default function LabelsScreen() {
   const data = bundle.data.packing;
   const list = packingLabels(data, bundle.data.boxes);
   const stamp = printedAt ?? new Date().toISOString();
-  // One line per product that can't go in any box: the customers and amounts.
-  const problemGroups: { product: string; why: string[]; who: string[] }[] = [];
-  for (const x of list.problems) {
-    const g = problemGroups.find((y) => y.product === x.product);
-    const who = `${x.customer} ${x.amount}`;
-    if (!g) problemGroups.push({ product: x.product, why: [x.why], who: [who] });
-    else {
-      g.who.push(who);
-      if (!g.why.includes(x.why)) g.why.push(x.why);
-    }
-  }
+  // Products with no box size yet get normal tables with box "?"; the top line links to them.
+  const noBox = list.tables.filter((t) => t.noBox);
+  const noBoxNote = noBox.length ? ` (${noBox.length} product${noBox.length === 1 ? "" : "s"} without box sizes)` : "";
   // Boxes still to check are simply not used; one quiet line, not a warning.
   const toCheck = boxCellsToCheck(
     bundle.data.boxes.limits,
@@ -89,21 +81,30 @@ export default function LabelsScreen() {
           <h1>Box Label Report · Packing {weekName(week)}</h1>
           <div>
             {data.invNumber && <>INV# {data.invNumber} · </>}
-            Printed {formatWhen(stamp)} · {list.total} labels
+            Printed {formatWhen(stamp)} · {list.total} labels{noBoxNote}
           </div>
         </header>
 
-        {list.problems.length > 0 && (
-          <div className="ls-problems" role="alert">
-            <b>These can&apos;t go in any box yet. Fix them in Setup &gt; Boxes, then print again:</b>
-            <ul>
-              {problemGroups.map((g) => (
-                <li key={g.product}>
-                  <b>{g.product}</b>: {g.who.join("; ")}. <span className="ls-why">({g.why.join("; ")})</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {noBox.length > 0 && (
+          <p className="ls-nobox-top">
+            {noBox.length} product{noBox.length === 1 ? " has" : "s have"} no box size yet:{" "}
+            {noBox.map((t, i) => (
+              <span key={t.product.id}>
+                {i > 0 && ", "}
+                <a href={`#lt-${t.product.id}`}>{t.product.name}</a>
+              </span>
+            ))}
+            .
+          </p>
+        )}
+        {list.weightUnknown && (
+          <p className="ls-tocheck">
+            Weights per piece aren&apos;t set for some products, so the 45 lb limit is only checked for products sold by the
+            pound.{" "}
+            <Link href="/setup/products" className="copy">
+              Setup &gt; Products
+            </Link>
+          </p>
         )}
         {toCheck > 0 && (
           <p className="ls-tocheck">
@@ -115,18 +116,23 @@ export default function LabelsScreen() {
           </p>
         )}
 
-        {!list.tables.length && !list.problems.length && <p className="empty">No orders to label for this week.</p>}
+        {!list.tables.length && <p className="empty">No orders to label for this week.</p>}
 
         <div className="ls-cols">
           {list.tables.map((t) => (
-            <table key={t.product.id} className="ls-table">
+            <table key={t.product.id} id={`lt-${t.product.id}`} className="ls-table">
               <caption>
                 {t.product.name}
                 <span>
                   {" "}
                   · {t.rows.length} label{t.rows.length === 1 ? "" : "s"}
-                  {t.weightUnknown ? " · can't check weight" : ""}
                 </span>
+                {t.noBox && (
+                  <span className="ls-nobox-note">
+                    Box size not worked out. Needs a weight per pack in Setup &gt; Products, or a pack count in Setup &gt; Boxes.
+                    One label per customer for now; a large order may need more than one box.
+                  </span>
+                )}
               </caption>
               <thead>
                 <tr>
@@ -138,7 +144,7 @@ export default function LabelsScreen() {
               </thead>
               <tbody>
                 {t.rows.map((r, i) => (
-                  <tr key={i} className={i % 2 ? "zebra" : undefined}>
+                  <tr key={i} className={r.noBox ? "ls-nobox" : i % 2 ? "zebra" : undefined}>
                     <td>
                       <b>{r.customer}</b>
                       <br />

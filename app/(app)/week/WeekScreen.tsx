@@ -88,7 +88,7 @@ export default function WeekScreen() {
     catalog.productById,
     catalog.boxes,
   );
-  const blocked = labels.problems.length;
+  const noBoxCount = labels.noBoxProducts.length;
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
   // Lines in pounds for a product with no weight per piece count as nothing.
   const uncounted = [...data.orders.values()].flatMap((o) => cantConvert(o.lines, o.units, catalog.productById));
@@ -277,14 +277,14 @@ export default function WeekScreen() {
           {seeCutSheet && <CutSheetStep week={week} processor={processor} />}
           {seePacking && (
             <Step href="/packing/labels" title="Box labels" tone={labelsChanged ? "warn" : w?.labels_printed_at ? "done" : "todo"}>
-              {labels.total + labels.problems.length === 0
+              {labels.total === 0
                 ? "Nothing to label yet"
                 : labelsChanged
                   ? "Orders changed since you printed"
                   : w?.labels_printed_at
                     ? `Printed ${formatDateTime(w.labels_printed_at)}`
                     : "Not printed"}
-              {blocked > 0 && ` · ${blocked} ${blocked === 1 ? "line" : "lines"} can't go in a box`}
+              {noBoxCount > 0 && ` · ${noBoxCount} ${noBoxCount === 1 ? "product has" : "products have"} no box size yet`}
             </Step>
           )}
           {seePacking && (

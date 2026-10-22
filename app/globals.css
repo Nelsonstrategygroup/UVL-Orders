@@ -2033,20 +2033,26 @@ tr.zebra td,
   padding-bottom: 4pt;
   margin-bottom: 8pt;
 }
-.ls-problems {
+/* Products with no box size yet: normal tables, box "?", light red rows, a red note under the heading. */
+.ls-nobox-top {
   color: #b00020;
-  border: 2px solid #b00020;
-  border-radius: 4px;
-  padding: 6pt 8pt;
-  margin-bottom: 10pt;
+  font-weight: 600;
+  margin: 0 0 6pt;
 }
-.ls-problems ul {
-  margin: 4pt 0 0;
-  padding-left: 16pt;
+.ls-nobox-top a {
+  color: inherit;
 }
-.ls-why {
-  color: var(--ink-soft);
-  font-size: 0.9em;
+.ls-table caption .ls-nobox-note {
+  display: block;
+  color: #b00020;
+  font-size: 10pt;
+  font-weight: 600;
+  margin-top: 2pt;
+}
+.ls-table tr.ls-nobox td {
+  background: #fbe4e4;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .ls-tocheck {
   margin: -4pt 0 10pt;

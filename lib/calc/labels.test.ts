@@ -44,7 +44,7 @@ describe("labels", () => {
   const table = (name: string) => list.tables.find((t) => t.product.name === name)!;
 
   it("one table per ordered product, in the order form's groups; none for products nobody ordered", () => {
-    expect(list.tables.map((t) => t.product.name)).toEqual(["Cap On Rack", "BNLS Legs", "Le Trim"]);
+    expect(list.tables.map((t) => t.product.name)).toEqual(["Cap On Rack", "BNLS Legs", "Le Trim", "Denver Ribs"]);
   });
 
   it("one row per box: customer, count and label name, box type, 1 of 2", () => {
@@ -64,10 +64,11 @@ describe("labels", () => {
     expect(table("Cap On Rack").rows.map((r) => r.customer)).toEqual(["PCC Kirkland", "PCC Kirkland", "Key City"]);
   });
 
-  it("in red: only lines that can't go in any box; a box that needs checking is just not used", () => {
-    expect(list.problems).toEqual([
-      expect.objectContaining({ product: "Denver Ribs", customer: "Key City", amount: "10 lb", why: expect.stringMatching(/need checking/) }),
-    ]);
+  it("a product with no box size still gets one label per customer, box '?', in its usual place", () => {
+    expect(table("Denver Ribs").noBox).toBe(true);
+    expect(table("Denver Ribs").rows).toEqual([{ customer: "Key City", line2: "10 lb Denver Ribs", boxType: "?", ofN: "", noBox: true }]);
+    expect(list.noBoxProducts).toEqual(["Denver Ribs"]);
+    expect(table("BNLS Legs").noBox).toBe(false); // Baby needs checking: just not used
   });
 
   it("counts the box cells still to check", () => {
@@ -76,11 +77,11 @@ describe("labels", () => {
 
   it("Carcass Lamb goes out in a shroud: no labels and not a problem", () => {
     expect(list.tables.some((t) => t.product.name === "Carcass Lamb")).toBe(false);
-    expect(list.problems.some((p) => p.product === "Carcass Lamb")).toBe(false);
+    expect(list.noBoxProducts).not.toContain("Carcass Lamb");
   });
 
   it("counts labels and notices when orders change", () => {
-    expect(list.total).toBe(7);
+    expect(list.total).toBe(8); // 7 boxed, plus one "?" label for Denver Ribs
     const same = labelList([...orders].reverse(), products, boxes);
     expect(same.hash).toBe(list.hash);
     const changed = labelList([{ ...orders[0], lines: { rack: 13, letrim: 70 } }, orders[1]], products, boxes);
@@ -90,6 +91,7 @@ describe("labels", () => {
   it("weight can't be checked for pieces with no weight per piece", () => {
     expect(table("BNLS Legs").weightUnknown).toBe(true);
     expect(table("Le Trim").weightUnknown).toBe(false);
+    expect(list.weightUnknown).toBe(true);
   });
 
   it("names chain stores as the chain and the store, with its number", () => {

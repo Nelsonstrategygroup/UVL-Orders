@@ -464,7 +464,8 @@ On This week (change request 10/21/26), the carcass balance shows front and hind
 - Within each product, customers sort by pallet group, then name.
 - Header: week, invoice number if set, printed date and time, total labels.
 - A `needs_checking` cell is treated as "not used" when splitting (change request 10/21/26); it is never a warning on its own.
-- At the top, in red: only order lines that can't go in any box (no usable limit at all), one line per product with its customers and amounts, so nothing is left unlabeled.
+- A product with no usable box limit (Heart, Liver, Kidney with only pound limits and no weight per pack) still gets a normal table in its usual place: one row per customer, box "?", light red, with a red note under the heading ("Box size not worked out. Needs a weight per pack in Setup > Products, or a pack count in Setup > Boxes. One label per customer for now; a large order may need more than one box."). These labels count in the total, marked "(3 products without box sizes)". A short line at the top names them and links to their tables (10/21/26).
+- One line at the top, instead of "can't check weight" on each table, when some products have no weight per piece: "Weights per piece aren't set for some products, so the 45 lb limit is only checked for products sold by the pound." with a link to Setup > Products.
 - Under that, when any `needs_checking` cells exist, one quiet line: "Some box sizes are still to be checked in Setup > Boxes (30)." with a link.
 - Print layout: portrait, letter, 11 pt minimum, tables flowing in two columns, a table never split across a column or page, darker row lines than the current grid, row shading as on the Setup grid.
 - When labels are printed, a fingerprint of the list is saved. If orders change afterward, This week and the report show "Orders changed since you printed labels".
