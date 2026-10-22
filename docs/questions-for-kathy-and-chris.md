@@ -2,7 +2,7 @@
 
 Things to settle with the people who use the app. The app works today with
 the current answer in brackets; each is a small change if they want it
-different. Updated 10/21/26 (after the phone layout changes): settled
+different. Updated 10/22/26 (after the order sheet changes): settled
 questions are at the end.
 
 ## New
@@ -27,10 +27,12 @@ questions are at the end.
    Wednesday.]
 5. **Heart, Liver, Kidney (most urgent for box labels).** About how much does
    one pack weigh? Their box limits are in pounds, so without a weight per
-   pack the app can't put them in any box. They're the only red lines on the
-   Box Label Report for Mon Oct 19: 33 order lines across the PCC stores.
-   Necks have the same problem once someone orders them. [Not boxed; listed
-   in red.]
+   pack the app can't work out the box. On the Box Label Report they print
+   one label per customer with the box as "?" (33 labels for Mon Oct 19,
+   across the PCC stores), and a large order may need more than one box.
+   Necks have the same problem once someone orders them. Also: the order
+   sheet says Heart comes in packs of 2, Liver packs of 1, Kidney packs of 4.
+   Are those right? [Box "?"; pack sizes as in Setup.]
 6. **Pallet groups.** Setup > Pallet groups is empty, so Packing lists every
    customer by name. Which customers ship together on a pallet, and in what
    order? (For example, PCC stores on one pallet.) [None; Packing lists by
@@ -40,6 +42,22 @@ questions are at the end.
    is under More > Print and download, and How to use this links to it. Do
    you still print it on packing day, and if so, is that easy enough to
    find? [Kathy prints it from Print and download.]
+8. **Delivery days.** The order sheet now shows "Scheduled delivery": the
+   customer's delivery day in that week (packing Mon Oct 26, Saturday: Sat
+   Oct 31). PCC is set to Saturday, and every PCC store uses it unless it
+   has its own day. Is Saturday right for all PCC stores, and what day does
+   each other customer get delivered? [PCC Saturday; everyone else blank, so
+   the line is left to write in. Set it on each customer's page, under Edit
+   details.]
+9. **Whole Lamb and front shanks.** A boxed Whole Lamb counts 2 front shanks
+   (Setup > Products > Whole Lamb). This week shows it under the balance:
+   "Includes 8 front shanks (4 packs) for 4 whole lambs." Is 2 right?
+   [2, until Kathy confirms.]
+10. **Order sheets run to two pages.** With every product on it, a sheet is
+    two pages at a row height you can write in (one page would need rows
+    about half as tall). Is two pages OK, or would you rather have fewer
+    products on the sheet (for example, leave off ones nobody has ordered in
+    months)? [Two pages.]
 
 ## Box limits to confirm (from Kathy's box sheet)
 
@@ -48,62 +66,63 @@ Until they're filled in, the app doesn't use those boxes when it splits an
 order, so filling one in can change how orders are boxed. They're no longer
 warnings on the Box Label Report; one quiet line there says how many are left.
 
-8. **Baby box:** most products have no Baby box limit yet. Which products go
+11. **Baby box:** most products have no Baby box limit yet. Which products go
    in a Baby box, and how many?
-9. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy also
+12. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy also
    said 8 would weigh 55 to 60 lb, and a box of 9 weighed 45.15 lb on 10/12.
    What's the one number?
-10. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the recording)?
-11. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
+13. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the recording)?
+14. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
    said labels don't change the count.)
-12. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
+15. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
    app plans 7. Is 7 right?
-13. **Denver Ribs:** which boxes, and how much in each?
-14. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
+16. **Denver Ribs:** which boxes, and how much in each?
+17. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
    relevant.)
-15. **Pet Mix and Organ Grind:** are they the same product or two different
+18. **Pet Mix and Organ Grind:** are they the same product or two different
     ones?
 
 ## For Kathy
 
-16. Should the app build the cut sheet from the week's orders for you? Today
+19. Should the app build the cut sheet from the week's orders for you? Today
     you set up the sets (name, size, how many lambs, which instructions), and
     the app checks that each set adds up and totals the lambs. If a set has
     customers linked to it, "Put these on this set" adds their orders to it.
     To build the whole sheet on its own, the app would need your rules: which
     customers' orders go together in a set, how you pick each set's size, and
     where extra lambs go. [You build the sheet; copy last week's to start.]
-17. Which day do you call each customer? No customer has a call day yet, so
+20. Which day do you call each customer? No customer has a call day yet, so
     Calls lists everyone alphabetically instead of putting today's calls
     first. [Blank. Set it on each customer's page, under Edit details.]
-18. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
+21. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
     If so, tick "Bills for all locations" on the chain, and each store's page
     will show who to bill. [Off for both.]
-19. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
+22. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
     them? [Blank, so "Email to Mohawk" opens a draft with no address.]
-20. What does "Lambs Pulled From Inventory" track, and where does the INV#
-    come from? (Also on the printed cut sheet questions.) [Typed in by hand
-    on the cut sheet.]
-21. Are these duplicates: French Rack and Frenched Rack; the two netted
+23. What does "Lambs Pulled From Inventory" track, and where does the INV#
+    come from? It's also the "Invoice batch" on the order sheets and the
+    "Inv" in the week header. (Also on the printed cut sheet questions.)
+    [Typed in by hand on the cut sheet.]
+24. Are these duplicates: French Rack and Frenched Rack; the two netted
     boneless shoulder wordings; the two bone-in shoulder wordings? (Also on
     the printed cut sheet questions.) [Kept separate.]
-22. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
+25. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
     racks, Behman carcasses) be hidden for other customers? [Shown for
     everyone.]
-23. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
+26. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
     with the "shank on" checkbox on plain leg lines.]
-24. The size block at the top right of the printed cut sheet counts lambs in
+27. The size block at the top right of the printed cut sheet counts lambs in
     sets that have a whole-carcass line, for XL, Large, Medium and Small (XS
     isn't listed). Is that what it should count, and should XS be listed?
     [As in the prototype; see spec 6.5.]
-25. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
+28. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
     choice anyway, so two halves from one lamb would both get a neck. Is
     that right, or should only whole lambs get the neck? [A half gets a
     neck.]
-26. Pending half and whole lambs add their cuts to the totals of every week
+29. Pending half and whole lambs add their cuts to the totals of every week
     you look at, until they're marked filled. Should they only count in the
     week they're needed? [Every week, until filled.]
-27. Le Trim: Kathy is moving to half a boneless leg per trim pack. What's the
+30. Le Trim: Kathy is moving to half a boneless leg per trim pack. What's the
     exact amount? [Le Trim is filled from extras and doesn't touch the lamb
     count until this is settled.]
 
@@ -143,6 +162,19 @@ Fix these on the customer's page (Edit details and contacts).
   starting Thu Oct 22.
 - Boxes ship Tuesday or Wednesday.
 - No box is planned over 45 lb.
+- This week shows front and hind shanks in packs, to match the orders (need
+  110 packs, get 82, short 28 for Mon Oct 19) (Lucas, 10/21/26).
+- A product with no box size (Heart, Liver, Kidney) still gets one label per
+  customer on the Box Label Report, box "?", counted in the total
+  (Lucas, 10/21/26).
+- Every report on Print and download opens as a page to read or print, and
+  Box sizes prints the Setup > Boxes grid with a blank Notes column for
+  corrections (Lucas, 10/21/26).
+- "Last order" is the customer's most recent week with an order before the
+  week being looked at. The order screen shows it to read back, with "Last:"
+  on each product; the order sheet has a Last order column and lists what
+  they usually buy first. On the order sheet, "Invoice batch" replaced
+  "Taken by" and "Scheduled delivery" replaced "Packing" (Lucas, 10/22/26).
 - A box marked "needs checking" in Setup is simply not used when splitting
   an order. The Box Label Report's red list is only for lines that can't go
   in any box (Lucas, 10/21/26).
