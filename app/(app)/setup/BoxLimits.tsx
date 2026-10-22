@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useStaffData, getDb } from "@/components/data/StaffData";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
-import { boxCapacity, boxCellsToCheck, type BoxLimit, type BoxType } from "@/lib/calc/boxes";
+import { boxCapacity, boxCellText, boxCellsToCheck, type BoxLimit, type BoxType } from "@/lib/calc/boxes";
 import { fmt, num } from "@/lib/calc/num";
 import { groupProducts } from "@/lib/calc/products";
 import { unitWord } from "@/lib/calc/units";
@@ -17,15 +17,7 @@ import type { CatalogProduct } from "@/lib/db/types";
 
 type Cell = BoxLimit & { note?: string };
 
-function cellText(c: Cell | undefined, p: CatalogProduct): string {
-  if (!c) return "";
-  if (c.status === "does_not_fit") return "—";
-  if (c.status === "needs_checking") return "Check";
-  const parts: string[] = [];
-  if (c.max_count != null) parts.push(p.unit === "lb" ? `${fmt(c.max_count)} lb` : fmt(c.max_count));
-  if (c.max_lb != null) parts.push(`${fmt(c.max_lb)} lb`);
-  return parts.join(" · ");
-}
+const cellText = (c: Cell | undefined, p: CatalogProduct) => boxCellText(c, p.unit);
 
 export default function BoxLimits({ canEdit }: { canEdit: boolean }) {
   const { catalog, reloadCatalog } = useStaffData();

@@ -12,10 +12,10 @@ export default async function ReportPage({
   searchParams,
 }: {
   params: Promise<{ kind: string }>;
-  searchParams: Promise<{ customer?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ customer?: string; from?: string; to?: string; print?: string }>;
 }) {
   const { kind } = await params;
   if (!isReportKind(kind)) notFound();
   const q = await searchParams;
-  return <ReportScreen kind={kind} customer={q.customer ?? ""} from={q.from ?? ""} to={q.to ?? ""} />;
+  return <ReportScreen kind={kind} customer={q.customer ?? ""} from={q.from ?? ""} to={q.to ?? ""} print={q.print === "1"} />;
 }

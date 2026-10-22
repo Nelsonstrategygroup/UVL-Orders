@@ -208,7 +208,8 @@ Everything to print or download, at `/print` (`/downloads` redirects there), wit
 - Weekend, cut sheet: cut sheet for Mohawk (opens the cut sheet, which keeps its own Print); product totals (download).
 - Before packing day: Box Label Report (print, `/packing/labels`).
 - Monday, packing: paper packing copy (print, `/packing/print`); packing record (download).
-- Anytime: customer list, one customer's history, sales over a date range, freezer on hand.
+- Anytime: customer list, one customer's history, sales over a date range, freezer on hand, box sizes.
+- Box sizes (10/21/26): the Setup > Boxes grid on paper, products down the side in their groups, box types across, each cell as entered ("6", "25 lb", "—" never fits, "Check" still to confirm), the product's unit and weight per piece, and a blank Notes column for corrections by hand. "45 lb maximum per box" and the date printed at the top. Landscape, 11 pt, shaded rows and column lines. Open, Print and Download.
 - Later, Tuesday, shipping and billing: manifest and invoices.
 
 Every report with a spreadsheet also has Open (10/21/26): the same table as a page at `/print/report/<report>`, with the same week picker or filters, a Print button, and Download kept on it. On a phone, narrow reports read as one card per customer, product or week; the order grid and sales over a date range scroll sideways with the first column fixed, with "Easier to read on a laptop" at the top. On paper: letter, portrait (landscape for the order grid and sales), 11 pt, table headers repeated on each page. The Download button and the page build the table in one place (`app/(app)/print/reports.ts`), so they always match.

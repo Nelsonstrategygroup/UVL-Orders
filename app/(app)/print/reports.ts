@@ -13,6 +13,7 @@ import type { Catalog, CustomersData, WeekData } from "@/lib/db/types";
 import { formatDateTime } from "@/lib/format";
 import type { ReadableShape } from "@/lib/readable";
 import {
+  boxSizesTable,
   customerHistoryTable,
   customerListTable,
   fileSafe,
@@ -25,7 +26,16 @@ import {
   type Table,
 } from "@/lib/reports";
 
-export type ReportKind = "week-orders" | "order-grid" | "product-totals" | "packing-record" | "customers" | "history" | "sales" | "freezer";
+export type ReportKind =
+  | "week-orders"
+  | "order-grid"
+  | "product-totals"
+  | "packing-record"
+  | "customers"
+  | "history"
+  | "sales"
+  | "freezer"
+  | "box-sizes";
 
 export type ReportDef = {
   title: string;
@@ -35,6 +45,8 @@ export type ReportDef = {
   wide?: boolean;
   /** Always an Excel file (the order grid). */
   xlsxOnly?: boolean;
+  /** Column lines on every cell, to follow a row across on paper (box sizes). */
+  lined?: boolean;
   shape: ReadableShape;
 };
 
@@ -63,6 +75,7 @@ export const REPORTS: Record<ReportKind, ReportDef> = {
   },
   sales: { title: "Sales over a date range", filter: "range", wide: true, shape: { constant: ["From week", "To week"] } },
   freezer: { title: "Freezer on hand", filter: "none", shape: { constant: ["As of"] } },
+  "box-sizes": { title: "Box sizes", filter: "none", wide: true, lined: true, shape: { keep: ["Notes"] } },
 };
 
 export function isReportKind(v: string): v is ReportKind {
@@ -130,6 +143,11 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       const b = packingMonday(x.to);
       const orders = await loadOrdersBetween(x.db, a, b);
       return { table: salesTable(a, b, orders, customers.byId, catalog.products), file: `sales-${a}-to-${b}`, sheet: "Sales" };
+    }
+    case "box-sizes": {
+      // The same products and order as Setup > Boxes.
+      const groups = groupProducts(catalog.products.filter((p) => p.active));
+      return { table: boxSizesTable(groups, catalog.boxes.types, catalog.boxes.limits), file: `box-sizes-${todayISO()}`, sheet: "Box sizes" };
     }
     case "freezer": {
       const { need, onHand } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);

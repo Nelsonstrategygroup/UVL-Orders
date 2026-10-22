@@ -14,6 +14,8 @@ export type ReadableShape = {
   groupBy?: string;
   /** With groupBy: the columns that differ row to row inside a card (the products). */
   items?: string[];
+  /** Columns kept even when empty everywhere (a blank Notes column to write on). */
+  keep?: string[];
 };
 
 export type Field = { label: string; value: string };
@@ -26,6 +28,8 @@ export type Readable = {
   /** The table: every column that isn't constant and isn't empty in every row. */
   columns: string[];
   rows: string[][];
+  /** Group headings and the totals line, by row (see Table.rowKinds). */
+  kinds: ("section" | "total" | undefined)[];
   cards: Card[];
 };
 
@@ -47,9 +51,11 @@ function tidyItem(fields: Field[]): Field[] {
 
 export function readable(t: Table, shape: ReadableShape = {}): Readable {
   const constantSet = new Set(shape.constant ?? []);
+  const keepSet = new Set(shape.keep ?? []);
   const keep = t.header
     .map((h, i) => ({ h, i }))
-    .filter(({ h, i }) => !constantSet.has(h) && t.rows.some((r) => text(r[i]) !== ""));
+    .filter(({ h, i }) => !constantSet.has(h) && (keepSet.has(h) || t.rows.some((r) => text(r[i]) !== "")));
+  const kinds = t.rows.map((_, i) => t.rowKinds?.[i]);
   const constants = t.header
     .map((h, i) => ({ label: h, value: text(t.rows[0]?.[i]) }))
     .filter((f) => constantSet.has(f.label) && f.value !== "");
@@ -62,8 +68,8 @@ export function readable(t: Table, shape: ReadableShape = {}): Readable {
   const cards: Card[] = [];
   const g = shape.groupBy ? col(shape.groupBy) : -1;
   if (g < 0) {
-    for (const r of rows) cards.push({ title: r[0] ?? "", fields: fieldsOf(r, new Set([0])), items: [] });
-    return { constants, columns, rows, cards };
+    rows.forEach((r, i) => kinds[i] !== "section" && cards.push({ title: r[0] ?? "", fields: fieldsOf(r, new Set([0])), items: [] }));
+    return { constants, columns, rows, kinds, cards };
   }
 
   const itemCols = (shape.items ?? []).map(col).filter((i) => i >= 0);
@@ -80,5 +86,5 @@ export function readable(t: Table, shape: ReadableShape = {}): Readable {
     if (first == null || r[first] === "") continue;
     card.items.push({ title: r[first], fields: tidyItem(rest.map((i) => ({ label: columns[i], value: r[i] })).filter((f) => f.value !== "")) });
   }
-  return { constants, columns, rows, cards };
+  return { constants, columns, rows, kinds, cards };
 }

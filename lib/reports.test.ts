@@ -251,3 +251,39 @@ describe('order grid for Excel', () => {
     ]);
   });
 });
+
+describe("box sizes (the Setup > Boxes grid on paper)", () => {
+  it("groups as headings, each cell as entered, a blank Notes column", async () => {
+    const { boxSizesTable } = await import("./reports");
+    const types = [
+      { id: "white", name: "White", size_rank: 4 },
+      { id: "mvm", name: "MVM", size_rank: 1 },
+    ];
+    const limits = new Map([
+      [
+        "legs",
+        [
+          { box_type_id: "mvm", max_count: 6, max_lb: null, status: "ok" as const },
+          { box_type_id: "white", max_count: null, max_lb: null, status: "needs_checking" as const },
+        ],
+      ],
+      ["trim", [{ box_type_id: "mvm", max_count: null, max_lb: 25, status: "ok" as const }, { box_type_id: "white", max_count: null, max_lb: null, status: "does_not_fit" as const }]],
+    ]);
+    const t = boxSizesTable(
+      [
+        { group: "Legs", products: [{ id: "legs", name: "BNLS Legs", unit: "each", lb_per_unit: 7.5 }] },
+        { group: "Ground and trim", products: [{ id: "trim", name: "Le Trim", unit: "lb" }] },
+      ],
+      types,
+      limits,
+    );
+    expect(t.header).toEqual(["Product", "Unit", "Weight per piece", "MVM", "White", "Notes"]);
+    expect(t.rows).toEqual([
+      ["Legs", "", "", "", "", ""],
+      ["BNLS Legs", "pcs", "7.5 lb", "6", "Check", ""],
+      ["Ground and trim", "", "", "", "", ""],
+      ["Le Trim", "lb", "", "25 lb", "—", ""],
+    ]);
+    expect(t.rowKinds).toEqual(["section", undefined, "section", undefined]);
+  });
+});

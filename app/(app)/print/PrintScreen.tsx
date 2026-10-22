@@ -215,6 +215,24 @@ export default function PrintScreen() {
         <Item title="Freezer on hand" action={both("freezer")}>
           What&apos;s in the freezer now, what half and whole orders are counting on, and what&apos;s free.
         </Item>
+        <Item
+          title="Box sizes"
+          action={
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Link href={reportHref("box-sizes")} className="btn">
+                Open
+              </Link>
+              <Link href={`${reportHref("box-sizes")}?print=1`} className="btn ghost">
+                Print
+              </Link>
+              <button type="button" className="btn ghost" disabled={!!busy} onClick={() => void download("box-sizes")}>
+                {busy === "box-sizes" ? "Getting it ready..." : "Download"}
+              </button>
+            </div>
+          }
+        >
+          How much of each product fits in each box, as in Setup &gt; Boxes, with a blank Notes column to write corrections on.
+        </Item>
       </section>
 
       <p className="small muted mt-4">

@@ -14,14 +14,15 @@ import { downloadTable, useFileType } from "@/components/download";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
-import { addDays, currentWeek, niceDate, packingMonday, todayISO, weekName } from "@/lib/dates";
+import { fmt } from "@/lib/calc/num";
+import { addDays, currentWeek, longDate, niceDate, packingMonday, todayISO, weekName } from "@/lib/dates";
 import { readable } from "@/lib/readable";
 import type { Table } from "@/lib/reports";
 import { buildReport, REPORTS, reportHref, type ReportKind } from "../../reports";
 
 type Built = { key: string; table: Table; file: string; sheet: string } | { key: string; none: true } | { key: string; error: string };
 
-export default function ReportScreen(props: { kind: ReportKind; customer: string; from: string; to: string }) {
+export default function ReportScreen(props: { kind: ReportKind; customer: string; from: string; to: string; print?: boolean }) {
   const { kind } = props;
   const def = REPORTS[kind];
   const { catalog, customers, error: loadError } = useStaffData();
@@ -57,6 +58,17 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
   const current = built?.key === key ? built : null;
   const view = useMemo(() => (current && "table" in current ? readable(current.table, def.shape) : null), [current, def.shape]);
 
+  // Opened with Print from Print and download: print once the report is ready.
+  const [printed, setPrinted] = useState(false);
+  useEffect(() => {
+    if (!props.print || printed || !view?.rows.length) return;
+    const t = setTimeout(() => {
+      setPrinted(true);
+      window.print();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [props.print, printed, view]);
+
   if (loadError || error) return <p className="note bad">Couldn&apos;t load: {loadError ?? error}</p>;
   if (!catalog || !customers)
     return (
@@ -76,7 +88,9 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
           ? displayName(customers.byId.get(customerId)!, customers.byId)
           : kind === "freezer"
             ? `As of ${niceDate(todayISO())}`
-            : "";
+            : kind === "box-sizes"
+              ? `${fmt(catalog.boxes.capLb)} lb maximum per box · Printed ${longDate(todayISO())}`
+              : "";
 
   async function download() {
     if (!current || !("table" in current)) return;
@@ -137,6 +151,7 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
             </div>
           </div>
         )}
+        {def.filter === "none" && subtitle && <p className="muted mt-1 mb-0">{subtitle}</p>}
         {def.wide && <p className="note small rp-laptop">Easier to read on a laptop.</p>}
       </div>
 
@@ -188,7 +203,7 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
               </div>
             )}
             <div className={`rp-scroll ${def.wide ? "wide" : "narrow"}`}>
-              <table className="rp-table">
+              <table className={`rp-table ${def.lined ? "lined" : ""}`}>
                 <thead>
                   <tr>
                     {view.columns.map((h) => (
@@ -197,14 +212,20 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
                   </tr>
                 </thead>
                 <tbody>
-                  {view.rows.map((r, i) => (
-                    // The totals line at the bottom (order grid) stands out.
-                    <tr key={i} className={i === view.rows.length - 1 && r[0] === "Total" ? "total" : i % 2 ? "zebra" : undefined}>
-                      {r.map((v, j) => (
-                        <td key={j}>{v}</td>
-                      ))}
-                    </tr>
-                  ))}
+                  {view.rows.map((r, i) =>
+                    // A group heading spans the row; the totals line (order grid) stands out.
+                    view.kinds[i] === "section" ? (
+                      <tr key={i} className="section">
+                        <td colSpan={view.columns.length}>{r[0]}</td>
+                      </tr>
+                    ) : (
+                      <tr key={i} className={view.kinds[i] === "total" ? "total" : i % 2 ? "zebra" : undefined}>
+                        {r.map((v, j) => (
+                          <td key={j}>{v}</td>
+                        ))}
+                      </tr>
+                    ),
+                  )}
                 </tbody>
               </table>
             </div>

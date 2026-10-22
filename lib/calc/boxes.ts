@@ -111,6 +111,20 @@ export function planBoxes(amount: number, p: BoxedProduct, limits: BoxLimit[], t
   return plan;
 }
 
+/**
+ * One box cell as entered in Setup > Boxes: "6", "25 lb", "6 · 25 lb"; "—"
+ * when the product never goes in that box; "Check" while Kathy confirms it.
+ */
+export function boxCellText(c: BoxLimit | undefined, unit: string): string {
+  if (!c) return "";
+  if (c.status === "does_not_fit") return "—";
+  if (c.status === "needs_checking") return "Check";
+  const parts: string[] = [];
+  if (c.max_count != null) parts.push(unit === "lb" ? `${fmt(c.max_count)} lb` : fmt(c.max_count));
+  if (c.max_lb != null) parts.push(`${fmt(c.max_lb)} lb`);
+  return parts.join(" · ");
+}
+
 /** "MVM 6 + White 2" */
 export function planText(plan: BoxPlan, unit: string): string {
   return plan.boxes.map((b) => `${b.typeName} ${unit === "lb" ? `${fmt(b.amount)} lb` : fmt(b.amount)}`).join(" + ");

@@ -8,6 +8,7 @@ import { STATUS_LABEL } from "./orders";
 import type { Customer, Order, OrderStatus, Qty, Units } from "./db/types";
 import { lineUnit, toProductUnit, unitWord } from "./calc/units";
 import { csvCell } from "./import/csv";
+import { boxCellText, type BoxLimit, type BoxType } from "./calc/boxes";
 
 type Cell = string | number | null | undefined;
 type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
@@ -18,6 +19,8 @@ export type Table = {
   rows: Cell[][];
   /** Excel: keep the first column (names) on screen and on every printed page. */
   freezeFirstColumn?: boolean;
+  /** Rows that aren't data: a group heading ("section") or the totals line ("total"). Pages show them differently. */
+  rowKinds?: ("section" | "total" | undefined)[];
 };
 
 function table(header: string[], rows: Cell[][]): Table {
@@ -407,5 +410,40 @@ export function orderGridTable(
     return [displayName(c, byId), phone, ...cells, o?.notes ?? ""];
   });
   if (orders) rows.push(["Total", "", ...totals.map((t) => (t > 0 ? Math.round(t * 100) / 100 : "")), ""]);
-  return { ...table(header, rows), freezeFirstColumn: true };
+  const rowKinds = rows.map((_, i) => (orders && i === rows.length - 1 ? ("total" as const) : undefined));
+  return { ...table(header, rows), freezeFirstColumn: true, rowKinds };
+}
+
+// ---------------------------------------------------------------------------
+// Box sizes: the Setup > Boxes grid on paper, for Kathy to check and correct
+// by hand (Notes is left blank on purpose).
+// ---------------------------------------------------------------------------
+
+type BoxProduct = { id: string; name: string; unit: string; lb_per_unit?: number | null };
+
+export function boxSizesTable(
+  groups: { group: string; products: BoxProduct[] }[],
+  types: BoxType[],
+  limits: Map<string, BoxLimit[]>,
+): Table {
+  const order = [...types].sort((a, b) => a.size_rank - b.size_rank);
+  const header = ["Product", "Unit", "Weight per piece", ...order.map((t) => t.name), "Notes"];
+  const rows: Cell[][] = [];
+  const rowKinds: Table["rowKinds"] = [];
+  for (const g of groups) {
+    rows.push([g.group, ...header.slice(1).map(() => "")]);
+    rowKinds.push("section");
+    for (const p of g.products) {
+      const ls = limits.get(p.id) ?? [];
+      rows.push([
+        p.name,
+        unitWord(p.unit),
+        p.lb_per_unit && p.unit !== "lb" ? `${p.lb_per_unit} lb` : "",
+        ...order.map((t) => boxCellText(ls.find((l) => l.box_type_id === t.id), p.unit)),
+        "",
+      ]);
+      rowKinds.push(undefined);
+    }
+  }
+  return { header, rows, freezeFirstColumn: true, rowKinds };
 }
