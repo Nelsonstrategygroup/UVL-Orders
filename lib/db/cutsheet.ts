@@ -237,9 +237,10 @@ export async function deleteSet(db: SupabaseClient, id: string) {
 
 export async function fillSetFromOrders(db: SupabaseClient, id: string) {
   const { data, error } = await db.rpc("fill_cut_set", { p_set: id });
-  if (error) return { error: error.message, added: 0, before: null as unknown };
-  const r = data as { added: number; before: unknown };
-  return { error: null, added: r.added, before: r.before };
+  if (error) return { error: error.message, added: 0, requested: 0, before: null as unknown };
+  // requested: how many lines were requested for the week, not confirmed yet (10/22/26).
+  const r = data as { added: number; before: unknown; requested?: number };
+  return { error: null, added: r.added, requested: r.requested ?? 0, before: r.before };
 }
 
 export async function linkCustomer(db: SupabaseClient, setId: string, customerId: string) {

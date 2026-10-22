@@ -468,6 +468,8 @@ function ThisWeekOrder({ customer }: { customer: Customer }) {
           order={o}
           lastWeek={data.lastWeek.get(customer.id)}
           lastOrder={data.lastOrder.get(customer.id)}
+          requests={data.requests.get(customer.id)}
+          movedOut={data.movedOut.get(customer.id)}
           patchOrder={patchOrder}
           refresh={refresh}
           onClose={close}

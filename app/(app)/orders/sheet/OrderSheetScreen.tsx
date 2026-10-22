@@ -20,7 +20,8 @@ import { fmt } from "@/lib/calc/num";
 import { groupProducts } from "@/lib/calc/products";
 import { lineUnit, unitWord } from "@/lib/calc/units";
 import { DAYS, niceDate, weekName } from "@/lib/dates";
-import type { CatalogProduct, Customer } from "@/lib/db/types";
+import type { CatalogProduct, Customer, OrderRequest } from "@/lib/db/types";
+import { askedOn, requestText } from "@/components/RequestedLines";
 import { qtyText } from "@/lib/orders";
 
 const BLANK = "";
@@ -54,6 +55,9 @@ function Sheet({
   lastOrder,
   delivery,
   invoice,
+  requests,
+  movedOut,
+  products,
 }: {
   customer: Customer | null;
   name: string;
@@ -63,6 +67,11 @@ function Sheet({
   delivery: string;
   /** The week's invoice number, or "" to write in. */
   invoice: string;
+  /** Requested for this week, to confirm on the call (listed first, not again below). */
+  requests: OrderRequest[];
+  /** "Moved to next week: 12 packs Front Shanks" at the bottom. */
+  movedOut: string;
+  products: Map<string, CatalogProduct>;
 }) {
   const phone = customer?.contacts.find((k) => k.phone)?.phone ?? "";
   const contact = customer?.contacts.find((k) => k.name)?.name ?? "";
@@ -102,6 +111,45 @@ function Sheet({
           </div>
         )}
       </div>
+      {requests.length > 0 && (
+        <table className="os-requested">
+          <colgroup>
+            <col className="os-prod" />
+            <col className="os-unit" />
+            <col className="os-lastq" />
+            <col className="os-qty" />
+            <col className="os-note" />
+          </colgroup>
+          <thead>
+            <tr className="os-section">
+              <th colSpan={5}>Requested, confirm on the call</th>
+            </tr>
+            <tr>
+              <th>Product</th>
+              <th>Comes in</th>
+              <th>Requested</th>
+              <th>How many</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.map((r) => {
+              const p = products.get(r.product_id);
+              return (
+                <tr key={r.id}>
+                  <td>{p?.name ?? r.product_id}</td>
+                  <td className="os-unit">{p ? comesIn(p) : ""}</td>
+                  <td className="os-lastq">
+                    {qtyText(r.qty, r.unit ?? p?.unit ?? "each")}, asked {askedOn(r)}
+                  </td>
+                  <td />
+                  <td />
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
       <table>
         <colgroup>
           <col className="os-prod" />
@@ -123,6 +171,7 @@ function Sheet({
           <SectionRows key={s.title ?? "all"} section={s} lastOrder={lastOrder} />
         ))}
       </table>
+      {movedOut && <p className="os-moved">Moved to next week: {movedOut}</p>}
       <div className="os-foot">
         Other notes, call back, delivery changes
         <div />
@@ -194,6 +243,13 @@ export default function OrderSheetScreen() {
   /** What they usually buy first (the order screen's rule: anything they've ever ordered, or have on this week's order), then the rest. */
   const sectionsFor = (c: Customer | null): Section[] => {
     if (!c) return [{ title: null, groups: everything }];
+    // Products requested this week are in their own box at the top, not again below.
+    const asked = new Set((data?.requests.get(c.id) ?? []).map((r) => r.product_id));
+    const withoutAsked = (s: Section[]): Section[] =>
+      s.map((x) => ({ ...x, groups: x.groups.map((g) => ({ ...g, products: g.products.filter((p) => !asked.has(p.id)) })).filter((g) => g.products.length) }));
+    return withoutAsked(sectionsForAll(c));
+  };
+  const sectionsForAll = (c: Customer): Section[] => {
     const usual = new Set(customers.usual.get(c.id) ?? []);
     const now = data?.orders.get(c.id)?.lines ?? {};
     for (const k in now) if ((now[k] ?? 0) > 0) usual.add(k);
@@ -216,6 +272,9 @@ export default function OrderSheetScreen() {
         lastOrder={c ? data?.lastOrder.get(c.id) : undefined}
         delivery={date ? dayAndDate(date) : ""}
         invoice={c ? invoice : ""}
+        requests={c ? (data?.requests.get(c.id) ?? []) : []}
+        movedOut={c ? (data?.movedOut.get(c.id) ?? []).map((r) => requestText(r, catalog.productById)).join(", ") : ""}
+        products={catalog.productById}
       />
     );
   };

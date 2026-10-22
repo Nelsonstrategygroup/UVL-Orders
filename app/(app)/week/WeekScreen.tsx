@@ -56,6 +56,8 @@ export default function WeekScreen() {
     );
 
   const w = data.weekRow;
+  // Lines requested for this week, not confirmed yet.
+  const requested = [...data.requests.values()].flat();
   const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);
   const cs = cutSheetTotals(data.cutSets, catalog.sizes);
   // The week's ONE lamb count is worked out in calcWeek: your number, else the
@@ -65,7 +67,11 @@ export default function WeekScreen() {
     parts: catalog.parts,
     products: catalog.products,
     // In each product's own unit (pounds of a piece product become pieces).
-    orders: [...data.orders.values()].map((o) => inProductUnits(o.lines, o.units, catalog.productById)),
+    // Requested lines count too: they're cut and frozen this week (10/22/26).
+    orders: [
+      ...[...data.orders.values()].map((o) => inProductUnits(o.lines, o.units, catalog.productById)),
+      ...requested.map((r) => inProductUnits({ [r.product_id]: r.qty }, r.unit ? { [r.product_id]: r.unit } : {}, catalog.productById)),
+    ],
     shortfall: short,
     override: w?.lamb_override ?? null,
     cutSheetLambs: cs.total,
@@ -156,6 +162,11 @@ export default function WeekScreen() {
               <h2>lambs to order</h2>
               {n.sourceLine && <div className="font-semibold">{n.sourceLine}.</div>}
               {n.carcassLine && <div className="font-semibold">{n.carcassLine}.</div>}
+              {requested.length > 0 && (
+                <div className="small">
+                  Includes {requested.length} requested line{requested.length === 1 ? "" : "s"} not confirmed yet.
+                </div>
+              )}
               <div className="muted">
                 {c.recommended === 0
                   ? "No orders entered for this week yet."
@@ -262,6 +273,13 @@ export default function WeekScreen() {
         </BalanceDetails>
       </div>
 
+      {requested.length > 0 && data.cutSheet?.sent_at && (
+        <p className="note bad mt-4" role="status">
+          The cut sheet was sent with {requested.length} requested line{requested.length === 1 ? "" : "s"} still not confirmed.
+          Confirm or drop {requested.length === 1 ? "it" : "them"} on Calls.
+        </p>
+      )}
+
       <section className="panel mt-4" aria-labelledby="steps-h">
         <h3 id="steps-h">This week&apos;s steps</h3>
         <ul className="steps">
@@ -272,6 +290,7 @@ export default function WeekScreen() {
               tone={ordering.length > 0 && answered === ordering.length ? "done" : "todo"}
             >
               {answered} of {ordering.length} customers answered
+              {requested.length > 0 && ` · ${requested.length} requested to confirm`}
             </Step>
           )}
           {seeCutSheet && <CutSheetStep week={week} processor={processor} />}

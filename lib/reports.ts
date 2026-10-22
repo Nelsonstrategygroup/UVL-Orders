@@ -134,6 +134,7 @@ export const PRODUCT_TOTAL_COLUMNS = [
   "Unit",
   "Customers",
   "Ordered",
+  "Includes requested",
   "For half and whole",
   "Total to cut",
   "Packed (lb)",
@@ -146,6 +147,8 @@ export function productTotalsTable(
   orders: Order[],
   packed: Map<string, Qty>,
   halfWholeShort: Qty,
+  /** Lines requested for this week, not confirmed yet: counted, and shown on their own (10/22/26). */
+  requested: { product_id: string; qty: number; unit: string | null }[] = [],
 ): Table {
   const rows: Cell[][] = [];
   for (const p of [...products].sort((a, b) => a.sort - b.sort)) {
@@ -160,11 +163,13 @@ export function productTotalsTable(
       ordered += q;
       got += packed.get(o.id)?.[p.id] ?? 0;
     }
+    let asked = 0;
+    for (const r of requested) if (r.product_id === p.id) asked += toProductUnit(r.qty, r.unit ?? undefined, p);
     const hw = halfWholeShort[p.id] ?? 0;
-    if (!ordered && !hw) continue;
+    if (!ordered && !hw && !asked) continue;
     // Short in pounds only makes sense for products ordered by the pound.
     const short = p.unit === "lb" ? Math.max(0, ordered - got) : 0;
-    rows.push([week, p.name, p.group_name, p.unit, customers, ordered, hw || "", ordered + hw, got || "", short || ""]);
+    rows.push([week, p.name, p.group_name, p.unit, customers, ordered + asked, asked || "", hw || "", ordered + asked + hw, got || "", short || ""]);
   }
   return table(PRODUCT_TOTAL_COLUMNS, rows);
 }

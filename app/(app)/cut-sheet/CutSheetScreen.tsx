@@ -227,7 +227,8 @@ export default function CutSheetScreen() {
       const r = await cs.fillSetFromOrders(db, s.id);
       refresh();
       if (r.error) return toast("Couldn't add them. Check the internet connection.");
-      toast(`${r.added} order line${r.added === 1 ? "" : "s"} added to the set`, () => void run(cs.restoreSet(db, r.before)));
+      const asked = r.requested ? ` (includes ${r.requested} requested, not confirmed yet)` : "";
+      toast(`${r.added} order line${r.added === 1 ? "" : "s"} added to the set${asked}`, () => void run(cs.restoreSet(db, r.before)));
     },
   });
 

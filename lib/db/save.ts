@@ -373,3 +373,64 @@ export async function setCustomerPallet(
   const { error } = await db.from("customers").update(patch).eq("id", customerId);
   return msg(error);
 }
+
+// ---------------------------------------------------------------------------
+// Requested lines for a later week (change request 10/22/26). Each returns an
+// error message, or null.
+// ---------------------------------------------------------------------------
+
+/** "Move to next week": off this week's order, requested for the next. Returns the request id for Undo. */
+export async function moveLineToNextWeek(
+  db: SupabaseClient,
+  week: string,
+  customerId: string,
+  productId: string,
+): Promise<{ id: string | null; error: string | null }> {
+  const { data, error } = await db.rpc("move_line_to_next_week", { p_week: week, p_customer: customerId, p_product: productId });
+  return { id: (data as string | null) ?? null, error: msg(error) };
+}
+
+/** Undo "Move to next week": the line goes back on the week it came from. */
+export async function undoMoveLine(db: SupabaseClient, requestId: string): Promise<string | null> {
+  const { error } = await db.rpc("undo_move_line", { p_request: requestId });
+  return msg(error);
+}
+
+/** Request a line for a later week directly. */
+export async function requestLine(
+  db: SupabaseClient,
+  r: { week: string; customerId: string; productId: string; qty: number; unit?: string | null },
+): Promise<string | null> {
+  const { error } = await db.rpc("request_line", {
+    p_week: r.week,
+    p_customer: r.customerId,
+    p_product: r.productId,
+    p_qty: r.qty,
+    p_unit: r.unit ?? null,
+  });
+  return msg(error);
+}
+
+/** Confirm a request: it becomes a normal line, with the amount from the call. */
+export async function confirmRequest(db: SupabaseClient, requestId: string, qty: number): Promise<string | null> {
+  const { error } = await db.rpc("confirm_request", { p_request: requestId, p_qty: qty });
+  return msg(error);
+}
+
+/** Change a request's amount before it's confirmed. */
+export async function changeRequest(db: SupabaseClient, requestId: string, qty: number): Promise<string | null> {
+  const { error } = await db.from("order_requests").update({ qty }).eq("id", requestId);
+  return msg(error);
+}
+
+/** Drop a request. Returns the row as it was, to put back with Undo. */
+export async function dropRequest(db: SupabaseClient, requestId: string): Promise<{ row: Record<string, unknown> | null; error: string | null }> {
+  const { data, error } = await db.from("order_requests").delete().eq("id", requestId).select("*").maybeSingle();
+  return { row: (data as Record<string, unknown> | null) ?? null, error: msg(error) };
+}
+
+/** Undo a drop: the same request back, as it was. */
+export async function restoreRequest(db: SupabaseClient, row: Record<string, unknown>): Promise<string | null> {
+  const { error } = await db.from("order_requests").insert(row);
+  return msg(error);
+}

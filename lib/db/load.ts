@@ -16,6 +16,7 @@ import type {
   CustomersData,
   LastContact,
   Order,
+  OrderRequest,
   OrderUnit,
   Qty,
   Units,
@@ -172,6 +173,30 @@ function toOrders(rows: OrderRow[]): Map<string, Order> {
 
 const ORDER_SELECT = "id, customer_id, status, notes, order_lines(product_id, qty, unit)";
 
+type RequestRow = Omit<OrderRequest, "requested_by_name" | "qty"> & { qty: number | string; profiles: { display_name: string } | null };
+
+/**
+ * Requested lines for a week (by week_id), or moved out of it (by
+ * moved_from_week), per customer, oldest first. Empty if the table isn't
+ * there yet (before its migration runs).
+ */
+async function loadRequests(db: SupabaseClient, by: "week_id" | "moved_from_week", week: string): Promise<Map<string, OrderRequest[]>> {
+  const { data, error } = await db
+    .from("order_requests")
+    .select("id, week_id, customer_id, product_id, qty, unit, requested_at, moved_from_week, profiles(display_name)")
+    .eq(by, week)
+    .order("requested_at");
+  const out = new Map<string, OrderRequest[]>();
+  if (error) return out;
+  for (const r of (data ?? []) as unknown as RequestRow[]) {
+    const list = out.get(r.customer_id) ?? [];
+    const { profiles, ...rest } = r;
+    list.push({ ...rest, qty: num(r.qty), requested_by_name: profiles?.display_name ?? "" });
+    out.set(r.customer_id, list);
+  }
+  return out;
+}
+
 /** How far back "Last order" looks (change request 10/22/26). */
 const LAST_ORDER_WEEKS = 26;
 
@@ -194,9 +219,12 @@ export async function loadOrders(db: SupabaseClient, week: string) {
         .range(a, b),
     ),
   ]);
+  const [requests, movedOut] = await Promise.all([loadRequests(db, "week_id", week), loadRequests(db, "moved_from_week", week)]);
   return {
     orders: toOrders(must(orders) as OrderRow[]),
     lastWeek: toOrders(must(last) as OrderRow[]),
+    requests,
+    movedOut,
     lastOrder: lastOrders(
       past.map((o) => ({ customer_id: o.customer_id, week: o.week_id, status: o.status, ...linesOf(o.order_lines) })),
       week,
@@ -325,6 +353,8 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     orders: orders.orders,
     lastWeek: orders.lastWeek,
     lastOrder: orders.lastOrder,
+    requests: orders.requests,
+    movedOut: orders.movedOut,
     packed: packedMap,
     shorted: shortedMap,
     halfWhole: hw.map((h) => ({ id: h.id, size: h.size, status: h.status, choices: h.half_whole_choices ?? [] })),

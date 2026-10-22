@@ -3,6 +3,7 @@
 // Calls (SPEC 5.1): one customer at a time, with big buttons.
 
 import { useCan } from "@/components/CurrentUser";
+import RequestedLines from "@/components/RequestedLines";
 import ViewOnly from "@/components/ViewOnly";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
@@ -163,6 +164,7 @@ export default function CallsScreen() {
   } else {
     body = (
       <>
+        <RequestedLines requests={data.requests.get(current.id)} products={catalog.productById} canChange={canAnswer} onChanged={refresh} />
         {current.notes && <div className="pin">{current.notes}</div>}
         {last && (
           <div className="lastc">
@@ -266,6 +268,8 @@ export default function CallsScreen() {
           order={data.orders.get(editing.id)}
           lastWeek={data.lastWeek.get(editing.id)}
           lastOrder={data.lastOrder.get(editing.id)}
+          requests={data.requests.get(editing.id)}
+          movedOut={data.movedOut.get(editing.id)}
           patchOrder={patchOrder}
           refresh={refresh}
           onClose={closeEditor}

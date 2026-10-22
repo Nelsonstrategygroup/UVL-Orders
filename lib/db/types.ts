@@ -122,6 +122,25 @@ export type Order = {
   units: Units;
 };
 
+/**
+ * A line a customer asked for in a later week, not confirmed yet (change
+ * request 10/22/26). Counts toward the lamb count and the cut sheet; not on
+ * Packing or the box labels until it's confirmed.
+ */
+export type OrderRequest = {
+  id: string;
+  week_id: string;
+  customer_id: string;
+  product_id: string;
+  qty: number;
+  /** Taken in another unit than the product's own, or null. */
+  unit: OrderUnit | null;
+  requested_at: string;
+  requested_by_name: string;
+  /** The week it was moved from ("Move to next week"), or null. */
+  moved_from_week: string | null;
+};
+
 export type WeekData = {
   week: string;
   weekRow: WeekRow | null;
@@ -131,6 +150,10 @@ export type WeekData = {
   lastWeek: Map<string, Order>;
   /** customer id -> their most recent order before this week ("Last order"); never ordered: missing. */
   lastOrder: Map<string, LastOrder>;
+  /** customer id -> lines requested for this week, not confirmed yet. */
+  requests: Map<string, OrderRequest[]>;
+  /** customer id -> lines moved from this week to next week ("Moved to next week: ..."). */
+  movedOut: Map<string, OrderRequest[]>;
   /** order id -> product id -> pounds packed */
   packed: Map<string, Qty>;
   /** order id -> products marked not filled */

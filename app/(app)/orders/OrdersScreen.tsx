@@ -128,6 +128,8 @@ export default function OrdersScreen() {
           order={data.orders.get(editing.id)}
           lastWeek={data.lastWeek.get(editing.id)}
           lastOrder={data.lastOrder.get(editing.id)}
+          requests={data.requests.get(editing.id)}
+          movedOut={data.movedOut.get(editing.id)}
           patchOrder={patchOrder}
           refresh={refresh}
           onClose={closeEditor}
@@ -157,6 +159,9 @@ function OrderCards({ list, data, onOpen }: { list: Customer[]; data: WeekData; 
                 <br />
                 <span className="sum">{sum || o?.notes || "Nothing yet"}</span>
                 {bx && <span className="small muted"> · {bx}</span>}
+                {(data.requests.get(c.id)?.length ?? 0) > 0 && (
+                  <span className="small text-barn"> · {data.requests.get(c.id)!.length} requested to confirm</span>
+                )}
               </span>
               <span className={`st ${st}`}>{STATUS_LABEL[st]}</span>
             </button>

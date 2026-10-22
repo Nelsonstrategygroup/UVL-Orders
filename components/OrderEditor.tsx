@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ago, weekName } from "@/lib/dates";
+import { addDays, ago, niceDate, weekName } from "@/lib/dates";
 import { fmt, num } from "@/lib/calc/num";
 import { logContact, setOrder } from "@/lib/db/save";
 import { lineUnit, unitWord } from "@/lib/calc/units";
@@ -13,6 +13,9 @@ import { findProducts, groupProducts } from "@/lib/calc/products";
 import { orderBoxes, orderBoxesText } from "@/lib/calc/boxes";
 import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
 import type { LastOrder } from "@/lib/calc/lastOrder";
+import type { OrderRequest } from "@/lib/db/types";
+import { moveLineToNextWeek, requestLine, undoMoveLine } from "@/lib/db/save";
+import RequestedLines, { requestText } from "./RequestedLines";
 import {
   cleanLines,
   cleanQtyInput,
@@ -42,6 +45,9 @@ export type OrderEditorProps = {
   lastWeek: Order | undefined;
   /** Their most recent order before this week ("Last order"); undefined if they never ordered. */
   lastOrder?: LastOrder;
+  /** Lines requested for this week, not confirmed yet; and lines moved from this week to the next. */
+  requests?: OrderRequest[];
+  movedOut?: OrderRequest[];
   /** Show a change right away, before the database confirms it. */
   patchOrder: (customerId: string, order: Order | null) => void;
   refresh: () => void;
@@ -49,7 +55,7 @@ export type OrderEditorProps = {
 };
 
 export default function OrderEditor(props: OrderEditorProps) {
-  const { week, customer, order, lastWeek, lastOrder, patchOrder, refresh, onClose } = props;
+  const { week, customer, order, lastWeek, lastOrder, requests, movedOut, patchOrder, refresh, onClose } = props;
   const { catalog, customers, reloadCustomers, reloadCatalog } = useStaffData();
   // Changing an order needs Change on Orders or Calls; logging a call needs Call notes.
   const ordersCan = useCan("orders");
@@ -143,6 +149,26 @@ export default function OrderEditor(props: OrderEditorProps) {
     setQty(productId, (n) => n + by);
   }
 
+  /** "Move to next week": off this week's order, requested for the next, with Undo. */
+  async function moveToNextWeek(p: CatalogProduct) {
+    await flush();
+    const before = snapshot(orderRef.current);
+    const nextLines = { ...before.lines };
+    delete nextLines[p.id];
+    patchOrder(customer.id, { ...(orderRef.current as Order), lines: nextLines, units: cleanUnits(before.units, nextLines) });
+    const { id, error } = await moveLineToNextWeek(db, week, customer.id, p.id);
+    refresh();
+    if (error || !id) {
+      setSaveError(`Couldn't move it: ${error ?? "try again"}`);
+      return;
+    }
+    toast(`${p.name} moved to next week`, async () => {
+      const err = await undoMoveLine(db, id);
+      refresh();
+      if (err) toast(`Couldn't undo: ${err}`);
+    });
+  }
+
   /** Pieces or pounds for one line. The quantity stays; Kathy types the new amount. */
   function setUnit(p: CatalogProduct, unit: OrderUnit) {
     const base = pending.current ?? { lines, units };
@@ -181,6 +207,7 @@ export default function OrderEditor(props: OrderEditorProps) {
   }
 
   const products = catalog?.products ?? [];
+  const productById = catalog?.productById ?? new Map<string, CatalogProduct>();
   // "What they usually buy" is fixed when the editor opens, so a row doesn't
   // jump to the top of the list while someone is tapping + on it.
   const [usual] = useState(() => {
@@ -277,6 +304,11 @@ export default function OrderEditor(props: OrderEditorProps) {
           </div>
         </div>
         {info === p.id && <p className="note small mt-1 mb-2">{p.note}</p>}
+        {canChange && (lines[p.id] ?? 0) > 0 && (
+          <button type="button" className="copy movenext" onClick={() => void moveToNextWeek(p)}>
+            Move to next week
+          </button>
+        )}
         {/* Not in the product's steps (Le Trim, 10 lb): a gentle note once typing stops, never a change to what was typed. */}
         {typing[p.id] === undefined && stepNote(p.name, lines[p.id] ?? 0, step, unit) && (
           <p className="small muted mt-0 mb-1">{stepNote(p.name, lines[p.id] ?? 0, step, unit)}</p>
@@ -371,6 +403,8 @@ export default function OrderEditor(props: OrderEditorProps) {
       )}
 
       <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
+      <RequestedLines requests={requests} products={productById} canChange={canChange} onChanged={refresh} />
+
       {lastOrder && (
         <p className="lastorder">
           <b>Last order ({weekName(lastOrder.week)}):</b> {orderSummary(lastOrder.lines, products, lastOrder.units)}
@@ -444,8 +478,13 @@ export default function OrderEditor(props: OrderEditorProps) {
         )}
       </div>
 
+      {canChange && <RequestLater week={week} customerId={customer.id} products={products} onDone={refresh} />}
+
       <p className="small muted mt-4 mb-0">Read back to the customer</p>
       <ReadBack lines={lines} units={units} products={products} />
+      {(movedOut?.length ?? 0) > 0 && (
+        <p className="small muted mt-1 mb-0">Moved to next week: {movedOut!.map((r) => requestText(r, productById)).join(", ")}.</p>
+      )}
       {(box.boxes > 0 || box.problems.length > 0) && (
         <p className="small muted mt-1 mb-0">
           {box.boxes > 0 && <>About {orderBoxesText(box)}. </>}
@@ -526,6 +565,92 @@ function LogCall({ customerId, onSaved }: { customerId: string; onSaved: () => v
           }}
         >
           Save to history
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Request a line for a later week (change request 10/22/26): product, amount, and which week. */
+function RequestLater({
+  week,
+  customerId,
+  products,
+  onDone,
+}: {
+  week: string;
+  customerId: string;
+  products: CatalogProduct[];
+  onDone: () => void;
+}) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [productId, setProductId] = useState("");
+  const [qty, setQty] = useState("");
+  const [forWeek, setForWeek] = useState(() => addDays(week, 7));
+  const [busy, setBusy] = useState(false);
+  const weeks = Array.from({ length: 8 }, (_, i) => addDays(week, 7 * (i + 1)));
+  const active = products.filter((p) => p.active);
+  const p = active.find((x) => x.id === productId);
+
+  if (!open)
+    return (
+      <button type="button" className="copy mt-3 block text-[.95rem]" onClick={() => setOpen(true)}>
+        Request for a later week
+      </button>
+    );
+  return (
+    <div className="panel mt-3 p-3!">
+      <b>Request for a later week</b>
+      <p className="small muted mt-0 mb-1">It shows at the top of their order that week, to confirm on the call.</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="grid min-w-[170px] flex-1 gap-1">
+          <span className="lbl m-0">Product</span>
+          <select className="field" value={productId} onChange={(e) => setProductId(e.target.value)}>
+            <option value="">Pick a product</option>
+            {active.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">How many{p ? ` (${unitWord(p.unit)})` : ""}</span>
+          <input className="field num w-24!" inputMode="decimal" value={qty} onChange={(e) => setQty(cleanQtyInput(e.target.value))} />
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">For</span>
+          <select className="field" value={forWeek} onChange={(e) => setForWeek(e.target.value)}>
+            {weeks.map((w) => (
+              <option key={w} value={w}>
+                Week of {niceDate(w)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          className="btn"
+          disabled={busy || !productId || !(num(qty) > 0)}
+          onClick={async () => {
+            setBusy(true);
+            const err = await requestLine(getDb(), { week: forWeek, customerId, productId, qty: num(qty) });
+            setBusy(false);
+            onDone();
+            if (err) return toast(`Couldn't save: ${err}`);
+            toast(`Requested for the week of ${niceDate(forWeek)}`);
+            setOpen(false);
+            setProductId("");
+            setQty("");
+          }}
+        >
+          Request
+        </button>
+        <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
+          Cancel
         </button>
       </div>
     </div>

@@ -115,7 +115,7 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
     case "product-totals": {
       const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);
       return {
-        table: productTotalsTable(week, catalog.products, [...data.orders.values()], data.packed, short),
+        table: productTotalsTable(week, catalog.products, [...data.orders.values()], data.packed, short, [...data.requests.values()].flat()),
         file: `product-totals-week-of-${week}`,
         sheet: "Product totals",
       };
