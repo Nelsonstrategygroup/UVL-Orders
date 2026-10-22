@@ -198,7 +198,8 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
                 </thead>
                 <tbody>
                   {view.rows.map((r, i) => (
-                    <tr key={i} className={i % 2 ? "zebra" : undefined}>
+                    // The totals line at the bottom (order grid) stands out.
+                    <tr key={i} className={i === view.rows.length - 1 && r[0] === "Total" ? "total" : i % 2 ? "zebra" : undefined}>
                       {r.map((v, j) => (
                         <td key={j}>{v}</td>
                       ))}

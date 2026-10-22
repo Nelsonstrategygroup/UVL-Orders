@@ -1728,6 +1728,18 @@
 .rp-scroll.wide tr.zebra td:first-child {
   background: #ececec;
 }
+/* The totals line (order grid): bold, larger, set off from the rows above. */
+.rp-table tr.total td {
+  font-weight: 700;
+  font-size: 1.15em;
+  border-top: 2px solid var(--ink);
+  background: var(--field);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.rp-scroll.wide tr.total td:first-child {
+  background: var(--field);
+}
 .rp-scroll.wide td,
 .rp-scroll.wide th {
   white-space: nowrap;
