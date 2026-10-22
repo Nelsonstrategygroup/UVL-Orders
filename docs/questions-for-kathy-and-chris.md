@@ -2,8 +2,8 @@
 
 Things to settle with the people who use the app. The app works today with
 the current answer in brackets; each is a small change if they want it
-different. Updated 10/22/26 (after the order sheet changes): settled
-questions are at the end.
+different. Updated 10/22/26 (after requested lines and the Undo change):
+settled questions are at the end.
 
 ## New
 
@@ -59,6 +59,27 @@ questions are at the end.
     products on the sheet (for example, leave off ones nobody has ordered in
     months)? [Two pages.]
 
+11. **Requested lines nobody confirms.** A line requested for a later week
+    stays "requested" until it's confirmed or dropped on Calls or the order
+    screen. It counts toward that week's lamb count and cut sheet, and This
+    week warns once the cut sheet is sent with any still unconfirmed. If one
+    is never confirmed, should it stay as it is, move on to the next week by
+    itself, or drop off? [Stays until someone confirms or drops it.]
+12. **Confirmed requested lines and shipping.** Once a requested line is
+    confirmed, it goes on Packing and the box labels that week like any
+    other line. Lucas noted requested items are cut and frozen first, since
+    shipping them before they're frozen can leave them disfigured. Is
+    packing them that week right, or should a confirmed requested line wait
+    for a later shipment? [Packed that week once confirmed.]
+13. **Undo.** Undo now lasts 30 seconds and only shows where there's no
+    other way back: no order this week, same as last week on the order
+    screen, deleting a cut sheet set or line, a freezer entry or a contact
+    entry, filling a set, copying or starting a cut sheet, finishing a goal,
+    marking a half or whole filled, a follow-up done, moving a line to next
+    week, and dropping a request. Statuses, call backs, and Packing weights
+    have no Undo, since you can just change them back. Anything that should
+    be added or taken off that list? [As listed.]
+
 ## Box limits to confirm (from Kathy's box sheet)
 
 These are the cells marked "needs checking" in Setup > Boxes (30 right now).
@@ -66,63 +87,63 @@ Until they're filled in, the app doesn't use those boxes when it splits an
 order, so filling one in can change how orders are boxed. They're no longer
 warnings on the Box Label Report; one quiet line there says how many are left.
 
-11. **Baby box:** most products have no Baby box limit yet. Which products go
+14. **Baby box:** most products have no Baby box limit yet. Which products go
    in a Baby box, and how many?
-12. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy also
+15. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy also
    said 8 would weigh 55 to 60 lb, and a box of 9 weighed 45.15 lb on 10/12.
    What's the one number?
-13. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the recording)?
-14. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
+16. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the recording)?
+17. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
    said labels don't change the count.)
-15. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
+18. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
    app plans 7. Is 7 right?
-16. **Denver Ribs:** which boxes, and how much in each?
-17. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
+19. **Denver Ribs:** which boxes, and how much in each?
+20. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
    relevant.)
-18. **Pet Mix and Organ Grind:** are they the same product or two different
+21. **Pet Mix and Organ Grind:** are they the same product or two different
     ones?
 
 ## For Kathy
 
-19. Should the app build the cut sheet from the week's orders for you? Today
+22. Should the app build the cut sheet from the week's orders for you? Today
     you set up the sets (name, size, how many lambs, which instructions), and
     the app checks that each set adds up and totals the lambs. If a set has
     customers linked to it, "Put these on this set" adds their orders to it.
     To build the whole sheet on its own, the app would need your rules: which
     customers' orders go together in a set, how you pick each set's size, and
     where extra lambs go. [You build the sheet; copy last week's to start.]
-20. Which day do you call each customer? No customer has a call day yet, so
+23. Which day do you call each customer? No customer has a call day yet, so
     Calls lists everyone alphabetically instead of putting today's calls
     first. [Blank. Set it on each customer's page, under Edit details.]
-21. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
+24. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
     If so, tick "Bills for all locations" on the chain, and each store's page
     will show who to bill. [Off for both.]
-22. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
+25. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
     them? [Blank, so "Email to Mohawk" opens a draft with no address.]
-23. What does "Lambs Pulled From Inventory" track, and where does the INV#
+26. What does "Lambs Pulled From Inventory" track, and where does the INV#
     come from? It's also the "Invoice batch" on the order sheets and the
     "Inv" in the week header. (Also on the printed cut sheet questions.)
     [Typed in by hand on the cut sheet.]
-24. Are these duplicates: French Rack and Frenched Rack; the two netted
+27. Are these duplicates: French Rack and Frenched Rack; the two netted
     boneless shoulder wordings; the two bone-in shoulder wordings? (Also on
     the printed cut sheet questions.) [Kept separate.]
-25. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
+28. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
     racks, Behman carcasses) be hidden for other customers? [Shown for
     everyone.]
-26. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
+29. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
     with the "shank on" checkbox on plain leg lines.]
-27. The size block at the top right of the printed cut sheet counts lambs in
+30. The size block at the top right of the printed cut sheet counts lambs in
     sets that have a whole-carcass line, for XL, Large, Medium and Small (XS
     isn't listed). Is that what it should count, and should XS be listed?
     [As in the prototype; see spec 6.5.]
-28. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
+31. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
     choice anyway, so two halves from one lamb would both get a neck. Is
     that right, or should only whole lambs get the neck? [A half gets a
     neck.]
-29. Pending half and whole lambs add their cuts to the totals of every week
+32. Pending half and whole lambs add their cuts to the totals of every week
     you look at, until they're marked filled. Should they only count in the
     week they're needed? [Every week, until filled.]
-30. Le Trim: Kathy is moving to half a boneless leg per trim pack. What's the
+33. Le Trim: Kathy is moving to half a boneless leg per trim pack. What's the
     exact amount? [Le Trim is filled from extras and doesn't touch the lamb
     count until this is settled.]
 
@@ -176,8 +197,7 @@ Fix these on the customer's page (Edit details and contacts).
   they usually buy first. On the order sheet, "Invoice batch" replaced
   "Taken by" and "Scheduled delivery" replaced "Packing" (Lucas, 10/22/26).
 - A box marked "needs checking" in Setup is simply not used when splitting
-  an order. The Box Label Report's red list is only for lines that can't go
-  in any box (Lucas, 10/21/26).
+  an order (Lucas, 10/21/26).
 - Packing is only for packing: Scan boxes, progress, then the customers. The
   Box Label Report, order sheets, the paper packing copy and all the
   spreadsheets are under More > Print and download (Lucas, 10/21/26).
@@ -185,3 +205,16 @@ Fix these on the customer's page (Edit details and contacts).
   the week's steps (orders, cut sheet, box labels, packing), then planning.
 - Setup is a list of pages, each showing how many items are left to check.
   The "Settings" button is now "My account" (Lucas, 10/21/26).
+- Quantity boxes on the order screen take any number of digits again ("80",
+  "125", "12.5"); only one digit went in before. For products sold in steps
+  (Le Trim, 10 lb), what's typed is kept, with a gentle note: "Le Trim goes
+  in 10 lb steps. Did you mean 80?" (Lucas, 10/22/26).
+- Requested lines for a later week: "Move to next week" on the order screen,
+  or "Request for a later week". They show at the top of Calls and the order
+  screen that week ("Requested on Oct 22: 10 BNLS Legs. Confirm, change, or
+  drop."), and at the top of that week's order sheet. They count toward the
+  lamb count, product totals and the cut sheet, but aren't on Packing or the
+  box labels until confirmed. "Same as last week", "Last order" and "What
+  they usually buy" use confirmed lines only (Lucas, 10/22/26).
+- Undo lasts 30 seconds, with a ✕ to close it, and only shows where there's
+  no other way back (Lucas, 10/22/26).
