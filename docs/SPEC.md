@@ -216,6 +216,13 @@ Every report with a spreadsheet also has Open (10/21/26): the same table as a pa
 
 Orders and Packing have no print or download buttons. The "Spreadsheet grid" layout on Orders is for entering orders and stays there.
 
+### 5.8b Last order, order sheets, delivery day (change request 10/22/26)
+
+- **Last order**: a customer's most recent week with an order (status ordered, at least one product) before the week being viewed, looking back up to 26 weeks. Never ordered: nothing shown. (`lib/calc/lastOrder.ts`)
+- Order screen: "Last order (Mon Oct 19): 12 packs Front Shanks, 6 BNLS Legs, ..." above the status buttons, to read back; each product they ordered then shows "Last: 12 packs" in small grey text. "Same as last week" is unchanged (it copies the week right before).
+- Order sheets: columns Product, Comes in, Last order, How many, Note. For a customer, "What they usually buy" first (the order screen's rule: anything they have ever ordered, or have on this week's order), in the order form's groups, then "Other products"; blank sheets and customers who never ordered keep the normal order with Last order empty. The header has Customer, Scheduled delivery, Invoice batch (the week's INV#), Contact, Called, Call day, and Last order (its packing date). A "Print all customers (N)" button sits next to "Who it's for". "Comes in" is sized for "packs of 2" and wraps longer entries; "How many" is 1 in wide. With 35 products a sheet runs to two pages at a writable row height.
+- **Delivery day** (`customers.delivery_day`): a weekday, set on the customer page. A chain's locations use the chain's day unless they have their own (PCC: Saturday). Scheduled delivery on a sheet is the first delivery day after the week's packing Monday (packing Mon Oct 26, Saturday: Sat Oct 31); no delivery day leaves it blank, never the packing date. Blank sheets leave Scheduled delivery and Invoice batch blank.
+
 ### 5.9 Customers
 
 List with type, call day, last contact, and open follow-ups. Customer page: contacts with tap-to-call and email, standing notes (edit, save), "Log a contact" form (kind, what was said, follow-up date and note), and a history timeline that merges contact log entries with weekly orders. Edit details: name, type, call day, parent customer, active, contacts (add, remove). Admins also get **"Import customers from a spreadsheet"**: upload a CSV with columns `name, type, call_day, parent, contact_name, contact_role, phone, email, notes`, preview the rows, then import. Kathy is emailing her customer list, so this is needed in Phase 2.
