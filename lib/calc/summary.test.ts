@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cutSheetTotals, legBreakdown, legBreakdownText, producerMessage } from "./summary";
+import { cutSheetTotals, legBreakdown, legBreakdownText, producerMessage, shortParts } from "./summary";
 import { sampleSheet, seedProducts, seedSizes } from "./testData";
 
 describe("cut sheet totals", () => {
@@ -53,5 +53,24 @@ describe("leg breakdown", () => {
 
   it("is empty with no legs", () => {
     expect(legBreakdownText(legBreakdown({ s7: 4 }, seedProducts))).toBe("");
+  });
+});
+
+describe("the carcass balance in a line", () => {
+  const row = (name: string, left: number, status: "short" | "extra" | "even" | "sets", unit = "each") => ({
+    part: { id: name, name, unit } as Parameters<typeof shortParts>[0][number]["part"],
+    left,
+    status,
+  });
+
+  it("names each short part with the amount", () => {
+    expect(shortParts([row("Front shank", -56, "short"), row("Leg", 37, "extra"), row("Trim", -12, "short", "lb")])).toEqual([
+      "Front shank short 56",
+      "Trim short 12 lb",
+    ]);
+  });
+
+  it("nothing short: empty", () => {
+    expect(shortParts([row("Leg", 0, "even"), row("Whole loin", 1, "sets")])).toEqual([]);
   });
 });

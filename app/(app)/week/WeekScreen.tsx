@@ -1,12 +1,13 @@
 "use client";
 
-// This week (SPEC 5.4): how many lambs to order, whether the carcass
-// balances, and how the week is going.
+// This week (SPEC 5.4), the weekly overview: how many lambs to order and
+// whether the carcass balances, the week's steps (orders, cut sheet, box
+// labels, packing) each tapping through to its page, then the planning.
 
 import { useCan } from "@/components/CurrentUser";
 import ViewOnly from "@/components/ViewOnly";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
@@ -19,10 +20,9 @@ import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
-import { cutSheetTotals, legBreakdown, legBreakdownText, weekNumbers } from "@/lib/calc/summary";
+import { cutSheetTotals, legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
 import { calcWeek, plannedExtras, type PartRow } from "@/lib/calc/week";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
-import LabelsChanged from "../packing/labels/LabelsChanged";
 import { cantConvert, inProductUnits, unitWord } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
@@ -42,6 +42,8 @@ export default function WeekScreen() {
   const seeFreezer = useCan("freezer").view;
   const seeHalfWhole = useCan("halfwhole").view;
   const seePacking = useCan("packing").view;
+  const seeCalls = useCan("calls").view;
+  const seeOrders = useCan("orders").view;
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load this week: {loadError || error}</p>;
   if (!catalog || !customers || !data)
@@ -121,6 +123,9 @@ export default function WeekScreen() {
 
   const unit = (row: PartRow) => (row.part.unit === "lb" ? " lb" : "");
 
+  const shortLine = shortParts(c.rows);
+  const labelsChanged = !!w?.labels_hash && w.labels_hash !== labels.hash;
+
   return (
     <>
       <WeekBar processDate={w?.process_date} schedule />
@@ -136,6 +141,7 @@ export default function WeekScreen() {
         </p>
       )}
 
+      {/* The weekly overview (change request 10/21/26): the count and the balance, the week's steps, then planning. */}
       <div className="grid2">
         <div className="panel">
           <div className="count">
@@ -155,84 +161,27 @@ export default function WeekScreen() {
           </div>
 
           <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
-          <OverrideField
-            key={`${week}:${w?.lamb_override ?? ""}`}
-            value={w?.lamb_override ?? null}
-            fallback={c.cutSheetLambs > 0 ? c.cutSheetLambs : c.recommended}
-            fallbackFrom={c.cutSheetLambs > 0 ? "the cut sheet" : "orders"}
-            onSave={(v) => void save({ lamb_override: v })}
-          />
-
-          <div className="mt-2 flex flex-wrap gap-3">
-            <div className="min-w-[180px] flex-1">
-              <label className="lbl" htmlFor="producer">
-                Producer bringing lambs
-              </label>
-              <input
-                id="producer"
-                key={`p-${week}-${w?.producer ?? ""}`}
-                className="field"
-                defaultValue={w?.producer ?? ""}
-                placeholder="Name"
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v !== (w?.producer ?? "")) void save({ producer: v });
-                }}
-              />
-            </div>
-            <div className="min-w-[160px] flex-1">
-              <label className="lbl" htmlFor="pdate">
-                Processing day at {processor}
-              </label>
-              <input
-                id="pdate"
-                type="date"
-                className="field"
-                value={w?.process_date ?? ""}
-                onChange={(e) => void save({ process_date: e.target.value || null })}
-              />
-            </div>
-          </div>
+            <OverrideField
+              key={`${week}:${w?.lamb_override ?? ""}`}
+              value={w?.lamb_override ?? null}
+              fallback={c.cutSheetLambs > 0 ? c.cutSheetLambs : c.recommended}
+              fallbackFrom={c.cutSheetLambs > 0 ? "the cut sheet" : "orders"}
+              onSave={(v) => void save({ lamb_override: v })}
+            />
           </fieldset>
 
-          <div className="msg">
-            <span>{message}</span>
-            <button
-              type="button"
-              className="btn noprint"
-              onClick={() =>
-                (navigator.clipboard ? navigator.clipboard.writeText(message) : Promise.reject()).then(
-                  () => toast("Message copied"),
-                  () => toast("Select the message and copy it"),
-                )
-              }
-            >
-              Copy message
-            </button>
-          </div>
-
-          <div className="progress">
-            <div>
-              <b className="num">
-                {answered}/{ordering.length}
-              </b>
-              <span className="small muted">customers have answered</span>
-            </div>
-            <div>
-              <b className="num">
-                {linesPacked}/{linesTotal}
-              </b>
-              <span className="small muted">lines packed</span>
-            </div>
-            <div>
-              <b className="num">{fmt(shortCount)}</b>
-              <span className="small muted">cuts added for half and whole orders</span>
-            </div>
+          <div className={`balsum ${shortLine.length ? "short" : "ok"}`}>
+            {c.recommended === 0 ? (
+              "The carcass balance shows once orders are in."
+            ) : shortLine.length ? (
+              shortLine.join(" · ")
+            ) : (
+              "Every part comes out even or extra."
+            )}
           </div>
         </div>
 
-        <div className="panel">
-          <h3>Does the carcass balance?</h3>
+        <BalanceDetails>
           <p className="small muted mt-1 mb-2">
             What this week&apos;s orders need from each part, against what {n.balanceLambs} lambs will give you.
             {c.carcass > 0 && <> The {fmt(c.carcass)} carcass lamb{c.carcass === 1 ? "" : "s"} go out uncut and aren&apos;t in this table.</>}
@@ -290,95 +239,216 @@ export default function WeekScreen() {
             )}
           </table>
           {legs && <p className="mt-3 mb-0 font-medium">{legs}</p>}
-          {extras.length > 0 && (
-            <div className="note mt-3">
-              <b>Extra cuts to plan for:</b>{" "}
-              {extras.map((r) => `${r.part.name} ${fmt(r.left)}`).join(", ")}.
-              {(seeFreezer || seeCutSheet || seeHalfWhole) && (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="small">Decide where they go:</span>
-                  {seeFreezer && (
-                    <Link href="/freezer" className="btn">
-                      Freezer
-                    </Link>
-                  )}
-                  {seeCutSheet && (
-                    <Link href="/cut-sheet" className="btn">
-                      Grind (on the cut sheet)
-                    </Link>
-                  )}
-                  {seeHalfWhole && (
-                    <Link href="/half-whole" className="btn">
-                      Half and whole orders
-                    </Link>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          {c.filled.length > 0 && (
-            <div className="note mt-3">
-              <b>Filled from extras, not in the table:</b>
-              {c.filled.map((f) => {
-                const step = catalog.productById.get(f.product.id)?.order_step ?? 1;
-                return (
-                  <div key={f.product.id} className="mt-1">
-                    {f.product.name}: {fmt(f.qty)} {unitWord(f.product.unit, f.qty)}
-                    {step > 1 && ` (${fmt(f.qty / step)} × ${fmt(step)} ${unitWord(f.product.unit, step)})`}. {f.note}
-                  </div>
-                );
-              })}
-            </div>
-          )}
           {uncounted.length > 0 && (
             <p className="note bad small mt-3">
               Not counted: {uncounted.map((u) => `${u.name} ${fmt(u.qty)} ${unitWord(u.unit, u.qty)}`).join(", ")}. Add a weight
               per piece in Setup so these count.
             </p>
           )}
-          <p className="small muted mt-2.5">Extras are estimates until the cut sheet comes back from {processor}.</p>
-        </div>
+        </BalanceDetails>
       </div>
+
+      <section className="panel mt-4" aria-labelledby="steps-h">
+        <h3 id="steps-h">This week&apos;s steps</h3>
+        <ul className="steps">
+          {(seeCalls || seeOrders) && (
+            <Step
+              href={seeCalls ? "/calls" : "/orders"}
+              title="Orders"
+              tone={ordering.length > 0 && answered === ordering.length ? "done" : "todo"}
+            >
+              {answered} of {ordering.length} customers answered
+            </Step>
+          )}
+          {seeCutSheet && <CutSheetStep week={week} processor={processor} />}
+          {seePacking && (
+            <Step href="/packing/labels" title="Box labels" tone={labelsChanged ? "warn" : w?.labels_printed_at ? "done" : "todo"}>
+              {labels.total + labels.problems.length === 0
+                ? "Nothing to label yet"
+                : labelsChanged
+                  ? "Orders changed since you printed"
+                  : w?.labels_printed_at
+                    ? `Printed ${formatDateTime(w.labels_printed_at)}`
+                    : "Not printed"}
+              {blocked > 0 && ` · ${blocked} ${blocked === 1 ? "line" : "lines"} can't go in a box`}
+            </Step>
+          )}
+          {seePacking && (
+            <Step href="/packing" title="Packing" tone={linesTotal > 0 && linesPacked === linesTotal ? "done" : "todo"}>
+              {linesTotal ? `${linesPacked} of ${linesTotal} lines packed` : "No orders to pack yet"}
+            </Step>
+          )}
+        </ul>
+      </section>
+
+      <section className="panel mt-4">
+        <h3>Planning</h3>
+        <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
+          <div className="mt-2 flex flex-wrap gap-3">
+            <div className="min-w-[180px] flex-1">
+              <label className="lbl" htmlFor="producer">
+                Producer bringing lambs
+              </label>
+              <input
+                id="producer"
+                key={`p-${week}-${w?.producer ?? ""}`}
+                className="field"
+                defaultValue={w?.producer ?? ""}
+                placeholder="Name"
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v !== (w?.producer ?? "")) void save({ producer: v });
+                }}
+              />
+            </div>
+            <div className="min-w-[160px] flex-1">
+              <label className="lbl" htmlFor="pdate">
+                Processing day at {processor}
+              </label>
+              <input
+                id="pdate"
+                type="date"
+                className="field"
+                value={w?.process_date ?? ""}
+                onChange={(e) => void save({ process_date: e.target.value || null })}
+              />
+            </div>
+          </div>
+        </fieldset>
+
+        <div className="msg">
+          <span>{message}</span>
+          <button
+            type="button"
+            className="btn noprint"
+            onClick={() =>
+              (navigator.clipboard ? navigator.clipboard.writeText(message) : Promise.reject()).then(
+                () => toast("Message copied"),
+                () => toast("Select the message and copy it"),
+              )
+            }
+          >
+            Copy message
+          </button>
+        </div>
+
+        {extras.length > 0 && (
+          <div className="note mt-3">
+            <b>Extra cuts to plan for:</b> {extras.map((r) => `${r.part.name} ${fmt(r.left)}`).join(", ")}.
+            {(seeFreezer || seeCutSheet || seeHalfWhole) && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="small">Decide where they go:</span>
+                {seeFreezer && (
+                  <Link href="/freezer" className="btn">
+                    Freezer
+                  </Link>
+                )}
+                {seeCutSheet && (
+                  <Link href="/cut-sheet" className="btn">
+                    Grind (on the cut sheet)
+                  </Link>
+                )}
+                {seeHalfWhole && (
+                  <Link href="/half-whole" className="btn">
+                    Half and whole orders
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {c.filled.length > 0 && (
+          <div className="note mt-3">
+            <b>Filled from extras, not in the table:</b>
+            {c.filled.map((f) => {
+              const step = catalog.productById.get(f.product.id)?.order_step ?? 1;
+              return (
+                <div key={f.product.id} className="mt-1">
+                  {f.product.name}: {fmt(f.qty)} {unitWord(f.product.unit, f.qty)}
+                  {step > 1 && ` (${fmt(f.qty / step)} × ${fmt(step)} ${unitWord(f.product.unit, step)})`}. {f.note}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {shortCount > 0 && (
+          <p className="mt-3 mb-0">{fmt(shortCount)} cuts added to this week for half and whole orders the freezer can&apos;t cover.</p>
+        )}
+        <p className="small muted mt-2.5 mb-0">Extras are estimates until the cut sheet comes back from {processor}.</p>
+      </section>
 
       {seeNotes && <FollowUps week={week} />}
-
-      {seePacking && labels.total + labels.problems.length > 0 && (
-        <div className="panel mt-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <h3 className="mr-auto">Box Label Report</h3>
-            <Link href="/packing/labels" className="btn">
-              Box Label Report ({labels.total} labels)
-            </Link>
-          </div>
-          <p className="small muted mt-1 mb-0">
-            {w?.labels_printed_at ? `Printed ${formatDateTime(w.labels_printed_at)}.` : "Not printed yet for this week."}
-            {blocked > 0 && ` ${blocked} ${blocked === 1 ? "order line" : "order lines"} can't go in any box until Setup > Boxes is filled in.`}
-          </p>
-          <LabelsChanged hash={labels.hash} printedHash={w?.labels_hash} printedAt={w?.labels_printed_at} />
-        </div>
-      )}
-
-      <div className="panel mt-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h3 className="mr-auto">Cut sheet for {processor}</h3>
-          {seeCutSheet && <Link href="/cut-sheet" className="btn">
-            {cs.total ? "Open cut sheet" : "Start this week's cut sheet"}
-          </Link>}
-        </div>
-        {cs.total ? (
-          <>
-            <p className="mt-1.5 mb-0">
-              <b>{cs.total} lambs</b> in {data.cutSets.length} sets: {cs.bySize.map((s) => `${s.lambs} ${s.label}`).join(", ")}
-            </p>
-            <CutSheetStatus week={week} processor={processor} />
-          </>
-        ) : (
-          <p className="small muted mt-1 mb-0">
-            The order count above is a guide. The cut sheet is where the lambs get assigned to sets.
-          </p>
-        )}
-      </div>
     </>
+  );
+}
+
+/** The full balance table: starts closed on phones, open on wide screens. */
+function BalanceDetails({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (ref.current && window.matchMedia("(min-width: 900px)").matches) ref.current.open = true;
+  }, []);
+  return (
+    <details ref={ref} className="panel baldetails">
+      <summary>
+        <h3 className="inline">Show the full balance</h3>
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+type Tone = "done" | "todo" | "warn";
+
+/** One row of the weekly checklist: the step, how it stands, and a tap through to its page. */
+function Step({ href, title, tone, children }: { href: string; title: string; tone: Tone; children: React.ReactNode }) {
+  return (
+    <li>
+      <Link href={href} className={`step ${tone}`}>
+        <span className="step-mark" aria-hidden="true">
+          {tone === "done" ? "✓" : tone === "warn" ? "!" : "○"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <b>{title}</b>
+          <span className="step-status">{children}</span>
+        </span>
+        <span aria-hidden="true" className="step-go">
+          &#8250;
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/** The cut sheet step: not started, in progress, or sent (and whether it changed since). Same checks as the Cut sheet screen. */
+function CutSheetStep({ week, processor }: { week: string; processor: string }) {
+  const { catalog } = useStaffData();
+  const load = useCallback((d: SupabaseClient) => loadCutSheet(d, week), [week]);
+  const { data } = useLive(`weekcard-${week}`, load, ["cut_sheets", "cut_sets", "cut_set_lines"]);
+  if (!data || !catalog)
+    return (
+      <Step href="/cut-sheet" title="Cut sheet" tone="todo">
+        Checking...
+      </Step>
+    );
+  if (!data.sheet)
+    return (
+      <Step href="/cut-sheet" title="Cut sheet" tone="todo">
+        Not started
+      </Step>
+    );
+  const specs = specMapOf(catalog);
+  const problems = sheetProblems(data, catalog, specs).length;
+  const status = sheetStatus(data, catalog, specs);
+  const lambs = data.sets.reduce((t, x) => t + num(x.lambs), 0);
+  const when = data.sheet.sent_at ? formatDateTime(data.sheet.sent_at) : "";
+  const tone: Tone = status.kind === "changed" || problems ? "warn" : status.kind === "sent" ? "done" : "todo";
+  return (
+    <Step href="/cut-sheet" title="Cut sheet" tone={tone}>
+      {status.kind === "sent" ? `Sent to ${processor} ${when}` : status.kind === "changed" ? `Changed since you sent it ${when}` : "In progress"}
+      {` · ${lambs} lambs in ${data.sets.length} set${data.sets.length === 1 ? "" : "s"}`}
+      {problems > 0 && ` · ${problems} set${problems > 1 ? "s don't" : " doesn't"} add up`}
+    </Step>
   );
 }
 
@@ -448,34 +518,6 @@ function FollowUps({ week }: { week: string }) {
         })}
       </ul>
     </section>
-  );
-}
-
-/** Same checks as the Cut sheet screen: do the sets add up, and has it changed since it was sent? */
-function CutSheetStatus({ week, processor }: { week: string; processor: string }) {
-  const { catalog } = useStaffData();
-  const load = useCallback((d: SupabaseClient) => loadCutSheet(d, week), [week]);
-  const { data } = useLive(`weekcard-${week}`, load, ["cut_sheets", "cut_sets", "cut_set_lines"]);
-  if (!data?.sheet || !catalog) return null;
-  const specs = specMapOf(catalog);
-  const problems = sheetProblems(data, catalog, specs);
-  const status = sheetStatus(data, catalog, specs);
-  const when = data.sheet.sent_at ? formatDateTime(data.sheet.sent_at) : "";
-  return (
-    <>
-      {problems.length > 0 && (
-        <div className="cutstat changed">
-          {problems.length} set{problems.length > 1 ? "s don't" : " doesn't"} add up. Check before sending.
-        </div>
-      )}
-      {status.kind === "notsent" && <div className="cutstat notsent">Not sent to {processor} yet.</div>}
-      {status.kind === "changed" && <div className="cutstat changed">Changed after you sent it on {when}. Send an update.</div>}
-      {status.kind === "sent" && (
-        <div className="cutstat sent">
-          Sent to {processor} {when}.
-        </div>
-      )}
-    </>
   );
 }
 

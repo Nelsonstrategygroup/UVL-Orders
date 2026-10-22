@@ -1,7 +1,7 @@
 // Text and totals shown on This week (SPEC 5.4, 6.5).
 
 import { longDate } from "../dates";
-import { carcassLine, lambSourceLine, type WeekCalc } from "./week";
+import { carcassLine, lambSourceLine, type PartRow, type WeekCalc } from "./week";
 import { fmt, num } from "./num";
 import type { Product, Qty } from "./types";
 
@@ -101,4 +101,15 @@ export function legBreakdown(withShort: Qty, products: Product[]): LegBreakdown 
 export function legBreakdownText(b: LegBreakdown): string {
   if (!b.total) return "";
   return `Legs: ${b.parts.map((p) => `${fmt(p.qty)} ${p.label}`).join(", ")}. ${fmt(b.total)} total.`;
+}
+
+/**
+ * The carcass balance in a line (change request 10/21/26): each part that's
+ * short, with the amount ("Front shank short 56"). Empty when every part
+ * comes out even or extra.
+ */
+export function shortParts(rows: Pick<PartRow, "part" | "left" | "status">[]): string[] {
+  return rows
+    .filter((r) => r.status === "short")
+    .map((r) => `${r.part.name} short ${fmt(-r.left)}${r.part.unit === "lb" ? " lb" : ""}`);
 }

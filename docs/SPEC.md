@@ -165,9 +165,14 @@ Default layout: "One customer at a time," a list of customer cards with status a
 - "Does the carcass balance?" table: each part's need, what the lambs for parts give, and a status tag, in two groups (main cuts; what comes with every lamb). Rack and short loin show as sub-rows under Whole loin. Below it: extra main cuts with links to the freezer, cut sheet, and half and whole orders; products filled from extras (Le Trim, in lb and 10 lb units, "Kathy fills from extra shoulders or legs."); and any pound lines that can't be counted because the product has no weight per piece.
 - With carcass lambs ordered, the headline adds a line such as "78 for parts + 2 carcass = 80 lambs"; the producer message uses the total.
 - Leg breakdown line under the table: bone-in, AO, boneless, and other leg products, then the total, because Kathy summarizes legs this way.
-- Progress: customers answered, lines packed, cuts added for half and whole orders.
 - Follow-ups due this week (by its Wednesday) or overdue, with Done buttons.
-- Cut sheet summary card with sent status and a link to the Cut sheet screen.
+
+Layout, the weekly overview (change request 10/21/26, stage 2), with no subtabs:
+
+1. The lamb count (with the override field), then the carcass balance in a line: each short part with the amount ("Front shank short 56"), or "Every part comes out even or extra." Then "Show the full balance", which opens the table: closed on phones, open on wide screens.
+2. This week's steps, one row each with its status, tapping through to its page: Orders ("20 of 23 customers answered", to Calls); Cut sheet (not started, in progress, sent to Mohawk, or changed since sent; to the Cut sheet); Box labels (not printed, printed, or orders changed since you printed; to the Box Label Report); Packing ("3 of 152 lines packed", to Packing). A step shows only to people who can open its page. Shipping and invoices come later.
+3. Planning: producer, processing day, producer message, extra cuts and where they go, what's filled from extras (Le Trim), and cuts added for half and whole orders.
+4. Follow-ups.
 
 ### 5.5 Cut sheet
 

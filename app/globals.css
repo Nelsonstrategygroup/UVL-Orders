@@ -1003,6 +1003,92 @@
     background: var(--ok);
   }
 
+  /* This week: the balance in a line, the full table, and the week's steps. */
+  .balsum {
+    margin-top: 0.9rem;
+    border-radius: 8px;
+    padding: 0.55rem 0.75rem;
+    font-weight: 500;
+    background: var(--ok);
+  }
+  .balsum.short {
+    background: var(--bad);
+    color: var(--barn);
+  }
+  .baldetails > summary {
+    cursor: pointer;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    list-style: none;
+  }
+  .baldetails > summary::-webkit-details-marker {
+    display: none;
+  }
+  .baldetails > summary::before {
+    content: "▸";
+    color: var(--forest);
+    transition: transform 0.15s;
+  }
+  .baldetails[open] > summary::before {
+    transform: rotate(90deg);
+  }
+  .steps {
+    list-style: none;
+    margin: 0.4rem 0 0;
+    padding: 0;
+  }
+  .steps li + li {
+    border-top: 1px solid var(--line);
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 56px;
+    padding: 0.5rem 0.1rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .step b {
+    display: block;
+  }
+  .step-status {
+    display: block;
+    font-size: 0.92rem;
+    color: var(--ink-soft);
+  }
+  .step-mark {
+    flex: none;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    border: 2px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .step.done .step-mark {
+    background: var(--ok);
+    border-color: var(--forest);
+    color: var(--forest);
+  }
+  .step.warn .step-mark {
+    background: var(--bad);
+    border-color: var(--barn);
+    color: var(--barn);
+  }
+  .step.warn .step-status {
+    color: var(--barn);
+    font-weight: 600;
+  }
+  .step-go {
+    font-size: 1.5rem;
+    color: var(--ink-soft);
+  }
+
   /* Customer page */
   .timeline {
     list-style: none;
