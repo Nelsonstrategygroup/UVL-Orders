@@ -58,7 +58,7 @@ Match `reference/demo-prototype.html`:
 - Colors: forest `#3B5E27`, linen background `#F1EFE3`, paper `#FBFAF4`, field `#E8EAE0`, wool `#DDD9C9`, wool dark `#8C8672`, barn red `#7A3327`. Include the prototype's dark mode tokens.
 - Mobile first. Bottom navigation on phones, top tabs on wider screens.
 - Minimum tap target 44px; primary action buttons 56 to 60px tall on Calls and Packing.
-- Every quick action (mark packed, same as last week, delete a line, delete a set) shows a toast with an Undo button for 6 seconds.
+- Every quick action (mark packed, same as last week, delete a line, delete a set) shows a toast with an Undo button for 30 seconds (6 before 10/22/26).
 - A per-device "Larger text" setting stored in `localStorage`.
 - Installable as a home screen app: web manifest, icons (use a sheep or "UV" mark in forest green), `display: standalone`, theme color forest green.
 

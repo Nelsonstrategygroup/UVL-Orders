@@ -1,14 +1,14 @@
 "use client";
 
 // Toast messages (SPEC 3): quick actions show a toast with an Undo button
-// for 6 seconds. Plain messages disappear sooner.
+// for 30 seconds (Lucas, 10/22/26: 6 was too short). Plain messages disappear sooner.
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 type ToastFn = (message: string, undo?: () => void) => void;
 const Ctx = createContext<ToastFn>(() => {});
 
-export const UNDO_MS = 6000;
+export const UNDO_MS = 30000;
 const PLAIN_MS = 2200;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -42,6 +42,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 }}
               >
                 Undo
+              </button>
+            )}
+            {toast.undo && (
+              // It stays 30 seconds, so it can be closed sooner (it sits over the week picker).
+              <button type="button" className="min-h-[44px] px-2 text-linen" aria-label="Close" onClick={() => setToast(null)}>
+                &#10005;
               </button>
             )}
           </div>
