@@ -1630,6 +1630,160 @@
   }
 }
 
+/* Reports from Print and download, as pages (change request 10/21/26). Phones:
+   one card per customer, product or week. Wide screens and paper: a table.
+   Wide reports: sideways scroll with the first column fixed. */
+.rp-head {
+  display: none;
+}
+.rp-cards {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.rp-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+}
+.rp-card h3 {
+  font-size: 1.05rem;
+  margin: 0;
+}
+.rp-card dl {
+  margin: 0.3rem 0 0;
+  display: grid;
+  gap: 0.1rem;
+}
+.rp-card dl div {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+}
+.rp-card dt {
+  color: var(--ink-soft);
+  min-width: 7.5rem;
+}
+.rp-card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.rp-card ul {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.rp-card li {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+.rp-card li:last-child {
+  border-bottom: 0;
+}
+.rp-card li span {
+  color: var(--ink-soft);
+}
+.rp-scroll {
+  margin-top: 0.75rem;
+}
+.rp-scroll.narrow {
+  display: none;
+}
+.rp-scroll.wide {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.rp-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92rem;
+  background: var(--paper);
+}
+.rp-table th,
+.rp-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+.rp-table th {
+  background: var(--field);
+  white-space: nowrap;
+}
+.rp-scroll.wide th:first-child,
+.rp-scroll.wide td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--paper);
+  border-right: 1px solid var(--line);
+  z-index: 1;
+}
+.rp-scroll.wide th:first-child {
+  background: var(--field);
+}
+.rp-scroll.wide tr.zebra td:first-child {
+  background: #ececec;
+}
+.rp-scroll.wide td,
+.rp-scroll.wide th {
+  white-space: nowrap;
+}
+@media (min-width: 900px) {
+  .rp-cards {
+    display: none;
+  }
+  .rp-scroll.narrow {
+    display: block;
+  }
+  .rp-laptop {
+    display: none;
+  }
+}
+@media print {
+  .rp-head {
+    display: block;
+    margin-bottom: 8pt;
+  }
+  .rp-head h1 {
+    font-size: 16pt;
+    margin: 0;
+  }
+  .rp-head div {
+    font-size: 11pt;
+  }
+  .rp-cards {
+    display: none;
+  }
+  .rp-scroll,
+  .rp-scroll.narrow,
+  .rp-scroll.wide {
+    display: block;
+    overflow: visible;
+    border: 0;
+  }
+  .rp-table {
+    font-size: 11pt;
+  }
+  .rp-table thead {
+    display: table-header-group;
+  }
+  .rp-table tr {
+    break-inside: avoid;
+  }
+  .rp-scroll.wide th:first-child,
+  .rp-scroll.wide td:first-child {
+    position: static;
+  }
+  .rp-scroll.wide td,
+  .rp-scroll.wide th {
+    white-space: normal;
+  }
+}
+
 /* Paper copies: .print-only shows only when printing, .screen-only only on screen. */
 .print-only {
   display: none;

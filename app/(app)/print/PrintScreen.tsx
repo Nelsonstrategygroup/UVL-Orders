@@ -1,9 +1,10 @@
 "use client";
 
 // Print and download (change request 10/21/26, stage 2): everything to print
-// or download, grouped by when in the week it's used. Spreadsheets are for
-// people (names, not ID codes). Print items open their own pages, and show
-// only to people who can open them. The full backup for moving the data is
+// or download, grouped by when in the week it's used. Every report opens as a
+// readable page (Open) and downloads as a spreadsheet (Download); both build
+// the same table (./reports). Print items open their own pages, and show only
+// to people who can open them. The full backup for moving the data is
 // "Export all data" in Setup.
 
 import Link from "next/link";
@@ -14,24 +15,9 @@ import { useWeekData } from "@/components/data/useWeekData";
 import { downloadTable, FILE_TYPE_LABEL, useFileType, type FileType } from "@/components/download";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
-import { halfWholeNeeds } from "@/lib/calc/halfWhole";
-import { groupProducts } from "@/lib/calc/products";
-import { countUnit } from "@/lib/calc/units";
+import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { addDays, currentWeek, packingMonday, niceDate, todayISO } from "@/lib/dates";
-import { loadCustomerOrders, loadOrdersBetween, loadPackingRecord } from "@/lib/db/load";
-import { formatDateTime } from "@/lib/format";
-import {
-  customerHistoryTable,
-  customerListTable,
-  fileSafe,
-  freezerTable,
-  orderGridTable,
-  packingRecordTable,
-  productTotalsTable,
-  salesTable,
-  weekOrdersTable,
-} from "@/lib/reports";
+import { buildReport, REPORTS, reportHref, type ReportKind } from "./reports";
 
 function Item({ title, children, action }: { title: string; children: React.ReactNode; action: React.ReactNode }) {
   return (
@@ -86,29 +72,38 @@ export default function PrintScreen() {
       </>
     );
 
-  const run = async (key: string, fn: () => Promise<void> | void) => {
-    setBusy(key);
+  const download = async (kind: ReportKind) => {
+    setBusy(kind);
     try {
-      await fn();
+      const r = await buildReport(kind, { db: getDb(), week, catalog, customers, data, customerId, from, to });
+      if (!r) return;
+      if (kind === "history" && !r.table.rows.length) toast("No orders yet to download.");
+      else await downloadTable(r.file, r.table, r.sheet, REPORTS[kind].xlsxOnly ? "xlsx" : fileType);
     } catch {
       toast("Couldn't download. Check the internet connection.");
+    } finally {
+      setBusy(null);
     }
-    setBusy(null);
   };
-  const btn = (key: string, fn: () => Promise<void> | void, disabled = false) => (
-    <button type="button" className="btn ghost shrink-0" disabled={!!busy || disabled} onClick={() => void run(key, fn)}>
-      {busy === key ? "Getting it ready..." : "Download"}
-    </button>
+  /** Open (the readable page) and Download, for a report with a spreadsheet. */
+  const both = (kind: ReportKind, ready = true, filters: { customerId?: string; from?: string; to?: string } = {}) => (
+    <div className="flex shrink-0 gap-2">
+      {ready ? (
+        <Link href={reportHref(kind, filters)} className="btn">
+          Open
+        </Link>
+      ) : (
+        <button type="button" className="btn" disabled>
+          Open
+        </button>
+      )}
+      <button type="button" className="btn ghost" disabled={!!busy || !ready} onClick={() => void download(kind)}>
+        {busy === kind ? "Getting it ready..." : "Download"}
+      </button>
+    </div>
   );
 
-  const ordering = new Set(orderingCustomers(customers.list).map((c) => c.id));
-  const weekList = customers.list.filter((c) => ordering.has(c.id) || data.orders.has(c.id));
-  const { short, need, onHand } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);
-  const freezerProducts = catalog.products
-    .filter((p) => !p.fresh_only && (p.active || (onHand[p.id] ?? 0) !== 0))
-    .map((p) => ({ ...p, countUnit: countUnit(p, catalog.parts) }));
   const sorted = sortByDisplayName(customers.list, customers.byId);
-  const chosen = customers.byId.get(customerId);
   const rangeOk = !!from && !!to && from <= to;
 
   return (
@@ -127,6 +122,7 @@ export default function PrintScreen() {
       </div>
       <p className="small muted mt-0">
         {fileType === "xlsx" ? "Excel workbook (.xlsx)." : "CSV opens anywhere, including Google Sheets."} Remembered on this device.
+        Open shows a report as a page to read or print.
       </p>
 
       <Card when="Thursday, orders">
@@ -135,30 +131,11 @@ export default function PrintScreen() {
             Every product in its group with room to write the amount, one sheet per customer, or a blank one.
           </Item>
         )}
-        <Item
-          key="week"
-          title="This week's orders"
-          action={btn("week", () =>
-            downloadTable(
-              `orders-week-of-${week}`,
-              weekOrdersTable(week, weekList, customers.byId, data.orders, data.packed, catalog.products),
-              "Orders",
-              fileType,
-            ),
-          )}
-        >
+        <Item key="week" title="This week's orders" action={both("week-orders")}>
           Every customer with contact, phone, email, and who to bill, and what they ordered.
         </Item>
-        <Item
-          key="grid"
-          title="Order grid (Excel)"
-          action={btn("grid", () => {
-            // The same customers and products as the grid on Orders.
-            const shown = groupProducts(catalog.products.filter((p) => p.active)).flatMap((g) => g.products);
-            return downloadTable(`order-grid-week-of-${week}`, orderGridTable(sortByDisplayName(orderingCustomers(customers.list), customers.byId), customers.byId, data.orders, shown), "Orders", "xlsx");
-          })}
-        >
-          Customers down the side, products across the top, like the grid on Orders.
+        <Item key="grid" title="Order grid" action={both("order-grid")}>
+          Customers down the side, products across the top, like the grid on Orders. Downloads as Excel.
         </Item>
       </Card>
 
@@ -168,18 +145,7 @@ export default function PrintScreen() {
             Open the sheet to check it, then print it or email it.
           </Item>
         )}
-        <Item
-          key="totals"
-          title="Product totals"
-          action={btn("totals", () =>
-            downloadTable(
-              `product-totals-week-of-${week}`,
-              productTotalsTable(week, catalog.products, [...data.orders.values()], data.packed, short),
-              "Product totals",
-              fileType,
-            ),
-          )}
-        >
+        <Item key="totals" title="Product totals" action={both("product-totals")}>
           Each product added up across customers, plus half and whole lambs, with packed and short. A pick list, and a check
           against what Mohawk cut.
         </Item>
@@ -201,50 +167,17 @@ export default function PrintScreen() {
             A checklist for each customer with spaces for weights, boxes, not filled, pallet, and initials.
           </Item>
         )}
-        <Item
-          key="record"
-          title="Packing record"
-          action={btn("packing", async () => {
-            const records = await loadPackingRecord(getDb(), week);
-            await downloadTable(
-              `packing-record-week-of-${week}`,
-              packingRecordTable(week, records, customers.byId, catalog.products, formatDateTime),
-              "Packing record",
-              fileType,
-            );
-          })}
-        >
+        <Item key="record" title="Packing record" action={both("packing-record")}>
           Ordered against packed, short or over, who packed each line and when, boxes, and pallet.
         </Item>
       </Card>
 
       <section className="panel mt-3">
         <h3 className="mb-1">Anytime</h3>
-        <Item
-          title="Customer list"
-          action={btn("customers", () =>
-            downloadTable("customer-list", customerListTable(customers.list, customers.byId), "Customers", fileType),
-          )}
-        >
+        <Item title="Customer list" action={both("customers")}>
           Every customer and contact, with what each person handles, call days, chains, and standing notes.
         </Item>
-        <Item
-          title="One customer's order history"
-          action={btn(
-            "history",
-            async () => {
-              if (!chosen) return;
-              const name = displayName(chosen, customers.byId);
-              const orders = await loadCustomerOrders(getDb(), chosen.id);
-              if (!orders.length) {
-                toast("No orders yet to download.");
-                return;
-              }
-              await downloadTable(`${fileSafe(name)}-order-history`, customerHistoryTable(name, orders, catalog.products), "Order history", fileType);
-            },
-            !chosen,
-          )}
-        >
+        <Item title="One customer's order history" action={both("history", !!customers.byId.get(customerId), { customerId })}>
           <label htmlFor="dl-customer" className="sr-only">
             Customer
           </label>
@@ -257,19 +190,7 @@ export default function PrintScreen() {
             ))}
           </select>
         </Item>
-        <Item
-          title="Sales over a date range"
-          action={btn(
-            "sales",
-            async () => {
-              const a = packingMonday(from);
-              const b = packingMonday(to);
-              const orders = await loadOrdersBetween(getDb(), a, b);
-              await downloadTable(`sales-${a}-to-${b}`, salesTable(a, b, orders, customers.byId, catalog.products), "Sales", fileType);
-            },
-            !rangeOk,
-          )}
-        >
+        <Item title="Sales over a date range" action={both("sales", rangeOk, { from, to })}>
           How much each customer ordered of each product. Quantities only; the app doesn&apos;t have prices.
           <span className="mt-1 flex flex-wrap items-end gap-3">
             <span>
@@ -291,12 +212,7 @@ export default function PrintScreen() {
               : "Pick a From date on or before the To date."}
           </span>
         </Item>
-        <Item
-          title="Freezer on hand"
-          action={btn("freezer", () =>
-            downloadTable(`freezer-${todayISO()}`, freezerTable(todayISO(), freezerProducts, onHand, need), "Freezer", fileType),
-          )}
-        >
+        <Item title="Freezer on hand" action={both("freezer")}>
           What&apos;s in the freezer now, what half and whole orders are counting on, and what&apos;s free.
         </Item>
       </section>

@@ -211,6 +211,8 @@ Everything to print or download, at `/print` (`/downloads` redirects there), wit
 - Anytime: customer list, one customer's history, sales over a date range, freezer on hand.
 - Later, Tuesday, shipping and billing: manifest and invoices.
 
+Every report with a spreadsheet also has Open (10/21/26): the same table as a page at `/print/report/<report>`, with the same week picker or filters, a Print button, and Download kept on it. On a phone, narrow reports read as one card per customer, product or week; the order grid and sales over a date range scroll sideways with the first column fixed, with "Easier to read on a laptop" at the top. On paper: letter, portrait (landscape for the order grid and sales), 11 pt, table headers repeated on each page. The Download button and the page build the table in one place (`app/(app)/print/reports.ts`), so they always match.
+
 Orders and Packing have no print or download buttons. The "Spreadsheet grid" layout on Orders is for entering orders and stays there.
 
 ### 5.9 Customers
