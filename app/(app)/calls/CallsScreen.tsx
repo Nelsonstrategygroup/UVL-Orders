@@ -96,7 +96,11 @@ export default function CallsScreen() {
   const last = customers.lastContact.get(current.id);
   const name = (c: Customer) => displayName(c, byId);
 
-  async function apply(change: { status: OrderStatus; notes?: string; lines?: Qty; units?: Units }, message: string) {
+  /**
+   * Save an answer. Undo only when there's no other way back (Lucas, 10/22/26):
+   * "No order this week" clears the lines; a status can just be tapped again.
+   */
+  async function apply(change: { status: OrderStatus; notes?: string; lines?: Qty; units?: Units }, message: string, undoable = false) {
     const cid = current.id;
     const before = snapshot(data!.orders.get(cid));
     const next: Order = {
@@ -118,6 +122,7 @@ export default function CallsScreen() {
       toast("Couldn't save. Check the internet connection.");
       return;
     }
+    if (!undoable) return toast(message);
     toast(message, async () => {
       patchOrder(cid, { ...next, ...before });
       setAfterId(null);
@@ -212,7 +217,7 @@ export default function CallsScreen() {
             <button
               type="button"
               className="bigbtn quiet"
-              onClick={() => void apply({ status: "none", lines: {} }, "No order this week")}
+              onClick={() => void apply({ status: "none", lines: {} }, "No order this week", true)}
             >
               No order this week
             </button>

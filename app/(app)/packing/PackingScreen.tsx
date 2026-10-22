@@ -185,7 +185,8 @@ export default function PackingScreen() {
             await save(
               enqueue({ type: "weight-add", client_id: clientId, order_id: orderId, product_id: weighing.productId, weight, box_no: box, at: new Date().toISOString() }),
             );
-            toast(`${fmt(weight)} lb saved`, () => void save(enqueue({ type: "weight-remove", order_id: orderId, client_id: clientId })));
+            // No Undo: a weight can be removed right here in the list (Lucas, 10/22/26).
+            toast(`${fmt(weight)} lb saved`);
           }}
           onRemove={(id) => {
             const w = wOrder.weights.find((x) => x.id === id);
