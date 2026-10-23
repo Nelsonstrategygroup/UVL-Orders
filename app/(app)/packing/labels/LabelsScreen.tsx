@@ -63,7 +63,9 @@ export default function LabelsScreen() {
     );
 
   if (!data || !list) return null;
-  const nums = stored?.sig === sig ? stored.map : null;
+  // The last numbers stay on screen while new ones load (after a print or an order change).
+  const nums = stored?.map ?? null;
+  const fresh = stored?.sig === sig && !!stored.map;
   const rows: PrintRow[] = nums
     ? labels
         .filter((l) => nums.has(l.key))
@@ -138,7 +140,7 @@ export default function LabelsScreen() {
             selected={selected}
             setSelected={setSelected}
             changedKeys={changedKeys}
-            ready={!!nums}
+            ready={fresh}
             onPrinted={printed}
           />
         )}

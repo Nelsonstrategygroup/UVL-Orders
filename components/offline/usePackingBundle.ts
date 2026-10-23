@@ -20,7 +20,10 @@ import { useOutbox } from "./OutboxProvider";
 export type PackingBundle = { packing: PackingData; gtins: GtinRow[]; lots: LotRow[]; pallets: PalletRow[]; boxes: BoxSetup };
 
 const TIMEOUT_MS = 10000;
-const LIVE = ["product_box_limits", "orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets", "gtin_products", "lots"];
+// Only tables the database sends live changes for (supabase_realtime): naming
+// one it doesn't made the whole subscription fail, so Packing stopped updating
+// live (found 10/23/26).
+const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets"];
 
 function timeout<T>(p: Promise<T>): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("The request timed out")), TIMEOUT_MS))]);

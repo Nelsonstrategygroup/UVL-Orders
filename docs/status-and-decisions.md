@@ -11,8 +11,13 @@ Packing (with scanning and offline use), half and whole, freezer, customers,
 Setup, Print and download, the Box Label Report, requested lines for a later
 week, and last order on the order screen and order sheets.
 
-In progress: printing box labels on Avery 5963 sheets (built, waiting on the
-database change and review).
+In progress: printing box labels on Avery 5963 sheets (built and tested,
+waiting on review).
+
+Fixed 10/23/26: Packing hadn't been updating live since 10/20 (it listened to
+tables the database doesn't send live changes for). Freezer, Half and whole,
+and two Setup lists had the same problem; migration 20261023000300 turns on
+live changes for their tables.
 
 Waiting on Kathy and Chris: weights per pack for Heart, Liver and Kidney; box
 limits marked "needs checking"; delivery days; pallet groups; see the
