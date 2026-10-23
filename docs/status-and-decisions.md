@@ -38,8 +38,10 @@ questions doc.
 - Labels are never edited directly: corrections go through the order.
 - The printer offset is set per device in My account, with an alignment test
   page.
-- The label shows the box type as named in Setup > Boxes (MVM, Roll Stock,
-  Jerky, White, Baby). The customer line is the chain or business ("PCC"),
+- The label shows the box type as named in Setup > Boxes: MVM, Roll Stock,
+  Jerky, White, Baby. These names are correct; some paperwork calls the first
+  two "Mohawk" and "Rollstock", but they stay MVM and Roll Stock (Lucas,
+  10/23/26). The customer line is the chain or business ("PCC"),
   the location line is the store ("#02 Kirkland"), blank for single-location
   customers.
 
