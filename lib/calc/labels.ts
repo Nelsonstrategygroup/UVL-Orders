@@ -37,6 +37,10 @@ export type LabelRow = {
   customer: string;
   /** Label line 2: "10 Single Pack Rack (Cap ON)", "45 lb Le Trim", "6 packs Front Shanks". */
   line2: string;
+  /** The same, in parts for the printed label: "6", "packs" (or "lb", or ""), and the product's label name. */
+  qty: string;
+  unit: string;
+  product: string;
   boxType: string;
   /** "1 of 2" when the customer gets more than one box of this product; "" for one. */
   ofN: string;
@@ -101,13 +105,17 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
     for (const p of g.products) {
       const label = (p.label_name ?? "").trim() || p.name;
       const table: LabelTable = { product: p, group: g.group, rows: [], weightUnknown: false, noBox: false };
-      const row = (o: LabelOrder, line2: string, boxType: string, boxNo: number, boxCount: number, noBox?: boolean): LabelRow => {
+      const row = (o: LabelOrder, n: number, unit: string, boxType: string, boxNo: number, boxCount: number, noBox?: boolean): LabelRow => {
         const name = o.name ?? o.customer;
         const location = o.location ?? "";
         const ofN = boxCount > 1 ? `${boxNo} of ${boxCount}` : "";
+        const line2 = amountText(n, unit, label);
         return {
           customer: o.customer,
           line2,
+          qty: fmt(n),
+          unit: unit === "each" ? "" : unitWord(unit, n),
+          product: label,
           boxType,
           ofN,
           ...(noBox ? { noBox: true } : {}),
@@ -120,8 +128,8 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
         };
       };
       // A line no box can be worked out for still gets one label, with box "?" (Lucas, 10/21/26).
-      const noBoxRow = (o: LabelOrder, line2: string) => {
-        table.rows.push(row(o, line2, "?", 1, 1, true));
+      const noBoxRow = (o: LabelOrder, n: number, unit: string) => {
+        table.rows.push(row(o, n, unit, "?", 1, 1, true));
         table.noBox = true;
       };
       for (const o of sorted) {
@@ -129,19 +137,18 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
         if (!(q > 0)) continue;
         const taken = o.units?.[p.id];
         const amount = toProductUnit(q, taken, { unit: p.unit, lb_per_unit: p.lb_per_unit ?? null });
-        const asOrdered = taken && taken !== p.unit ? `${fmt(q)} ${taken}` : amountText(q, p.unit, "").trim();
         if (!(amount > 0)) {
-          noBoxRow(o, `${asOrdered} ${label}`);
+          noBoxRow(o, q, taken ?? p.unit);
           continue;
         }
         const plan = planBoxes(amount, p, boxes.limits.get(p.id) ?? [], boxes.types, boxes.capLb);
         if (plan.notBoxed) continue; // never boxed (Carcass Lamb): no labels
         if (plan.problem) {
-          noBoxRow(o, amountText(amount, p.unit, label));
+          noBoxRow(o, amount, p.unit);
           continue;
         }
         if (plan.weightUnknown) table.weightUnknown = true;
-        plan.boxes.forEach((b, i) => table.rows.push(row(o, amountText(b.amount, p.unit, label), b.typeName, i + 1, plan.boxes.length)));
+        plan.boxes.forEach((b, i) => table.rows.push(row(o, b.amount, p.unit, b.typeName, i + 1, plan.boxes.length)));
       }
       if (table.rows.length) tables.push(table);
     }
