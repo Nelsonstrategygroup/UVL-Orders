@@ -132,10 +132,10 @@ describe("the label layout (10/24/26)", async () => {
     const l = L({ number: 168, boxNo: 10, boxCount: 12, boxType: "Roll Stock" });
     expect(l.boxTag).not.toBeNull();
     expect(l.boxText.text).toBe("BOX 10 OF 12");
-    expect(l.typeText.text).toBe("ROLL STOCK");
+    expect(l.typeText!.text).toBe("ROLL STOCK");
     expect(l.labelNo.text).toBe("label 168");
     expect(l.boxTag!.x + l.boxTag!.w).toBeLessThan(l.labelNo.x);
-    expect(l.labelNo.x + l.labelNo.w).toBeLessThan(l.typeTag.x);
+    expect(l.labelNo.x + l.labelNo.w).toBeLessThan(l.typeTag!.x);
   });
 
   it("a single-box label never shows the red tag", () => {
@@ -143,5 +143,13 @@ describe("the label layout (10/24/26)", async () => {
     expect(l.boxTag).toBeNull();
     expect(l.boxText.text).toBe("Box 1 of 1");
     expect(l.boxText.size).toBe(9);
+  });
+
+  it("a label never shows a question mark: an unknown box type leaves the tag off", () => {
+    const l = L({ boxType: "?" });
+    expect(l.typeTag).toBeNull();
+    expect(l.typeText).toBeNull();
+    const all = [...l.dest, ...l.qtyLines, ...l.productLines, l.boxText, l.labelNo].map((x) => x.text).join(" ");
+    expect(all).not.toContain("?");
   });
 });

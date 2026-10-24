@@ -35,7 +35,13 @@ questions doc.
   boxes say plain "Box 1 of 1".
 - The label number moved to the middle of the bottom line as "label 14" (no
   "#", which was confusing next to PCC store numbers). It's for the office.
-- The box type is in an outlined tag on the right, uppercase.
+- The box type is in an outlined tag on the right, uppercase. A label never shows
+  a question mark: when the box type isn't known, the tag is left off (the
+  Box Label Report still shows "?").
+- Changing a product's unit in Setup changes how its existing order lines read
+  (a line only stores its unit when it differs from the product's). On 10/24
+  Chops went from lb to packs; Key City's "20" now reads 20 packs, which is
+  what was ordered, so nothing was changed.
 - Labels print customers as stored in Customers: "Port Townsend" is its own
   customer with no chain, so its label shows only that.
 

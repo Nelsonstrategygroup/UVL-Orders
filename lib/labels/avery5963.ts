@@ -113,9 +113,9 @@ export type LabelLayout = {
   boxText: TextLine;
   /** "label 14", small and gray, in the middle. */
   labelNo: TextLine & { w: number };
-  /** The box type in an outlined tag on the right. */
-  typeTag: Rect;
-  typeText: TextLine;
+  /** The box type in an outlined tag on the right; left off when the box type isn't known ("?"). */
+  typeTag: Rect | null;
+  typeText: TextLine | null;
 };
 
 const W = SHEET.labelW * IN; // 288
@@ -222,8 +222,10 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   // Bottom right: the box type in an outlined tag.
   const type = plain(l.boxType).toUpperCase();
   const typeW = m.bold(type, 9) + 12;
-  const typeTag = { x: W - PAD - typeW, y: tagTop, w: typeW, h: LAYOUT.tagH };
-  const typeText = { text: type, x: typeTag.x + 6, y: midTag(9), size: 9 };
+  // A label never shows a question mark: with no box size worked out, the tag is left off (Lucas, 10/24/26).
+  const known = type !== "" && type !== "?";
+  const typeTag = known ? { x: W - PAD - typeW, y: tagTop, w: typeW, h: LAYOUT.tagH } : null;
+  const typeText = typeTag ? { text: type, x: typeTag.x + 6, y: midTag(9), size: 9 } : null;
 
   // Middle: the label number, for the office only.
   const no = `label ${l.number}`;
@@ -276,8 +278,10 @@ function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel
     text(L.boxText, f.bold, white);
   } else text(L.boxText, f.regular);
   text(L.labelNo, f.regular, rgb(0.45, 0.45, 0.45));
-  rounded(L.typeTag, LAYOUT.tagRadius, { borderColor: black, borderWidth: 0.75 });
-  text(L.typeText, f.bold);
+  if (L.typeTag && L.typeText) {
+    rounded(L.typeTag, LAYOUT.tagRadius, { borderColor: black, borderWidth: 0.75 });
+    text(L.typeText, f.bold);
+  }
 }
 
 /** The labels as a PDF: US Letter, exact sizes, starting at a position on the first sheet. */
