@@ -2,8 +2,8 @@
 
 Things to settle with the people who use the app. The app works today with
 the current answer in brackets; each is a small change if they want it
-different. Updated 10/22/26 (after requested lines and the Undo change):
-settled questions are at the end.
+different. Updated 10/24/26 (after box label printing): settled questions
+are at the end.
 
 ## New
 
@@ -16,23 +16,26 @@ settled questions are at the end.
    add up to 106 packs of front shanks (11 orders). Lucas expected about 75
    packs. Are any of these entered as single shanks instead of packs? [Left
    as entered.]
-3. **Printing box labels from the app.** Once the Box Label Report feels
-   right, the app can print the labels themselves. What do you print labels
-   on today (printer make and model, or the label sheet's product number),
-   what size is a label, and should anything else go on it besides the
-   customer, how many and what, the box, and "1 of 2"? [The app prints a
-   list to copy from.]
+3. **Box labels on your printer.** The app now prints labels on Avery 5963
+   sheets. Before the first real sheet: on the Box Label Report, print the
+   Alignment test on plain paper at Actual size / 100% (not Fit to page),
+   hold it over a label sheet against the light, and check each dashed box
+   sits on a label. If they're off, set the offset in My account > Box label
+   printer. Did it line up, and do the labels read well? [Offset 0.]
 4. **Follow-ups "due this week"** on This week now run to the week's
    Wednesday (the last day of the order week). Is that right? [Up to
    Wednesday.]
-5. **Heart, Liver, Kidney (most urgent for box labels).** About how much does
-   one pack weigh? Their box limits are in pounds, so without a weight per
-   pack the app can't work out the box. On the Box Label Report they print
-   one label per customer with the box as "?" (33 labels for Mon Oct 19,
-   across the PCC stores), and a large order may need more than one box.
-   Necks have the same problem once someone orders them. Also: the order
-   sheet says Heart comes in packs of 2, Liver packs of 1, Kidney packs of 4.
-   Are those right? [Box "?"; pack sizes as in Setup.]
+5. **Heart, Liver, Kidney, and now Chops (most urgent for box labels).**
+   About how much does one pack weigh? Their box limits are in pounds, so
+   without a weight per pack the app can't work out the box. They print one
+   label per customer with no box type on it (the Box Label Report shows
+   "?"), and a large order may need more than one box. Necks have the same
+   problem once someone orders them. Chops joined this list on 10/24, when
+   it was changed from pounds to packs in Setup (Key City's order is 20
+   packs of 4). Either a weight per pack (Setup > Products) or how many
+   packs fit in each box (Setup > Boxes) fixes it. Also: the order sheet says
+   Heart comes in packs of 2, Liver packs of 1, Kidney packs of 4. Are those
+   right? [No box type on the label; pack sizes as in Setup.]
 6. **Pallet groups.** Setup > Pallet groups is empty, so Packing lists every
    customer by name. Which customers ship together on a pallet, and in what
    order? (For example, PCC stores on one pallet.) [None; Packing lists by
@@ -80,6 +83,13 @@ settled questions are at the end.
     have no Undo, since you can just change them back. Anything that should
     be added or taken off that list? [As listed.]
 
+14. **Changing a product's unit.** An order line only remembers its unit
+    when it's different from the product's. So when a product's unit changes
+    in Setup (Chops went from pounds to packs on 10/24), existing orders read
+    in the new unit: Key City's "20" became 20 packs, which was right this
+    time. Should the app warn before a unit change when the product is on
+    open orders? [No warning.]
+
 ## Box limits to confirm (from Kathy's box sheet)
 
 These are the cells marked "needs checking" in Setup > Boxes (30 right now).
@@ -87,63 +97,63 @@ Until they're filled in, the app doesn't use those boxes when it splits an
 order, so filling one in can change how orders are boxed. They're no longer
 warnings on the Box Label Report; one quiet line there says how many are left.
 
-14. **Baby box:** most products have no Baby box limit yet. Which products go
+15. **Baby box:** most products have no Baby box limit yet. Which products go
    in a Baby box, and how many?
-15. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy also
+16. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy also
    said 8 would weigh 55 to 60 lb, and a box of 9 weighed 45.15 lb on 10/12.
    What's the one number?
-16. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the recording)?
-17. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
+17. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the recording)?
+18. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
    said labels don't change the count.)
-18. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
+19. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
    app plans 7. Is 7 right?
-19. **Denver Ribs:** which boxes, and how much in each?
-20. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
+20. **Denver Ribs:** which boxes, and how much in each?
+21. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
    relevant.)
-21. **Pet Mix and Organ Grind:** are they the same product or two different
+22. **Pet Mix and Organ Grind:** are they the same product or two different
     ones?
 
 ## For Kathy
 
-22. Should the app build the cut sheet from the week's orders for you? Today
+23. Should the app build the cut sheet from the week's orders for you? Today
     you set up the sets (name, size, how many lambs, which instructions), and
     the app checks that each set adds up and totals the lambs. If a set has
     customers linked to it, "Put these on this set" adds their orders to it.
     To build the whole sheet on its own, the app would need your rules: which
     customers' orders go together in a set, how you pick each set's size, and
     where extra lambs go. [You build the sheet; copy last week's to start.]
-23. Which day do you call each customer? No customer has a call day yet, so
+24. Which day do you call each customer? No customer has a call day yet, so
     Calls lists everyone alphabetically instead of putting today's calls
     first. [Blank. Set it on each customer's page, under Edit details.]
-24. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
+25. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
     If so, tick "Bills for all locations" on the chain, and each store's page
     will show who to bill. [Off for both.]
-25. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
+26. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
     them? [Blank, so "Email to Mohawk" opens a draft with no address.]
-26. What does "Lambs Pulled From Inventory" track, and where does the INV#
+27. What does "Lambs Pulled From Inventory" track, and where does the INV#
     come from? It's also the "Invoice batch" on the order sheets and the
     "Inv" in the week header. (Also on the printed cut sheet questions.)
     [Typed in by hand on the cut sheet.]
-27. Are these duplicates: French Rack and Frenched Rack; the two netted
+28. Are these duplicates: French Rack and Frenched Rack; the two netted
     boneless shoulder wordings; the two bone-in shoulder wordings? (Also on
     the printed cut sheet questions.) [Kept separate.]
-28. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
+29. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
     racks, Behman carcasses) be hidden for other customers? [Shown for
     everyone.]
-29. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
+30. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
     with the "shank on" checkbox on plain leg lines.]
-30. The size block at the top right of the printed cut sheet counts lambs in
+31. The size block at the top right of the printed cut sheet counts lambs in
     sets that have a whole-carcass line, for XL, Large, Medium and Small (XS
     isn't listed). Is that what it should count, and should XS be listed?
     [As in the prototype; see spec 6.5.]
-31. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
+32. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
     choice anyway, so two halves from one lamb would both get a neck. Is
     that right, or should only whole lambs get the neck? [A half gets a
     neck.]
-32. Pending half and whole lambs add their cuts to the totals of every week
+33. Pending half and whole lambs add their cuts to the totals of every week
     you look at, until they're marked filled. Should they only count in the
     week they're needed? [Every week, until filled.]
-33. Le Trim: Kathy is moving to half a boneless leg per trim pack. What's the
+34. Le Trim: Kathy is moving to half a boneless leg per trim pack. What's the
     exact amount? [Le Trim is filled from extras and doesn't touch the lamb
     count until this is settled.]
 
@@ -154,6 +164,11 @@ Fix these on the customer's page (Edit details and contacts).
 - Seven Feathers has no contact or phone.
 - Corfini Gourmet SF has the same phone as Corfini Main (503-928-4771).
 - Preservation Meat has the same phone as Corfini Gourmet SAC (916-452-3996).
+
+- Box labels print the customer as stored. "Port Townsend" is its own
+  customer with no chain, and Newport Ave is stored as "Newport Ave". If a
+  label should read differently (for example "Newport Avenue Market Bend"),
+  change the name, or put the store under its chain, in Customers.
 
 ## For Lucas
 
@@ -186,8 +201,20 @@ Fix these on the customer's page (Edit details and contacts).
 - This week shows front and hind shanks in packs, to match the orders (need
   110 packs, get 82, short 28 for Mon Oct 19) (Lucas, 10/21/26).
 - A product with no box size (Heart, Liver, Kidney) still gets one label per
-  customer on the Box Label Report, box "?", counted in the total
-  (Lucas, 10/21/26).
+  customer, counted in the total. The Box Label Report shows "?" for its
+  box; the printed label leaves the box type off (Lucas, 10/21/26 and
+  10/24/26).
+- Box labels print from the app on Avery 5963 sheets (4" x 2", 10 per sheet):
+  Print all or selected, starting at any position on a partly used sheet. Each
+  box row has a label number for the week that never changes when other
+  orders do; prints are logged, and rows changed after printing say "Changed
+  since printed" (Lucas, 10/23/26).
+- Label layout: the customer and store as one bold name ("PCC #10
+  Issaquah"), the quantity in a black box and the product in a green band, a
+  red "BOX 2 OF 3" tag only on multi-box orders, "label 14" small in the
+  middle, and the box type on the right. Box types stay MVM, Roll Stock,
+  Jerky, White, Baby (some paperwork says Mohawk and Rollstock) (Lucas,
+  10/23/26 and 10/24/26).
 - Every report on Print and download opens as a page to read or print, and
   Box sizes prints the Setup > Boxes grid with a blank Notes column for
   corrections (Lucas, 10/21/26).
