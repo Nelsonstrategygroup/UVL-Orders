@@ -53,6 +53,21 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       const r = await withTimeout(query);
       return classify(r.error, r.status);
     }
+    case "weight-move": {
+      let query = db.from("packing_weights").update({
+        order_id: a.order_id,
+        week_id: a.order_id ? null : a.week_id,
+        pallet_id: a.pallet_id,
+        slot: a.slot,
+        label_no: a.label_no,
+        off_order: a.off_order,
+      });
+      query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
+      const r = await withTimeout(query);
+      // The store's order was deleted meanwhile.
+      if (r.error?.code === "23503") return { kind: "done", note: "A box was moved to an order that no longer exists. Kathy should check it." };
+      return classify(r.error, r.status);
+    }
     case "weight-pallet": {
       let query = db.from("packing_weights").update({ pallet_id: a.pallet_id });
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");

@@ -2924,3 +2924,66 @@ tr.zebra td,
 .scan-area {
   scroll-margin-top: 72px;
 }
+
+/* Scan boxes, fix of 10/26/26: tap the store on the label (big, by PCC
+   number, with its label number); over-the-order warning; a box scanned
+   again with big buttons to put it right. Sized for gloves. */
+@layer components {
+  .route-store {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.1rem 0.8rem;
+    min-height: 72px;
+    padding: 0.6rem 0.9rem;
+    border: 2px solid var(--forest);
+    border-radius: 12px;
+    background: var(--paper);
+    text-align: left;
+  }
+  .route-store-name {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+  .route-store-label {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--forest);
+    white-space: nowrap;
+  }
+  .route-store small {
+    grid-column: 1 / -1;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+  .route-over {
+    margin: 0.6rem 0 0;
+    padding: 0.6rem 0.8rem;
+    border-radius: 10px;
+    background: var(--bad);
+    color: var(--barn);
+    font-size: 1.05rem;
+  }
+  .route-card.dup {
+    border-color: var(--barn);
+  }
+  .dup-facts {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.9rem;
+    margin: 0.6rem 0 0;
+    font-size: 1.1rem;
+  }
+  .dup-facts dt {
+    color: var(--ink-soft);
+  }
+  .dup-facts dd {
+    margin: 0;
+  }
+  .bigbtn.danger {
+    background: var(--paper);
+    color: var(--barn);
+    border-color: var(--barn);
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidates, needFor, needWords, nextTag, palletFor, palletTotals, shipmentPallets, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
+import { byStoreNumber, candidates, overOrder, needFor, needWords, nextTag, palletFor, palletTotals, shipmentPallets, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
 import type { SheetRow } from "./packSheet";
 
 const row = (known: boolean, boxCount: number, filled: number, blanks = boxCount + 2): SheetRow => ({
@@ -142,5 +142,25 @@ describe("which pallet", () => {
     expect(t.boxes).toBe(3);
     expect(t.lb).toBe(35.75);
     expect(t.byCustomer.get("a")).toEqual({ boxes: 2, lb: 30.5 });
+  });
+});
+
+describe("over the order (10/26/26)", () => {
+  it("boxes: over once every planned box is packed", () => {
+    expect(overOrder({ kind: "boxes", done: 0, total: 1 }, 20)).toBe(false);
+    expect(overOrder({ kind: "boxes", done: 1, total: 1 }, 20)).toBe(true);
+  });
+  it("pounds: over when this box takes it past what was ordered", () => {
+    expect(overOrder({ kind: "lb", done: 30, total: 45 }, 15)).toBe(false);
+    expect(overOrder({ kind: "lb", done: 30, total: 45 }, 16)).toBe(true);
+  });
+  it("not on their order, or the line marked done: over", () => {
+    expect(overOrder(null, 10)).toBe(true);
+    expect(overOrder({ kind: "open", done: 1, open: false }, 10)).toBe(true);
+    expect(overOrder({ kind: "open", done: 1, open: true }, 10)).toBe(false);
+  });
+  it("stores sort by PCC number", () => {
+    const names = ["PCC #20 Bellevue", "Key City", "PCC #05 View Ridge", "PCC #12 Redmond"].map((name) => ({ name }));
+    expect(names.sort(byStoreNumber).map((x) => x.name)).toEqual(["Key City", "PCC #05 View Ridge", "PCC #12 Redmond", "PCC #20 Bellevue"]);
   });
 });

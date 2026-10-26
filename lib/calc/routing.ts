@@ -152,3 +152,20 @@ export function palletTotals(boxes: { customerId: string | null; weight: number 
   const lb = boxes.reduce((s, b) => s + num(b.weight), 0);
   return { boxes: boxes.length, lb: Math.round(lb * 100) / 100, byCustomer: by };
 }
+
+/**
+ * Would one more box (this weight) put the customer over what they ordered
+ * of this product (10/26/26)? Boxes: all planned boxes already packed.
+ * Pounds: the weight would go more than half a pound over. Not on their
+ * order, or the line already marked done: over.
+ */
+export function overOrder(need: Need | null, weightLb: number): boolean {
+  if (!need) return true;
+  if (need.kind === "boxes") return need.done >= need.total;
+  if (need.kind === "lb") return need.done + weightLb > need.total + 0.5;
+  return !need.open;
+}
+
+/** Sort customers so PCC stores go by number ("PCC #05", "PCC #12"), then everyone else by name. */
+export const byStoreNumber = (a: { name: string }, b: { name: string }) =>
+  a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });

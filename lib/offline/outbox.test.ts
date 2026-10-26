@@ -46,6 +46,23 @@ const data = (orders: PackOrder[] = [order()]): PackingData => ({
 let n = 0;
 const q = (action: Action, over: Partial<Queued> = {}): Queued => ({ seq: ++n, action, queuedAt: "2026-10-26T15:00:00Z", tries: 0, ...over });
 
+describe("moving a box to another store (10/26/26)", () => {
+  it("takes it off one store and puts it on the other, with its new pallet and label; unassigning works too", () => {
+    const a = order({ id: "o1", weights: [{ id: "w1", product_id: "rack", weight: 20, box_no: 1, by: "Chris", at: "t", source: "scan", gtin: null, serial: "S1", lot: "1", case_no: null, pallet_id: "p1", client_id: null, slot: 1, label_no: 20 }] });
+    const b = order({ id: "o2", customerId: "c2", weights: [] });
+    const moved = applyQueue(data([a, b]), [
+      q({ type: "weight-move", from_order_id: "o1", weight_id: "w1", order_id: "o2", week_id: "2026-10-19", pallet_id: "p2", slot: 1, label_no: 22, off_order: false }),
+    ]);
+    expect(moved.orders[0].weights).toHaveLength(0);
+    expect(moved.orders[1].weights[0]).toMatchObject({ id: "w1", pallet_id: "p2", label_no: 22 });
+    const gone = applyQueue(data([a, b]), [
+      q({ type: "weight-move", from_order_id: "o1", weight_id: "w1", order_id: null, week_id: "2026-10-19", pallet_id: null, slot: null, label_no: null, off_order: false }),
+    ]);
+    expect(gone.orders[0].weights).toHaveLength(0);
+    expect(gone.unassigned[0]).toMatchObject({ id: "w1", pallet_id: null });
+  });
+});
+
 describe("what the packer sees while things wait on the phone", () => {
   it("a weight shows straight away, marked as only on this phone", () => {
     const d = applyQueue(data(), [q({ type: "weight-add", client_id: "a", order_id: "o1", product_id: "rack", weight: 22.15, box_no: 1, at: "t" })]);

@@ -29,6 +29,36 @@ questions doc.
 
 ## Decisions
 
+### Boxes on the wrong store (10/26/26)
+What happened: three boxes packed on Mon Oct 26 were recorded for a
+different store than the label on the box (Columbia instead of Ballard,
+Fremont instead of Bellevue, Key City instead of Redmond).
+Cause: scan-first routing can't read the store from Mohawk's barcode, so
+it suggested the store furthest behind on its order, pre-selected it, and
+one tap saved it. The card showed the suggested store's label number, not
+the box's. Two boxes went to that guess; the third was picked by hand onto a
+customer that hadn't ordered it, past a small warning.
+Fixed:
+- Data (migration 20261026000600): each box moved to the store on its label,
+  its labelled box and planned pallet; the 11.30 lb neck weight typed for
+  Bellevue (the same box, Lucas) removed. Logged as Lucas. Reprint the P1,
+  P2 and P3 manifests.
+- When more than one store needs the scanned product, nothing is chosen:
+  big store buttons sorted by PCC number, each with its label number, and
+  Chris taps the store on the label. With only one store, it's chosen for
+  him (still a tap).
+- Over the order: a box that would put a store over what it ordered stops
+  with the store's ordered and packed counts: Pick a different store, or
+  Yes, add it anyway. In lock mode too.
+- Move (Scan boxes, Last boxes scanned) now changes the store as well as the
+  pallet: stores that still need the product by PCC number (or all), the
+  pallet follows the store, the box and label number follow too; going over
+  is warned, not blocked. Logged in the audit log, like lot changes.
+- Scanning a box again shows it as recorded (product, weight, lot, store,
+  pallet) with big buttons: That's right, Wrong store, Wrong pallet, Remove
+  scan (takes it off its store into Unassigned, after a yes).
+Tested at phone width with test stores; test data deleted.
+
 ### Scan-to-pallet routing (10/26/26)
 What changed:
 - Scan boxes now suggests who each box is for and which pallet it goes on,

@@ -51,6 +51,23 @@ export type Action =
   | { type: "pallet-customer"; week_id: string; pallet_id: string; customer_id: string; on: boolean }
   /** Move a box to another pallet (it went on the wrong one). */
   | { type: "weight-pallet"; order_id: string | null; weight_id?: string; client_id?: string; pallet_id: string | null }
+  /**
+   * Move a box to another store (and its pallet, box and label), or unassign
+   * it (no store, no pallet): fixing a box that went to the wrong store
+   * (10/26/26). The audit log keeps the old and new store.
+   */
+  | {
+      type: "weight-move";
+      from_order_id: string | null;
+      weight_id?: string;
+      client_id?: string;
+      order_id: string | null;
+      week_id: string;
+      pallet_id: string | null;
+      slot: number | null;
+      label_no: number | null;
+      off_order: boolean;
+    }
   /** Delete a pallet started by mistake. Only an empty one: a pallet with boxes is kept. */
   | { type: "pallet-delete"; id: string; tag: string }
   /** A pallet is full (or open again, or shipped). */
@@ -171,6 +188,17 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       const o = a.order_id ? byId.get(a.order_id) : undefined;
       if (o) o.weights = o.weights.map((w) => (hit(w) ? { ...w, pallet_id: a.pallet_id } : w));
       for (let i = 0; i < unassigned.length; i++) if (hit(unassigned[i])) unassigned[i] = { ...unassigned[i], pallet_id: a.pallet_id };
+    } else if (a.type === "weight-move") {
+      const hit = (w: PackWeight) => (a.weight_id && w.id === a.weight_id) || (a.client_id && w.client_id === a.client_id);
+      const from = a.from_order_id ? byId.get(a.from_order_id) : undefined;
+      let moved: PackWeight | undefined = from ? from.weights.find(hit) : unassigned.find(hit);
+      if (!moved) continue;
+      if (from) from.weights = from.weights.filter((w) => !hit(w));
+      else unassigned.splice(unassigned.indexOf(moved), 1);
+      moved = { ...moved, pallet_id: a.pallet_id, slot: a.slot, label_no: a.label_no };
+      const to = a.order_id ? byId.get(a.order_id) : undefined;
+      if (to) to.weights.push(moved);
+      else unassigned.push(moved);
     } else if (a.type === "weight-remove") {
       const o = byId.get(a.order_id);
       if (!o) continue;

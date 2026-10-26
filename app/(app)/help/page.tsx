@@ -58,9 +58,10 @@ export default async function HelpPage() {
         sees it.
       </Step>
       <Step n={4} title="Scan boxes onto pallets">
-        Tap <b>Scan boxes</b> and scan a box. The app shows the pallet in big letters (<b>→ P3</b>), who the box is for, and
-        its label number. Tap <b>Put on P3</b> and carry it there. Going somewhere else? Tap another customer below it, or{" "}
-        <b>Pick customer anyway</b>. No pallet yet? Write a tag on the pallet, type it, and tap <b>Start</b>. When a pallet is
+        Tap <b>Scan boxes</b> and scan a box. If more than one store needs it, tap the store on the box&apos;s label (the label
+        number is on each button). The app then shows the pallet in big letters (<b>→ P3</b>). Tap <b>Put on P3</b> and carry it
+        there. If it says <b>Over the order</b>, check the label. Scanned a box twice, or put one in the wrong place? Scan it
+        again and tap <b>Wrong store</b> or <b>Wrong pallet</b>. No pallet yet? Write a tag on the pallet, type it, and tap <b>Start</b>. When a pallet is
         full, tap <b>Pallet full</b>. Packing one customer at a time? <b>Lock to a customer</b> and every scan goes to them.
         Each box holds one product only.
       </Step>
