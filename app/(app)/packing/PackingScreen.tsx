@@ -113,6 +113,11 @@ export default function PackingScreen() {
             Scan boxes
           </Link>
         )}
+        {data.orders.length > 0 && (
+          <Link href="/packing/pallets" className="btn ghost mb-2.5 w-full min-h-[48px] text-[1.05rem]">
+            Pallets
+          </Link>
+        )}
         <div className="packhead">
           <span className="muted">
             {stats.done} of {stats.total} lines packed

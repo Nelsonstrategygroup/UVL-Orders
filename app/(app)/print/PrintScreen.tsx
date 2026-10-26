@@ -169,6 +169,12 @@ export default function PrintScreen() {
           </Item>
         )}
         {seePacking && (
+          <Item key="pallets" title="Pallets and manifest" action={open("/packing/pallets")}>
+            Plan which stores go on which pallet, see what&apos;s on each, and print the pallet manifest (boxes by store for the
+            distributor).
+          </Item>
+        )}
+        {seePacking && (
           <Item key="paper-in" title="Type in from paper" action={open("/packing/paper")}>
             After packing on paper, type the weights in. Laid out just like the paper.
           </Item>

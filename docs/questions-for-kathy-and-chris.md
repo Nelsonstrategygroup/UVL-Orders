@@ -21,9 +21,11 @@ and scan-to-pallet routing): settled questions are at the end.
    distributor, called "PCC distributor" for now. What's its real name? Rename
    it in Setup > Ships to. And do all 16 PCC stores ship through it?
    [Every PCC store, through "PCC distributor".]
-4. **Ships to for everyone else.** Every other customer ships direct (its own
-   pallets). Is anyone else going through a distributor? Does any PCC store
-   ever ship direct? [Everyone else Direct.]
+4. **Ships to for everyone else.** On 10/26 Key City and Port Townsend were
+   on Pallet 3 with several PCC stores, so the distributor carries more than
+   PCC (Lucas). Which other customers go through it, and does any PCC store
+   ever ship direct? Set each one in Setup > Ships to. [Everyone but PCC
+   stores Direct, until set.]
 5. **Ship days.** The app could suggest boxes for the customer that ships
    soonest first, if it knew each customer's ship day (Tuesday or
    Wednesday). Which customers ship which day? [Not used yet; ship day left
