@@ -507,3 +507,16 @@ Kathy prints box labels on Avery 5963 sheets: 4" x 2", ten per US Letter sheet, 
 - **Rule**: labels are never edited directly. Corrections go through the order, so the report, the labels, and the packing record agree.
 - **Printer settings**: My account has a printer offset (X and Y, inches, default 0) added to every label, kept on that device. "Alignment test" prints dashed outlines of all ten positions on plain paper.
 - **Numbers need signal**: the report works from the phone's copy offline, but numbering and printing labels need a connection.
+
+## 13. Le Trim plan (change request 10/25/26)
+
+Le Trim is made by hand from what's left over after the other orders: extra shoulders (boned out) and extra legs cut in half, each with trim. Kathy decides the mix each week. The app shows what's spare, checks what she enters, and puts it on the cut sheet. It never changes the lamb count (Kathy works the count out herself for now).
+
+- **Screen** (`/week/le-trim`, a "Le Trim" step on This week when Le Trim is ordered): big numbers for Le Trim ordered (lb and 10 lb packs), extra shoulders, extra legs (and the most half legs they make), and extra trim. Extra trim is marked **Estimated** until Kathy types the actual figure from the kill sheet.
+- **What Kathy enters**: shoulders, half legs, and trim (lb). Half legs show as "= N legs cut in half" (legs = half legs / 2, rounded up). Trim shows "About X lb" from the settings, with a button to use that figure. These are what she actually used, so over time the history shows what's routine.
+- **Suggest** (optional): shoulders first, then half legs, one per pack ordered, trim from the settings. It only fills the boxes; nothing is saved until she taps Save.
+- **Checks** (live, warnings only, never block saving): pieces vs packs ordered; shoulders vs extra shoulders; half legs vs what the extra legs make; trim used vs trim spare ("about" while estimated).
+- **Saving**: one record per week (`le_trim_plans`: shoulders, half legs, legs, trim lb, estimated trim, actual trim, who and when). It can be changed any time in the week. Saved, it comes out of the week's extras (shoulders, legs and trim `need` go up; the lamb count does not) and adds "Bone out N shoulders for Le Trim" and "Halve N legs for Le Trim" to the top of the cut sheet. A change after the sheet was sent shows as changed since sent.
+- **Before it's saved**: This week says "Le Trim isn't planned yet. Some of these extras will go to Le Trim."
+- **Settings** (Setup > Le Trim): trim with each shoulder (default 5 lb) and with each half leg (default 6.5 lb). Only used for the estimate and Suggest.
+- **Open**: whether a pack takes one shoulder or half leg (Suggest and the first check assume one per 10 lb pack); whether "extra shoulders" should mean every spare shoulder or only those not set aside for the freezer, grind, or half and whole orders (today: every spare shoulder in the balance); the two trim figures.

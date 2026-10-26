@@ -15,6 +15,7 @@ import type {
   Customer,
   CustomersData,
   LastContact,
+  LeTrimPlanRow,
   Order,
   OrderRequest,
   OrderUnit,
@@ -56,7 +57,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     db.from("product_part_uses").select("product_id, part_id, qty"),
     db.from("cut_specs").select("id, text, use_type, active, sort").order("sort"),
     db.from("size_classes").select("id, label, weight_range, sort").order("sort"),
-    db.from("app_settings").select("processor_name, processor_email, standing_instructions, company_name, box_cap_lb").maybeSingle(),
+    db.from("app_settings").select("*").maybeSingle(),
     loadBoxSetup(db),
   ]);
 
@@ -294,8 +295,31 @@ export async function loadCustomerHistory(db: SupabaseClient, customerId: string
   return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit);
 }
 
+/** The week's saved Le Trim plan, or null (none yet, or before its migration). */
+export async function loadLeTrimPlan(db: SupabaseClient, week: string): Promise<LeTrimPlanRow | null> {
+  const { data, error } = await db
+    .from("le_trim_plans")
+    .select("week_id, shoulders, half_legs, legs, trim_lb, trim_estimated_lb, trim_actual_lb, saved_at, profiles(display_name)")
+    .eq("week_id", week)
+    .maybeSingle();
+  if (error || !data) return null;
+  const r = data as unknown as Omit<LeTrimPlanRow, "saved_by_name"> & { profiles: { display_name: string } | null };
+  const n = (v: unknown) => (v == null ? null : num(v as number));
+  return {
+    week_id: r.week_id,
+    shoulders: num(r.shoulders),
+    half_legs: num(r.half_legs),
+    legs: num(r.legs),
+    trim_lb: num(r.trim_lb),
+    trim_estimated_lb: n(r.trim_estimated_lb),
+    trim_actual_lb: n(r.trim_actual_lb),
+    saved_at: r.saved_at,
+    saved_by_name: r.profiles?.display_name ?? null,
+  };
+}
+
 export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekData> {
-  const [weekRow, orders, weights, marks, hw, freezer, sets, sheet] = await Promise.all([
+  const [weekRow, orders, weights, marks, hw, freezer, sets, sheet, leTrim] = await Promise.all([
     db.from("weeks").select("id, process_date, producer, lamb_override, notes, labels_hash, labels_printed_at").eq("id", week).maybeSingle(),
     loadOrders(db, week),
     fetchAll<{ order_id: string; product_id: string; weight: number }>((a, b) =>
@@ -330,6 +354,7 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     ),
     db.from("cut_sets").select("lambs, size_class_id").eq("week_id", week),
     db.from("cut_sheets").select("sent_at, inv_number").eq("week_id", week).maybeSingle(),
+    loadLeTrimPlan(db, week),
   ]);
 
   // Pounds packed per line, and lines marked not filled.
@@ -361,6 +386,7 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     freezer: freezer.map((f) => ({ product_id: f.product_id, qty: num(f.qty) })),
     cutSets: (must(sets) as { lambs: number; size_class_id: string | null }[]) ?? [],
     cutSheet: must(sheet) as WeekData["cutSheet"],
+    leTrim,
   };
 }
 

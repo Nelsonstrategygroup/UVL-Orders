@@ -12,6 +12,8 @@ import MohawkSheet from "@/components/MohawkSheet";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
+import { leTrimCutLines } from "@/lib/calc/leTrim";
+import Link from "next/link";
 import { emailSubject, hashText, USE_GROUPS, USES, type CutSpecLite } from "@/lib/calc/cutsheet";
 import { setTitle, sheetProblems, sheetStatus, sheetText } from "@/lib/cutsheetView";
 import { orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
@@ -23,7 +25,7 @@ import * as cs from "@/lib/db/cutsheet";
 import type { SheetLine, SheetSet } from "@/lib/db/cutsheet";
 import SetCard, { type SetActions } from "./SetCard";
 
-const LIVE_TABLES = ["cut_sheets", "cut_sets", "cut_set_lines", "orders", "order_lines"];
+const LIVE_TABLES = ["cut_sheets", "cut_sets", "cut_set_lines", "orders", "order_lines", "le_trim_plans"];
 
 export default function CutSheetScreen() {
   const { week } = useWeek();
@@ -302,6 +304,14 @@ export default function CutSheetScreen() {
             Add a saving goal (bones, bellies, necks)
           </button>
 
+          {leTrimCutLines(data.leTrim).map((line) => (
+            <div key={line} className="banrow">
+              <div className="field flex-1 items-center">{line}</div>
+              <Link href="/week/le-trim" className="btn ghost shrink-0">
+                Change
+              </Link>
+            </div>
+          ))}
           <div className="mt-2">
             {data.banners.map((b) => (
               <div key={b.id} className="banrow">

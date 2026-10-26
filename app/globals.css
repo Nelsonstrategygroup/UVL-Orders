@@ -416,6 +416,10 @@
     border-radius: 4px;
     margin: 0 0 1rem;
   }
+  .note.warn {
+    background: var(--warn);
+    border-left-color: var(--wool-dark);
+  }
   .note.bad {
     background: var(--bad);
     border-left-color: var(--barn);
@@ -2429,5 +2433,91 @@ tr.zebra td,
   .labelsheet * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+}
+
+/* Le Trim plan (change request 10/25/26): big numbers, big boxes. */
+@layer components {
+  .lt-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.6rem;
+  }
+  .lt-facts > div {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    display: grid;
+    gap: 0.1rem;
+  }
+  .lt-facts span {
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+  }
+  .lt-facts b {
+    font-family: var(--display);
+    font-size: 2rem;
+    line-height: 1.15;
+    font-weight: 600;
+  }
+  .lt-facts small {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .lt-facts .lt-est {
+    justify-self: start;
+    background: var(--warn);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 0 0.4rem;
+    font-weight: 600;
+  }
+  .lt-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.8rem;
+    margin-top: 0.8rem;
+  }
+  .lt-input {
+    display: grid;
+    gap: 0.3rem;
+    align-content: start;
+  }
+  .lt-input > span {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .lt-input input {
+    font-size: 1.5rem;
+    min-height: 60px;
+    max-width: 12rem;
+  }
+  .lt-input small {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .lt-checks {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+  .lt-checks li {
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    font-size: 1rem;
+  }
+  .lt-checks li.ok {
+    background: var(--ok);
+  }
+  .lt-checks li.warn {
+    background: var(--warn);
+  }
+  .lt-checks li > span {
+    font-weight: 700;
+    display: inline-block;
+    width: 1.1em;
   }
 }

@@ -145,7 +145,7 @@ export async function updateRow(
 
 export async function updateSettings(
   db: SupabaseClient,
-  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string }>,
+  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number }>,
 ): Promise<string | null> {
   const { error } = await db.from("app_settings").update(patch).eq("id", true);
   return msg(error);
@@ -432,5 +432,32 @@ export async function dropRequest(db: SupabaseClient, requestId: string): Promis
 /** Undo a drop: the same request back, as it was. */
 export async function restoreRequest(db: SupabaseClient, row: Record<string, unknown>): Promise<string | null> {
   const { error } = await db.from("order_requests").insert(row);
+  return msg(error);
+}
+
+// ---------------------------------------------------------------------------
+// The Le Trim plan (change request 10/25/26).
+// ---------------------------------------------------------------------------
+
+/** Save (or change) the week's Le Trim plan. Returns an error message, or null. */
+export async function saveLeTrimPlan(
+  db: SupabaseClient,
+  week: string,
+  p: { shoulders: number; halfLegs: number; trimLb: number; trimEstimatedLb: number | null; trimActualLb: number | null },
+): Promise<string | null> {
+  await db.from("weeks").upsert({ id: week }, { onConflict: "id", ignoreDuplicates: true });
+  const { error } = await db.from("le_trim_plans").upsert(
+    {
+      week_id: week,
+      shoulders: p.shoulders,
+      half_legs: p.halfLegs,
+      trim_lb: p.trimLb,
+      trim_estimated_lb: p.trimEstimatedLb,
+      trim_actual_lb: p.trimActualLb,
+      saved_at: new Date().toISOString(),
+      saved_by: (await db.auth.getUser()).data.user?.id ?? null,
+    },
+    { onConflict: "week_id" },
+  );
   return msg(error);
 }

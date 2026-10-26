@@ -2,6 +2,7 @@
 // agree on whether the sheet adds up and whether it changed after sending.
 
 import { cutSheetText, sentStatus, setAddsUp, type CutSpecLite, type SentStatus } from "./calc/cutsheet";
+import { leTrimCutLines } from "./calc/leTrim";
 import type { CutSheetData, SheetSet } from "./db/cutsheet";
 import type { Catalog } from "./db/types";
 
@@ -20,7 +21,7 @@ export function sheetText(data: CutSheetData, catalog: Catalog, specs: Map<strin
       notes: sh.notes,
       pulled: { large: sh.pulled_large, medium: sh.pulled_medium, small: sh.pulled_small },
       goals: data.goals.map((g) => g.text),
-      banners: data.banners.map((b) => b.text),
+      banners: [...leTrimCutLines(data.leTrim), ...data.banners.map((b) => b.text)],
       standing: catalog.settings?.standing_instructions ?? "",
       sets: data.sets,
       sizes: catalog.sizes,

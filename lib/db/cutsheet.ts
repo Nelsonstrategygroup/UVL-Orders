@@ -2,6 +2,7 @@
 // admin only; RLS keeps packing out.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadLeTrimPlan } from "./load";
 import { num } from "../calc/num";
 import type { CutLine } from "../calc/cutsheet";
 import type { Qty, Units } from "../calc/types";
@@ -35,6 +36,8 @@ export type CutSheetData = {
     sent_by_name: string | null;
   } | null;
   banners: { id: string; text: string; sort: number }[];
+  /** The week's Le Trim plan, for "Bone out X shoulders for Le Trim" and "Halve X legs for Le Trim". */
+  leTrim: { shoulders: number; halfLegs: number } | null;
   goals: { id: string; text: string }[];
   sets: SheetSet[];
   /** customer id -> this week's order lines */
@@ -54,7 +57,7 @@ function err(e: { message: string } | null): string | null {
 }
 
 export async function loadCutSheet(db: SupabaseClient, week: string): Promise<CutSheetData> {
-  const [weekRow, sheet, banners, goals, sets, orders, last] = await Promise.all([
+  const [weekRow, sheet, banners, goals, sets, orders, last, leTrim] = await Promise.all([
     db.from("weeks").select("process_date").eq("id", week).maybeSingle(),
     db
       .from("cut_sheets")
@@ -72,6 +75,7 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
       .order("sort"),
     db.from("orders").select("customer_id, order_lines(product_id, qty, unit)").eq("week_id", week),
     db.from("cut_sheets").select("week_id").lt("week_id", week).order("week_id", { ascending: false }).limit(1),
+    loadLeTrimPlan(db, week),
   ]);
 
   type SheetRow = NonNullable<CutSheetData["sheet"]> & {
@@ -129,6 +133,7 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
         }
       : null,
     banners: must(banners) ?? [],
+    leTrim: leTrim ? { shoulders: leTrim.shoulders, halfLegs: leTrim.half_legs } : null,
     goals: must(goals) ?? [],
     sets: setList,
     orders: orderMap,

@@ -4,7 +4,7 @@ Where the UVL Orders app stands, and the decisions behind it, newest first.
 The full rules are in `docs/SPEC.md`; open questions for Kathy and Chris are
 in `docs/questions-for-kathy-and-chris.md`.
 
-## Status (10/23/26)
+## Status (10/25/26)
 
 Live at uvl.nelsonstrategygroup.com: orders, Calls, This week, cut sheet,
 Packing (with scanning and offline use), half and whole, freezer, customers,
@@ -19,11 +19,50 @@ tables the database doesn't send live changes for). Freezer, Half and whole,
 and two Setup lists had the same problem; migration 20261023000300 turns on
 live changes for their tables.
 
+Built 10/25/26, not live yet: the Le Trim plan (see below).
+
 Waiting on Kathy and Chris: weights per pack for Heart, Liver and Kidney; box
 limits marked "needs checking"; delivery days; pallet groups; see the
 questions doc.
 
 ## Decisions
+
+### Le Trim plan (10/25/26)
+What changed:
+- New Le Trim screen for each week (This week > Le Trim step). It shows Le
+  Trim ordered, extra shoulders, extra legs (and how many half legs they
+  make), and extra trim, marked Estimated until Kathy types the actual trim
+  from the kill sheet.
+- Kathy types what she used: shoulders, half legs, trim. The app checks it
+  in plain words (pieces vs packs, shoulders and half legs vs extras, trim
+  left over or short) but never stops her saving.
+- Suggest fills the boxes: shoulders first, then half legs, one per 10 lb
+  pack, trim from Setup. Nothing saves until she taps Save.
+- Saved, the plan comes out of the week's extras and puts "Bone out N
+  shoulders for Le Trim" and "Halve N legs for Le Trim" at the top of the cut
+  sheet. It can be changed any time in the week; a change after sending
+  shows as changed since sent.
+- It doesn't change the lamb count. Kathy works out Le Trim's share herself
+  for now.
+- Until a plan is saved, This week says Le Trim isn't planned yet.
+- Setup > Le Trim: trim with each shoulder (5 lb) and each half leg (6.5 lb),
+  used only for the estimate and Suggest.
+- Migration 20261025000100 (table `le_trim_plans`, two settings). It must be
+  applied before the code goes live.
+
+Decided: Kathy enters what she actually used, so the history can show what's
+routine later (Lucas, 10/25/26). Extra trim is labelled Estimated, as
+suggested.
+
+Open:
+- What a "component" is: does each 10 lb pack take one shoulder or one half
+  leg? Suggest and the first check assume one per pack.
+- Which shoulders count as extra: every spare shoulder in the balance (what
+  it does now), or only those not going to the freezer, grind, or half and
+  whole orders?
+- The trim per shoulder and per half leg (5 and 6.5 lb) need Kathy's
+  confirmation.
+- Whether Le Trim should one day add to the lamb count.
 
 ### Box label layout (10/24/26)
 - The destination prints as one bold name, customer and location together

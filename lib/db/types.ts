@@ -18,6 +18,24 @@ export type AppSettings = {
   company_name: string;
   /** No box is planned heavier (SPEC 12.3). */
   box_cap_lb: number;
+  /** Trim lb per Le Trim component: with a boned-out shoulder, with a half leg (Setup > Le Trim). */
+  le_trim_shoulder_trim_lb?: number;
+  le_trim_half_leg_trim_lb?: number;
+};
+
+/** A week's saved Le Trim plan (change request 10/25/26). */
+export type LeTrimPlanRow = {
+  week_id: string;
+  shoulders: number;
+  half_legs: number;
+  /** Whole legs halved (two half legs each). */
+  legs: number;
+  trim_lb: number;
+  trim_estimated_lb: number | null;
+  /** From the kill sheet; null while the trim spare is only estimated. */
+  trim_actual_lb: number | null;
+  saved_at: string;
+  saved_by_name: string | null;
 };
 
 export type CatalogPart = Part & { source_note: string; drives_count: boolean };
@@ -162,4 +180,6 @@ export type WeekData = {
   freezer: FreezerEntry[];
   cutSets: { lambs: number; size_class_id: string | null }[];
   cutSheet: { sent_at: string | null; inv_number: string | null } | null;
+  /** The saved Le Trim plan, or null while Le Trim isn't planned yet. */
+  leTrim: LeTrimPlanRow | null;
 };

@@ -17,14 +17,15 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate, todayISO } from "@/lib/dates";
 import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
-import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { packStats } from "@/lib/calc/packing";
 import { fmt, num } from "@/lib/calc/num";
-import { cutSheetTotals, legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
+import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
-import { calcWeek, plannedExtras, type PartRow } from "@/lib/calc/week";
+import { plannedExtras, type PartRow } from "@/lib/calc/week";
+import { weekCalc } from "@/lib/weekCalc";
+import { leTrimCutLines, leTrimOrdered } from "@/lib/calc/leTrim";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
-import { cantConvert, inProductUnits, unitWord } from "@/lib/calc/units";
+import { cantConvert, unitWord } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
 import { saveWeek, setFollowUpDone } from "@/lib/db/save";
 import { loadCutSheet } from "@/lib/db/cutsheet";
@@ -56,26 +57,11 @@ export default function WeekScreen() {
     );
 
   const w = data.weekRow;
-  // Lines requested for this week, not confirmed yet.
-  const requested = [...data.requests.values()].flat();
-  const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);
-  const cs = cutSheetTotals(data.cutSets, catalog.sizes);
-  // The week's ONE lamb count is worked out in calcWeek: your number, else the
-  // cut sheet total, else the count from orders. Every lamb number on this
-  // screen comes from `n` (see lib/calc/oneLambCount.test.ts).
-  const c = calcWeek({
-    parts: catalog.parts,
-    products: catalog.products,
-    // In each product's own unit (pounds of a piece product become pieces).
-    // Requested lines count too: they're cut and frozen this week (10/22/26).
-    orders: [
-      ...[...data.orders.values()].map((o) => inProductUnits(o.lines, o.units, catalog.productById)),
-      ...requested.map((r) => inProductUnits({ [r.product_id]: r.qty }, r.unit ? { [r.product_id]: r.unit } : {}, catalog.productById)),
-    ],
-    shortfall: short,
-    override: w?.lamb_override ?? null,
-    cutSheetLambs: cs.total,
-  });
+  // The week's ONE lamb count is worked out in calcWeek (lib/weekCalc.ts): your
+  // number, else the cut sheet total, else the count from orders. Every lamb
+  // number on this screen comes from `n` (see lib/calc/oneLambCount.test.ts).
+  // Requested lines count too; the saved Le Trim plan takes from the extras.
+  const { c, cs, short, requested } = weekCalc(data, catalog);
   const n = weekNumbers(c, cs, w?.process_date ?? null);
   const message = n.message;
   const balanceGroups = [
@@ -83,6 +69,9 @@ export default function WeekScreen() {
     { title: "Comes with every lamb", sub: "No need to plan.", rows: c.rows.filter((r) => !r.planned) },
   ];
   const extras = plannedExtras(c.rows);
+  // Le Trim comes out of the extras once Kathy saves a plan (change request 10/25/26).
+  const leTrim = leTrimOrdered(c);
+  const leTrimPlanned = data.leTrim != null;
   // The box label list, to say whether it needs printing again (SPEC 12.5).
   const labels = labelList(
     [...data.orders.values()].map((o) => {
@@ -293,6 +282,14 @@ export default function WeekScreen() {
               {requested.length > 0 && ` · ${requested.length} requested to confirm`}
             </Step>
           )}
+          {leTrim.lb > 0 && (
+            <Step href="/week/le-trim" title="Le Trim" tone={leTrimPlanned ? "done" : "todo"}>
+              {data.leTrim
+                ? leTrimCutLines({ shoulders: data.leTrim.shoulders, halfLegs: data.leTrim.half_legs }).join(" · ") ||
+                  `${fmt(data.leTrim.trim_lb)} lb trim`
+                : `Not planned yet · ${fmt(leTrim.lb)} lb ordered`}
+            </Step>
+          )}
           {seeCutSheet && <CutSheetStep week={week} processor={processor} />}
           {seePacking && (
             <Step href="/packing/labels" title="Box labels" tone={labelsChanged ? "warn" : w?.labels_printed_at ? "done" : "todo"}>
@@ -365,6 +362,14 @@ export default function WeekScreen() {
           </button>
         </div>
 
+        {leTrim.lb > 0 && !leTrimPlanned && (
+          <div className="note warn mt-3">
+            Le Trim isn&apos;t planned yet. Some of these extras will go to Le Trim.{" "}
+            <Link href="/week/le-trim" className="copy">
+              Plan Le Trim
+            </Link>
+          </div>
+        )}
         {extras.length > 0 && (
           <div className="note mt-3">
             <b>Extra cuts to plan for:</b> {extras.map((r) => `${r.part.name} ${fmt(r.left)}`).join(", ")}.

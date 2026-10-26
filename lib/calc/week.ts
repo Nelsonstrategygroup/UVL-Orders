@@ -101,6 +101,11 @@ export function calcWeek(input: {
   override?: number | null;
   /** Total lambs on the week's cut sheet; 0 or missing when there is none. */
   cutSheetLambs?: number;
+  /**
+   * The saved Le Trim plan: what it takes out of the extras (shoulders, whole
+   * legs halved, trim lb). It uses up extras but never sets the lamb count.
+   */
+  leTrim?: { shoulders: number; legs: number; trimLb: number } | null;
 }): WeekCalc {
   const parts = [...input.parts].sort((a, b) => a.sort - b.sort);
   const byId = new Map(parts.map((p) => [p.id, p]));
@@ -135,6 +140,14 @@ export function calcWeek(input: {
       addInto(need, u.part_id, q * num(u.qty));
       if (counts) addInto(driveNeed, u.part_id, q * num(u.qty));
     }
+  }
+
+  // Le Trim (10/25/26): the plan uses extras, so it adds to what's needed but
+  // never to what sets the lamb count.
+  if (input.leTrim) {
+    addInto(need, "shoulder", num(input.leTrim.shoulders));
+    addInto(need, "leg", num(input.leTrim.legs));
+    addInto(need, "trim", num(input.leTrim.trimLb));
   }
 
   // A parent part (whole loin) is needed for what's ordered whole plus the

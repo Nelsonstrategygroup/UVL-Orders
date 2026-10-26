@@ -451,6 +451,40 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
         </section>,
       );
 
+    case "le-trim":
+      return page(
+        <section className="panel">
+          <p className="small muted mt-0">
+            Le Trim is made from extra shoulders (boned out) or half legs, each with trim. These two numbers only estimate how
+            much trim a week&apos;s Le Trim takes; on the Le Trim screen Kathy enters what she actually used. Still to confirm
+            with Kathy.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            {(
+              [
+                ["le_trim_shoulder_trim_lb", "Trim with each shoulder (lb)", 5],
+                ["le_trim_half_leg_trim_lb", "Trim with each half leg (lb)", 6.5],
+              ] as const
+            ).map(([key, label, dflt]) => (
+              <label key={key} className="grid gap-1">
+                <span className="lbl m-0">{label}</span>
+                <input
+                  key={`${key}:${settings?.[key] ?? dflt}`}
+                  className="field num w-28!"
+                  inputMode="decimal"
+                  defaultValue={fmt(num(settings?.[key] ?? dflt))}
+                  disabled={!canEdit}
+                  onBlur={(e) => {
+                    const v = Math.max(0, num(e.target.value));
+                    if (v !== num(settings?.[key] ?? dflt)) void updateSettings(db, { [key]: v }).then(done);
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </section>,
+      );
+
     case "processor":
       return page(
         <section className="panel">

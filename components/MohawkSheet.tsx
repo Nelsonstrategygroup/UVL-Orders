@@ -3,6 +3,7 @@
 
 import { carcassBySize, lineText, printLines, printSets, type CutSpecLite } from "@/lib/calc/cutsheet";
 import { fmt, num } from "@/lib/calc/num";
+import { leTrimCutLines } from "@/lib/calc/leTrim";
 import type { SizeClass } from "@/lib/db/types";
 import type { CutSheetData } from "@/lib/db/cutsheet";
 
@@ -24,7 +25,8 @@ export default function MohawkSheet({
 }) {
   const sh = data.sheet!;
   const total = data.sets.reduce((a, s) => a + num(s.lambs), 0);
-  const banners = [...data.goals.map((g) => g.text), ...data.banners.map((b) => b.text)].filter((t) => t.trim());
+  // Le Trim's lines come from the week's plan (change request 10/25/26).
+  const banners = [...data.goals.map((g) => g.text), ...leTrimCutLines(data.leTrim), ...data.banners.map((b) => b.text)].filter((t) => t.trim());
   const carcass = carcassBySize(data.sets, specs);
   const sizeLabel = (id: string | null) => sizes.find((z) => z.id === id)?.label ?? "";
 
