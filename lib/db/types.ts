@@ -21,6 +21,9 @@ export type AppSettings = {
   /** Trim lb per Le Trim component: with a boned-out shoulder, with a half leg (Setup > Le Trim). */
   le_trim_shoulder_trim_lb?: number;
   le_trim_half_leg_trim_lb?: number;
+  /** Weight blanks on the paper packing copy: when the box count isn't known, and spares after known boxes (10/26/26). */
+  pack_unknown_blanks?: number;
+  pack_spare_blanks?: number;
 };
 
 /** A week's saved Le Trim plan (change request 10/25/26). */
@@ -60,6 +63,8 @@ export type CatalogProduct = Product & {
   /** Normal box weight range in lb; a scanned box outside it is warned about. Null: no warning. */
   box_lb_min: number | null;
   box_lb_max: number | null;
+  /** Weight blanks on the paper packing copy when its box count isn't known; null: the setting. */
+  pack_blanks?: number | null;
   billed_by_weight: boolean;
   counts_toward_lambs: boolean;
   not_lamb: boolean;

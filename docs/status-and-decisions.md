@@ -21,11 +21,52 @@ live changes for their tables.
 
 Built 10/25/26, not live yet: the Le Trim plan (see below).
 
+Built 10/26/26, not live yet: a weight for every box on the paper packing
+copy, and Type in from paper (see below).
+
 Waiting on Kathy and Chris: weights per pack for Heart, Liver and Kidney; box
 limits marked "needs checking"; delivery days; pallet groups; see the
 questions doc.
 
 ## Decisions
+
+### A weight for every box (10/26/26)
+What changed:
+- The paper packing copy is now the backup for when the internet is down
+  (Lucas: Chris scans every weight; the paper is for when that can't work).
+  One row per product per customer: a blank for each box with its label
+  number printed above it, then Total lbs. Rows wrap when there are more
+  blanks than fit. Blanks are 0.8" x 0.6", seven across beside the product,
+  big enough to write in with gloves on. Pallet and Initials boxes per
+  customer; Done and Not filled boxes per product.
+- Known box count (the product has a box size): one blank per box, plus 2
+  spare blanks with an empty "Label #" above them.
+- Unknown box count (no box size): 6 blanks with an empty "Label #", marked
+  "box count unknown". Products ordered by the pound follow the same rules
+  (Lucas, 10/26/26: a pound product with a box size counts as known, e.g.
+  Le Trim at 45 lb a box).
+- Setup > Boxes: blanks when the box count isn't known (6), spare blanks
+  (2), and a different number for any one product.
+- Label numbers come from the Box Label Report's numbering. Opening Packing
+  or the paper copy with internet numbers any boxes that don't have one yet,
+  the same way, so the paper always matches the labels, and the phone keeps
+  them for printing offline.
+- New "Type in from paper" screen (Packing, and Print and download), laid out
+  exactly like the paper: same customers and products in the same order, the
+  same blanks and label numbers, Tab straight across, the total adding up,
+  "+ Add a box". Saved on the phone first, like the rest of Packing.
+- Each box's weight is stored on its own with the box it went in and its
+  label number (migration 20261026000100). Scans go into the next empty box
+  of that customer's product automatically, so every scan is tied to a box.
+  The weigh panel does the same.
+- No mixed boxes: two different products never share a box (Kathy, via
+  Lucas, 10/26/26). The weigh panel's "Which box?" choice is gone.
+- The Packing record report has a Box weights column ("#14 22.4 · #15 21.9").
+
+Open:
+- Weights typed in from paper have no lot (scans read it from the label).
+  If trace needs a lot for every box, the paper may need a lot space too.
+- The migration must be applied before this goes live.
 
 ### Le Trim plan (10/25/26)
 What changed:

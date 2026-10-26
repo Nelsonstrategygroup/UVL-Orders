@@ -31,12 +31,26 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
     case "weight-add": {
       const r = await withTimeout(
         db.from("packing_weights").upsert(
-          { client_id: a.client_id, order_id: a.order_id, product_id: a.product_id, weight: a.weight, box_no: a.box_no },
+          {
+            client_id: a.client_id,
+            order_id: a.order_id,
+            product_id: a.product_id,
+            weight: a.weight,
+            box_no: a.box_no,
+            slot: a.slot ?? null,
+            label_no: a.label_no ?? null,
+          },
           { onConflict: "client_id", ignoreDuplicates: true },
         ),
       );
       // The order was deleted while the phone was offline.
       if (r.error?.code === "23503") return { kind: "done", note: "A weight was for an order that no longer exists. Kathy should check it." };
+      return classify(r.error, r.status);
+    }
+    case "weight-edit": {
+      let query = db.from("packing_weights").update({ weight: a.weight, label_no: a.label_no });
+      query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
+      const r = await withTimeout(query);
       return classify(r.error, r.status);
     }
     case "weight-remove": {

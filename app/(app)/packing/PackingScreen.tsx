@@ -17,22 +17,23 @@ import ViewOnly from "@/components/ViewOnly";
 import { useWeek, WeekBar } from "@/components/Week";
 import { fmt, num } from "@/lib/calc/num";
 import {
-  boxes,
   lineLook,
   lineWords,
-  nextBox,
   orderPacked,
   packStats,
   showOrder,
   type PackFilter,
   type PackLine,
 } from "@/lib/calc/packing";
-import { todayISO, weekName } from "@/lib/dates";
+import { todayISO } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
-import { packLines, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
+import { orderSheet, packLines, sheetLabels, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
+import { blankWords, nextBlank, type SheetRow } from "@/lib/calc/packSheet";
+import { PackNotes, PaperSheet } from "./PackSheet";
+import { useLabelNumbers } from "./useLabelNumbers";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
   ["done", "Done"],
@@ -51,6 +52,8 @@ export default function PackingScreen() {
   const boxSetup = bundle.data?.boxes ?? { types: [], limits: new Map(), capLb: 45 };
   const { error } = bundle;
   const canPack = useCan("packing").change;
+  // Number the boxes while there is signal, so the copy kept on the phone prints with label numbers.
+  useLabelNumbers(week, bundle.data, bundle.refresh, canPack);
   const [filter, setFilter] = useState<PackFilter>("todo");
   // Customers finished while "To pack" is showing stay on screen, so the
   // packer can still see "All packed" and fill in the pallet.
@@ -95,6 +98,8 @@ export default function PackingScreen() {
     return t ? `${t} on this pallet` : "";
   };
   const wOrder = weighing && data.orders.find((o) => o.id === weighing.orderId);
+  // The product's boxes as on the paper copy: each weight goes in the next empty one.
+  const wRow = wOrder ? orderSheet(wOrder, data, sheetLabels(data, boxSetup)).find((r) => r.productId === weighing!.productId) : undefined;
 
   return (
     <>
@@ -169,21 +174,42 @@ export default function PackingScreen() {
         )}
       </div>
 
-      <PrintCopy data={data} />
+      {data.orders.length > 0 && (
+        <div className="screen-only mt-5 flex flex-wrap gap-2">
+          <Link href="/packing/print" className="btn ghost">
+            Paper copy (no internet)
+          </Link>
+          <Link href="/packing/paper" className="btn ghost">
+            Type in from paper
+          </Link>
+        </div>
+      )}
+      <PaperSheet data={data} boxes={boxSetup} />
 
-      {weighing && wOrder && (
+      {weighing && wOrder && wRow && (
         <WeighSheet
           order={wOrder}
+          row={wRow}
           productId={weighing.productId}
           data={data}
           canPack={canPack}
           onClose={closeWeigh}
-          onAdd={async (weight, box) => {
+          onAdd={async (weight) => {
             keep(wOrder.id);
             const clientId = crypto.randomUUID();
             const orderId = wOrder.id;
+            const at = nextBlank(wRow);
             await save(
-              enqueue({ type: "weight-add", client_id: clientId, order_id: orderId, product_id: weighing.productId, weight, box_no: box, at: new Date().toISOString() }),
+              enqueue({
+                type: "weight-add",
+                client_id: clientId,
+                order_id: orderId,
+                product_id: weighing.productId,
+                weight,
+                box_no: null,
+                at: new Date().toISOString(),
+                ...at,
+              }),
             );
             // No Undo: a weight can be removed right here in the list (Lucas, 10/22/26).
             toast(`${fmt(weight)} lb saved`);
@@ -226,7 +252,7 @@ function CustomerCard({
   onPallet: (v: string) => void;
 }) {
   const done = lines.filter(([, l]) => lineLook(l) !== "todo").length;
-  const bx = boxes(o.weights);
+  const weighed = o.weights.reduce((sum, w) => sum + w.weight, 0);
   const name = (pid: string) => data.products.get(pid)?.name ?? pid;
   // Boxes this order should fill, from each product's box size.
   const expect = orderBoxesText(orderBoxes(o.lines, o.units, data.products, boxSetup));
@@ -271,10 +297,9 @@ function CustomerCard({
 
       <div className="pfoot">
         <span className="small">
-          {bx.length === 0
+          {o.weights.length === 0
             ? "No boxes yet."
-            : `${bx.length} box${bx.length === 1 ? "" : "es"}: ` +
-              bx.map((b) => `${b.box_no}${b.mixed ? " (mixed)" : ""} ${fmt(b.weight)} lb`).join(", ")}
+            : `${o.weights.length} box${o.weights.length === 1 ? "" : "es"} weighed, ${fmt(Math.round(weighed * 100) / 100)} lb`}
         </span>
         <label htmlFor={`pallet-${o.id}`}>Pallet</label>
         <input
@@ -302,9 +327,10 @@ function CustomerCard({
   );
 }
 
-/** Weigh one line: add weights (each in a box), a piece count, Not filled, or a flag. */
+/** Weigh one line: add weights (one box each, in the next empty box), a piece count, Not filled, or a flag. */
 function WeighSheet({
   order: o,
+  row,
   productId,
   data,
   canPack,
@@ -314,26 +340,25 @@ function WeighSheet({
   onMark,
 }: {
   order: PackOrder;
+  row: SheetRow;
   productId: string;
   data: PackingData;
   canPack: boolean;
   onClose: () => void;
-  onAdd: (weight: number, box: number | null) => Promise<void>;
+  onAdd: (weight: number) => Promise<void>;
   onRemove: (id: string) => void;
   onMark: (m: LineMark) => void;
 }) {
   const line = packLines(o, data.products).find(([pid]) => pid === productId)?.[1];
   const mark: LineMark = o.marks[productId] ?? { count: null, shorted: false, flagged: false, flagNote: "" };
   const mine = o.weights.filter((w) => w.product_id === productId);
-  const newBox = nextBox(o.weights);
   const [text, setText] = useState("");
-  const [box, setBox] = useState<number>(newBox);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(mark.flagNote);
   const [count, setCount] = useState(mark.count == null ? "" : fmt(mark.count));
   if (!line) return null;
-  const boxList = boxes(o.weights);
-  const name = (pid: string) => data.products.get(pid)?.name ?? pid;
+  const slotOf = (id: string) => row.blanks.find((b) => b.weight?.id === id)?.slot;
+  const next = nextBlank(row);
   const value = num(text);
 
   /** Done: save a flag note or count still being typed, then close. */
@@ -347,14 +372,13 @@ function WeighSheet({
   async function add() {
     if (!(value > 0)) return;
     setBusy(true);
-    await onAdd(value, box);
+    await onAdd(value);
     setBusy(false);
     setText("");
-    setBox(box === newBox ? newBox + 1 : box);
   }
 
   return (
-    <Sheet title={name(productId)} onClose={finish}>
+    <Sheet title={data.products.get(productId)?.name ?? productId} onClose={finish}>
       <p className="mt-0 text-[1.05rem]">
         Ordered <b>{qtyText(line.ordered, line.unit)}</b>. {lineWords(line)}.
       </p>
@@ -365,7 +389,7 @@ function WeighSheet({
             {mine.map((w) => (
               <li key={w.id} className="flex items-center gap-3 border-b border-line py-1 text-[1.05rem]">
                 <span className="num">{fmt(w.weight)} lb</span>
-                <span className="small muted">{w.box_no ? `Box ${w.box_no}` : "No box"}</span>
+                <span className="small muted">{slotOf(w.id) ? blankWords(row, slotOf(w.id)!) : "No box"}</span>
                 <span className="flex-1" />
                 <button type="button" className="copy min-h-[44px]" onClick={() => onRemove(w.id)}>
                   Remove
@@ -376,7 +400,7 @@ function WeighSheet({
         )}
 
         <label className="lbl big mt-0!" htmlFor="weigh-lb">
-          {mine.length ? "Add another weight (lb)" : "Weight (lb)"}
+          {mine.length ? "Add another box (lb)" : "Weight (lb)"} <span className="small muted font-normal">· {blankWords(row, next.slot)}</span>
         </label>
         <div className="flex gap-2">
           <input
@@ -396,22 +420,6 @@ function WeighSheet({
           </button>
         </div>
 
-        <p className="lbl">Which box?</p>
-        <div className="seg flex-wrap" role="group" aria-label="Which box">
-          {boxList.map((b) => (
-            <button key={b.box_no} type="button" aria-pressed={box === b.box_no} onClick={() => setBox(b.box_no)}>
-              Box {b.box_no}
-              {/* What's already in it, so mixing is a choice you can see */}
-              {b.products.some((pid) => pid !== productId)
-                ? ` · ${b.products.filter((pid) => pid !== productId).map(name).join(", ")}`
-                : ""}
-            </button>
-          ))}
-          <button type="button" aria-pressed={box === newBox} onClick={() => setBox(newBox)}>
-            New box ({newBox})
-          </button>
-        </div>
-        <p className="small muted mt-1">Pick a box that already has something else in it to make a mixed box.</p>
 
         {line.unit !== "lb" && (
           <>
@@ -470,69 +478,5 @@ function WeighSheet({
         </button>
       </div>
     </Sheet>
-  );
-}
-
-/** Standing notes and this week's order notes, so Chris sees them while packing. */
-function PackNotes({ o }: { o: PackOrder }) {
-  if (!o.standingNotes && !o.orderNotes) return null;
-  return (
-    <div className="mt-1 grid gap-0.5 text-[.95rem] font-normal">
-      {o.orderNotes && (
-        <div>
-          <b>This week:</b> {o.orderNotes}
-        </div>
-      )}
-      {o.standingNotes && (
-        <div className="whitespace-pre-wrap">
-          <b>Always:</b> {o.standingNotes}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** The paper checklist: blanks for weights, box, not filled, pallet, and initials. */
-export function PrintCopy({ data }: { data: PackingData }) {
-  return (
-    <div className="print-only printsheet">
-      <h1>Packing list, {weekName(data.week)}</h1>
-      {data.orders.map((o) => (
-        <table key={o.id}>
-          <thead>
-            <tr>
-              <th colSpan={6}>
-                {o.customerName}
-                {o.group ? ` · ${o.group}${o.spot ? `, ${o.spot}` : ""}` : ""}
-                <PackNotes o={o} />
-              </th>
-            </tr>
-            <tr>
-              <th className="ck">Done</th>
-              <th>Product</th>
-              <th>Ordered</th>
-              <th className="blank">Weight (lb)</th>
-              <th className="blank">Box</th>
-              <th className="ck">X</th>
-            </tr>
-          </thead>
-          <tbody>
-            {packLines(o, data.products).map(([pid, l], i) => (
-              <tr key={pid} className={i % 2 ? "zebra" : undefined}>
-                <td className="ck">☐</td>
-                <td>{data.products.get(pid)?.name ?? pid}</td>
-                <td>{qtyText(l.ordered, l.unit)}</td>
-                <td>{l.weight > 0 ? fmt(l.weight) : ""}</td>
-                <td />
-                <td className="ck">{l.shorted ? "X" : "☐"}</td>
-              </tr>
-            ))}
-            <tr>
-              <td colSpan={6}>Pallet: ________ &nbsp;&nbsp; Initials: ______</td>
-            </tr>
-          </tbody>
-        </table>
-      ))}
-    </div>
   );
 }

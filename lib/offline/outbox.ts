@@ -11,7 +11,20 @@ import type { BoxUpload } from "../db/scanning";
 
 export type Action =
   /** The weigh panel: one weight (a box or case, or the whole line). */
-  | { type: "weight-add"; client_id: string; order_id: string; product_id: string; weight: number; box_no: number | null; at: string }
+  | {
+      type: "weight-add";
+      client_id: string;
+      order_id: string;
+      product_id: string;
+      weight: number;
+      box_no: number | null;
+      at: string;
+      /** Which box of the product (its blank on the packing sheet) and its label number (10/26/26). Missing on older phones. */
+      slot?: number | null;
+      label_no?: number | null;
+    }
+  /** Change a weight, or the label number written above it (typed in from the paper sheet). */
+  | { type: "weight-edit"; order_id: string; weight_id?: string; client_id?: string; weight: number; label_no: number | null }
   /** Take a weight off: one already uploaded (weight_id) or one still waiting (client_id). */
   | { type: "weight-remove"; order_id: string; weight_id?: string; client_id?: string }
   | { type: "mark"; order_id: string; product_id: string; mark: LineMark }
@@ -113,7 +126,25 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
     if (a.type === "weight-add") {
       const o = byId.get(a.order_id);
       if (!o || onServer.has(a.client_id)) continue;
-      o.weights.push(blankWeight({ id: localId(a.client_id), client_id: a.client_id, product_id: a.product_id, weight: a.weight, box_no: a.box_no, by: who, at: a.at }));
+      o.weights.push(
+        blankWeight({
+          id: localId(a.client_id),
+          client_id: a.client_id,
+          product_id: a.product_id,
+          weight: a.weight,
+          box_no: a.box_no,
+          slot: a.slot ?? null,
+          label_no: a.label_no ?? null,
+          by: who,
+          at: a.at,
+        }),
+      );
+    } else if (a.type === "weight-edit") {
+      const o = byId.get(a.order_id);
+      if (!o) continue;
+      o.weights = o.weights.map((w) =>
+        (a.weight_id && w.id === a.weight_id) || (a.client_id && w.client_id === a.client_id) ? { ...w, weight: a.weight, label_no: a.label_no } : w,
+      );
     } else if (a.type === "weight-remove") {
       const o = byId.get(a.order_id);
       if (!o) continue;
@@ -136,6 +167,8 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
           product_id: b.product_id,
           weight: b.weight,
           box_no: nextBox,
+          slot: b.slot ?? null,
+          label_no: b.label_no ?? null,
           by: who,
           at: b.scanned_at ?? queuedAt,
           source: b.source,
@@ -152,6 +185,7 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
 }
 
 function blankWeight(w: Partial<PackWeight> & Pick<PackWeight, "id" | "product_id" | "weight" | "box_no">): PackWeight {
+  // (slot and label_no default to none: a weight from before 10/26/26 or an older phone.)
   return {
     by: null,
     at: new Date().toISOString(),
@@ -162,6 +196,8 @@ function blankWeight(w: Partial<PackWeight> & Pick<PackWeight, "id" | "product_i
     case_no: null,
     pallet_id: null,
     client_id: null,
+    slot: null,
+    label_no: null,
     ...w,
   };
 }

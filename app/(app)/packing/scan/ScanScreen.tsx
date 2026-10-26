@@ -24,7 +24,8 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { fmt, num } from "@/lib/calc/num";
 import { unitWord } from "@/lib/calc/units";
 import { todayISO } from "@/lib/dates";
-import { type PackOrder, type PackProduct } from "@/lib/db/packing";
+import { orderSheet, sheetLabels, type PackingData, type PackOrder, type PackProduct } from "@/lib/db/packing";
+import { blankWords, type SheetLabel } from "@/lib/calc/packSheet";
 import { isLocal } from "@/lib/offline/outbox";
 import { planBoxes, type BoxSetup } from "@/lib/calc/boxes";
 import { setBoxLot, type BoxUpload } from "@/lib/db/scanning";
@@ -63,6 +64,8 @@ export default function ScanScreen() {
   const busy = useRef(false);
   // Boxes saved this session, before the list reloads: no double scans in between.
   const savedHere = useRef(new Map<string, string>());
+  // Boxes filled this session (order|product|slot), before the list reloads: the next scan takes the next box.
+  const filledHere = useRef(new Set<string>());
 
   const order = data?.packing.orders.find((o) => o.id === orderId);
   const products = data?.packing.products;
@@ -114,9 +117,12 @@ export default function ScanScreen() {
       show({ ok: false, title: "This label has no weight.", detail: "Use \"Label won't scan\" and type the weight." });
       return;
     }
+    // Which box of this product it is: the next empty one on the packing sheet (change request 10/26/26).
+    const box = boxFor(order, step.productId, data!.packing, sheetLabels(data!.packing, data!.boxes), filledHere.current);
+    upload.slot = box.slot;
+    upload.label_no = box.label_no;
     // Saved on the phone first; it uploads when there's signal. The server
     // checks for duplicates again and flags anything odd for Kathy.
-    const boxNo = Math.max(0, ...order.weights.map((w) => w.box_no ?? 0)) + 1;
     try {
       await enqueue({ type: "box", box: upload });
     } catch {
@@ -124,11 +130,12 @@ export default function ScanScreen() {
       return;
     }
     if (b.serial) savedHere.current.set(`${b.gtin}:${b.serial}`, order.customerName);
+    filledHere.current.add(`${order.id}|${step.productId}|${box.slot}`);
     setLastProduct(step.productId);
     show({
       ok: true,
       title: `${p?.name ?? "Box"} · ${fmt(upload.weight)} lb`,
-      detail: `Lot ${step.lot}${b.caseNo ? ` · Case ${b.caseNo}` : ""} · Box ${boxNo}${online ? "" : " · on this phone"}`,
+      detail: `Lot ${step.lot}${b.caseNo ? ` · Case ${b.caseNo}` : ""} · ${box.words}${online ? "" : " · on this phone"}`,
       warnings: step.warnings,
     });
   }
@@ -336,6 +343,7 @@ export default function ScanScreen() {
         <ManualBox
           order={order}
           products={products}
+          pickBox={(pid) => boxFor(order, pid, data!.packing, sheetLabels(data!.packing, data!.boxes), filledHere.current)}
           palletId={palletId || null}
           week={week}
           onClose={() => setManual(false)}
@@ -543,7 +551,7 @@ function RecentBoxes({
         {boxes.map((w) => (
           <li key={w.id} className="flex flex-wrap items-center gap-2 border-b border-line py-2">
             <span className="flex-1">
-              {w.box_no != null && <>Box {w.box_no} · </>}
+              {w.label_no != null ? <>Label {w.label_no} · </> : w.slot != null ? <>Box {w.slot} · </> : null}
               {products.get(w.product_id)?.name ?? w.product_id} · {fmt(w.weight)} lb · Lot {w.lot}
               {w.case_no && <span className="small muted"> · case {w.case_no}</span>}
               {w.source === "manual" && <span className="small muted"> · typed</span>}
@@ -579,6 +587,7 @@ function RecentBoxes({
 function ManualBox({
   order,
   products,
+  pickBox,
   palletId,
   week,
   onClose,
@@ -586,6 +595,7 @@ function ManualBox({
 }: {
   order: PackOrder;
   products: Map<string, PackProduct>;
+  pickBox: (productId: string) => { slot: number; label_no: number | null; words: string };
   palletId: string | null;
   week: string;
   onClose: () => void;
@@ -621,6 +631,9 @@ function ManualBox({
       scanned_at: new Date().toISOString(),
       off_order: !onOrder.includes(productId),
     };
+    const at = pickBox(productId);
+    box.slot = at.slot;
+    box.label_no = at.label_no;
     try {
       await enqueue({ type: "box", box, photo: blob && photoPath ? { path: photoPath, blob } : undefined });
     } catch {
@@ -628,7 +641,7 @@ function ManualBox({
       return setProblem("Couldn't save on this phone. Try again.");
     }
     setBusy(false);
-    onSaved(`${products.get(productId)?.name ?? "Box"} · ${fmt(num(weight))} lb`, `Lot ${lot} · typed in`);
+    onSaved(`${products.get(productId)?.name ?? "Box"} · ${fmt(num(weight))} lb`, `Lot ${lot} · ${at.words} · typed in`);
   }
 
   return (
@@ -704,4 +717,13 @@ async function shrink(file: File): Promise<Blob> {
   } catch {
     return file;
   }
+}
+
+/** The next empty box of a customer's product on the packing sheet, skipping ones filled moments ago. */
+function boxFor(order: PackOrder, productId: string, data: PackingData, labels: SheetLabel[], filled: Set<string>) {
+  const row = orderSheet(order, data, labels).find((r) => r.productId === productId);
+  if (!row) return { slot: 1, label_no: null, words: "Box 1" };
+  const b = row.blanks.find((x) => !x.weight && !filled.has(`${order.id}|${productId}|${x.slot}`));
+  const slot = b?.slot ?? Math.max(row.blanks.length, ...[...filled].filter((k) => k.startsWith(`${order.id}|${productId}|`)).map((k) => Number(k.split("|")[2]))) + 1;
+  return { slot, label_no: b?.planned ? b.labelNo : null, words: b ? blankWords(row, slot) : `Box ${slot}` };
 }

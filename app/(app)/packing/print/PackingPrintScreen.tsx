@@ -1,22 +1,31 @@
 "use client";
 
-// The paper packing copy (SPEC 5.6), opened from Print and download: the
-// same checklist Packing prints, on its own page so Packing stays for packing.
+// The paper packing copy (change request 10/26/26), opened from Print and
+// download and from Packing: the backup for when the internet is down. One
+// blank per box with its label number, so Chris writes each box's weight; the
+// weights are typed in afterwards on "Type in from paper", laid out the same.
 
 import Link from "next/link";
+import { useCan } from "@/components/CurrentUser";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { useWeek, WeekBar } from "@/components/Week";
 import { todayISO, weekName } from "@/lib/dates";
 import { packLines } from "@/lib/db/packing";
-import { PrintCopy } from "../PackingScreen";
+import { PaperSheet } from "../PackSheet";
+import { useLabelNumbers } from "../useLabelNumbers";
 
 export default function PackingPrintScreen() {
   const { week } = useWeek();
   const bundle = usePackingBundle(week, todayISO());
+  const canPacking = useCan("packing").change;
+  const canWeek = useCan("week").change;
+  const canOrders = useCan("orders").change;
+  const canNumber = canPacking || canWeek || canOrders;
+  const { missing } = useLabelNumbers(week, bundle.data, bundle.refresh, canNumber);
   const data = bundle.data?.packing ?? null;
 
   if (bundle.error) return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
-  if (!data)
+  if (!data || !bundle.data)
     return (
       <>
         <WeekBar />
@@ -34,6 +43,9 @@ export default function PackingPrintScreen() {
           <Link href="/print" className="btn ghost">
             &larr; Print and download
           </Link>
+          <Link href="/packing/paper" className="btn ghost">
+            Type in from paper
+          </Link>
           <button type="button" className="btn" disabled={!data.orders.length} onClick={() => window.print()}>
             Print
           </button>
@@ -44,11 +56,22 @@ export default function PackingPrintScreen() {
             : "No orders for this week yet."}
         </p>
         <p className="small muted">
-          A checklist for each customer with spaces for weights, boxes, not filled, pallet, and initials. Weights already
-          entered in the app are filled in.
+          The backup for when there&apos;s no internet. Each box gets a blank with its label number above it. Products
+          with no box size get 6 blanks with a space to write the label number. Weights already in the app are filled in.
         </p>
+        {missing > 0 && (
+          <p className="note warn">
+            {missing} box{missing === 1 ? " has" : "es have"} no label number yet. Open this page with internet to number
+            them, so the paper matches the labels.
+          </p>
+        )}
       </div>
-      <PrintCopy data={data} />
+      {data.orders.length > 0 && (
+        <div className="screen-only pk-scroll">
+          <PaperSheet data={data} boxes={bundle.data.boxes} preview />
+        </div>
+      )}
+      <PaperSheet data={data} boxes={bundle.data.boxes} />
     </>
   );
 }

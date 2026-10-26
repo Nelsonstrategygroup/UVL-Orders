@@ -29,6 +29,7 @@ import {
   updatePalletGroup,
   updateRow,
   updateSettings,
+  saveProductPackBlanks,
 } from "@/lib/db/save";
 import { useLive } from "@/components/data/useLive";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
@@ -189,7 +190,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
       </div>
     );
 
-  const page = (body: React.ReactNode, wide = false) => (
+  const page = (body: React.ReactNode, wide = false, after?: React.ReactNode) => (
     <div className={wide ? "" : "max-w-[900px]"}>
       <Link href="/setup" className="copy">
         &larr; Setup
@@ -197,6 +198,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
       <h2 className="mt-1 mb-2">{titleOf(section)}</h2>
       {editNote}
       {body}
+      {after}
       {editingProduct && (
         <EditProduct
           key={`${editingProduct === "new" ? "new" : editingProduct.id}-${copying}`}
@@ -286,6 +288,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
           <BoxLimits canEdit={canEdit} />
         </section>,
         true,
+        <PackBlanks canEdit={canEdit} onDone={done} />,
       );
 
     case "parts":
@@ -1067,5 +1070,91 @@ function GtinMap({ canEdit }: { canEdit: boolean }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Weight blanks on the paper packing copy (change request 10/26/26): how many when a product's box count isn't known, spares after known boxes, and a number for any one product. */
+function PackBlanks({ canEdit, onDone }: { canEdit: boolean; onDone: (err: string | null) => Promise<void> }) {
+  const { catalog } = useStaffData();
+  const db = getDb();
+  if (!catalog) return null;
+  const s = catalog.settings;
+  const unknown = num(s?.pack_unknown_blanks ?? 6);
+  const spare = num(s?.pack_spare_blanks ?? 2);
+  const whole = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(num(v))));
+  return (
+    <section className="panel mt-4">
+      <h3>Weight blanks on the paper packing copy</h3>
+      <p className="small muted mt-1">
+        Each box gets a blank with its label number. When a product&apos;s box count isn&apos;t known (no box size), it gets
+        blanks with a space to write the label number.
+      </p>
+      <div className="flex flex-wrap gap-4">
+        <label className="grid gap-1">
+          <span className="lbl m-0">Blanks when the box count isn&apos;t known</span>
+          <input
+            key={`u:${unknown}`}
+            className="field num w-28!"
+            inputMode="numeric"
+            defaultValue={unknown}
+            disabled={!canEdit}
+            onBlur={(e) => {
+              const v = whole(e.target.value, 1, 30);
+              if (v !== unknown) void updateSettings(db, { pack_unknown_blanks: v }).then(onDone);
+            }}
+          />
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">Spare blanks after the known boxes</span>
+          <input
+            key={`s:${spare}`}
+            className="field num w-28!"
+            inputMode="numeric"
+            defaultValue={spare}
+            disabled={!canEdit}
+            onBlur={(e) => {
+              const v = whole(e.target.value, 0, 10);
+              if (v !== spare) void updateSettings(db, { pack_spare_blanks: v }).then(onDone);
+            }}
+          />
+        </label>
+      </div>
+      <details className="mt-3">
+        <summary className="copy">A different number for one product</summary>
+        <p className="small muted">Only used when that product&apos;s box count isn&apos;t known. Leave it blank for {unknown}.</p>
+        <table className="simple mt-2">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Blanks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {catalog.products
+              .filter((p) => p.active)
+              .map((p) => (
+                <tr key={p.id}>
+                  <td>{p.name}</td>
+                  <td>
+                    <input
+                      key={`${p.id}:${p.pack_blanks ?? ""}`}
+                      className="field num w-20!"
+                      inputMode="numeric"
+                      aria-label={`Blanks for ${p.name}`}
+                      placeholder={String(unknown)}
+                      defaultValue={p.pack_blanks ?? ""}
+                      disabled={!canEdit}
+                      onBlur={(e) => {
+                        const v = e.target.value.trim() === "" ? null : whole(e.target.value, 1, 30);
+                        if (v !== (p.pack_blanks ?? null)) void saveProductPackBlanks(db, p.id, v).then(onDone);
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </details>
+    </section>
   );
 }

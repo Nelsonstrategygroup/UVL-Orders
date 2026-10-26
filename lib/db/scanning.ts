@@ -79,6 +79,9 @@ export type BoxUpload = {
   photo_path?: string | null;
   scanned_at: string;
   off_order?: boolean;
+  /** Which box of the customer's product this is, and its label number (10/26/26). */
+  slot?: number | null;
+  label_no?: number | null;
 };
 
 export type BoxResult =

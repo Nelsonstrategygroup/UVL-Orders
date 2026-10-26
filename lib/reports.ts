@@ -9,6 +9,7 @@ import type { Customer, Order, OrderStatus, Qty, Units } from "./db/types";
 import { lineUnit, toProductUnit, unitWord } from "./calc/units";
 import { csvCell } from "./import/csv";
 import { boxCellText, type BoxLimit, type BoxType } from "./calc/boxes";
+import { fmt } from "./calc/num";
 
 type Cell = string | number | null | undefined;
 type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
@@ -278,7 +279,7 @@ export const PACKING_COLUMNS = [
   "Over",
   "Not filled",
   "Flag",
-  "Boxes",
+  "Box weights",
   "Weighed by",
   "Last weighed",
   "Pallet",
@@ -296,7 +297,7 @@ export function packingRecordTable(
     status: OrderStatus;
     lines: Qty;
     units?: Units;
-    weights: { product_id: string; weight: number; box_no: number | null; by: string; at: string }[];
+    weights: { product_id: string; weight: number; box_no: number | null; slot?: number | null; label_no?: number | null; by: string; at: string }[];
     marks: Record<string, { count: number | null; shorted: boolean; flagged: boolean; flagNote: string }>;
     pallet: string;
   }[],
@@ -323,7 +324,11 @@ export function packingRecordTable(
       const packed = unit === "lb" ? (ws.length ? lb : null) : (m?.count ?? null);
       const diff = packed == null ? 0 : Math.round((packed - l.qty) * 100) / 100;
       const last = ws.reduce<(typeof ws)[number] | null>((x, w) => (!x || w.at > x.at ? w : x), null);
-      const boxNos = [...new Set(ws.map((w) => w.box_no).filter((b): b is number => b != null))].sort((a, b) => a - b);
+      // Each box's weight on its own (change request 10/26/26): "#14 22.4 · #15 21.9 · 20.8", in box order.
+      const boxWeights = [...ws]
+        .sort((a, b) => (a.slot ?? 1e9) - (b.slot ?? 1e9) || a.at.localeCompare(b.at))
+        .map((w) => `${w.label_no != null ? `#${w.label_no} ` : ""}${fmt(w.weight)}`)
+        .join(" · ");
       rows.push([
         week,
         c?.name ?? "(deleted customer)",
@@ -337,7 +342,7 @@ export function packingRecordTable(
         diff > 0 ? diff : "",
         m?.shorted ? "Yes" : "",
         m?.flagged ? m.flagNote || "Yes" : "",
-        boxNos.join(", "),
+        boxWeights,
         last?.by ?? "",
         last ? formatTime(last.at) : "",
         r.pallet,

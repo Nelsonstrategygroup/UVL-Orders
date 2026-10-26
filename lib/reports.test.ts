@@ -178,8 +178,8 @@ describe("packing record", () => {
             status: "ordered",
             lines: { trim: 20, leg: 6, rack: 2 },
             weights: [
-              { product_id: "trim", weight: 9.8, box_no: 1, by: "Chris", at: "2026-10-07T17:00:00Z" },
-              { product_id: "trim", weight: 5.4, box_no: 2, by: "Chris", at: "2026-10-07T17:05:00Z" },
+              { product_id: "trim", weight: 9.8, box_no: 1, slot: 2, label_no: 15, by: "Chris", at: "2026-10-07T17:00:00Z" },
+              { product_id: "trim", weight: 5.4, box_no: 2, slot: 1, label_no: null, by: "Chris", at: "2026-10-07T17:05:00Z" },
               { product_id: "leg", weight: 30.2, box_no: 3, by: "Chris", at: "2026-10-07T17:06:00Z" },
             ],
             marks: {
@@ -199,8 +199,8 @@ describe("packing record", () => {
     const byProduct = (n: string) => r.find((x) => x[r[0].indexOf("Product")] === n)!;
     const c = (row: string[], name: string) => row[r[0].indexOf(name)];
     const trim = byProduct("Le Trim");
-    expect([c(trim, "Packed (lb)"), c(trim, "Short"), c(trim, "Boxes"), c(trim, "Weighed by"), c(trim, "Last weighed")]).toEqual(
-      ["15.2", "4.8", "1, 2", "Chris", "17:05"],
+    expect([c(trim, "Packed (lb)"), c(trim, "Short"), c(trim, "Box weights"), c(trim, "Weighed by"), c(trim, "Last weighed")]).toEqual(
+      ["15.2", "4.8", "5.4 · #15 9.8", "Chris", "17:05"],
     );
     const leg = byProduct("legs Bone In to VAC");
     expect([c(leg, "Packed (lb)"), c(leg, "Pieces packed"), c(leg, "Short"), c(leg, "Flag")]).toEqual(["30.2", "5", "1", "One leg bruised"]);

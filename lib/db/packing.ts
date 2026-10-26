@@ -5,7 +5,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { displayName, sortByDisplayName } from "../calc/customers";
-import { labelCustomer, labelList, type LabelList } from "../calc/labels";
+import { labelCustomer, labelList, reportLabels, type LabelList } from "../calc/labels";
+import { sheetRows, type SheetLabel, type SheetRow } from "../calc/packSheet";
 import type { BoxSetup } from "../calc/boxes";
 import { num } from "../calc/num";
 import type { PackLine, Weight } from "../calc/packing";
@@ -26,6 +27,8 @@ export type PackProduct = {
   box_lb_max: number | null;
   /** Printed on box labels; blank means the name. */
   label_name: string;
+  /** Weight blanks on the packing sheet when the box count isn't known; null: the setting. */
+  pack_blanks: number | null;
 };
 
 /** Marks on one line: an optional piece count, not filled, and a flag. */
@@ -44,6 +47,9 @@ export type PackWeight = Weight & {
   pallet_id: string | null;
   /** Made on the phone; set for weights saved through the outbox. */
   client_id: string | null;
+  /** Which box of the customer's product (its place on the packing sheet), and its label number (change request 10/26/26). */
+  slot: number | null;
+  label_no: number | null;
 };
 
 export type PackOrder = {
@@ -86,6 +92,10 @@ export type PackingData = {
   products: Map<string, PackProduct>;
   /** Orders with something on them, in pallet group order, then by name. */
   orders: PackOrder[];
+  /** Box label numbers given out for the week, by box (customer|product|box). Empty until the Box Label Report or the packing sheet hands them out. */
+  labelNumbers: Map<string, number>;
+  /** Weight blanks on the packing sheet: when the box count isn't known, and spares after known boxes. */
+  blanks: { unknown: number; spare: number };
 };
 
 function must<T>(r: { data: T | null; error: { message: string } | null }): T {
@@ -117,20 +127,22 @@ export function packLines(o: PackOrder, products: Map<string, PackProduct>): [st
 }
 
 export async function loadPacking(db: SupabaseClient, week: string): Promise<PackingData> {
-  const [weekRow, orders, customers, groups, products, people, sheet] = await Promise.all([
+  const [weekRow, orders, customers, groups, products, people, sheet, labels, settings] = await Promise.all([
     db.from("weeks").select("process_date, labels_hash, labels_printed_at").eq("id", week).maybeSingle(),
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, pallet_group_id, pallet_spot, pallet_sort"),
     db.from("pallet_groups").select("id, name, sort"),
-    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name").order("sort"),
+    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks").order("sort"),
     db.from("profiles").select("id, display_name"),
     // Packers can't read the cut sheet; the INV# is then just left off.
     db.from("cut_sheets").select("inv_number").eq("week_id", week).maybeSingle(),
+    db.from("box_labels").select("number, key").eq("week_id", week),
+    db.from("app_settings").select("pack_unknown_blanks, pack_spare_blanks").maybeSingle(),
   ]);
 
   const custList = must(customers) as {
@@ -168,6 +180,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       product_id: string;
       weight: number;
       box_no: number | null;
+      slot: number | null;
+      label_no: number | null;
       created_by: string | null;
       created_at: string;
       source: string;
@@ -219,6 +233,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
         product_id: w.product_id,
         weight: num(w.weight),
         box_no: w.box_no,
+        slot: w.slot,
+        label_no: w.label_no,
         by: w.created_by ? (names.get(w.created_by) ?? "Someone") : null,
         at: w.created_at,
         source: w.source ?? "weigh",
@@ -279,7 +295,9 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     per_box: x.per_box == null ? null : num(x.per_box),
     box_lb_min: x.box_lb_min == null ? null : num(x.box_lb_min),
     box_lb_max: x.box_lb_max == null ? null : num(x.box_lb_max),
+    pack_blanks: x.pack_blanks == null ? null : num(x.pack_blanks),
   }));
+  const set = must(settings) as { pack_unknown_blanks: number; pack_spare_blanks: number } | null;
   const wr = must(weekRow) as { process_date: string | null; labels_hash: string | null; labels_printed_at: string | null } | null;
   const inv = sheet.error ? null : ((sheet.data as { inv_number: string | null } | null)?.inv_number ?? null);
   return {
@@ -289,6 +307,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     labelsPrintedAt: wr?.labels_printed_at ?? null,
     invNumber: inv?.trim() || null,
     products: new Map(prods.map((p) => [p.id, p])),
+    labelNumbers: new Map((must(labels) as { number: number; key: string }[]).map((l) => [l.key, l.number])),
+    blanks: { unknown: set?.pack_unknown_blanks ?? 6, spare: set?.pack_spare_blanks ?? 2 },
     orders: list.map((o) => {
       const { rank, ...rest } = o;
       void rank;
@@ -304,10 +324,11 @@ export async function addWeight(
   productId: string,
   weight: number,
   boxNo: number | null,
+  box: { slot: number | null; label_no: number | null } = { slot: null, label_no: null },
 ): Promise<{ id: string | null; error: string | null }> {
   const { data, error } = await db
     .from("packing_weights")
-    .insert({ order_id: orderId, product_id: productId, weight, box_no: boxNo })
+    .insert({ order_id: orderId, product_id: productId, weight, box_no: boxNo, ...box })
     .select("id")
     .single();
   return { id: (data?.id as string | undefined) ?? null, error: error ? error.message : null };
@@ -360,4 +381,21 @@ export function packingLabels(data: PackingData, boxes: BoxSetup): LabelList {
     data.products,
     boxes,
   );
+}
+
+/** The box rows the packing sheet needs, from the week's box label list. */
+export function sheetLabels(data: PackingData, boxes: BoxSetup): SheetLabel[] {
+  return reportLabels(packingLabels(data, boxes)).map((r) => ({ key: r.key, boxNo: r.boxNo, boxCount: r.boxCount, noBox: r.noBox }));
+}
+
+/**
+ * One customer's rows on the packing sheet (lib/calc/packSheet.ts): the
+ * order's products in packing order, then any product boxed for them that
+ * isn't on the order (scanned anyway).
+ */
+export function orderSheet(o: PackOrder, data: PackingData, labels: SheetLabel[], extra?: Record<string, number>): SheetRow[] {
+  const ids = packLines(o, data.products).map(([pid]) => pid);
+  for (const w of o.weights) if (!ids.includes(w.product_id)) ids.push(w.product_id);
+  const perProduct = new Map([...data.products.values()].map((p) => [p.id, p.pack_blanks ?? null]));
+  return sheetRows({ customerId: o.customerId, productIds: ids, weights: o.weights }, labels, data.labelNumbers, { ...data.blanks, perProduct }, extra);
 }

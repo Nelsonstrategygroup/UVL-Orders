@@ -13,6 +13,8 @@ function describe(q: Queued): string {
   switch (a.type) {
     case "weight-add":
       return `A weight of ${a.weight} lb`;
+    case "weight-edit":
+      return `A weight changed to ${a.weight} lb`;
     case "weight-remove":
       return "Taking off a weight";
     case "mark":

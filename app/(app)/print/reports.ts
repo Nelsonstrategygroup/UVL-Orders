@@ -64,7 +64,7 @@ export const REPORTS: Record<ReportKind, ReportDef> = {
     shape: {
       constant: ["Week of"],
       groupBy: "Customer",
-      items: ["Product", "Ordered", "Unit", "Packed (lb)", "Pieces packed", "Short", "Over", "Not filled", "Flag", "Weighed by", "Last weighed"],
+      items: ["Product", "Ordered", "Unit", "Packed (lb)", "Pieces packed", "Short", "Over", "Not filled", "Flag", "Box weights", "Weighed by", "Last weighed"],
     },
   },
   customers: { title: "Customer list", filter: "none", shape: { groupBy: "Customer", items: ["Contact", "Handles", "Phone", "Email"] } },

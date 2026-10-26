@@ -32,6 +32,8 @@ const data = (orders: PackOrder[] = [order()]): PackingData => ({
   labelsHash: null,
   labelsPrintedAt: null,
   invNumber: null,
+  labelNumbers: new Map(),
+  blanks: { unknown: 6, spare: 2 },
   products: new Map(),
   orders,
 });
@@ -48,7 +50,7 @@ describe("what the packer sees while things wait on the phone", () => {
 
   it("once uploaded (the server has its client_id), it isn't shown twice", () => {
     const server = order({
-      weights: [{ id: "w9", product_id: "rack", weight: 22.15, box_no: 1, by: "Chris", at: "t", source: "weigh", gtin: null, serial: null, lot: null, case_no: null, pallet_id: null, client_id: "a" }],
+      weights: [{ id: "w9", product_id: "rack", weight: 22.15, box_no: 1, by: "Chris", at: "t", source: "weigh", gtin: null, serial: null, lot: null, case_no: null, pallet_id: null, client_id: "a", slot: null, label_no: null }],
     });
     const d = applyQueue(data([server]), [q({ type: "weight-add", client_id: "a", order_id: "o1", product_id: "rack", weight: 22.15, box_no: 1, at: "t" })]);
     expect(d.orders[0].weights).toHaveLength(1);
@@ -56,7 +58,7 @@ describe("what the packer sees while things wait on the phone", () => {
 
   it("taking off a weight works for one uploaded and one still waiting", () => {
     const server = order({
-      weights: [{ id: "w1", product_id: "rack", weight: 20, box_no: 1, by: "Chris", at: "t", source: "weigh", gtin: null, serial: null, lot: null, case_no: null, pallet_id: null, client_id: null }],
+      weights: [{ id: "w1", product_id: "rack", weight: 20, box_no: 1, by: "Chris", at: "t", source: "weigh", gtin: null, serial: null, lot: null, case_no: null, pallet_id: null, client_id: null, slot: null, label_no: null }],
     });
     const d = applyQueue(data([server]), [
       q({ type: "weight-add", client_id: "b", order_id: "o1", product_id: "rack", weight: 21, box_no: 2, at: "t" }),

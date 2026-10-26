@@ -145,7 +145,7 @@ export async function updateRow(
 
 export async function updateSettings(
   db: SupabaseClient,
-  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number }>,
+  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number }>,
 ): Promise<string | null> {
   const { error } = await db.from("app_settings").update(patch).eq("id", true);
   return msg(error);
@@ -204,6 +204,12 @@ async function replaceChildren(
  * Add or save a product, its part uses, and its Mohawk lines. A new product
  * goes at the end of the list.
  */
+/** Weight blanks for a product on the paper packing copy when its box count isn't known; null: the setting. */
+export async function saveProductPackBlanks(db: SupabaseClient, productId: string, blanks: number | null): Promise<string | null> {
+  const { error } = await db.from("products").update({ pack_blanks: blanks }).eq("id", productId);
+  return error ? error.message : null;
+}
+
 export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<string | null> {
   const row = {
     name: p.name,

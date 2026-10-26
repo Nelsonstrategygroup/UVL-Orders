@@ -50,7 +50,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     db
       .from("products")
       .select(
-        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, label_name, box_lb_min, box_lb_max, product_cut_specs(cut_spec_id, units_per_cut, sort)",
+        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, billed_by_weight, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, label_name, box_lb_min, box_lb_max, pack_blanks, product_cut_specs(cut_spec_id, units_per_cut, sort)",
       )
       .order("sort")
       .order("name"),
@@ -79,6 +79,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     per_box: p.per_box == null ? null : num(p.per_box),
     box_lb_min: p.box_lb_min == null ? null : num(p.box_lb_min),
     box_lb_max: p.box_lb_max == null ? null : num(p.box_lb_max),
+    pack_blanks: p.pack_blanks == null ? null : num(p.pack_blanks),
     uses: usesBy.get(p.id) ?? [],
     links: (product_cut_specs ?? [])
       .map((l) => ({ ...l, units_per_cut: num(l.units_per_cut) || 1 }))
@@ -445,7 +446,7 @@ export type PackingRecord = {
   status: Order["status"];
   lines: Qty;
   units: Units;
-  weights: { product_id: string; weight: number; box_no: number | null; by: string; at: string }[];
+  weights: { product_id: string; weight: number; box_no: number | null; slot?: number | null; label_no?: number | null; by: string; at: string }[];
   marks: Record<string, { count: number | null; shorted: boolean; flagged: boolean; flagNote: string }>;
   pallet: string;
 };
@@ -457,14 +458,22 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
       customer_id: string;
       status: Order["status"];
       order_lines: LineRow[];
-      packing_weights: { product_id: string; weight: number; box_no: number | null; created_by: string | null; created_at: string }[];
+      packing_weights: {
+        product_id: string;
+        weight: number;
+        box_no: number | null;
+        slot: number | null;
+        label_no: number | null;
+        created_by: string | null;
+        created_at: string;
+      }[];
       packing_lines: { product_id: string; packed_qty: number | null; shorted: boolean; flagged: boolean; flag_note: string }[];
       packing_orders: { pallet: string }[] | { pallet: string } | null;
     }>((a, b) =>
       db
         .from("orders")
         .select(
-          "customer_id, status, order_lines(product_id, qty, unit), packing_weights(product_id, weight, box_no, created_by, created_at), packing_lines(product_id, packed_qty, shorted, flagged, flag_note), packing_orders(pallet)",
+          "customer_id, status, order_lines(product_id, qty, unit), packing_weights(product_id, weight, box_no, slot, label_no, created_by, created_at), packing_lines(product_id, packed_qty, shorted, flagged, flag_note), packing_orders(pallet)",
         )
         .eq("week_id", week)
         .order("id")
@@ -493,6 +502,8 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
         product_id: w.product_id,
         weight: num(w.weight),
         box_no: w.box_no,
+        slot: w.slot,
+        label_no: w.label_no,
         by: w.created_by ? (names.get(w.created_by) ?? "Someone") : "",
         at: w.created_at,
       })),

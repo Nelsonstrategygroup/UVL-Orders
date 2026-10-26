@@ -66,8 +66,10 @@ export default async function HelpPage() {
         up by themselves within a few seconds.
       </Step>
       <Step n={6} title="Paper copy">
-        Open the <Link href="/packing/print">paper packing copy</Link> and tap <b>Print</b> for a checklist with spaces for
-        weights, boxes, not filled, pallet, and initials. In the office it&apos;s also under <b>More</b>, <b>Print and download</b>.
+        If the internet is down, pack on the <Link href="/packing/print">paper packing copy</Link>: write each box&apos;s weight
+        under its label number, then the total. Print it before packing day. Afterwards, type the weights in on{" "}
+        <Link href="/packing/paper">Type in from paper</Link>, which is laid out the same. Both are also under <b>More</b>,{" "}
+        <b>Print and download</b>.
       </Step>
     </section>
   );

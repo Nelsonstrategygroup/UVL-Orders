@@ -520,3 +520,16 @@ Le Trim is made by hand from what's left over after the other orders: extra shou
 - **Before it's saved**: This week says "Le Trim isn't planned yet. Some of these extras will go to Le Trim."
 - **Settings** (Setup > Le Trim): trim with each shoulder (default 5 lb) and with each half leg (default 6.5 lb). Only used for the estimate and Suggest.
 - **Open**: whether a pack takes one shoulder or half leg (Suggest and the first check assume one per 10 lb pack); whether "extra shoulders" should mean every spare shoulder or only those not set aside for the freezer, grind, or half and whole orders (today: every spare shoulder in the balance); the two trim figures.
+
+### 12.7 A weight for every box (change request 10/26/26)
+
+Chris scans every box. The paper packing copy is the backup for when the internet is down, so it gets a blank for every box's weight, not one per product.
+
+- **Layout**: one row per product per customer: the product, what was ordered and how many boxes, a Done box and a Not filled box; then a weight blank per box with the box's label number in small type above it; then **Total lbs**. Rows wrap when there are more blanks than fit. Blanks are 0.8" x 0.6" (seven across beside the product on Letter paper) to write in with gloves on. Pallet and Initials boxes per customer.
+- **Known box count** (the product has a box size, so the box label list has its boxes): one blank per box with its label number, then spare blanks (default 2) with an empty "Label #".
+- **Unknown box count** (no box size): blanks (default 6, or the product's own number) with an empty "Label #", and a "box count unknown" note. Pound products follow the same rules; one with a box size counts as known.
+- **Settings**: `app_settings.pack_unknown_blanks` (6), `pack_spare_blanks` (2), `products.pack_blanks` (per product, null = the setting), in Setup > Boxes.
+- **Label numbers**: from `box_labels` (12.6). Packing and the paper copy number any boxes that don't have one yet, the same way the report does, so they match; the packing copy kept on the phone includes them.
+- **Type in from paper** (`/packing/paper`): the same rows, customers and products in the same order, blanks with the same label numbers (an input where the paper has "Label #"), the total worked out, and "+ Add a box". Saved through the outbox like the rest of Packing.
+- **Storage**: each weight is its own `packing_weights` row with `slot` (which box of the customer's product, its place on the sheet) and `label_no`. Scans and the weigh panel put a weight in the next empty box. Products never share a box. The layout is `lib/calc/packSheet.ts`.
+- **Packing record**: a Box weights column lists each box ("#14 22.4 · #15 21.9").

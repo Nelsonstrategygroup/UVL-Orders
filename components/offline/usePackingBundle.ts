@@ -56,6 +56,12 @@ export function usePackingBundle(week: string, shipDate: string) {
           pallets: snap.value.pallets.filter((p) => p.ship_date === shipDate),
           // A copy kept before box limits existed.
           boxes: snap.value.boxes ?? { types: [], limits: new Map(), capLb: 45 },
+          // A copy kept before box weights (10/26/26).
+          packing: {
+            ...snap.value.packing,
+            labelNumbers: snap.value.packing.labelNumbers ?? new Map(),
+            blanks: snap.value.packing.blanks ?? { unknown: 6, spare: 2 },
+          },
         };
         return { bundle, savedAt: snap.savedAt, fromPhone: true };
       }

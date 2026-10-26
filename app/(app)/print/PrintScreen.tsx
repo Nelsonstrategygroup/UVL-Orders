@@ -164,11 +164,17 @@ export default function PrintScreen() {
       <Card when="Monday, packing">
         {seePacking && (
           <Item key="paper" title="Paper packing copy" action={open("/packing/print")}>
-            A checklist for each customer with spaces for weights, boxes, not filled, pallet, and initials.
+            The backup for when there&apos;s no internet: a blank for each box&apos;s weight under its label number, then
+            the total. Print it before packing day.
+          </Item>
+        )}
+        {seePacking && (
+          <Item key="paper-in" title="Type in from paper" action={open("/packing/paper")}>
+            After packing on paper, type the weights in. Laid out just like the paper.
           </Item>
         )}
         <Item key="record" title="Packing record" action={both("packing-record")}>
-          Ordered against packed, short or over, who packed each line and when, boxes, and pallet.
+          Ordered against packed, short or over, each box&apos;s weight and label number, who packed each line and when, and pallet.
         </Item>
       </Card>
 
