@@ -2789,16 +2789,20 @@ tr.zebra td,
   }
 }
 
-/* Pallet manifest (change request 10/26/26): one pallet per page, a distributor's boxes by store. */
+/* Pallet shipping manifest (change request 10/26/26): Letter portrait, one
+   pallet per page, column headings repeat when a customer runs onto the next
+   page. Shown as a sheet on screen, printed as is. */
 .pkmanifest {
   color: #000;
-  background: #fff;
   font-family: Arial, "Helvetica Neue", sans-serif;
-  font-size: 11pt;
+  font-size: 10.5pt;
 }
-.mf-pallet + .mf-pallet {
-  break-before: page;
-  page-break-before: always;
+.mf-pallet {
+  background: #fff;
+  max-width: 8.5in;
+  padding: 0.45in 0.5in;
+  margin: 0.8rem 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 .mf-head {
   display: flex;
@@ -2809,29 +2813,51 @@ tr.zebra td,
   margin-bottom: 8pt;
 }
 .mf-tag {
-  font-size: 54pt;
+  font-size: 48pt;
   font-weight: 700;
   line-height: 1;
 }
+.mf-co {
+  font-size: 15pt;
+  font-weight: 700;
+}
+.mf-line {
+  display: inline-block;
+  min-width: 1.6in;
+  border-bottom: 1px solid #000;
+  height: 1em;
+  vertical-align: bottom;
+}
+.mf-line.wide {
+  min-width: 3in;
+}
+.mf-addr {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14pt;
+  margin-bottom: 8pt;
+}
+.mf-lines {
+  height: 0.6in;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 0.19in, #000 0.19in, #000 0.2in);
+}
 .mf-ship {
-  font-size: 16pt;
+  font-size: 14pt;
   font-weight: 700;
 }
 .mf-warn {
   font-weight: 700;
-  border: 1.5pt solid #000;
-  padding: 4pt;
+  border: 2pt solid #000;
+  padding: 5pt;
+  margin: 6pt 0;
 }
 .mf-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 10pt;
+  margin-bottom: 8pt;
 }
-.mf-table caption {
-  text-align: left;
-  font-weight: 700;
-  font-size: 12pt;
-  padding: 4pt 0;
+.mf-table thead {
+  display: table-header-group;
 }
 .mf-table th,
 .mf-table td {
@@ -2839,8 +2865,59 @@ tr.zebra td,
   padding: 3pt 5pt;
   text-align: left;
 }
+.mf-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.mf-table th.mf-group {
+  font-size: 12pt;
+  background: #eee;
+  border-color: #000;
+}
 .mf-table tr {
   break-inside: avoid;
+  page-break-inside: avoid;
+}
+.mf-sub td {
+  font-weight: 700;
+  border-top: 1.5pt solid #000;
+}
+.mf-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13pt;
+  font-weight: 700;
+  border-top: 2pt solid #000;
+  border-bottom: 2pt solid #000;
+  padding: 5pt 0;
+  margin-top: 6pt;
+}
+.mf-sign {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18pt;
+  margin-top: 22pt;
+}
+.mf-foot {
+  margin: 14pt 0 0;
+  font-size: 9pt;
+  text-align: center;
+}
+@media print {
+  .mf-pallet {
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    max-width: none;
+  }
+  .mf-pallet + .mf-pallet {
+    break-before: page;
+    page-break-before: always;
+  }
+  .mf-table th.mf-group {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
 
 /* Scan boxes: scrolled to under the sticky header (10/26/26). */

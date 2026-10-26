@@ -145,7 +145,7 @@ export async function updateRow(
 
 export async function updateSettings(
   db: SupabaseClient,
-  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number }>,
+  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number; ship_from_address: string }>,
 ): Promise<string | null> {
   const { error } = await db.from("app_settings").update(patch).eq("id", true);
   return msg(error);

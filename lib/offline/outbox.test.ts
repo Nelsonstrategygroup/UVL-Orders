@@ -38,6 +38,8 @@ const data = (orders: PackOrder[] = [order()]): PackingData => ({
   blanks: { unknown: 6, spare: 2 },
   unassigned: [],
   points: new Map(),
+  company: "Umpqua Valley Lamb",
+  shipFrom: "",
   products: new Map(),
   orders,
 });

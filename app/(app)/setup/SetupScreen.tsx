@@ -438,6 +438,21 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
             Each customer or location ships direct (its own shipment and pallets), or through a distributor that takes every
             store&apos;s boxes together and sends them on (PCC). Scan boxes uses this to choose the pallet.
           </p>
+          <label className="grid gap-1 mb-4">
+            <span className="lbl m-0">Ship-from address (printed on pallet manifests)</span>
+            <textarea
+              key={`sf:${settings?.ship_from_address ?? ""}`}
+              className="field max-w-[28rem]"
+              rows={3}
+              defaultValue={settings?.ship_from_address ?? ""}
+              disabled={!canEdit}
+              placeholder="Leave blank to write it on by hand"
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                if (v !== (settings?.ship_from_address ?? "")) void updateSettings(db, { ship_from_address: v }).then(done);
+              }}
+            />
+          </label>
           <ShipsTo canEdit={canEdit} />
         </section>,
       );

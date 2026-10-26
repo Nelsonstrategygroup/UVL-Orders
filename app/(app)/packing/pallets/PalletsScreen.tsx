@@ -17,14 +17,20 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { fmt } from "@/lib/calc/num";
 import { palletTotals } from "@/lib/calc/routing";
-import { weekName } from "@/lib/dates";
 import { assignBox, type PackWeight } from "@/lib/db/packing";
 import type { PalletRow } from "@/lib/db/scanning";
+import Link from "next/link";
+import { shipName as shipNameOf } from "./Manifest";
 import PlanPallets from "./PlanPallets";
 
 type Box = PackWeight & { customerId: string | null; customer: string };
 
-const STATUS: Record<PalletRow["status"], string> = { planned: "Planned", open: "Open", full: "Full", shipped: "Shipped" };
+const STATUS: Record<PalletRow["status"], string> = {
+  planned: "Planned",
+  open: "Open",
+  full: "Full",
+  shipped: "Shipped",
+};
 
 export default function PalletsScreen() {
   const { week } = useWeek();
@@ -36,7 +42,8 @@ export default function PalletsScreen() {
   const [assigning, setAssigning] = useState<string | null>(null);
   const data = bundle.data;
 
-  if (bundle.error) return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
+  if (bundle.error)
+    return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
   if (!data)
     return (
       <>
@@ -47,19 +54,32 @@ export default function PalletsScreen() {
 
   const p = data.packing;
   const all: Box[] = [
-    ...p.orders.flatMap((o) => o.weights.map((w) => ({ ...w, customerId: o.customerId, customer: o.labelCustomer }))),
-    ...p.unassigned.map((w) => ({ ...w, customerId: null, customer: "Unassigned" })),
+    ...p.orders.flatMap((o) =>
+      o.weights.map((w) => ({
+        ...w,
+        customerId: o.customerId,
+        customer: o.labelCustomer,
+      })),
+    ),
+    ...p.unassigned.map((w) => ({
+      ...w,
+      customerId: null,
+      customer: "Unassigned",
+    })),
   ];
   const name = (pid: string) => p.products.get(pid)?.name ?? pid;
-  const shipName = (key: string) => {
-    const [kind, id] = key.split(":");
-    return kind === "point" ? (p.points.get(id) ?? "Distributor") : (p.orders.find((o) => o.customerId === id)?.labelCustomer ?? "A customer");
-  };
-  const isPoint = (pl: PalletRow) => pl.shipKeys.some((k) => k.startsWith("point:"));
+  const shipName = (key: string) => shipNameOf(data, key);
+  // The manifest page (one shared manifest for Pallets and Print and download).
+  const manifestHref = (palletId?: string) =>
+    `/packing/pallets/manifest?week=${week}${palletId ? `&pallet=${palletId}` : ""}&print=1`;
+  const isPoint = (pl: PalletRow) =>
+    pl.shipKeys.some((k) => k.startsWith("point:"));
   const onPallet = (id: string) => all.filter((b) => b.pallet_id === id);
   const noPallet = all.filter((b) => !b.pallet_id && b.customerId);
   const setStatus = (pl: PalletRow, status: PalletRow["status"]) =>
-    void enqueue({ type: "pallet-status", id: pl.id, status }).catch(() => toast("Couldn't save on this phone. Try again."));
+    void enqueue({ type: "pallet-status", id: pl.id, status }).catch(() =>
+      toast("Couldn't save on this phone. Try again."),
+    );
 
   return (
     <>
@@ -71,18 +91,24 @@ export default function PalletsScreen() {
           <a href="/packing/scan" className="btn ghost">
             Scan boxes
           </a>
-          <button type="button" className="btn" disabled={!data.pallets.length} onClick={() => window.print()}>
-            Print manifest
-          </button>
+          {data.pallets.length > 0 && (
+            <Link href={manifestHref()} className="btn">
+              Print all manifests
+            </Link>
+          )}
         </div>
         {waiting > 0 && (
           <p className="note warn">
-            {waiting} {waiting === 1 ? "thing is" : "things are"} still waiting on this phone. The manifest may be missing boxes
-            until they upload.
+            {waiting} {waiting === 1 ? "thing is" : "things are"} still waiting
+            on this phone. The manifest may be missing boxes until they upload.
           </p>
         )}
         <PlanPallets week={week} data={data} canPlan={canPack || canWeek} />
-        {!data.pallets.length && <div className="empty">No pallets yet. Plan them above, or start them from Scan boxes.</div>}
+        {!data.pallets.length && (
+          <div className="empty">
+            No pallets yet. Plan them above, or start them from Scan boxes.
+          </div>
+        )}
 
         {data.pallets.map((pl) => {
           const boxes = onPallet(pl.id);
@@ -98,7 +124,11 @@ export default function PalletsScreen() {
                     · {t.boxes} box{t.boxes === 1 ? "" : "es"} · {fmt(t.lb)} lb
                   </span>
                 </span>
-                <span className={`tag ${pl.status === "open" ? "even" : "plain"}`}>{STATUS[pl.status]}</span>
+                <span
+                  className={`tag ${pl.status === "open" ? "even" : "plain"}`}
+                >
+                  {STATUS[pl.status]}
+                </span>
               </div>
               {isPoint(pl) && t.byCustomer.size > 0 && (
                 <table className="simple mt-2">
@@ -111,37 +141,65 @@ export default function PalletsScreen() {
                   </thead>
                   <tbody>
                     {[...t.byCustomer.entries()]
-                      .map(([cid, v]) => ({ who: boxes.find((b) => b.customerId === cid)?.customer ?? "Unassigned", ...v }))
-                      .sort((a, b) => a.who.localeCompare(b.who, undefined, { numeric: true }))
+                      .map(([cid, v]) => ({
+                        who:
+                          boxes.find((b) => b.customerId === cid)?.customer ??
+                          "Unassigned",
+                        ...v,
+                      }))
+                      .sort((a, b) =>
+                        a.who.localeCompare(b.who, undefined, {
+                          numeric: true,
+                        }),
+                      )
                       .map((r) => (
                         <tr key={r.who}>
                           <td>{r.who}</td>
                           <td className="num">{r.boxes}</td>
-                          <td className="num">{fmt(Math.round(r.lb * 100) / 100)}</td>
+                          <td className="num">
+                            {fmt(Math.round(r.lb * 100) / 100)}
+                          </td>
                         </tr>
                       ))}
                   </tbody>
                 </table>
               )}
-              {(canPack || canWeek) && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {pl.status !== "full" && (
-                    <button type="button" className="btn ghost" onClick={() => setStatus(pl, "full")}>
-                      Pallet full
-                    </button>
-                  )}
-                  {pl.status !== "open" && (
-                    <button type="button" className="btn ghost" onClick={() => setStatus(pl, "open")}>
-                      Open again
-                    </button>
-                  )}
-                  {pl.status !== "shipped" && (
-                    <button type="button" className="btn ghost" onClick={() => setStatus(pl, "shipped")}>
-                      Shipped
-                    </button>
-                  )}
-                </div>
-              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link href={manifestHref(pl.id)} className="btn">
+                  Print Manifest
+                </Link>
+                {(canPack || canWeek) && (
+                  <>
+                    {pl.status !== "full" && (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => setStatus(pl, "full")}
+                      >
+                        Pallet full
+                      </button>
+                    )}
+                    {pl.status !== "open" && (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => setStatus(pl, "open")}
+                      >
+                        Open again
+                      </button>
+                    )}
+                    {pl.status !== "shipped" && (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => setStatus(pl, "shipped")}
+                      >
+                        Shipped
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </section>
           );
         })}
@@ -149,13 +207,22 @@ export default function PalletsScreen() {
         {p.unassigned.length > 0 && (
           <section className="panel mt-4">
             <h3>Unassigned boxes</h3>
-            <p className="small muted mt-1">No open order needed these. Choose who each one goes to, or leave it for now.</p>
+            <p className="small muted mt-1">
+              No open order needed these. Choose who each one goes to, or leave
+              it for now.
+            </p>
             <ul className="m-0 mt-2 list-none p-0">
               {p.unassigned.map((w) => (
-                <li key={w.id} className="flex flex-wrap items-center gap-2 border-b border-line py-2">
+                <li
+                  key={w.id}
+                  className="flex flex-wrap items-center gap-2 border-b border-line py-2"
+                >
                   <span className="flex-1">
-                    {name(w.product_id)} · {fmt(w.weight)} lb · Lot {w.lot ?? "?"}
-                    {w.case_no && <span className="small muted"> · case {w.case_no}</span>}
+                    {name(w.product_id)} · {fmt(w.weight)} lb · Lot{" "}
+                    {w.lot ?? "?"}
+                    {w.case_no && (
+                      <span className="small muted"> · case {w.case_no}</span>
+                    )}
                   </span>
                   {(canPack || canWeek) && !w.id.startsWith("local:") && (
                     <select
@@ -192,74 +259,10 @@ export default function PalletsScreen() {
 
         {noPallet.length > 0 && (
           <p className="small muted mt-3">
-            {noPallet.length} box{noPallet.length === 1 ? " was" : "es were"} weighed or typed in without a pallet.
+            {noPallet.length} box{noPallet.length === 1 ? " was" : "es were"}{" "}
+            weighed or typed in without a pallet.
           </p>
         )}
-      </div>
-
-      {/* The manifest: one pallet per page. A distributor's pallet lists its boxes by store. */}
-      <div className="print-only pkmanifest">
-        {data.pallets.map((pl) => {
-          const boxes = onPallet(pl.id);
-          const t = palletTotals(boxes);
-          const groups = isPoint(pl)
-            ? [...new Set(boxes.map((b) => b.customer))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-            : [null];
-          return (
-            <section key={pl.id} className="mf-pallet">
-              <div className="mf-head">
-                <div className="mf-tag">{pl.tag}</div>
-                <div>
-                  <div className="mf-ship">Ship to: {pl.shipKeys.map(shipName).join(", ")}</div>
-                  <div>
-                    {weekName(week)} · {t.boxes} box{t.boxes === 1 ? "" : "es"} · {fmt(t.lb)} lb
-                    {(() => {
-                      // "Pallet 1 of 2" within its shipment, so the distributor knows how many to expect.
-                      const same = data.pallets.filter((x) => x.shipKeys.some((k) => pl.shipKeys.includes(k)));
-                      return same.length > 1 ? ` · Pallet ${same.indexOf(pl) + 1} of ${same.length}` : "";
-                    })()}
-                  </div>
-                </div>
-              </div>
-              {waiting > 0 && <p className="mf-warn">Some scans had not uploaded when this was printed.</p>}
-              {groups.map((g) => {
-                const list = (g == null ? boxes : boxes.filter((b) => b.customer === g)).sort(
-                  (a, b) => (a.label_no ?? 1e9) - (b.label_no ?? 1e9) || name(a.product_id).localeCompare(name(b.product_id)),
-                );
-                const gt = palletTotals(list);
-                return (
-                  <table key={g ?? "all"} className="mf-table">
-                    {g != null && (
-                      <caption>
-                        {g} · {gt.boxes} box{gt.boxes === 1 ? "" : "es"} · {fmt(gt.lb)} lb
-                      </caption>
-                    )}
-                    <thead>
-                      <tr>
-                        <th>Label</th>
-                        {g == null && <th>Customer</th>}
-                        <th>Product</th>
-                        <th>lb</th>
-                        <th>Lot</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.map((b) => (
-                        <tr key={b.id}>
-                          <td>{b.label_no ?? ""}</td>
-                          {g == null && <td>{b.customer}</td>}
-                          <td>{name(b.product_id)}</td>
-                          <td>{fmt(b.weight)}</td>
-                          <td>{b.lot ?? ""}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                );
-              })}
-            </section>
-          );
-        })}
       </div>
     </>
   );

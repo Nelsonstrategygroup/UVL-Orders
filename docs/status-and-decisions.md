@@ -70,6 +70,13 @@ What changed:
   plans it at Mohawk, or Kathy ahead. Not printed on box labels. Migration
   20261026000400 (pallet_customers).
 
+- Pallet shipping manifest: one shared page, opened from Pallets (Print
+  Manifest on each pallet) and Print and download (Pallet manifest, with a
+  pallet picker, print all, save as PDF, and a CSV of the boxes). Ship date
+  is a line to write on (ship dates aren't set); ship-from address is a new
+  setting in Setup > Ships to (migration 20261026000500); ship-to is the
+  name only (no addresses stored).
+
 Decided (Lucas, 10/26/26):
 - Pallets switch from "Pallet X of Y" to tags; pallet groups are replaced by
   Ships to; each box records its box type; the typed pallet note on Packing

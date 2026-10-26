@@ -17,6 +17,7 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { addDays, currentWeek, packingMonday, niceDate, todayISO } from "@/lib/dates";
+import PalletManifestPicker from "./PalletManifestPicker";
 import { buildReport, REPORTS, reportHref, type ReportKind } from "./reports";
 
 function Item({ title, children, action }: { title: string; children: React.ReactNode; action: React.ReactNode }) {
@@ -169,9 +170,14 @@ export default function PrintScreen() {
           </Item>
         )}
         {seePacking && (
-          <Item key="pallets" title="Pallets and manifest" action={open("/packing/pallets")}>
-            Plan which stores go on which pallet, see what&apos;s on each, and print the pallet manifest (boxes by store for the
-            distributor).
+          <Item key="pallets" title="Pallets" action={open("/packing/pallets")}>
+            Plan which stores go on which pallet, and see what&apos;s on each.
+          </Item>
+        )}
+        {seePacking && (
+          <Item key="manifest" title="Pallet manifest" action={<PalletManifestPicker week={week} />}>
+            Every box on a pallet by customer (stores by number), with lot, net weight and totals, to ship with the pallet.
+            Also a CSV of the boxes for invoicing.
           </Item>
         )}
         {seePacking && (

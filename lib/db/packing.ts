@@ -102,6 +102,9 @@ export type PackingData = {
   unassigned: PackWeight[];
   /** Distributors (Ships to), by id. */
   points: Map<string, string>;
+  /** For the pallet manifest: the company name and the ship-from address (blank: a line to write it on). */
+  company: string;
+  shipFrom: string;
   /** Box label numbers given out for the week, by box (customer|product|box). Empty until the Box Label Report or the packing sheet hands them out. */
   labelNumbers: Map<string, number>;
   /** Weight blanks on the packing sheet: when the box count isn't known, and spares after known boxes. */
@@ -171,7 +174,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     // Packers can't read the cut sheet; the INV# is then just left off.
     db.from("cut_sheets").select("inv_number").eq("week_id", week).maybeSingle(),
     db.from("box_labels").select("number, key").eq("week_id", week),
-    db.from("app_settings").select("pack_unknown_blanks, pack_spare_blanks").maybeSingle(),
+    // Everything, so a setting added later (ship_from_address) can't break Packing before its migration runs.
+    db.from("app_settings").select("*").maybeSingle(),
     db
       .from("packing_weights")
       .select("id, product_id, weight, box_no, slot, label_no, box_type_id, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id")
@@ -320,7 +324,12 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     box_lb_max: x.box_lb_max == null ? null : num(x.box_lb_max),
     pack_blanks: x.pack_blanks == null ? null : num(x.pack_blanks),
   }));
-  const set = must(settings) as { pack_unknown_blanks: number; pack_spare_blanks: number } | null;
+  const set = must(settings) as {
+    pack_unknown_blanks: number;
+    pack_spare_blanks: number;
+    company_name?: string;
+    ship_from_address?: string;
+  } | null;
   const wr = must(weekRow) as { process_date: string | null; labels_hash: string | null; labels_printed_at: string | null } | null;
   const inv = sheet.error ? null : ((sheet.data as { inv_number: string | null } | null)?.inv_number ?? null);
   return {
@@ -332,6 +341,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     products: new Map(prods.map((p) => [p.id, p])),
     unassigned: ((loose.error ? [] : loose.data) as WeightRow[]).map((w) => toWeight(w)),
     points: pointName,
+    company: set?.company_name?.trim() || "Umpqua Valley Lamb",
+    shipFrom: set?.ship_from_address?.trim() ?? "",
     labelNumbers: new Map((must(labels) as { number: number; key: string }[]).map((l) => [l.key, l.number])),
     blanks: { unknown: set?.pack_unknown_blanks ?? 6, spare: set?.pack_spare_blanks ?? 2 },
     orders: list.map((o) => {

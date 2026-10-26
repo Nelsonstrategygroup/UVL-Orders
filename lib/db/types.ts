@@ -24,6 +24,8 @@ export type AppSettings = {
   /** Weight blanks on the paper packing copy: when the box count isn't known, and spares after known boxes (10/26/26). */
   pack_unknown_blanks?: number;
   pack_spare_blanks?: number;
+  /** Printed as "Ship from" on pallet manifests (10/26/26). */
+  ship_from_address?: string;
 };
 
 /** A week's saved Le Trim plan (change request 10/25/26). */

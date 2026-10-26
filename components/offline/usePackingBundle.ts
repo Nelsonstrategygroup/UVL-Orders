@@ -63,6 +63,8 @@ export function usePackingBundle(week: string) {
             blanks: snap.value.packing.blanks ?? { unknown: 6, spare: 2 },
             unassigned: snap.value.packing.unassigned ?? [],
             points: snap.value.packing.points ?? new Map(),
+            company: snap.value.packing.company ?? "Umpqua Valley Lamb",
+            shipFrom: snap.value.packing.shipFrom ?? "",
           },
         };
         return { bundle, savedAt: snap.savedAt, fromPhone: true };
