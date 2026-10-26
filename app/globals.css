@@ -2842,3 +2842,8 @@ tr.zebra td,
 .mf-table tr {
   break-inside: avoid;
 }
+
+/* Scan boxes: scrolled to under the sticky header (10/26/26). */
+.scan-area {
+  scroll-margin-top: 72px;
+}
