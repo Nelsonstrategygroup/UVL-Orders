@@ -211,7 +211,11 @@ export default function PalletsScreen() {
                   <div className="mf-ship">Ship to: {pl.shipKeys.map(shipName).join(", ")}</div>
                   <div>
                     {weekName(week)} · {t.boxes} box{t.boxes === 1 ? "" : "es"} · {fmt(t.lb)} lb
-                    {data.pallets.length > 1 ? ` · Pallet ${data.pallets.indexOf(pl) + 1} of ${data.pallets.length}` : ""}
+                    {(() => {
+                      // "Pallet 1 of 2" within its shipment, so the distributor knows how many to expect.
+                      const same = data.pallets.filter((x) => x.shipKeys.some((k) => pl.shipKeys.includes(k)));
+                      return same.length > 1 ? ` · Pallet ${same.indexOf(pl) + 1} of ${same.length}` : "";
+                    })()}
                   </div>
                 </div>
               </div>

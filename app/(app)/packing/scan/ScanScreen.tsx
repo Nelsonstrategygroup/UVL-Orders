@@ -39,6 +39,7 @@ import { badScan, goodScan, unlockSound } from "@/lib/scan/feedback";
 import { decideScan, LOT_PATTERN, lotKey, type ScanContext, type ScanStep } from "@/lib/scan/flow";
 import type { Gs1Box } from "@/lib/scan/gs1";
 import { qtyText } from "@/lib/orders";
+import { useLabelNumbers } from "../useLabelNumbers";
 
 type Shown = { ok: boolean; title: string; big?: string; detail?: string; warnings?: string[] };
 type Answers = { addOffOrder?: boolean; productId?: string; lot?: string };
@@ -69,6 +70,8 @@ export default function ScanScreen() {
   // The same copy Packing keeps on the phone (SPEC 11.7).
   const bundle = usePackingBundle(week);
   const { data, error, refresh } = bundle;
+  // Boxes get label numbers while there is signal, so each scan can say which label goes on it.
+  useLabelNumbers(week, data, refresh, canPack);
 
   // Lock to this customer: the old customer-first flow.
   const [lockId, setLockId] = useState("");
