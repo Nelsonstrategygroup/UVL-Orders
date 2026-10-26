@@ -10,8 +10,12 @@
 // Which pallet, for that customer's shipment:
 //   a. a planned or open pallet with a planned box still to fill for this
 //      customer and product (pallet_plan_lines; empty until the planner),
-//   b. an open pallet for the shipment (the newest),
-//   c. none: start a pallet for the shipment.
+//   b. an open pallet for the shipment that already has this customer's boxes
+//      (a PCC shipment fills several pallets, each with its own stores:
+//      P1 has #10, #11, #13...; P2 has #24, #17...; Lucas, 10/26/26),
+//   c. the newest open pallet for the shipment,
+//   d. none: start a pallet for the shipment.
+// Chris can always choose another open pallet for the shipment, or a new one.
 
 import { num } from "./num";
 import type { SheetRow } from "./packSheet";
@@ -107,11 +111,20 @@ export function palletFor(o: Pick<RouteOrder, "customerId" | "shipKey">, product
     return want > have;
   });
   if (planned) return planned;
-  // b. The newest open pallet for the shipment.
-  const open = pallets
+  const open = shipmentPallets(o, pallets);
+  // b. The pallet already holding this customer's boxes (the most of them).
+  const count = (p: RoutePallet) => p.boxes.filter((b) => b.customerId === o.customerId).length;
+  const theirs = open.filter((p) => count(p) > 0).sort((a, b) => count(b) - count(a));
+  if (theirs[0]) return theirs[0];
+  // c. The newest open pallet for the shipment.
+  return open[0] ?? null;
+}
+
+/** The shipment's open pallets, newest first: the choices for "Different pallet". */
+export function shipmentPallets(o: Pick<RouteOrder, "shipKey">, pallets: RoutePallet[]): RoutePallet[] {
+  return pallets
     .filter((p) => p.status === "open" && p.shipKeys.includes(o.shipKey))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return open[0] ?? null;
 }
 
 /** A tag to offer for a new pallet: one more than the highest "P" number this week ("P4"). */

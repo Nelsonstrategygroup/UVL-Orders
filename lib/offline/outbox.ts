@@ -45,6 +45,8 @@ export type Action =
       ship_to_point_id: string | null;
       at: string;
     }
+  /** Move a box to another pallet (it went on the wrong one). */
+  | { type: "weight-pallet"; order_id: string | null; weight_id?: string; client_id?: string; pallet_id: string | null }
   /** A pallet is full (or open again, or shipped). */
   | { type: "pallet-status"; id: string; status: "planned" | "open" | "full" | "shipped" };
 
@@ -158,6 +160,11 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       o.weights = o.weights.map((w) =>
         (a.weight_id && w.id === a.weight_id) || (a.client_id && w.client_id === a.client_id) ? { ...w, weight: a.weight, label_no: a.label_no } : w,
       );
+    } else if (a.type === "weight-pallet") {
+      const hit = (w: PackWeight) => (a.weight_id && w.id === a.weight_id) || (a.client_id && w.client_id === a.client_id);
+      const o = a.order_id ? byId.get(a.order_id) : undefined;
+      if (o) o.weights = o.weights.map((w) => (hit(w) ? { ...w, pallet_id: a.pallet_id } : w));
+      for (let i = 0; i < unassigned.length; i++) if (hit(unassigned[i])) unassigned[i] = { ...unassigned[i], pallet_id: a.pallet_id };
     } else if (a.type === "weight-remove") {
       const o = byId.get(a.order_id);
       if (!o) continue;

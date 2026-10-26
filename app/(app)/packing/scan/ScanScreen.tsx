@@ -31,7 +31,7 @@ import { fmt, num } from "@/lib/calc/num";
 import { unitWord } from "@/lib/calc/units";
 import { orderSheet, packLines, sheetLabels, type PackingData, type PackOrder, type PackProduct, type PackWeight } from "@/lib/db/packing";
 import { blankWords, type SheetLabel } from "@/lib/calc/packSheet";
-import { candidates, needFor, needWords, nextTag, palletFor, type RouteOrder, type RoutePallet } from "@/lib/calc/routing";
+import { candidates, needFor, needWords, nextTag, palletFor, shipmentPallets, type RouteOrder, type RoutePallet } from "@/lib/calc/routing";
 import { isLocal } from "@/lib/offline/outbox";
 import { planBoxes, type BoxSetup } from "@/lib/calc/boxes";
 import { setBoxLot, type BoxUpload } from "@/lib/db/scanning";
@@ -56,8 +56,12 @@ type Base = {
   serialKey: string | null;
 };
 
-/** The suggestion card: who it's for (null = Unassigned), how they were chosen, and a tag for a new pallet. */
-type Pending = { base: Base; list: RouteOrder[]; pick: string | null; route: Route; tag: string };
+/**
+ * The suggestion card: who it's for (null = Unassigned), how they were
+ * chosen, a tag for a new pallet, and the pallet if Chris chose another one
+ * ("new" for a new pallet; null for the app's choice).
+ */
+type Pending = { base: Base; list: RouteOrder[]; pick: string | null; route: Route; tag: string; palletPick: string | null };
 
 export default function ScanScreen() {
   const { week } = useWeek();
@@ -135,7 +139,7 @@ export default function ScanScreen() {
     const order = data.packing.orders.find((o) => o.id === p.pick);
     if (!order) return;
     const ro = routeOrder(order, base.productId, data, labels);
-    let pallet = palletFor(ro, base.productId, routePallets(data));
+    let pallet = chosenPallet(p, ro, routePallets(data));
     let tag = pallet?.tag ?? p.tag.trim();
     if (!tag) return toast("Write a tag on the pallet, then type it here.");
     try {
@@ -187,13 +191,13 @@ export default function ScanScreen() {
   function routeBox(base: Base) {
     if (!data) return;
     if (locked) {
-      const p: Pending = { base, list: [], pick: locked.id, route: "locked", tag: nextTag(data.pallets) };
+      const p: Pending = { base, list: [], pick: locked.id, route: "locked", tag: nextTag(data.pallets), palletPick: null };
       // A pallet to start still needs a tag: ask with the card.
       if (!palletFor(routeOrder(locked, base.productId, data, labels), base.productId, routePallets(data))) return setPending(p);
       return void confirm(p);
     }
     const list = candidates(data.packing.orders.map((o) => routeOrder(o, base.productId, data, labels)));
-    setPending({ base, list, pick: list[0]?.orderId ?? null, route: list.length ? "suggested" : "unassigned", tag: nextTag(data.pallets) });
+    setPending({ base, list, pick: list[0]?.orderId ?? null, route: list.length ? "suggested" : "unassigned", tag: nextTag(data.pallets), palletPick: null });
     if (list.length) goodScan();
     else badScan();
   }
@@ -471,8 +475,19 @@ export default function ScanScreen() {
         products={products}
         pallets={data.pallets}
         isAdmin={isAdmin}
+        canPack={canPack}
         db={db}
         onChanged={refresh}
+        onMove={(w, palletId) =>
+          void enqueue({
+            type: "weight-pallet",
+            order_id: data.packing.orders.find((o) => o.weights.some((x) => x.id === w.id))?.id ?? null,
+            ...(isLocal(w) ? { client_id: w.client_id ?? "" } : { weight_id: w.id }),
+            pallet_id: palletId,
+          })
+            .then(() => toast(`Moved to ${data.pallets.find((p) => p.id === palletId)?.tag ?? "the pallet"}`))
+            .catch(() => toast("Couldn't save on this phone. Try again."))
+        }
       />
 
       {manual && (
@@ -515,7 +530,17 @@ function SuggestCard({
   const product = data.packing.products.get(p.base.productId);
   const order = p.pick ? data.packing.orders.find((o) => o.id === p.pick) : undefined;
   const ro = order ? routeOrder(order, p.base.productId, data, labels) : null;
-  const pallet = ro ? palletFor(ro, p.base.productId, pallets) : null;
+  const pallet = ro ? chosenPallet(p, ro, pallets) : null;
+  // The shipment's other open pallets, with the stores on each: "Different pallet".
+  const others2 = ro ? shipmentPallets(ro, pallets).filter((x) => x.id !== pallet?.id) : [];
+  const storesOn = (pl: RoutePallet) => {
+    // "#10 Issaquah, #11 Fremont": the stores already on it (the location, or the customer).
+    const names = [...new Set(pl.boxes.map((b) => b.customerId).filter(Boolean))].map((id) => {
+      const o = data.packing.orders.find((x) => x.customerId === id);
+      return o?.labelLocation || o?.labelCustomer || "";
+    });
+    return names.length ? names.slice(0, 4).join(", ") + (names.length > 4 ? `, +${names.length - 4}` : "") : "empty";
+  };
   const box = order ? boxFor(order, p.base.productId, data.packing, labels, new Set()) : null;
   const tagUsed = !pallet && p.tag.trim() && data.pallets.some((x) => x.tag.trim().toUpperCase() === p.tag.trim().toUpperCase());
   const others = p.list.filter((o) => o.orderId !== p.pick).slice(0, 5);
@@ -564,6 +589,25 @@ function SuggestCard({
             {ro!.need ? needWords(ro!.need) : "not on their order"}
           </p>
           {ro!.via && <p className="small muted m-0">via {ro!.via}</p>}
+          {(others2.length > 0 || pallet) && (
+            <div className="mt-2">
+              <p className="small m-0 mb-1">Different pallet:</p>
+              <div className="flex flex-wrap gap-2">
+                {others2.map((x) => (
+                  <button key={x.id} type="button" className="route-alt" onClick={() => onChange({ ...p, palletPick: x.id })}>
+                    {x.tag}
+                    <small>{storesOn(x)}</small>
+                  </button>
+                ))}
+                {pallet && (
+                  <button type="button" className="route-alt" onClick={() => onChange({ ...p, palletPick: "new", tag: nextTag(data.pallets) })}>
+                    New pallet
+                    <small>for {ro!.shipName}</small>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {over && <p className="scanwarn">⚠ More than {order.labelCustomer} ordered. It will be flagged for Kathy.</p>}
         </>
       )}
@@ -586,7 +630,7 @@ function SuggestCard({
                 key={o.orderId}
                 type="button"
                 className="route-alt"
-                onClick={() => onChange({ ...p, pick: o.orderId, route: o.orderId === p.list[0]?.orderId ? "suggested" : "other" })}
+                onClick={() => onChange({ ...p, pick: o.orderId, route: o.orderId === p.list[0]?.orderId ? "suggested" : "other", palletPick: null })}
               >
                 {o.name}
                 <small>{o.need ? needWords(o.need) : ""}</small>
@@ -607,7 +651,7 @@ function SuggestCard({
             autoFocus
             onChange={(e) => {
               if (!e.target.value) return;
-              onChange({ ...p, pick: e.target.value, route: "picked" });
+              onChange({ ...p, pick: e.target.value, route: "picked", palletPick: null });
               setPicking(false);
             }}
           >
@@ -620,13 +664,20 @@ function SuggestCard({
           </select>
         )}
         {p.pick != null && (
-          <button type="button" className="btn ghost" onClick={() => onChange({ ...p, pick: null, route: "unassigned" })}>
+          <button type="button" className="btn ghost" onClick={() => onChange({ ...p, pick: null, route: "unassigned", palletPick: null })}>
             Unassigned (extras)
           </button>
         )}
       </div>
     </div>
   );
+}
+
+/** The pallet for the card: the one Chris chose, a new one ("new" gives null, so a tag is asked for), or the app's choice. */
+function chosenPallet(p: Pending, ro: RouteOrder, pallets: RoutePallet[]): RoutePallet | null {
+  if (p.palletPick === "new") return null;
+  if (p.palletPick) return pallets.find((x) => x.id === p.palletPick) ?? palletFor(ro, p.base.productId, pallets);
+  return palletFor(ro, p.base.productId, pallets);
 }
 
 /** One order as routing sees it, for this product. */
@@ -861,16 +912,20 @@ function RecentBoxes({
   products,
   pallets,
   isAdmin,
+  canPack,
   db,
   onChanged,
+  onMove,
 }: {
   title: string;
   boxes: (PackWeight & { who?: string })[];
   products: Map<string, PackProduct>;
-  pallets: { id: string; tag: string }[];
+  pallets: { id: string; tag: string; status: string }[];
   isAdmin: boolean;
+  canPack: boolean;
   db: SupabaseClient;
   onChanged: () => void;
+  onMove: (w: PackWeight, palletId: string) => void;
 }) {
   const toast = useToast();
   const list = boxes.filter((w) => w.source !== "weigh").slice().sort((a, b) => b.at.localeCompare(a.at));
@@ -891,6 +946,23 @@ function RecentBoxes({
               {w.source === "manual" && <span className="small muted"> · typed</span>}
             </span>
             {isLocal(w) && <span className="small muted">on this phone</span>}
+            {canPack && pallets.some((p) => p.id !== w.pallet_id && p.status !== "shipped") && (
+              <select
+                className="field w-auto!"
+                value=""
+                aria-label="Move this box to another pallet"
+                onChange={(e) => e.target.value && onMove(w, e.target.value)}
+              >
+                <option value="">Move to...</option>
+                {pallets
+                  .filter((p) => p.id !== w.pallet_id && p.status !== "shipped")
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.tag}
+                    </option>
+                  ))}
+              </select>
+            )}
             {isAdmin && !isLocal(w) && (
               <button
                 type="button"

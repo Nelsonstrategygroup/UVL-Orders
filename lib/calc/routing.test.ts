@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { candidates, needFor, needWords, nextTag, palletFor, palletTotals, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
+import { candidates, needFor, needWords, nextTag, palletFor, palletTotals, shipmentPallets, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
 import type { SheetRow } from "./packSheet";
 
 const row = (known: boolean, boxCount: number, filled: number, blanks = boxCount + 2): SheetRow => ({
@@ -102,6 +102,17 @@ describe("which pallet", () => {
       pallet("other", { shipKeys: ["customer:x"], createdAt: "2026-10-26T19:00:00Z" }),
     ];
     expect(palletFor(kirkland, "rack", pallets)?.id).toBe("new");
+  });
+
+  it("a store goes back to the pallet that already has its boxes, not the newest", () => {
+    const pallets = [
+      pallet("p1", { shipKeys: ["point:pcc"], createdAt: "2026-10-26T15:00:00Z", boxes: [{ customerId: "c-Kirkland", productId: "loin" }] }),
+      pallet("p2", { shipKeys: ["point:pcc"], createdAt: "2026-10-26T17:00:00Z", boxes: [{ customerId: "c-Other", productId: "loin" }] }),
+    ];
+    expect(palletFor(kirkland, "rack", pallets)?.id).toBe("p1");
+    // A store with nothing packed yet: the newest.
+    expect(palletFor(order("New", { shipKey: "point:pcc" }), "rack", pallets)?.id).toBe("p2");
+    expect(shipmentPallets(kirkland, pallets).map((p) => p.id)).toEqual(["p2", "p1"]);
   });
 
   it("none: start one", () => {

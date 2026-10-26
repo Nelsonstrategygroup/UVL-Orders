@@ -556,11 +556,12 @@ Boxes come off Mohawk's roller grouped by size, not by customer. Chris scans eac
 1. Scan; the label is read as before (GTIN, weight, pack date, serial, lot). Duplicates, unknown GTINs and lots are handled as before.
 2. Customers this week that still need this product: in boxes when the box count is known (planned boxes minus boxes scanned), else in pounds (pound orders, or the product's weight per piece), else open until the line is marked done on Packing.
 3. The suggestion: soonest ship date first (no difference until ship dates are set), then the customer furthest behind on their whole order (boxes packed over boxes planned), then by name. Runner-ups are smaller choices below. Shown as "needs 2 of 3 boxes".
-4. The pallet for that customer's shipment: (a) a planned or open pallet with a planned box still to fill for this customer and product, (b) the newest open pallet for the shipment, (c) none: "Start pallet for [shipment]" with a tag box (the next "P" number offered; a tag already used this week is warned about).
+4. The pallet for that customer's shipment: (a) a planned or open pallet with a planned box still to fill for this customer and product, (b) the open pallet that already has this customer's boxes (a PCC shipment fills several pallets, each with its own stores; Lucas, 10/26/26), (c) the newest open pallet for the shipment, (d) none: "Start pallet for [shipment]" with a tag box (the next "P" number offered; a tag already used this week is warned about).
 5. The card shows the pallet tag very large ("→ P3"), the customer as stored (the box's label), the label number and "needs X of Y", and "via PCC distributor" for a distributor's shipment. One tap: "Put on P3".
 6. No customer needs it: "No open orders need this product", with "Save as unassigned" and "Pick customer anyway" (warns when it's more than ordered).
 7. Saved as before (lot, audit trail, offline queue), plus customer, pallet, box type, box number and label number. Straight back to scanning.
-8. "Pallet full" on any open pallet (Scan boxes and Pallets): the next box for that shipment asks for a new tag.
+8. "Different pallet" on the card lists the shipment's other open pallets with the stores on each, and New pallet. "Move to..." on a scanned box moves it to another pallet (it works offline).
+9. "Pallet full" on any open pallet (Scan boxes and Pallets): the next box for that shipment asks for a new tag.
 9. Never assigned without a tap. Anything but the suggestion is logged (`route`, `suggested_order_id`).
 10. **Lock to a customer**: scans go straight to that customer and its shipment's open pallet, with no card (a card only to start a pallet), until unlocked. Products not on their order ask first, as before.
 

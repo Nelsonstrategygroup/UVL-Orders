@@ -53,6 +53,12 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       const r = await withTimeout(query);
       return classify(r.error, r.status);
     }
+    case "weight-pallet": {
+      let query = db.from("packing_weights").update({ pallet_id: a.pallet_id });
+      query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
+      const r = await withTimeout(query);
+      return classify(r.error, r.status);
+    }
     case "weight-remove": {
       let query = db.from("packing_weights").delete();
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");

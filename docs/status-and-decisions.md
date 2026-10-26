@@ -57,6 +57,13 @@ What changed:
   until a cleanup migration, so nothing breaks between the db push and the
   deploy.
 
+- Fix the same day, from the first real scans: a PCC shipment fills several
+  pallets, each with its own stores (P1: #10, #11, #13, #15, #19, #23; P2:
+  #24, #17...). A store's boxes now go to the pallet that already has that
+  store's boxes; a store with none yet gets the newest open pallet. The card
+  has "Different pallet" (the shipment's other open pallets, with the stores
+  on each, and New pallet), and a scanned box can be moved with "Move to...".
+
 Decided (Lucas, 10/26/26):
 - Pallets switch from "Pallet X of Y" to tags; pallet groups are replaced by
   Ships to; each box records its box type; the typed pallet note on Packing
