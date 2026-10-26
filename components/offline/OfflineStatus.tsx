@@ -27,6 +27,10 @@ function describe(q: Queued): string {
       return `GTIN ${a.gtin}`;
     case "pallet-add":
       return `Pallet ${a.number}`;
+    case "pallet-start":
+      return `New pallet ${a.tag}`;
+    case "pallet-status":
+      return `A pallet marked ${a.status}`;
   }
 }
 

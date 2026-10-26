@@ -105,10 +105,8 @@ export type Customer = {
   active: boolean;
   parent_customer_id: string | null;
   bills_for_locations: boolean;
-  /** Pallet group, spot on the pallet, and order within the group (Packing). */
-  pallet_group_id: string | null;
-  pallet_spot: string;
-  pallet_sort: number;
+  /** Ships to: a distributor (consolidation_points), or null for Direct (change request 10/26/26). */
+  ships_to_point_id: string | null;
   contacts: Contact[];
 };
 

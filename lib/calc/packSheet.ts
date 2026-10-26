@@ -11,7 +11,7 @@
 import { num } from "./num";
 
 /** A box row from the box label list (lib/calc/labels.ts), as the sheet needs it. */
-export type SheetLabel = { key: string; boxNo: number; boxCount: number; noBox?: boolean };
+export type SheetLabel = { key: string; boxNo: number; boxCount: number; noBox?: boolean; boxTypeId?: string | null };
 
 /** A weight as the sheet needs it. */
 export type SheetWeight = { id: string; weight: number; slot: number | null; label_no: number | null; client_id?: string | null; at?: string };
@@ -23,6 +23,8 @@ export type SheetBlank = {
   labelNo: number | null;
   /** A planned box: its label number is printed, not written in. */
   planned: boolean;
+  /** The planned box type (spares take the last planned box's); null when not known. */
+  boxTypeId: string | null;
   weight: SheetWeight | null;
 };
 
@@ -59,9 +61,16 @@ export function sheetRows(
     const mine = labels.filter((l) => l.key.startsWith(prefix)).sort((a, b) => a.boxNo - b.boxNo);
     const known = mine.length > 0 && !mine.some((l) => l.noBox);
     const row: SheetBlank[] = [];
-    const empty = (planned = false, labelNo: number | null = null): SheetBlank => ({ slot: row.length + 1, labelNo, planned, weight: null });
+    const spareType = known ? (mine[mine.length - 1].boxTypeId ?? null) : null;
+    const empty = (planned = false, labelNo: number | null = null, boxTypeId: string | null = spareType): SheetBlank => ({
+      slot: row.length + 1,
+      labelNo,
+      planned,
+      boxTypeId,
+      weight: null,
+    });
     if (known) {
-      for (const l of mine) row.push(empty(true, labelNumbers.get(l.key) ?? null));
+      for (const l of mine) row.push(empty(true, labelNumbers.get(l.key) ?? null, l.boxTypeId ?? null));
       for (let i = 0; i < blanks.spare; i++) row.push(empty());
     } else {
       const n = blanks.perProduct?.get(pid) ?? blanks.unknown;

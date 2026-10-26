@@ -42,6 +42,8 @@ export type LabelRow = {
   unit: string;
   product: string;
   boxType: string;
+  /** The box type id (box_types.id); null when no box size is worked out. */
+  boxTypeId: string | null;
   /** "1 of 2" when the customer gets more than one box of this product; "" for one. */
   ofN: string;
   /** No box size worked out (no usable box limit): one label for the customer, box "?". */
@@ -105,7 +107,16 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
     for (const p of g.products) {
       const label = (p.label_name ?? "").trim() || p.name;
       const table: LabelTable = { product: p, group: g.group, rows: [], weightUnknown: false, noBox: false };
-      const row = (o: LabelOrder, n: number, unit: string, boxType: string, boxNo: number, boxCount: number, noBox?: boolean): LabelRow => {
+      const row = (
+        o: LabelOrder,
+        n: number,
+        unit: string,
+        boxType: string,
+        boxNo: number,
+        boxCount: number,
+        noBox?: boolean,
+        boxTypeId: string | null = null,
+      ): LabelRow => {
         const name = o.name ?? o.customer;
         const location = o.location ?? "";
         const ofN = boxCount > 1 ? `${boxNo} of ${boxCount}` : "";
@@ -117,6 +128,7 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
           unit: unit === "each" ? "" : unitWord(unit, n),
           product: label,
           boxType,
+          boxTypeId,
           ofN,
           ...(noBox ? { noBox: true } : {}),
           boxNo,
@@ -148,7 +160,7 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
           continue;
         }
         if (plan.weightUnknown) table.weightUnknown = true;
-        plan.boxes.forEach((b, i) => table.rows.push(row(o, b.amount, p.unit, b.typeName, i + 1, plan.boxes.length)));
+        plan.boxes.forEach((b, i) => table.rows.push(row(o, b.amount, p.unit, b.typeName, i + 1, plan.boxes.length, false, b.typeId)));
       }
       if (table.rows.length) tables.push(table);
     }

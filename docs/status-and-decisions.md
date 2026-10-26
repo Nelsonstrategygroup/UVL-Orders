@@ -21,14 +21,59 @@ live changes for their tables.
 
 Built 10/25/26, not live yet: the Le Trim plan (see below).
 
-Built 10/26/26, not live yet: a weight for every box on the paper packing
-copy, and Type in from paper (see below).
+Built 10/26/26, not live yet: scan-to-pallet routing (see below).
 
 Waiting on Kathy and Chris: weights per pack for Heart, Liver and Kidney; box
 limits marked "needs checking"; delivery days; pallet groups; see the
 questions doc.
 
 ## Decisions
+
+### Scan-to-pallet routing (10/26/26)
+What changed:
+- Scan boxes now suggests who each box is for and which pallet it goes on,
+  after the scan. The pallet tag shows very large ("→ P3") with the
+  customer, the label number and "needs 2 of 3 boxes". One tap confirms.
+  Runner-ups, "Pick customer anyway" and "Unassigned" are below; anything
+  but the suggestion is logged. Nothing is assigned without a tap.
+- The suggestion: soonest ship date, then the customer furthest behind on
+  their whole order (boxes packed over boxes planned), then by name.
+- Pallets have tags Chris writes on them and a status (planned, open, full,
+  shipped). "Start pallet for ..." asks for the tag; "Pallet full" moves the
+  next box to a new pallet. A pallet belongs to a shipment, and a shipment can
+  have several pallets.
+- Lock to a customer keeps the old customer-first flow.
+- Setup > Ships to (was Pallet groups): Direct, or a distributor. "PCC
+  distributor" is set up and every PCC location ships to it; rename it when
+  the real name is known.
+- New Pallets page with a printable manifest; a distributor's pallets list
+  boxes by store.
+- Each scanned box records its pallet, box type and how it was routed.
+- Box types and pallets have blank size fields, and there's an empty
+  pallet_plan_lines table, ready for a planner later.
+- Works offline like the rest of Packing. Two phones over-packing, or using
+  the same tag, are flagged for Kathy, not refused.
+- Migration 20261026000200. It only adds: the old pallet group columns stay
+  until a cleanup migration, so nothing breaks between the db push and the
+  deploy.
+
+Decided (Lucas, 10/26/26):
+- Pallets switch from "Pallet X of Y" to tags; pallet groups are replaced by
+  Ships to; each box records its box type; the typed pallet note on Packing
+  is retired; a box can be unassigned.
+- A pallet can ship direct to a customer: set the customer to Direct.
+- Ship dates can wait. Shipments have a ship date field, blank for now.
+- "Needs X of Y" counts boxes where the box count is known, pounds where a
+  weight is known, otherwise open until the line is marked done.
+- Show X of Y boxes on screen; use how far along the order is behind the
+  scenes.
+- Extras: Unassigned for now, given to a customer on Pallets.
+
+Open:
+- A ship day per customer, when the suggestion should go soonest first.
+- What unassigned boxes become (the freezer, or extras for another order).
+- A per-week override of Ships to (one store shipping direct for one week).
+- A cleanup migration to drop the old pallet group table and columns.
 
 ### A weight for every box (10/26/26)
 What changed:

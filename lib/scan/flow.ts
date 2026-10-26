@@ -6,7 +6,8 @@
 //   2. The same box (GTIN + serial) must not be recorded already.
 //   3. The GTIN must be known; otherwise warn and offer a rescan first
 //      (wrong label scanned, wrong label on the box, wrong box on the pallet).
-//   4. The product should be on this customer's order; otherwise ask.
+//   4. The product should be on this customer's order; otherwise ask. (Not
+//      when routing: the customer is suggested after the scan.)
 //   5. Every box needs a lot: from the barcode (AI 10), or remembered for the
 //      same GTIN + pack date, or typed from the label.
 //   6. A weight outside the product's normal range is a warning, never a block.
@@ -23,8 +24,8 @@ export type ScanContext = {
   lots: Map<string, string>;
   /** Boxes already recorded or waiting to upload: "GTIN:serial" -> who has it. */
   known: Map<string, string>;
-  /** Product ids on the chosen customer's order. */
-  onOrder: Set<string>;
+  /** Product ids on the chosen customer's order; null when the app suggests the customer after the scan (routing). */
+  onOrder: Set<string> | null;
   products: Map<string, ScanProduct>;
 };
 
@@ -83,7 +84,7 @@ export function decideScan(
   const product = ctx.products.get(productId);
   const name = product?.name ?? "This product";
 
-  if (!ctx.onOrder.has(productId) && !answers.addOffOrder)
+  if (ctx.onOrder && !ctx.onOrder.has(productId) && !answers.addOffOrder)
     return { kind: "off-order", message: `${name} isn't on this customer's order.`, box, productId };
 
   let lot = box.lot ?? undefined;

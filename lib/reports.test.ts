@@ -32,9 +32,7 @@ const cust = (id: string, name: string, extra: Partial<Customer> = {}): Customer
   active: true,
   parent_customer_id: null,
   bills_for_locations: false,
-  pallet_group_id: null,
-  pallet_spot: "",
-  pallet_sort: 0,
+  ships_to_point_id: null,
   contacts: [],
   ...extra,
 });

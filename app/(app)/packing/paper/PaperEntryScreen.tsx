@@ -18,7 +18,6 @@ import ViewOnly from "@/components/ViewOnly";
 import { useWeek, WeekBar } from "@/components/Week";
 import { fmt, num } from "@/lib/calc/num";
 import type { SheetBlank, SheetRow } from "@/lib/calc/packSheet";
-import { todayISO } from "@/lib/dates";
 import { orderSheet, packLines, sheetLabels, type LineMark, type PackOrder } from "@/lib/db/packing";
 import { isLocal, type Action } from "@/lib/offline/outbox";
 import { blankLabel, PackNotes, rowWords } from "../PackSheet";
@@ -30,7 +29,7 @@ export default function PaperEntryScreen() {
   const { week } = useWeek();
   const toast = useToast();
   const { enqueue } = useOutbox();
-  const bundle = usePackingBundle(week, todayISO());
+  const bundle = usePackingBundle(week);
   const canPack = useCan("packing").change;
   useLabelNumbers(week, bundle.data, bundle.refresh, canPack);
   // "Add a box": extra blanks, by order|product.

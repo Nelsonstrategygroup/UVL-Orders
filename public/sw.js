@@ -76,3 +76,24 @@ self.addEventListener("fetch", (event) => {
   }
   if (isFile(url)) event.respondWith(file(request));
 });
+
+// Keep every Packing page on the phone once Packing opens with signal, so
+// Scan boxes, Pallets and the paper copy open in the freezer even if they
+// weren't visited first (scan-to-pallet routing, 10/26/26).
+self.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.type !== "keep-pages" || !Array.isArray(msg.paths)) return;
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(PAGES);
+      for (const path of msg.paths) {
+        try {
+          const res = await fetch(path, { credentials: "same-origin" });
+          if (res.ok && !res.redirected && isPackingPage(new URL(res.url))) await cache.put(new URL(path, self.location.origin).pathname, res);
+        } catch {
+          // No signal: keep what's there.
+        }
+      }
+    })(),
+  );
+});

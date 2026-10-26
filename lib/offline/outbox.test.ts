@@ -17,6 +17,8 @@ const order = (over: Partial<PackOrder> = {}): PackOrder => ({
   orderNotes: "",
   group: null,
   spot: "",
+  shipKey: "customer:c1",
+  shipsToPointId: null,
   lines: { rack: 10 },
   units: {},
   marks: {},
@@ -34,6 +36,8 @@ const data = (orders: PackOrder[] = [order()]): PackingData => ({
   invNumber: null,
   labelNumbers: new Map(),
   blanks: { unknown: 6, spare: 2 },
+  unassigned: [],
+  points: new Map(),
   products: new Map(),
   orders,
 });

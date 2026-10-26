@@ -94,6 +94,18 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       );
       return classify(r.error, r.status);
     }
+    case "pallet-start": {
+      const r = await withTimeout(
+        db.rpc("start_pallet", {
+          p: { id: a.id, week_id: a.week_id, tag: a.tag, ship_to_customer_id: a.ship_to_customer_id, ship_to_point_id: a.ship_to_point_id },
+        }),
+      );
+      return classify(r.error, r.status);
+    }
+    case "pallet-status": {
+      const r = await withTimeout(db.from("pallets").update({ status: a.status }).eq("id", a.id));
+      return classify(r.error, r.status);
+    }
     case "box": {
       if (a.photo) {
         const up = await withTimeout(

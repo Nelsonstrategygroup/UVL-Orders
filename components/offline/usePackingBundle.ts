@@ -23,13 +23,13 @@ const TIMEOUT_MS = 10000;
 // Only tables the database sends live changes for (supabase_realtime): naming
 // one it doesn't made the whole subscription fail, so Packing stopped updating
 // live (found 10/23/26).
-const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets"];
+const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets", "pallet_shipments", "pallet_plan_lines"];
 
 function timeout<T>(p: Promise<T>): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("The request timed out")), TIMEOUT_MS))]);
 }
 
-export function usePackingBundle(week: string, shipDate: string) {
+export function usePackingBundle(week: string) {
   const outbox = useOutbox();
   const { reportOnline } = outbox;
   // By week only: a copy loaded the day before still opens on packing day.
@@ -39,7 +39,7 @@ export function usePackingBundle(week: string, shipDate: string) {
     async (d: SupabaseClient) => {
       try {
         const [packing, gtins, lots, pallets, boxes] = await timeout(
-          Promise.all([loadPacking(d, week), loadGtins(d), loadLots(d), loadPallets(d, shipDate), loadBoxSetup(d)]),
+          Promise.all([loadPacking(d, week), loadGtins(d), loadLots(d), loadPallets(d, week), loadBoxSetup(d)]),
         );
         const bundle: PackingBundle = { packing, gtins, lots, pallets, boxes };
         await snapshotSave(key, bundle).catch(() => undefined);
@@ -50,10 +50,10 @@ export function usePackingBundle(week: string, shipDate: string) {
         const snap = await snapshotGet<PackingBundle>(key).catch(() => null);
         if (!snap) throw e;
         reportOnline(false);
-        // Pallets kept for another day aren't today's shipment.
         const bundle = {
           ...snap.value,
-          pallets: snap.value.pallets.filter((p) => p.ship_date === shipDate),
+          // A copy kept before pallet tags (10/26/26) has no usable pallets.
+          pallets: (snap.value.pallets ?? []).filter((p) => typeof p.tag === "string"),
           // A copy kept before box limits existed.
           boxes: snap.value.boxes ?? { types: [], limits: new Map(), capLb: 45 },
           // A copy kept before box weights (10/26/26).
@@ -61,12 +61,14 @@ export function usePackingBundle(week: string, shipDate: string) {
             ...snap.value.packing,
             labelNumbers: snap.value.packing.labelNumbers ?? new Map(),
             blanks: snap.value.packing.blanks ?? { unknown: 6, spare: 2 },
+            unassigned: snap.value.packing.unassigned ?? [],
+            points: snap.value.packing.points ?? new Map(),
           },
         };
         return { bundle, savedAt: snap.savedAt, fromPhone: true };
       }
     },
-    [week, shipDate, key, reportOnline],
+    [week, key, reportOnline],
   );
   const live = useLive(key, load, LIVE);
   const { refresh } = live;
@@ -82,11 +84,24 @@ export function usePackingBundle(week: string, shipDate: string) {
     const b = live.data.bundle;
     const waiting = outbox.queue.filter((q) => !q.stuck);
     const pallets = [...b.pallets];
-    for (const q of waiting)
-      if (q.action.type === "pallet-add" && q.action.ship_date === shipDate && !pallets.some((p) => p.id === (q.action as { id: string }).id)) {
-        const a = q.action;
-        pallets.push({ id: a.id, week_id: a.week_id, ship_date: a.ship_date, number: a.number, pallet_group_id: null, label: a.label });
+    // Pallets started or marked full on this phone show straight away.
+    for (const q of waiting) {
+      const a = q.action;
+      if (a.type === "pallet-start" && !pallets.some((p) => p.id === a.id))
+        pallets.push({
+          id: a.id,
+          week_id: a.week_id,
+          tag: a.tag,
+          status: "open",
+          created_at: a.at,
+          shipKeys: [a.ship_to_point_id ? `point:${a.ship_to_point_id}` : `customer:${a.ship_to_customer_id}`],
+          plan: [],
+        });
+      if (a.type === "pallet-status") {
+        const i = pallets.findIndex((p) => p.id === a.id);
+        if (i >= 0) pallets[i] = { ...pallets[i], status: a.status };
       }
+    }
     const gtins = [...b.gtins];
     for (const q of waiting)
       if (q.action.type === "gtin-map") {
@@ -107,10 +122,10 @@ export function usePackingBundle(week: string, shipDate: string) {
       packing: applyQueue(b.packing, waiting),
       gtins,
       lots,
-      pallets: pallets.sort((x, y) => x.number - y.number),
+      pallets: pallets.sort((x, y) => x.created_at.localeCompare(y.created_at)),
       boxes: b.boxes,
     } satisfies PackingBundle;
-  }, [live.data, outbox.queue, shipDate]);
+  }, [live.data, outbox.queue]);
 
   return {
     data,

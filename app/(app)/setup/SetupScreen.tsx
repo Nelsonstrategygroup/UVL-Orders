@@ -19,14 +19,13 @@ import { fmt, num } from "@/lib/calc/num";
 import { drivesLambCount, needsChecking, partAmountRow } from "@/lib/calc/products";
 import { unitWord } from "@/lib/calc/units";
 import {
-  addPalletGroup,
   addPart,
+  addPoint,
   deleteCutSpec,
-  deletePalletGroup,
-  loadPalletGroups,
-  setCustomerPallet,
+  loadPoints,
+  setShipsTo,
   swapSpecSort,
-  updatePalletGroup,
+  updatePoint,
   updateRow,
   updateSettings,
   saveProductPackBlanks,
@@ -436,10 +435,10 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
       return page(
         <section className="panel">
           <p className="small muted mt-0">
-            Which customers ship together, and where on the pallet. The Packing screen lists customers in this order; everyone
-            else comes after, by name.
+            Each customer or location ships direct (its own shipment and pallets), or through a distributor that takes every
+            store&apos;s boxes together and sends them on (PCC). Scan boxes uses this to choose the pallet.
           </p>
-          <PalletGroups canEdit={canEdit} />
+          <ShipsTo canEdit={canEdit} />
         </section>,
       );
 
@@ -783,175 +782,109 @@ function CutSpecs({ canEdit, done }: { canEdit: boolean; done: (err: string | nu
 }
 
 /** Pallet groups: name, order, and the customers in each with their spot. */
-function PalletGroups({ canEdit }: { canEdit: boolean }) {
+function ShipsTo({ canEdit }: { canEdit: boolean }) {
   const { customers, reloadCustomers } = useStaffData();
   const toast = useToast();
   const db = getDb();
-  const load = useCallback((d: SupabaseClient) => loadPalletGroups(d), []);
-  const { data: groups, refresh } = useLive("pallet-groups", load, ["pallet_groups"]);
+  const load = useCallback((d: SupabaseClient) => loadPoints(d), []);
+  const { data: points, refresh } = useLive("consolidation-points", load, ["consolidation_points"]);
   const [name, setName] = useState("");
-  if (!groups || !customers) return <p className="small muted">Loading...</p>;
+  if (!points || !customers) return <p className="small muted">Loading...</p>;
 
   const after = async (err: string | null) => {
     if (err) toast(`Couldn't save: ${err}`);
+    else toast("Saved");
     refresh();
     await reloadCustomers();
   };
   const byId = customers.byId;
-  const members = (gid: string) =>
-    customers.list
-      .filter((c) => c.pallet_group_id === gid)
-      .sort((a, b) => a.pallet_sort - b.pallet_sort || displayName(a, byId).localeCompare(displayName(b, byId)));
-  const free = sortByDisplayName(
-    customers.list.filter((c) => c.active && !c.pallet_group_id),
+  // Customers that get boxes: locations, and customers without locations.
+  const hasLocations = new Set(customers.list.map((c) => c.parent_customer_id).filter(Boolean));
+  const list = sortByDisplayName(
+    customers.list.filter((c) => c.active && !hasLocations.has(c.id)),
     byId,
   );
-  const moveGroup = (i: number, dir: -1 | 1) => {
-    const a = groups[i];
-    const b = groups[i + dir];
-    if (!b) return;
-    void Promise.all([updatePalletGroup(db, a.id, { sort: i + dir }), updatePalletGroup(db, b.id, { sort: i })]).then((r) =>
-      after(r.find(Boolean) ?? null),
-    );
-  };
+  const pointName = (id: string | null) => (id ? (points.find((p) => p.id === id)?.name ?? "Distributor") : "Direct");
 
   return (
     <>
-      {groups.length === 0 && <p className="small muted">No pallet groups yet.</p>}
-      {groups.map((g, gi) => {
-        const list = members(g.id);
-        return (
-          <div key={g.id} className="mb-3 rounded-md border border-line p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                key={`${g.id}:${g.name}`}
-                className="field min-w-[200px] flex-1 font-semibold"
-                aria-label="Group name"
-                defaultValue={g.name}
-                disabled={!canEdit}
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && v !== g.name) void updatePalletGroup(db, g.id, { name: v }).then(after);
-                }}
-              />
-              {canEdit && (
-                <>
-                  <button type="button" className="iconbtn" aria-label={`Move ${g.name} up`} disabled={gi === 0} onClick={() => moveGroup(gi, -1)}>
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="iconbtn"
-                    aria-label={`Move ${g.name} down`}
-                    disabled={gi === groups.length - 1}
-                    onClick={() => moveGroup(gi, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="copy min-h-[44px] px-2"
-                    onClick={() => {
-                      if (window.confirm(`Delete the group "${g.name}"? Its customers stay, just without a group.`))
-                        void deletePalletGroup(db, g.id).then(after);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-            <ul className="m-0 mt-2 grid list-none gap-1 p-0">
-              {list.map((c, i) => (
-                <li key={c.id} className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-[160px] flex-1">{displayName(c, byId)}</span>
-                  <input
-                    key={`${c.id}:${c.pallet_spot}`}
-                    className="field w-36!"
-                    aria-label={`Where on the pallet: ${displayName(c, byId)}`}
-                    placeholder="Left half"
-                    defaultValue={c.pallet_spot}
-                    disabled={!canEdit}
-                    onBlur={(e) => {
-                      const v = e.target.value.trim();
-                      if (v !== c.pallet_spot) void setCustomerPallet(db, c.id, { pallet_spot: v }).then(after);
-                    }}
-                  />
-                  {canEdit && (
-                    <>
-                      <button
-                        type="button"
-                        className="iconbtn"
-                        aria-label={`Move ${displayName(c, byId)} up`}
-                        disabled={i === 0}
-                        onClick={() =>
-                          void Promise.all(
-                            list.map((x, j) =>
-                              setCustomerPallet(db, x.id, { pallet_sort: j === i ? i - 1 : j === i - 1 ? i : j }),
-                            ),
-                          ).then((r) => after(r.find(Boolean) ?? null))
-                        }
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="copy min-h-[44px] px-2"
-                        onClick={() =>
-                          void setCustomerPallet(db, c.id, { pallet_group_id: null, pallet_spot: "", pallet_sort: 0 }).then(after)
-                        }
-                      >
-                        Remove
-                      </button>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {canEdit && free.length > 0 && (
-              <select
-                className="field mt-2"
-                aria-label={`Add a customer to ${g.name}`}
-                value=""
-                onChange={(e) =>
-                  e.target.value &&
-                  void setCustomerPallet(db, e.target.value, { pallet_group_id: g.id, pallet_sort: list.length }).then(after)
-                }
-              >
-                <option value="">Add a customer...</option>
-                {free.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {displayName(c, byId)}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        );
-      })}
+      <h3>Distributors</h3>
+      <ul className="m-0 mt-1 grid list-none gap-2 p-0">
+        {points.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-center gap-2">
+            <input
+              key={`${p.id}:${p.name}`}
+              className="field max-w-[22rem]"
+              aria-label="Distributor name"
+              defaultValue={p.name}
+              disabled={!canEdit}
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                if (v && v !== p.name) void updatePoint(db, p.id, { name: v }).then(after);
+              }}
+            />
+            <span className="small muted">
+              {customers.list.filter((c) => c.ships_to_point_id === p.id).length} customers ship here
+            </span>
+          </li>
+        ))}
+      </ul>
       {canEdit && (
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="min-w-[200px] flex-1">
-            <label className="lbl" htmlFor="pg-name">
-              New group
-            </label>
-            <input id="pg-name" className="field" placeholder="Bellingham Stores" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <button
-            type="button"
-            className="btn"
-            disabled={!name.trim()}
-            onClick={() => {
-              void addPalletGroup(db, name.trim(), groups.length).then((err) => {
-                if (!err) setName("");
-                return after(err);
-              });
-            }}
-          >
-            Add group
+        <form
+          className="mt-2 flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!name.trim()) return;
+            void addPoint(db, name.trim()).then((err) => {
+              setName("");
+              void after(err);
+            });
+          }}
+        >
+          <input className="field max-w-[22rem]" placeholder="New distributor's name" value={name} onChange={(e) => setName(e.target.value)} />
+          <button type="submit" className="btn ghost" disabled={!name.trim()}>
+            Add distributor
           </button>
-        </div>
+        </form>
       )}
+
+      <h3 className="mt-5">Ships to</h3>
+      <table className="simple mt-2">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th>Ships to</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((c) => (
+            <tr key={c.id}>
+              <td>{displayName(c, byId)}</td>
+              <td>
+                {canEdit ? (
+                  <select
+                    className="field w-auto!"
+                    aria-label={`Ships to for ${displayName(c, byId)}`}
+                    value={c.ships_to_point_id ?? ""}
+                    onChange={(e) => void setShipsTo(db, [c.id], e.target.value || null).then(after)}
+                  >
+                    <option value="">Direct</option>
+                    {points
+                      .filter((p) => p.active || p.id === c.ships_to_point_id)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                ) : (
+                  pointName(c.ships_to_point_id)
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </>
   );
 }

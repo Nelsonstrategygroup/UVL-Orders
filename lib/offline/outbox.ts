@@ -34,7 +34,19 @@ export type Action =
   /** An admin said which product a GTIN is. */
   | { type: "gtin-map"; gtin: string; product_id: string }
   /** A new pallet for a ship date. */
-  | { type: "pallet-add"; id: string; week_id: string; ship_date: string; number: number; label: string };
+  | { type: "pallet-add"; id: string; week_id: string; ship_date: string; number: number; label: string }
+  /** Start a pallet for a shipment, with the tag Chris wrote on it (start_pallet). */
+  | {
+      type: "pallet-start";
+      id: string;
+      week_id: string;
+      tag: string;
+      ship_to_customer_id: string | null;
+      ship_to_point_id: string | null;
+      at: string;
+    }
+  /** A pallet is full (or open again, or shipped). */
+  | { type: "pallet-status"; id: string; status: "planned" | "open" | "full" | "shipped" };
 
 export type Queued = {
   /** Order on this phone; uploads go oldest first. */
@@ -120,8 +132,9 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
   const orders = data.orders.map((o) => ({ ...o, weights: [...o.weights], marks: { ...o.marks } }));
   const byId = new Map(orders.map((o) => [o.id, o]));
   // Weights already on the server (by client_id) aren't added twice.
-  const onServer = new Set(orders.flatMap((o) => o.weights.map((w) => w.client_id).filter(Boolean)));
+  const onServer = new Set([...orders.flatMap((o) => o.weights), ...data.unassigned].map((w) => w.client_id).filter(Boolean));
 
+  const unassigned = [...data.unassigned];
   for (const { action: a, queuedAt } of [...queue].sort((x, y) => x.seq - y.seq)) {
     if (a.type === "weight-add") {
       const o = byId.get(a.order_id);
@@ -157,6 +170,29 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       if (o) o.pallet = a.pallet;
     } else if (a.type === "box") {
       const b = a.box;
+      // An unassigned box: no customer yet.
+      if (!b.order_id) {
+        if (!onServer.has(b.client_id) && !unassigned.some((w) => w.client_id === b.client_id))
+          unassigned.push(
+            blankWeight({
+              id: localId(b.client_id),
+              client_id: b.client_id,
+              product_id: b.product_id,
+              weight: b.weight,
+              box_no: null,
+              by: who,
+              at: b.scanned_at ?? queuedAt,
+              source: b.source,
+              gtin: b.gtin ?? null,
+              serial: b.serial ?? null,
+              lot: b.lot,
+              case_no: b.case_no ?? null,
+              pallet_id: b.pallet_id ?? null,
+              box_type_id: b.box_type_id ?? null,
+            }),
+          );
+        continue;
+      }
       const o = byId.get(b.order_id);
       if (!o || onServer.has(b.client_id)) continue;
       const nextBox = Math.max(0, ...o.weights.map((w) => w.box_no ?? 0)) + 1;
@@ -169,6 +205,7 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
           box_no: nextBox,
           slot: b.slot ?? null,
           label_no: b.label_no ?? null,
+          box_type_id: b.box_type_id ?? null,
           by: who,
           at: b.scanned_at ?? queuedAt,
           source: b.source,
@@ -181,7 +218,7 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       );
     }
   }
-  return { ...data, orders };
+  return { ...data, orders, unassigned };
 }
 
 function blankWeight(w: Partial<PackWeight> & Pick<PackWeight, "id" | "product_id" | "weight" | "box_no">): PackWeight {

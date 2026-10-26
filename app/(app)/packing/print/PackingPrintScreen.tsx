@@ -9,14 +9,14 @@ import Link from "next/link";
 import { useCan } from "@/components/CurrentUser";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { useWeek, WeekBar } from "@/components/Week";
-import { todayISO, weekName } from "@/lib/dates";
+import { weekName } from "@/lib/dates";
 import { packLines } from "@/lib/db/packing";
 import { PaperSheet } from "../PackSheet";
 import { useLabelNumbers } from "../useLabelNumbers";
 
 export default function PackingPrintScreen() {
   const { week } = useWeek();
-  const bundle = usePackingBundle(week, todayISO());
+  const bundle = usePackingBundle(week);
   const canPacking = useCan("packing").change;
   const canWeek = useCan("week").change;
   const canOrders = useCan("orders").change;

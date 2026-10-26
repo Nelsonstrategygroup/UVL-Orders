@@ -14,7 +14,7 @@ import { getDb } from "@/components/data/db";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { todayISO, weekName } from "@/lib/dates";
+import { weekName } from "@/lib/dates";
 import { boxCellsToCheck } from "@/lib/calc/boxes";
 import { formatWhen } from "@/lib/format";
 import { packingLabels } from "@/lib/db/packing";
@@ -28,7 +28,7 @@ export default function LabelsScreen() {
   const { week } = useWeek();
   const me = useMe();
   const toast = useToast();
-  const bundle = usePackingBundle(week, todayISO());
+  const bundle = usePackingBundle(week);
   const [printedAt, setPrintedAt] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Label numbers and print state, for the rows on the report (by key).

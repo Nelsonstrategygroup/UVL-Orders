@@ -394,6 +394,8 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 
 ### 11.5 Scan flow
 
+(Since 10/26/26 the scan suggests the customer and pallet after each scan; picking the customer first is now "Lock to a customer". See 14.)
+
 - Chris picks the customer location and the pallet, then scans continuously. Each scan becomes a box on that customer's order line for the matched product, with weight, GTIN, pack date, serial, serial date, case number, and lot.
 - A product not on that customer's order: warn, then let him assign it anyway or cancel.
 - A duplicate box (same GTIN + serial) is rejected with a clear message.
@@ -402,6 +404,8 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 - The existing manual weigh panel keeps working until scanning is proven on Chris's phone.
 
 ### 11.6 Pallets and manifest
+
+(Since 10/26/26 pallets have tags and belong to shipments, and pallet groups are replaced by Ships to. See 14.)
 
 - Pallet groups are set per customer location (example: PCC Pallet 1 holds Kirkland, Issaquah, Fremont, Bothell, Burien). Packing order follows pallet groups. For a chain (today only PCC), a set of stores can fill more than one pallet (two pallets for three stores).
 - "Pallet X of Y": Y is the number of pallets in that day's shipment, all customers together. "1 of 2" means two pallets go out that day.
@@ -533,3 +537,35 @@ Chris scans every box. The paper packing copy is the backup for when the interne
 - **Type in from paper** (`/packing/paper`): the same rows, customers and products in the same order, blanks with the same label numbers (an input where the paper has "Label #"), the total worked out, and "+ Add a box". Saved through the outbox like the rest of Packing.
 - **Storage**: each weight is its own `packing_weights` row with `slot` (which box of the customer's product, its place on the sheet) and `label_no`. Scans and the weigh panel put a weight in the next empty box. Products never share a box. The layout is `lib/calc/packSheet.ts`.
 - **Packing record**: a Box weights column lists each box ("#14 22.4 · #15 21.9").
+
+## 14. Scan-to-pallet routing (change request 10/26/26)
+
+Boxes come off Mohawk's roller grouped by size, not by customer. Chris scans each box and carries it to the right pallet. Direct customers get their own shipment; every PCC store ships together on pallets to a distributor, who breaks them down and sends boxes on to each store, so one pallet can carry many stores' boxes, each with its own store label. A later planner will plan pallets from box sizes; everything here is ready for it.
+
+### 14.1 Data
+- **Distributors** (`consolidation_points`), set up in Setup > Ships to. One to start, "PCC distributor"; it will be renamed. Nothing keys off the name.
+- **Ships to** (`customers.ships_to_point_id`): Direct (null) or a distributor. Every PCC location starts at the PCC distributor. Replaces pallet groups.
+- **Shipments**: a ship-to (the location if Direct, else the distributor) for a week, with a ship date. Ship dates are blank for now (Lucas, 10/26/26); a ship day per customer can be added later. A shipment is made when its first pallet starts.
+- **Pallets**: per week, a tag Chris writes on it ("P3"), a status (planned, open, full, shipped), and blank size limits (length, width, max height, max weight). `pallet_shipments` links them, so a shipment can have several pallets and the planner could combine shipments. "Pallet X of Y" is now only printed on the manifest (counted).
+- **`pallet_plan_lines`** (pallet, customer, product, box type, planned boxes): empty until the planner. Scanned boxes stay in `packing_weights`; plan lines are never overwritten with actuals.
+- **Box types** get blank length, width, height and max weight; the 45 lb cap stays.
+- **Each scanned box** records its customer (through its order), pallet, box type, and how it was routed: the suggestion, another customer from the list, picked by hand, locked, or unassigned, with what was suggested.
+- **Unassigned boxes**: no open order needed them. Saved with the week and no order; Kathy gives each to a customer on Pallets (Lucas, 10/26/26: what extras become is open).
+
+### 14.2 Scan flow
+1. Scan; the label is read as before (GTIN, weight, pack date, serial, lot). Duplicates, unknown GTINs and lots are handled as before.
+2. Customers this week that still need this product: in boxes when the box count is known (planned boxes minus boxes scanned), else in pounds (pound orders, or the product's weight per piece), else open until the line is marked done on Packing.
+3. The suggestion: soonest ship date first (no difference until ship dates are set), then the customer furthest behind on their whole order (boxes packed over boxes planned), then by name. Runner-ups are smaller choices below. Shown as "needs 2 of 3 boxes".
+4. The pallet for that customer's shipment: (a) a planned or open pallet with a planned box still to fill for this customer and product, (b) the newest open pallet for the shipment, (c) none: "Start pallet for [shipment]" with a tag box (the next "P" number offered; a tag already used this week is warned about).
+5. The card shows the pallet tag very large ("→ P3"), the customer as stored (the box's label), the label number and "needs X of Y", and "via PCC distributor" for a distributor's shipment. One tap: "Put on P3".
+6. No customer needs it: "No open orders need this product", with "Save as unassigned" and "Pick customer anyway" (warns when it's more than ordered).
+7. Saved as before (lot, audit trail, offline queue), plus customer, pallet, box type, box number and label number. Straight back to scanning.
+8. "Pallet full" on any open pallet (Scan boxes and Pallets): the next box for that shipment asks for a new tag.
+9. Never assigned without a tap. Anything but the suggestion is logged (`route`, `suggested_order_id`).
+10. **Lock to a customer**: scans go straight to that customer and its shipment's open pallet, with no card (a card only to start a pallet), until unlocked. Products not on their order ask first, as before.
+
+### 14.3 Pallets view (`/packing/pallets`)
+Each pallet's tag, shipment, boxes, weight and status (Full, Open again, Shipped); a distributor's pallet shows boxes and pounds by store. **Print manifest**: one pallet per page with the tag large, ship-to, boxes and pounds; a distributor's pallet lists its boxes grouped by store (label, product, lb, lot) so the distributor can break it down. Warns when scans haven't uploaded yet. Unassigned boxes are listed with "Give to...".
+
+### 14.4 Offline
+The phone keeps the week's orders, packed boxes, label numbers, pallets, shipments and plan lines, and works out suggestions itself. Scans, new pallets and "Pallet full" queue on the phone and upload when back in range; all Packing pages are kept on the phone once Packing opens with signal. Two phones packing the same line, or using the same tag, are saved and flagged for Kathy (`over-packed`, `pallet-tag`), never refused.

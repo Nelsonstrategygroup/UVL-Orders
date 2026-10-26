@@ -21,6 +21,11 @@ export default function RegisterServiceWorker() {
       return;
     }
     navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).catch(() => undefined);
+    // On a Packing page with signal, keep all of Packing on the phone for the freezer.
+    if (location.pathname.startsWith("/packing") && navigator.onLine)
+      void navigator.serviceWorker.ready.then((reg) =>
+        reg.active?.postMessage({ type: "keep-pages", paths: ["/packing", "/packing/scan", "/packing/pallets", "/packing/print", "/packing/paper"] }),
+      );
   }, []);
   return null;
 }

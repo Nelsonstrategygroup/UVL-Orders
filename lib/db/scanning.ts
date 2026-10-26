@@ -31,40 +31,59 @@ export async function loadLots(db: SupabaseClient): Promise<LotRow[]> {
   return (data ?? []) as LotRow[];
 }
 
-export type PalletRow = { id: string; week_id: string; ship_date: string; number: number; pallet_group_id: string | null; label: string };
+/** A pallet this week (scan-to-pallet routing, change request 10/26/26). */
+export type PalletRow = {
+  id: string;
+  week_id: string;
+  tag: string;
+  status: "planned" | "open" | "full" | "shipped";
+  created_at: string;
+  /** Its shipments: "point:<id>" for a distributor, "customer:<id>" for Direct. */
+  shipKeys: string[];
+  /** Planned boxes (empty until the planner). */
+  plan: { customerId: string; productId: string; boxes: number }[];
+};
 
-/** The pallets shipping on a day, in number order. */
-export async function loadPallets(db: SupabaseClient, shipDate: string): Promise<PalletRow[]> {
+type PalletDb = {
+  id: string;
+  week_id: string;
+  tag: string;
+  status: PalletRow["status"];
+  created_at: string;
+  pallet_shipments: { shipments: { ship_to_customer_id: string | null; ship_to_point_id: string | null } | null }[] | null;
+  pallet_plan_lines: { customer_id: string; product_id: string; planned_boxes: number }[] | null;
+};
+
+/** The week's pallets, oldest first. */
+export async function loadPallets(db: SupabaseClient, week: string): Promise<PalletRow[]> {
   const { data, error } = await db
     .from("pallets")
-    .select("id, week_id, ship_date, number, pallet_group_id, label")
-    .eq("ship_date", shipDate)
-    .order("number");
+    .select(
+      "id, week_id, tag, status, created_at, pallet_shipments(shipments(ship_to_customer_id, ship_to_point_id)), pallet_plan_lines(customer_id, product_id, planned_boxes)",
+    )
+    .eq("week_id", week)
+    .order("created_at");
   if (error) throw new Error(error.message);
-  return (data ?? []) as PalletRow[];
-}
-
-/** Start the next pallet for a ship date ("Pallet 3"). Returns it, or an error. */
-export async function addPallet(
-  db: SupabaseClient,
-  weekId: string,
-  shipDate: string,
-  number: number,
-  label: string,
-  palletGroupId: string | null,
-): Promise<{ pallet: PalletRow | null; error: string | null }> {
-  const { data, error } = await db
-    .from("pallets")
-    .insert({ week_id: weekId, ship_date: shipDate, number, label, pallet_group_id: palletGroupId })
-    .select("id, week_id, ship_date, number, pallet_group_id, label")
-    .single();
-  return { pallet: (data as PalletRow) ?? null, error: err(error) };
+  return ((data ?? []) as unknown as PalletDb[]).map((p) => ({
+    id: p.id,
+    week_id: p.week_id,
+    tag: p.tag,
+    status: p.status,
+    created_at: p.created_at,
+    shipKeys: (p.pallet_shipments ?? [])
+      .map((l) => l.shipments)
+      .filter((x): x is NonNullable<typeof x> => !!x)
+      .map((x) => (x.ship_to_point_id ? `point:${x.ship_to_point_id}` : `customer:${x.ship_to_customer_id}`)),
+    plan: (p.pallet_plan_lines ?? []).map((l) => ({ customerId: l.customer_id, productId: l.product_id, boxes: l.planned_boxes })),
+  }));
 }
 
 /** One box, as sent to record_box() (SPEC 11.11). */
 export type BoxUpload = {
   client_id: string;
-  order_id: string;
+  /** Null for an unassigned box (no open order needed it); then week_id. */
+  order_id: string | null;
+  week_id?: string | null;
   product_id: string;
   source: "scan" | "manual";
   weight: number;
@@ -82,6 +101,11 @@ export type BoxUpload = {
   /** Which box of the customer's product this is, and its label number (10/26/26). */
   slot?: number | null;
   label_no?: number | null;
+  /** Scan-to-pallet routing (10/26/26): the box type, how the customer was chosen, what was suggested, and the boxes planned (to flag over-packing). */
+  box_type_id?: string | null;
+  route?: "suggested" | "other" | "picked" | "locked" | "unassigned" | null;
+  suggested_order_id?: string | null;
+  planned_boxes?: number | null;
 };
 
 export type BoxResult =

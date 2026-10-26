@@ -102,7 +102,7 @@ export async function loadCustomers(db: SupabaseClient): Promise<CustomersData> 
     fetchAll<Omit<Customer, "contacts">>((a, b) =>
       db
         .from("customers")
-        .select("id, name, type, call_day, delivery_day, notes, active, parent_customer_id, bills_for_locations, pallet_group_id, pallet_spot, pallet_sort")
+        .select("id, name, type, call_day, delivery_day, notes, active, parent_customer_id, bills_for_locations, ships_to_point_id")
         .order("name")
         .range(a, b),
     ),
@@ -466,6 +466,7 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
         label_no: number | null;
         created_by: string | null;
         created_at: string;
+        pallets: { tag: string } | { tag: string }[] | null;
       }[];
       packing_lines: { product_id: string; packed_qty: number | null; shorted: boolean; flagged: boolean; flag_note: string }[];
       packing_orders: { pallet: string }[] | { pallet: string } | null;
@@ -473,7 +474,7 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
       db
         .from("orders")
         .select(
-          "customer_id, status, order_lines(product_id, qty, unit), packing_weights(product_id, weight, box_no, slot, label_no, created_by, created_at), packing_lines(product_id, packed_qty, shorted, flagged, flag_note), packing_orders(pallet)",
+          "customer_id, status, order_lines(product_id, qty, unit), packing_weights(product_id, weight, box_no, slot, label_no, created_by, created_at, pallets(tag)), packing_lines(product_id, packed_qty, shorted, flagged, flag_note), packing_orders(pallet)",
         )
         .eq("week_id", week)
         .order("id")
@@ -508,7 +509,14 @@ export async function loadPackingRecord(db: SupabaseClient, week: string): Promi
         at: w.created_at,
       })),
       marks,
-      pallet: po?.pallet ?? "",
+      // The pallets its boxes are on (scan-to-pallet routing); before that, the pallet typed on Packing.
+      pallet:
+        [
+          ...new Set(
+            (o.packing_weights ?? []).flatMap((w) => (Array.isArray(w.pallets) ? w.pallets : w.pallets ? [w.pallets] : []).map((p) => p.tag)),
+          ),
+        ].join(", ") ||
+        (po?.pallet ?? ""),
     };
   });
 }

@@ -25,7 +25,6 @@ import {
   type PackFilter,
   type PackLine,
 } from "@/lib/calc/packing";
-import { todayISO } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
@@ -47,7 +46,7 @@ export default function PackingScreen() {
   const toast = useToast();
   const { enqueue } = useOutbox();
   // Loaded with signal and kept on the phone for the freezer (SPEC 11.7).
-  const bundle = usePackingBundle(week, todayISO());
+  const bundle = usePackingBundle(week);
   const data = bundle.data?.packing ?? null;
   const boxSetup = bundle.data?.boxes ?? { types: [], limits: new Map(), capLb: 45 };
   const { error } = bundle;
@@ -95,7 +94,7 @@ export default function PackingScreen() {
   const groupBoxes = (g: string) => {
     const all = data.orders.filter((x) => x.group === g).map((x) => orderBoxes(x.lines, x.units, data.products, boxSetup));
     const t = orderBoxesText({ boxes: all.reduce((s, b) => s + b.boxes, 0), problems: all.flatMap((b) => b.problems) });
-    return t ? `${t} on this pallet` : "";
+    return t ? `${t} for this shipment` : "";
   };
   const wOrder = weighing && data.orders.find((o) => o.id === weighing.orderId);
   // The product's boxes as on the paper copy: each weight goes in the next empty one.
@@ -165,9 +164,8 @@ export default function PackingScreen() {
                 lines={lines}
                 data={data}
                 boxSetup={boxSetup}
-                canPack={canPack}
                 onOpen={(pid) => setWeighing({ orderId: o.id, productId: pid })}
-                onPallet={(v) => void save(enqueue({ type: "pallet-text", order_id: o.id, pallet: v }))}
+                pallets={bundle.data?.pallets ?? []}
               />
             </div>
           ))
@@ -239,21 +237,24 @@ function CustomerCard({
   lines,
   data,
   boxSetup,
-  canPack,
   onOpen,
-  onPallet,
+  pallets,
 }: {
   order: PackOrder;
   lines: [string, PackLine][];
   data: PackingData;
   boxSetup: BoxSetup;
-  canPack: boolean;
   onOpen: (productId: string) => void;
-  onPallet: (v: string) => void;
+  /** The week's pallets, for the tags this customer's boxes are on. */
+  pallets: { id: string; tag: string }[];
 }) {
   const done = lines.filter(([, l]) => lineLook(l) !== "todo").length;
   const weighed = o.weights.reduce((sum, w) => sum + w.weight, 0);
   const name = (pid: string) => data.products.get(pid)?.name ?? pid;
+  // The pallets this customer's boxes are on (each box records its own pallet since 10/26/26).
+  const tags = [...new Set(o.weights.map((w) => w.pallet_id).filter((x): x is string => !!x))]
+    .map((id) => pallets.find((p) => p.id === id)?.tag)
+    .filter(Boolean);
   // Boxes this order should fill, from each product's box size.
   const expect = orderBoxesText(orderBoxes(o.lines, o.units, data.products, boxSetup));
 
@@ -293,7 +294,7 @@ function CustomerCard({
         );
       })}
 
-      {orderPacked(lines.map(([, l]) => l)) && <div className="alldone">All packed. Add the pallet below.</div>}
+      {orderPacked(lines.map(([, l]) => l)) && <div className="alldone">All packed.</div>}
 
       <div className="pfoot">
         <span className="small">
@@ -301,21 +302,7 @@ function CustomerCard({
             ? "No boxes yet."
             : `${o.weights.length} box${o.weights.length === 1 ? "" : "es"} weighed, ${fmt(Math.round(weighed * 100) / 100)} lb`}
         </span>
-        <label htmlFor={`pallet-${o.id}`}>Pallet</label>
-        <input
-          id={`pallet-${o.id}`}
-          key={`${o.id}:${o.pallet}`}
-          className="field w-24!"
-          defaultValue={o.pallet}
-          disabled={!canPack}
-          onBlur={(e) => {
-            const v = e.target.value.trim();
-            if (v !== o.pallet) onPallet(v);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-          }}
-        />
+        {tags.length > 0 && <span className="small">On {tags.join(", ")}</span>}
         <span className="flex-1" />
         {o.lastAt && (
           <span className="by">

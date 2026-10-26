@@ -1,6 +1,6 @@
 // Reads and writes for the Packing screen (stage 3: packing by weight).
 // The packing role may read orders, order lines, products, weeks, customers,
-// pallet groups, and names; and read and write packing_lines (marks and
+// distributors (Ships to), and names; and read and write packing_lines (marks and
 // counts), packing_weights, and packing_orders (pallet). Nothing else.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -50,6 +50,8 @@ export type PackWeight = Weight & {
   /** Which box of the customer's product (its place on the packing sheet), and its label number (change request 10/26/26). */
   slot: number | null;
   label_no: number | null;
+  /** The box type it went in (scan-to-pallet routing). */
+  box_type_id?: string | null;
 };
 
 export type PackOrder = {
@@ -61,15 +63,19 @@ export type PackOrder = {
   /** On a printed label: the customer ("PCC", or the business), and the location ("#02 Kirkland", or ""). */
   labelName: string;
   labelLocation: string;
-  /** Pallet group order, then name. */
+  /** Distributor, then name. */
   sortKey: string;
   /** The customer's standing notes (delivery times and so on). */
   standingNotes: string;
   /** Notes on this week's order. */
   orderNotes: string;
-  /** Pallet group and spot ("Bellingham Stores", "Left half"), if set. */
+  /** The distributor it ships through ("PCC distributor"), or null for Direct (Ships to; change request 10/26/26). */
   group: string | null;
   spot: string;
+  /** Its shipment: "point:<id>" through a distributor, "customer:<id>" for Direct. */
+  shipKey: string;
+  /** Ships to: the distributor's id, or null for Direct. */
+  shipsToPointId: string | null;
   lines: Qty;
   /** Lines taken in another unit than the product's own ("lb" for a piece product). */
   units: Record<string, string>;
@@ -90,8 +96,12 @@ export type PackingData = {
   /** The cut sheet's INV#, if set (printed on the box label list). */
   invNumber: string | null;
   products: Map<string, PackProduct>;
-  /** Orders with something on them, in pallet group order, then by name. */
+  /** Orders with something on them, by distributor, then by name. */
   orders: PackOrder[];
+  /** Boxes scanned this week that no open order needed (no customer yet). */
+  unassigned: PackWeight[];
+  /** Distributors (Ships to), by id. */
+  points: Map<string, string>;
   /** Box label numbers given out for the week, by box (customer|product|box). Empty until the Box Label Report or the packing sheet hands them out. */
   labelNumbers: Map<string, number>;
   /** Weight blanks on the packing sheet: when the box count isn't known, and spares after known boxes. */
@@ -126,23 +136,47 @@ export function packLines(o: PackOrder, products: Map<string, PackProduct>): [st
     });
 }
 
+type WeightRow = {
+  id: string;
+  product_id: string;
+  weight: number;
+  box_no: number | null;
+  slot: number | null;
+  label_no: number | null;
+  box_type_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  source: string;
+  gtin: string | null;
+  serial: string | null;
+  lot: string | null;
+  case_no: string | null;
+  pallet_id: string | null;
+  client_id: string | null;
+};
+
 export async function loadPacking(db: SupabaseClient, week: string): Promise<PackingData> {
-  const [weekRow, orders, customers, groups, products, people, sheet, labels, settings] = await Promise.all([
+  const [weekRow, orders, customers, groups, products, people, sheet, labels, settings, loose] = await Promise.all([
     db.from("weeks").select("process_date, labels_hash, labels_printed_at").eq("id", week).maybeSingle(),
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, box_type_id, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
-    db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, pallet_group_id, pallet_spot, pallet_sort"),
-    db.from("pallet_groups").select("id, name, sort"),
+    db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, ships_to_point_id"),
+    db.from("consolidation_points").select("id, name"),
     db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks").order("sort"),
     db.from("profiles").select("id, display_name"),
     // Packers can't read the cut sheet; the INV# is then just left off.
     db.from("cut_sheets").select("inv_number").eq("week_id", week).maybeSingle(),
     db.from("box_labels").select("number, key").eq("week_id", week),
     db.from("app_settings").select("pack_unknown_blanks, pack_spare_blanks").maybeSingle(),
+    db
+      .from("packing_weights")
+      .select("id, product_id, weight, box_no, slot, label_no, box_type_id, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id")
+      .eq("week_id", week)
+      .is("order_id", null),
   ]);
 
   const custList = must(customers) as {
@@ -152,14 +186,32 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     call_day: string | null;
     parent_customer_id: string | null;
     notes: string;
-    pallet_group_id: string | null;
-    pallet_spot: string;
-    pallet_sort: number;
+    ships_to_point_id: string | null;
   }[];
   const byId = new Map(custList.map((c) => [c.id, c]));
-  const groupList = (must(groups) ?? []) as { id: string; name: string; sort: number }[];
-  const groupById = new Map(groupList.map((g) => [g.id, g]));
+  const pointList = (must(groups) ?? []) as { id: string; name: string }[];
+  const pointName = new Map(pointList.map((g) => [g.id, g.name]));
+  // Distributors in name order, for sorting.
+  const pointRank = new Map([...pointList].sort((a, b) => a.name.localeCompare(b.name)).map((g, i) => [g.id, i]));
   const names = new Map((must(people) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
+  const toWeight = (w: WeightRow): PackWeight => ({
+    id: w.id,
+    product_id: w.product_id,
+    weight: num(w.weight),
+    box_no: w.box_no,
+    slot: w.slot,
+    label_no: w.label_no,
+    box_type_id: w.box_type_id ?? null,
+    by: w.created_by ? (names.get(w.created_by) ?? "Someone") : null,
+    at: w.created_at,
+    source: w.source ?? "weigh",
+    gtin: w.gtin,
+    serial: w.serial,
+    lot: w.lot,
+    case_no: w.case_no,
+    pallet_id: w.pallet_id,
+    client_id: w.client_id,
+  });
 
   type Row = {
     id: string;
@@ -175,23 +227,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       packed_by: string | null;
       packed_at: string;
     }[];
-    packing_weights: {
-      id: string;
-      product_id: string;
-      weight: number;
-      box_no: number | null;
-      slot: number | null;
-      label_no: number | null;
-      created_by: string | null;
-      created_at: string;
-      source: string;
-      gtin: string | null;
-      serial: string | null;
-      lot: string | null;
-      case_no: string | null;
-      pallet_id: string | null;
-      client_id: string | null;
-    }[];
+    packing_weights: WeightRow[];
     packing_orders:
       | { pallet: string; updated_by: string | null; updated_at: string | null; created_at: string }
       | { pallet: string; updated_by: string | null; updated_at: string | null; created_at: string }[]
@@ -228,23 +264,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       touch(p.packed_at, p.packed_by);
     }
     const weights: PackWeight[] = (o.packing_weights ?? [])
-      .map((w) => ({
-        id: w.id,
-        product_id: w.product_id,
-        weight: num(w.weight),
-        box_no: w.box_no,
-        slot: w.slot,
-        label_no: w.label_no,
-        by: w.created_by ? (names.get(w.created_by) ?? "Someone") : null,
-        at: w.created_at,
-        source: w.source ?? "weigh",
-        gtin: w.gtin,
-        serial: w.serial,
-        lot: w.lot,
-        case_no: w.case_no,
-        pallet_id: w.pallet_id,
-        client_id: w.client_id,
-      }))
+      .map((w) => toWeight(w))
       .sort((a, b) => a.at.localeCompare(b.at));
     for (const w of o.packing_weights ?? []) touch(w.created_at, w.created_by);
     // packing_orders is one-to-one with orders, so it may come back as an object or a one-item list.
@@ -252,7 +272,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     if (po) touch(po.updated_at ?? po.created_at, po.updated_by);
 
     const cust = byId.get(o.customer_id);
-    const group = cust?.pallet_group_id ? groupById.get(cust.pallet_group_id) : undefined;
+    const pointId = cust?.ships_to_point_id ?? null;
+    const group = pointId ? { name: pointName.get(pointId) ?? "Distributor", rank: pointRank.get(pointId) ?? 0 } : undefined;
     const name = cust ? displayName(cust, byId) : "Unknown customer";
     const parent = cust?.parent_customer_id ? byId.get(cust.parent_customer_id) : undefined;
     const labelName = cust ? labelCustomer(cust.name, parent?.name) : name;
@@ -263,11 +284,13 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       labelCustomer: labelName,
       labelName: parent ? parent.name.trim() : (cust?.name ?? name).trim(),
       labelLocation: parent && cust ? cust.name.trim() : "",
-      sortKey: group ? `0|${String(group.sort).padStart(6, "0")}|${String(cust?.pallet_sort ?? 0).padStart(6, "0")}|${name}` : `1|${name}`,
+      sortKey: group ? `0|${String(group.rank).padStart(6, "0")}|${name}` : `1|${name}`,
       standingNotes: (cust?.notes ?? "").trim(),
       orderNotes: (o.notes ?? "").trim(),
       group: group?.name ?? null,
-      spot: cust?.pallet_spot ?? "",
+      spot: "",
+      shipKey: pointId ? `point:${pointId}` : `customer:${o.customer_id}`,
+      shipsToPointId: pointId,
       lines,
       units,
       marks,
@@ -275,8 +298,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       pallet: po?.pallet ?? "",
       lastBy: lastBy ? (names.get(lastBy) ?? "Someone") : null,
       lastAt,
-      // Pallet groups first, in their order; then everyone else by name.
-      rank: group ? [0, group.sort * 10000 + (cust?.pallet_sort ?? 0), name] : [1, 0, name],
+      // Customers shipping through a distributor first, by distributor; then everyone else by name.
+      rank: group ? [0, group.rank, name] : [1, 0, name],
     });
   }
 
@@ -307,6 +330,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     labelsPrintedAt: wr?.labels_printed_at ?? null,
     invNumber: inv?.trim() || null,
     products: new Map(prods.map((p) => [p.id, p])),
+    unassigned: ((loose.error ? [] : loose.data) as WeightRow[]).map((w) => toWeight(w)),
+    points: pointName,
     labelNumbers: new Map((must(labels) as { number: number; key: string }[]).map((l) => [l.key, l.number])),
     blanks: { unknown: set?.pack_unknown_blanks ?? 6, spare: set?.pack_spare_blanks ?? 2 },
     orders: list.map((o) => {
@@ -385,7 +410,7 @@ export function packingLabels(data: PackingData, boxes: BoxSetup): LabelList {
 
 /** The box rows the packing sheet needs, from the week's box label list. */
 export function sheetLabels(data: PackingData, boxes: BoxSetup): SheetLabel[] {
-  return reportLabels(packingLabels(data, boxes)).map((r) => ({ key: r.key, boxNo: r.boxNo, boxCount: r.boxCount, noBox: r.noBox }));
+  return reportLabels(packingLabels(data, boxes)).map((r) => ({ key: r.key, boxNo: r.boxNo, boxCount: r.boxCount, noBox: r.noBox, boxTypeId: r.boxTypeId }));
 }
 
 /**
@@ -398,4 +423,10 @@ export function orderSheet(o: PackOrder, data: PackingData, labels: SheetLabel[]
   for (const w of o.weights) if (!ids.includes(w.product_id)) ids.push(w.product_id);
   const perProduct = new Map([...data.products.values()].map((p) => [p.id, p.pack_blanks ?? null]));
   return sheetRows({ customerId: o.customerId, productIds: ids, weights: o.weights }, labels, data.labelNumbers, { ...data.blanks, perProduct }, extra);
+}
+
+/** Give an unassigned box to a customer's order (Pallets, by Kathy). */
+export async function assignBox(db: SupabaseClient, weightId: string, orderId: string): Promise<string | null> {
+  const { error } = await db.from("packing_weights").update({ order_id: orderId, week_id: null, route: "picked" }).eq("id", weightId);
+  return error ? error.message : null;
 }

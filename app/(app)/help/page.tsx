@@ -57,9 +57,12 @@ export default async function HelpPage() {
         14. Couldn&apos;t fill it at all? Tick <b>Not filled</b>. Something wrong? Tick <b>Flag this line</b> and say why; Kathy
         sees it.
       </Step>
-      <Step n={4} title="Boxes and pallet">
-        Each weight goes in a box: <b>New box</b>, or pick a box that already has something in it to make a mixed box. Under
-        each customer you&apos;ll see the boxes and their weights. Type the pallet; it saves by itself.
+      <Step n={4} title="Scan boxes onto pallets">
+        Tap <b>Scan boxes</b> and scan a box. The app shows the pallet in big letters (<b>→ P3</b>), who the box is for, and
+        its label number. Tap <b>Put on P3</b> and carry it there. Going somewhere else? Tap another customer below it, or{" "}
+        <b>Pick customer anyway</b>. No pallet yet? Write a tag on the pallet, type it, and tap <b>Start</b>. When a pallet is
+        full, tap <b>Pallet full</b>. Packing one customer at a time? <b>Lock to a customer</b> and every scan goes to them.
+        Each box holds one product only.
       </Step>
       <Step n={5} title="To pack, Done, All">
         <b>To pack</b> shows what&apos;s left. <b>Done</b> shows finished customers. <b>All</b> shows everyone. New orders show
