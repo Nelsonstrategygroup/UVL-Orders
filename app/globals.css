@@ -2551,9 +2551,28 @@ tr.zebra td,
   font-size: 10pt;
 }
 .pk-cust {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10pt;
+}
+.pk-cust th,
+.pk-cust td {
+  padding: 0;
+  text-align: left;
+  font-weight: normal;
+  vertical-align: top;
+}
+.pk-cust thead th {
   border-top: 2pt solid #000;
   padding-top: 4pt;
-  margin-bottom: 10pt;
+}
+/* The customer name repeats at the top of a second page. */
+.pk-cust thead {
+  display: table-header-group;
+}
+.pk-cust tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 .pk-head {
   display: flex;
