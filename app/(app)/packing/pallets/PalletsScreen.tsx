@@ -20,6 +20,7 @@ import { palletTotals } from "@/lib/calc/routing";
 import { weekName } from "@/lib/dates";
 import { assignBox, type PackWeight } from "@/lib/db/packing";
 import type { PalletRow } from "@/lib/db/scanning";
+import PlanPallets from "./PlanPallets";
 
 type Box = PackWeight & { customerId: string | null; customer: string };
 
@@ -80,7 +81,8 @@ export default function PalletsScreen() {
             until they upload.
           </p>
         )}
-        {!data.pallets.length && <div className="empty">No pallets yet. Pallets start from Scan boxes.</div>}
+        <PlanPallets week={week} data={data} canPlan={canPack || canWeek} />
+        {!data.pallets.length && <div className="empty">No pallets yet. Plan them above, or start them from Scan boxes.</div>}
 
         {data.pallets.map((pl) => {
           const boxes = onPallet(pl.id);

@@ -10,6 +10,8 @@
 // Which pallet, for that customer's shipment:
 //   a. a planned or open pallet with a planned box still to fill for this
 //      customer and product (pallet_plan_lines; empty until the planner),
+//   a2. the planned or open pallet the store is on for the week (Plan
+//      pallets, on the Pallets page; Lucas, 10/26/26),
 //   b. an open pallet for the shipment that already has this customer's boxes
 //      (a PCC shipment fills several pallets, each with its own stores:
 //      P1 has #10, #11, #13...; P2 has #24, #17...; Lucas, 10/26/26),
@@ -87,6 +89,8 @@ export type RoutePallet = {
   plan: { customerId: string; productId: string; boxes: number }[];
   /** Boxes on it so far. */
   boxes: { customerId: string | null; productId: string }[];
+  /** Customers (stores) planned onto it for the week. */
+  customers?: string[];
 };
 
 /** Customers that still need this product: the suggestion first, then the runner-ups. */
@@ -111,7 +115,10 @@ export function palletFor(o: Pick<RouteOrder, "customerId" | "shipKey">, product
     return want > have;
   });
   if (planned) return planned;
-  const open = shipmentPallets(o, pallets);
+  // a2. The pallet the store is planned onto this week (not once it's full or shipped).
+  const assigned = pallets.find((p) => (p.status === "planned" || p.status === "open") && p.customers?.includes(o.customerId));
+  if (assigned) return assigned;
+  const open = shipmentPallets(o, pallets).filter((p) => p.status === "open");
   // b. The pallet already holding this customer's boxes (the most of them).
   const count = (p: RoutePallet) => p.boxes.filter((b) => b.customerId === o.customerId).length;
   const theirs = open.filter((p) => count(p) > 0).sort((a, b) => count(b) - count(a));
@@ -120,10 +127,10 @@ export function palletFor(o: Pick<RouteOrder, "customerId" | "shipKey">, product
   return open[0] ?? null;
 }
 
-/** The shipment's open pallets, newest first: the choices for "Different pallet". */
+/** The shipment's open and planned pallets, newest first: the choices for "Different pallet". */
 export function shipmentPallets(o: Pick<RouteOrder, "shipKey">, pallets: RoutePallet[]): RoutePallet[] {
   return pallets
-    .filter((p) => p.status === "open" && p.shipKeys.includes(o.shipKey))
+    .filter((p) => (p.status === "open" || p.status === "planned") && p.shipKeys.includes(o.shipKey))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 

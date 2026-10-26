@@ -115,6 +115,15 @@ describe("which pallet", () => {
     expect(shipmentPallets(kirkland, pallets).map((p) => p.id)).toEqual(["p2", "p1"]);
   });
 
+  it("a store planned onto a pallet goes there first, even a planned one, until it's full", () => {
+    const pallets = [
+      pallet("p1", { shipKeys: ["point:pcc"], createdAt: "2026-10-26T15:00:00Z", boxes: [{ customerId: "c-Kirkland", productId: "loin" }] }),
+      pallet("p2", { shipKeys: ["point:pcc"], status: "planned", customers: ["c-Kirkland"] }),
+    ];
+    expect(palletFor(kirkland, "rack", pallets)?.id).toBe("p2");
+    expect(palletFor(kirkland, "rack", [pallets[0], { ...pallets[1], status: "full" }])?.id).toBe("p1");
+  });
+
   it("none: start one", () => {
     expect(palletFor(kirkland, "rack", [pallet("full", { shipKeys: ["point:pcc"], status: "full" })])).toBeNull();
   });

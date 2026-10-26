@@ -103,9 +103,24 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
     case "pallet-start": {
       const r = await withTimeout(
         db.rpc("start_pallet", {
-          p: { id: a.id, week_id: a.week_id, tag: a.tag, ship_to_customer_id: a.ship_to_customer_id, ship_to_point_id: a.ship_to_point_id },
+          p: { id: a.id, week_id: a.week_id, tag: a.tag, ship_to_customer_id: a.ship_to_customer_id, ship_to_point_id: a.ship_to_point_id, status: a.status ?? "open" },
         }),
       );
+      return classify(r.error, r.status);
+    }
+    case "pallet-customer": {
+      // One pallet per customer a week: take it off the week's other pallets first.
+      const week = await withTimeout(db.from("pallets").select("id").eq("week_id", a.week_id));
+      if (week.error) return classify(week.error, week.status);
+      const ids = ((week.data ?? []) as { id: string }[]).map((p) => p.id);
+      if (ids.length) {
+        const off = await withTimeout(db.from("pallet_customers").delete().eq("customer_id", a.customer_id).in("pallet_id", ids));
+        if (off.error) return classify(off.error, off.status);
+      }
+      if (!a.on) return { kind: "done" };
+      const r = await withTimeout(db.from("pallet_customers").upsert({ pallet_id: a.pallet_id, customer_id: a.customer_id }, { onConflict: "pallet_id,customer_id", ignoreDuplicates: true }));
+      // The pallet was deleted meanwhile.
+      if (r.error?.code === "23503") return { kind: "done" };
       return classify(r.error, r.status);
     }
     case "pallet-status": {

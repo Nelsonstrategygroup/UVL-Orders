@@ -31,6 +31,8 @@ function describe(q: Queued): string {
       return `Pallet ${a.number}`;
     case "pallet-start":
       return `New pallet ${a.tag}`;
+    case "pallet-customer":
+      return a.on ? "A store put on a pallet" : "A store taken off a pallet";
     case "pallet-status":
       return `A pallet marked ${a.status}`;
   }

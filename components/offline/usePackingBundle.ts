@@ -23,7 +23,7 @@ const TIMEOUT_MS = 10000;
 // Only tables the database sends live changes for (supabase_realtime): naming
 // one it doesn't made the whole subscription fail, so Packing stopped updating
 // live (found 10/23/26).
-const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets", "pallet_shipments", "pallet_plan_lines"];
+const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets", "pallet_shipments", "pallet_plan_lines", "pallet_customers"];
 
 function timeout<T>(p: Promise<T>): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("The request timed out")), TIMEOUT_MS))]);
@@ -53,7 +53,7 @@ export function usePackingBundle(week: string) {
         const bundle = {
           ...snap.value,
           // A copy kept before pallet tags (10/26/26) has no usable pallets.
-          pallets: (snap.value.pallets ?? []).filter((p) => typeof p.tag === "string"),
+          pallets: (snap.value.pallets ?? []).filter((p) => typeof p.tag === "string").map((p) => ({ ...p, customers: p.customers ?? [] })),
           // A copy kept before box limits existed.
           boxes: snap.value.boxes ?? { types: [], limits: new Map(), capLb: 45 },
           // A copy kept before box weights (10/26/26).
@@ -92,11 +92,17 @@ export function usePackingBundle(week: string) {
           id: a.id,
           week_id: a.week_id,
           tag: a.tag,
-          status: "open",
+          status: a.status ?? "open",
           created_at: a.at,
           shipKeys: [a.ship_to_point_id ? `point:${a.ship_to_point_id}` : `customer:${a.ship_to_customer_id}`],
           plan: [],
+          customers: [],
         });
+      if (a.type === "pallet-customer")
+        for (let i = 0; i < pallets.length; i++) {
+          const others = pallets[i].customers.filter((c) => c !== a.customer_id);
+          pallets[i] = { ...pallets[i], customers: a.on && pallets[i].id === a.pallet_id ? [...others, a.customer_id] : others };
+        }
       if (a.type === "pallet-status") {
         const i = pallets.findIndex((p) => p.id === a.id);
         if (i >= 0) pallets[i] = { ...pallets[i], status: a.status };

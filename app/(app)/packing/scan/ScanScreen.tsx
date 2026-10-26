@@ -156,6 +156,9 @@ export default function ScanScreen() {
         });
         pallet = { id, tag, status: "open", shipKeys: [order.shipKey], createdAt: new Date().toISOString(), plan: [], boxes: [] };
         tag = pallet.tag;
+      } else if (pallet.status === "planned") {
+        // Its first box: a planned pallet is now open.
+        await enqueue({ type: "pallet-status", id: pallet.id, status: "open" });
       }
       const box = boxFor(order, base.productId, data.packing, labels, filledHere.current);
       const upload: BoxUpload = {
@@ -723,7 +726,7 @@ function routePallets(data: PackingBundle): RoutePallet[] {
   };
   for (const o of data.packing.orders) for (const w of o.weights) add(w, o.customerId);
   for (const w of data.packing.unassigned) add(w, null);
-  return data.pallets.map((p) => ({ id: p.id, tag: p.tag, status: p.status, shipKeys: p.shipKeys, createdAt: p.created_at, plan: p.plan, boxes: boxes.get(p.id) ?? [] }));
+  return data.pallets.map((p) => ({ id: p.id, tag: p.tag, status: p.status, shipKeys: p.shipKeys, createdAt: p.created_at, plan: p.plan, boxes: boxes.get(p.id) ?? [], customers: p.customers }));
 }
 
 /** "PCC distributor", "Key City". */

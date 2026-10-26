@@ -44,7 +44,11 @@ export type Action =
       ship_to_customer_id: string | null;
       ship_to_point_id: string | null;
       at: string;
+      /** "planned" when set up ahead on the Pallets page; open otherwise. */
+      status?: "planned" | "open";
     }
+  /** Put a customer (store) on a pallet for the week, or take it off. On one pallet at a time. */
+  | { type: "pallet-customer"; week_id: string; pallet_id: string; customer_id: string; on: boolean }
   /** Move a box to another pallet (it went on the wrong one). */
   | { type: "weight-pallet"; order_id: string | null; weight_id?: string; client_id?: string; pallet_id: string | null }
   /** A pallet is full (or open again, or shipped). */

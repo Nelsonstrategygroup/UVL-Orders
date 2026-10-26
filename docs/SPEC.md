@@ -568,5 +568,8 @@ Boxes come off Mohawk's roller grouped by size, not by customer. Chris scans eac
 ### 14.3 Pallets view (`/packing/pallets`)
 Each pallet's tag, shipment, boxes, weight and status (Full, Open again, Shipped); a distributor's pallet shows boxes and pounds by store. **Print manifest**: one pallet per page with the tag large, ship-to, boxes and pounds; a distributor's pallet lists its boxes grouped by store (label, product, lb, lot) so the distributor can break it down. Warns when scans haven't uploaded yet. Unassigned boxes are listed with "Give to...".
 
+### 14.5 Plan pallets for the week (Lucas, 10/26/26)
+On the Pallets page, for each shipment: add pallets by tag (planned until the first box goes on) and choose the pallet for each store (`pallet_customers`; one pallet per store a week). "Start from last week's pallets" copies last week's tags and stores, for the stores ordering this week. Chris (at Mohawk) or Kathy plans it. Routing sends a store's boxes to its planned pallet first (until it's full or shipped). Nothing prints on box labels: the pallet is only useful at Mohawk, and label space is needed for the distributor and stores.
+
 ### 14.4 Offline
 The phone keeps the week's orders, packed boxes, label numbers, pallets, shipments and plan lines, and works out suggestions itself. Scans, new pallets and "Pallet full" queue on the phone and upload when back in range; all Packing pages are kept on the phone once Packing opens with signal. Two phones packing the same line, or using the same tag, are saved and flagged for Kathy (`over-packed`, `pallet-tag`), never refused.

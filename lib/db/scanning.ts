@@ -42,6 +42,8 @@ export type PalletRow = {
   shipKeys: string[];
   /** Planned boxes (empty until the planner). */
   plan: { customerId: string; productId: string; boxes: number }[];
+  /** Customers (stores) planned onto this pallet for the week (pallet_customers). */
+  customers: string[];
 };
 
 type PalletDb = {
@@ -52,6 +54,7 @@ type PalletDb = {
   created_at: string;
   pallet_shipments: { shipments: { ship_to_customer_id: string | null; ship_to_point_id: string | null } | null }[] | null;
   pallet_plan_lines: { customer_id: string; product_id: string; planned_boxes: number }[] | null;
+  pallet_customers: { customer_id: string }[] | null;
 };
 
 /** The week's pallets, oldest first. */
@@ -59,7 +62,7 @@ export async function loadPallets(db: SupabaseClient, week: string): Promise<Pal
   const { data, error } = await db
     .from("pallets")
     .select(
-      "id, week_id, tag, status, created_at, pallet_shipments(shipments(ship_to_customer_id, ship_to_point_id)), pallet_plan_lines(customer_id, product_id, planned_boxes)",
+      "id, week_id, tag, status, created_at, pallet_shipments(shipments(ship_to_customer_id, ship_to_point_id)), pallet_plan_lines(customer_id, product_id, planned_boxes), pallet_customers(customer_id)",
     )
     .eq("week_id", week)
     .order("created_at");
@@ -75,6 +78,7 @@ export async function loadPallets(db: SupabaseClient, week: string): Promise<Pal
       .filter((x): x is NonNullable<typeof x> => !!x)
       .map((x) => (x.ship_to_point_id ? `point:${x.ship_to_point_id}` : `customer:${x.ship_to_customer_id}`)),
     plan: (p.pallet_plan_lines ?? []).map((l) => ({ customerId: l.customer_id, productId: l.product_id, boxes: l.planned_boxes })),
+    customers: (p.pallet_customers ?? []).map((c) => c.customer_id),
   }));
 }
 

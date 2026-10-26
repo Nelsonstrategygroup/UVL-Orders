@@ -64,6 +64,12 @@ What changed:
   has "Different pallet" (the shipment's other open pallets, with the stores
   on each, and New pallet), and a scanned box can be moved with "Move to...".
 
+- Plan pallets for the week (Pallets page): add pallets by tag and choose the
+  pallet for each store; "Start from last week's pallets" copies last
+  week's. Scan boxes sends a store's boxes to its planned pallet. Chris
+  plans it at Mohawk, or Kathy ahead. Not printed on box labels. Migration
+  20261026000400 (pallet_customers).
+
 Decided (Lucas, 10/26/26):
 - Pallets switch from "Pallet X of Y" to tags; pallet groups are replaced by
   Ships to; each box records its box type; the typed pallet note on Packing
