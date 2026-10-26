@@ -123,6 +123,14 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       if (r.error?.code === "23503") return { kind: "done" };
       return classify(r.error, r.status);
     }
+    case "pallet-delete": {
+      // Only an empty pallet: a box may have gone on it from another phone meanwhile.
+      const used = await withTimeout(db.from("packing_weights").select("id", { count: "exact", head: true }).eq("pallet_id", a.id));
+      if (used.error) return classify(used.error, used.status);
+      if ((used.count ?? 0) > 0) return { kind: "done", note: `${a.tag} has boxes on it now, so it wasn't deleted.` };
+      const r = await withTimeout(db.from("pallets").delete().eq("id", a.id));
+      return classify(r.error, r.status);
+    }
     case "pallet-status": {
       const r = await withTimeout(db.from("pallets").update({ status: a.status }).eq("id", a.id));
       return classify(r.error, r.status);

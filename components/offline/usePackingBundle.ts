@@ -105,6 +105,10 @@ export function usePackingBundle(week: string) {
           const others = pallets[i].customers.filter((c) => c !== a.customer_id);
           pallets[i] = { ...pallets[i], customers: a.on && pallets[i].id === a.pallet_id ? [...others, a.customer_id] : others };
         }
+      if (a.type === "pallet-delete") {
+        const i = pallets.findIndex((p) => p.id === a.id);
+        if (i >= 0) pallets.splice(i, 1);
+      }
       if (a.type === "pallet-status") {
         const i = pallets.findIndex((p) => p.id === a.id);
         if (i >= 0) pallets[i] = { ...pallets[i], status: a.status };

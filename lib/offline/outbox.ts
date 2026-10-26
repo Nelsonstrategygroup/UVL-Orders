@@ -51,6 +51,8 @@ export type Action =
   | { type: "pallet-customer"; week_id: string; pallet_id: string; customer_id: string; on: boolean }
   /** Move a box to another pallet (it went on the wrong one). */
   | { type: "weight-pallet"; order_id: string | null; weight_id?: string; client_id?: string; pallet_id: string | null }
+  /** Delete a pallet started by mistake. Only an empty one: a pallet with boxes is kept. */
+  | { type: "pallet-delete"; id: string; tag: string }
   /** A pallet is full (or open again, or shipped). */
   | { type: "pallet-status"; id: string; status: "planned" | "open" | "full" | "shipped" };
 

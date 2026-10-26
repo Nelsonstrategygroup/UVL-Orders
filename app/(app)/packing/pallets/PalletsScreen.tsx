@@ -76,6 +76,13 @@ export default function PalletsScreen() {
     pl.shipKeys.some((k) => k.startsWith("point:"));
   const onPallet = (id: string) => all.filter((b) => b.pallet_id === id);
   const noPallet = all.filter((b) => !b.pallet_id && b.customerId);
+  /** Delete a pallet started by mistake: only when nothing is on it. */
+  const remove = (pl: PalletRow) => {
+    if (!window.confirm(`Delete ${pl.tag}? It has no boxes on it.`)) return;
+    void enqueue({ type: "pallet-delete", id: pl.id, tag: pl.tag })
+      .then(() => toast(`${pl.tag} deleted`))
+      .catch(() => toast("Couldn't save on this phone. Try again."));
+  };
   const setStatus = (pl: PalletRow, status: PalletRow["status"]) =>
     void enqueue({ type: "pallet-status", id: pl.id, status }).catch(() =>
       toast("Couldn't save on this phone. Try again."),
@@ -195,6 +202,11 @@ export default function PalletsScreen() {
                         onClick={() => setStatus(pl, "shipped")}
                       >
                         Shipped
+                      </button>
+                    )}
+                    {boxes.length === 0 && (
+                      <button type="button" className="btn danger" onClick={() => remove(pl)}>
+                        Delete pallet
                       </button>
                     )}
                   </>
