@@ -29,6 +29,30 @@ questions doc.
 
 ## Decisions
 
+### Reconciling 10/26 against Chris's pack sheet (10/26/26)
+Chris's handwritten sheet (145 rows, every weight confirmed by Chris)
+against the 141 boxes in the app: 133 matched on location, product and
+weight; no box in the app was missing from the sheet; no wrong-store scans
+were left.
+Fixed (migration 20261026000700, logged as Lucas): GL Village Front Shanks
+13.10 and Bellevue Tongue 2.65 added; the Edmonds Racks 21.05 box put on P1
+(logged: "Mohawk labeled as Necks, contents are Racks"); Key City Ground
+Lamb scanned box 20.00 -> 20.10 and a 20.25 box added; Key City's 19.65 lb
+box Hind Shanks -> Labeled Hind Shanks.
+Not changed: Ballard Front 8.55 / Hind 9.20 (the labels were right; the
+sheet had the rows swapped). On hold (Lucas): Emerson BNLS Shoulder 34.22
+(sheet 34.60) and the Emerson 35.75 lb box (BNLS Legs by barcode, BI Legs
+on the sheet).
+After the fix (144 boxes, none off a pallet): every location matches the
+sheet except Emerson (the two held boxes), Redmond and Burien (+10.00 lb
+each: pepper sticks weighed from Mohawk's label, no weight on the sheet),
+and Edmonds (+0.05 lb, scale 21.05 vs sheet 21.0).
+Open: Labeled and plain Hind Shanks share Mohawk's barcode, so a scan
+comes in as Hind Shanks; the combined H/L/K box is recorded as Kidney, so
+Heart and Liver show unpacked on Packing; the sheet's #02 Kirkland and #25
+Madison Valley are #23 and #22 in the app; boxes for a product not on the
+order don't show as a row on Packing.
+
 ### Manifests against the app (10/26/26)
 Checked every pallet this week: the Pallets page, the manifest, Print and
 download > Pallet manifest and Print all build from one shared function on
