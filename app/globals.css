@@ -2987,3 +2987,30 @@ tr.zebra td,
     border-color: var(--barn);
   }
 }
+
+/* The manifest on a phone screen (the printed page is unchanged): smaller tag, one column, no sideways scroll. */
+@media screen and (max-width: 640px) {
+  .mf-pallet {
+    padding: 12px;
+  }
+  .mf-head {
+    flex-wrap: wrap;
+  }
+  .mf-tag {
+    font-size: 2.2rem;
+    overflow-wrap: anywhere;
+  }
+  .mf-addr {
+    grid-template-columns: 1fr;
+  }
+  .mf-line,
+  .mf-line.wide {
+    min-width: 1in;
+  }
+  .mf-table th,
+  .mf-table td {
+    padding: 3px 4px;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+  }
+}

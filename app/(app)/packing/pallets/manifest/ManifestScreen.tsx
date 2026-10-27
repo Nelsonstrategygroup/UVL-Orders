@@ -15,7 +15,12 @@ import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { downloadTable } from "@/components/download";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { ManifestSheets, manifestsTable, palletManifests } from "../Manifest";
+import {
+  looseBoxes,
+  ManifestSheets,
+  manifestsTable,
+  palletManifests,
+} from "../Manifest";
 
 export default function ManifestScreen() {
   const params = useSearchParams();
@@ -25,14 +30,18 @@ export default function ManifestScreen() {
   const asked = params.get("week");
   // Opened for a week (from Print and download, or a pallet): show that week.
   useEffect(() => {
-    if (asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked !== week) setWeek(asked);
+    if (asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked !== week)
+      setWeek(asked);
     // Only when opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asked]);
   const onWeek = !asked || asked === week;
   const bundle = usePackingBundle(week);
   const palletId = params.get("pallet");
-  const list = bundle.data && onWeek ? palletManifests(bundle.data, palletId ? [palletId] : undefined) : null;
+  const list =
+    bundle.data && onWeek
+      ? palletManifests(bundle.data, palletId ? [palletId] : undefined)
+      : null;
 
   // ?print=1: the print dialog opens once, when the manifest is drawn.
   const printed = useRef(false);
@@ -43,7 +52,8 @@ export default function ManifestScreen() {
     return () => clearTimeout(t);
   }, [params, list]);
 
-  if (bundle.error) return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
+  if (bundle.error)
+    return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
   if (!bundle.data || !list)
     return (
       <>
@@ -53,7 +63,9 @@ export default function ManifestScreen() {
     );
 
   const missing = list.reduce((n, m) => n + m.manifest.missing, 0);
-  const title = palletId ? `Manifest for pallet ${list[0]?.pallet.tag ?? ""}` : "Manifests for every pallet";
+  const title = palletId
+    ? `Manifest for pallet ${list[0]?.pallet.tag ?? ""}`
+    : "Manifests for every pallet";
   return (
     <>
       <div className="screen-only">
@@ -64,7 +76,12 @@ export default function ManifestScreen() {
           <Link href="/packing/pallets" className="btn ghost">
             &larr; Pallets
           </Link>
-          <button type="button" className="btn" disabled={!list.length} onClick={() => window.print()}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!list.length}
+            onClick={() => window.print()}
+          >
             Print
           </button>
           <button
@@ -72,7 +89,9 @@ export default function ManifestScreen() {
             className="btn ghost"
             disabled={!list.length}
             onClick={() => {
-              toast('In the print window, choose "Save as PDF" as the printer.');
+              toast(
+                'In the print window, choose "Save as PDF" as the printer.',
+              );
               setTimeout(() => window.print(), 600);
             }}
           >
@@ -82,12 +101,25 @@ export default function ManifestScreen() {
             type="button"
             className="btn ghost"
             disabled={!list.length}
-            onClick={() => void downloadTable(`manifest-${palletId ? list[0].pallet.tag : "all"}-week-of-${week}`, manifestsTable(list), "Manifest", "csv")}
+            onClick={() =>
+              void downloadTable(
+                `manifest-${palletId ? list[0].pallet.tag : "all"}-week-of-${week}`,
+                manifestsTable(list),
+                "Manifest",
+                "csv",
+              )
+            }
           >
             Download CSV
           </button>
         </div>
-        {!list.length && <div className="empty">{palletId ? "This pallet isn't in this week." : "No pallets this week yet."}</div>}
+        {!list.length && (
+          <div className="empty">
+            {palletId
+              ? "This pallet isn't in this week."
+              : "No pallets this week yet."}
+          </div>
+        )}
         {missing > 0 && (
           <p className="note bad mt-2" role="alert">
             <b>
@@ -98,12 +130,19 @@ export default function ManifestScreen() {
         )}
         {waiting > 0 && (
           <p className="note warn mt-2">
-            {waiting} {waiting === 1 ? "thing is" : "things are"} still waiting on this phone, so the manifest may be missing boxes
-            until they upload.
+            {waiting} {waiting === 1 ? "thing is" : "things are"} still waiting
+            on this phone, so the manifest may be missing boxes until they
+            upload.
           </p>
         )}
       </div>
-      <ManifestSheets data={bundle.data} list={list} />
+      <ManifestSheets
+        data={bundle.data}
+        list={list}
+        loose={looseBoxes(bundle.data)}
+        asOf={{ at: bundle.savedAt, fromPhone: bundle.fromPhone }}
+        showLoose={!palletId}
+      />
     </>
   );
 }

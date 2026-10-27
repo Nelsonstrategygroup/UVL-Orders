@@ -29,6 +29,29 @@ questions doc.
 
 ## Decisions
 
+### Manifests against the app (10/26/26)
+Checked every pallet this week: the Pallets page, the manifest, Print and
+download > Pallet manifest and Print all build from one shared function on
+the same packing week (the week is passed in the link; nothing filters by
+date, so the Thursday switch doesn't affect it). Database and manifest agree
+box for box (EMERSON 9, P1 40, P2 42, P3 41, P4 8). Moved boxes show under
+their new store and pallet; lines packed into more boxes than planned get
+one row per box.
+Root cause of what was missing: a box with no pallet was on no manifest,
+with no warning. On 10/26 Chris deleted the scan of a box recorded as #13
+Edmonds Necks 21.05 lb (on P1) and typed it on Packing as Racks; a weight
+typed on Packing gets no pallet, so it dropped off P1's manifest. Also, a
+manifest printed with no signal comes from the phone's saved copy and didn't
+say how old it was.
+Fixed: every manifest warns about boxes on no pallet (listing them), Print
+all adds a "Boxes on no pallet" page, and each manifest prints "Data as of"
+with a warning when it's the phone's saved copy. The manifest page fits a
+phone screen.
+Open: the Necks barcode (…88885) or that box's label may be wrong (Chris
+re-entered it as Racks); weights typed on Packing could go on the store's
+pallet automatically; reconciling against Chris's 10/26 sheet (waiting for
+the file).
+
 ### Boxes on the wrong store (10/26/26)
 What happened: three boxes packed on Mon Oct 26 were recorded for a
 different store than the label on the box (Columbia instead of Ballard,
