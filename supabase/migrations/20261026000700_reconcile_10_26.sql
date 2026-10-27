@@ -27,13 +27,15 @@ select set_config('request.jwt.claims', '{"sub":"7182190a-5556-4e1d-a4dd-27ac78d
 insert into public.packing_weights (id, order_id, product_id, weight, source, slot, label_no, pallet_id, route)
 select 'a1c26000-0000-4000-8000-000000000001', '98f63ba5-16ae-4ed7-ae8c-7bd6e7fab8a4', 'cp-front-shanks', 13.10, 'weigh', 1, 47,
        'ad935f5d-6711-4cb2-b50c-b60f7a6f7485', 'picked'
-where not exists (select 1 from public.packing_weights where id = 'a1c26000-0000-4000-8000-000000000001');
+where not exists (select 1 from public.packing_weights where id = 'a1c26000-0000-4000-8000-000000000001')
+  and exists (select 1 from public.orders where id = '98f63ba5-16ae-4ed7-ae8c-7bd6e7fab8a4') and exists (select 1 from public.pallets where id = 'ad935f5d-6711-4cb2-b50c-b60f7a6f7485');
 
 -- 2. Bellevue Tongue.
 insert into public.packing_weights (id, order_id, product_id, weight, source, slot, label_no, pallet_id, route)
 select 'a1c26000-0000-4000-8000-000000000002', '69c85bec-ccf4-4d25-9aa5-5a6a761e51d1', 'b5bbc115-fd31-4dc8-8250-e7451ab3257c', 2.65, 'weigh', 1, 165,
        '7de8bf31-2864-4e85-b471-b0b021ff58a6', 'picked'
-where not exists (select 1 from public.packing_weights where id = 'a1c26000-0000-4000-8000-000000000002');
+where not exists (select 1 from public.packing_weights where id = 'a1c26000-0000-4000-8000-000000000002')
+  and exists (select 1 from public.orders where id = '69c85bec-ccf4-4d25-9aa5-5a6a761e51d1') and exists (select 1 from public.pallets where id = '7de8bf31-2864-4e85-b471-b0b021ff58a6');
 
 -- 3. Edmonds Racks onto P1, with Chris's note in its log entry.
 update public.packing_weights set pallet_id = 'ac9c3282-1e4b-4ed4-9e11-034852bf8b72'
@@ -49,7 +51,8 @@ where id = 'f660ecb7-a2e9-4eb0-b01e-88c8fe70a157' and weight = 20;
 insert into public.packing_weights (id, order_id, product_id, weight, source, slot, pallet_id, route)
 select 'a1c26000-0000-4000-8000-000000000003', '5cd348e5-2c29-4e98-938a-462a5ee0c598', 'cp-ground-5', 20.25, 'weigh', 2,
        'ad935f5d-6711-4cb2-b50c-b60f7a6f7485', 'picked'
-where not exists (select 1 from public.packing_weights where id = 'a1c26000-0000-4000-8000-000000000003');
+where not exists (select 1 from public.packing_weights where id = 'a1c26000-0000-4000-8000-000000000003')
+  and exists (select 1 from public.orders where id = '5cd348e5-2c29-4e98-938a-462a5ee0c598') and exists (select 1 from public.pallets where id = 'ad935f5d-6711-4cb2-b50c-b60f7a6f7485');
 
 -- 5. Key City's 19.65 lb shanks are the Labeled Hind Shanks it ordered.
 update public.packing_weights set product_id = 'cp-labeled-hind-shanks', slot = 1, label_no = 53, off_order = false
