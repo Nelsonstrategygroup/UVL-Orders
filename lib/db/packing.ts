@@ -52,6 +52,10 @@ export type PackWeight = Weight & {
   label_no: number | null;
   /** The box type it went in (scan-to-pallet routing). */
   box_type_id?: string | null;
+  /** A product not on the customer's order, and when (and by whom) it was checked as correct for the shipment (10/26/26). */
+  off_order?: boolean;
+  extra_ok_at?: string | null;
+  extra_ok_by_name?: string | null;
 };
 
 export type PackOrder = {
@@ -147,6 +151,9 @@ type WeightRow = {
   slot: number | null;
   label_no: number | null;
   box_type_id: string | null;
+  off_order?: boolean;
+  extra_ok_by?: string | null;
+  extra_ok_at?: string | null;
   created_by: string | null;
   created_at: string;
   source: string;
@@ -164,7 +171,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, box_type_id, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, box_type_id, off_order, extra_ok_by, extra_ok_at, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, ships_to_point_id"),
@@ -178,7 +185,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db.from("app_settings").select("*").maybeSingle(),
     db
       .from("packing_weights")
-      .select("id, product_id, weight, box_no, slot, label_no, box_type_id, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id")
+      .select("id, product_id, weight, box_no, slot, label_no, box_type_id, off_order, extra_ok_by, extra_ok_at, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id")
       .eq("week_id", week)
       .is("order_id", null),
   ]);
@@ -206,6 +213,9 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     slot: w.slot,
     label_no: w.label_no,
     box_type_id: w.box_type_id ?? null,
+    off_order: !!w.off_order,
+    extra_ok_at: w.extra_ok_at ?? null,
+    extra_ok_by_name: w.extra_ok_by ? (names.get(w.extra_ok_by) ?? "Someone") : null,
     by: w.created_by ? (names.get(w.created_by) ?? "Someone") : null,
     at: w.created_at,
     source: w.source ?? "weigh",

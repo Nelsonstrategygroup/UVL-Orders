@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { useCan } from "@/components/CurrentUser";
+import { useCan, useMe } from "@/components/CurrentUser";
 import OfflineStatus from "@/components/offline/OfflineStatus";
 import { useOutbox } from "@/components/offline/OutboxProvider";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
@@ -28,7 +28,7 @@ import {
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
-import { orderSheet, packLines, sheetLabels, type LineMark, type PackingData, type PackOrder } from "@/lib/db/packing";
+import { orderSheet, packLines, sheetLabels, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
 import { blankWords, nextBlank, type SheetRow } from "@/lib/calc/packSheet";
 import { PackNotes, PaperSheet } from "./PackSheet";
@@ -51,6 +51,7 @@ export default function PackingScreen() {
   const boxSetup = bundle.data?.boxes ?? { types: [], limits: new Map(), capLb: 45 };
   const { error } = bundle;
   const canPack = useCan("packing").change;
+  const me = useMe();
   // Number the boxes while there is signal, so the copy kept on the phone prints with label numbers.
   useLabelNumbers(week, bundle.data, bundle.refresh, canPack);
   const [filter, setFilter] = useState<PackFilter>("todo");
@@ -171,6 +172,20 @@ export default function PackingScreen() {
                 boxSetup={boxSetup}
                 onOpen={(pid) => setWeighing({ orderId: o.id, productId: pid })}
                 pallets={bundle.data?.pallets ?? []}
+                canPack={canPack}
+                onExtraOk={(w, ok) =>
+                  void save(
+                    enqueue({
+                      type: "weight-extra-ok",
+                      order_id: o.id,
+                      ...(isLocal(w) ? { client_id: w.client_id ?? "" } : { weight_id: w.id }),
+                      ok,
+                      by: me.id,
+                      by_name: me.displayName,
+                      at: new Date().toISOString(),
+                    }),
+                  )
+                }
               />
             </div>
           ))
@@ -244,6 +259,8 @@ function CustomerCard({
   boxSetup,
   onOpen,
   pallets,
+  canPack,
+  onExtraOk,
 }: {
   order: PackOrder;
   lines: [string, PackLine][];
@@ -252,6 +269,9 @@ function CustomerCard({
   onOpen: (productId: string) => void;
   /** The week's pallets, for the tags this customer's boxes are on. */
   pallets: { id: string; tag: string }[];
+  canPack: boolean;
+  /** Check a box not on the order as correct for the shipment, or undo that. */
+  onExtraOk: (w: PackWeight, ok: boolean) => void;
 }) {
   const done = lines.filter(([, l]) => lineLook(l) !== "todo").length;
   const weighed = o.weights.reduce((sum, w) => sum + w.weight, 0);
@@ -260,6 +280,9 @@ function CustomerCard({
   const tags = [...new Set(o.weights.map((w) => w.pallet_id).filter((x): x is string => !!x))]
     .map((id) => pallets.find((p) => p.id === id)?.tag)
     .filter(Boolean);
+  // Boxes for a product the customer didn't order: shown here to check, never on the manifest (Lucas, 10/26/26).
+  const extras = o.weights.filter((w) => !(w.product_id in o.lines));
+  const toCheck = extras.filter((w) => !w.extra_ok_at).length;
   // Boxes this order should fill, from each product's box size.
   const expect = orderBoxesText(orderBoxes(o.lines, o.units, data.products, boxSetup));
 
@@ -270,6 +293,11 @@ function CustomerCard({
         {o.spot && <span className="tag even">{o.spot}</span>}
         <span className="flex-1" />
         {expect && <span className="small muted">{expect}</span>}
+        {toCheck > 0 && (
+          <span className="tag short">
+            {toCheck} extra{toCheck === 1 ? "" : "s"} to check
+          </span>
+        )}
         <span className="small num">
           {done}/{lines.length}
         </span>
@@ -298,6 +326,39 @@ function CustomerCard({
           </button>
         );
       })}
+
+      {extras.length > 0 && (
+        <div className="pextra">
+          <b>Not on the order</b>
+          <span className="small"> · check each box is right for this shipment</span>
+          <ul className="m-0 mt-1 grid list-none gap-1 p-0">
+            {extras.map((w) => (
+              <li key={w.id} className="flex flex-wrap items-center gap-2">
+                <span className="flex-1">
+                  {name(w.product_id)} · {fmt(w.weight)} lb
+                  {w.serial ? <span className="small muted"> · {w.serial}</span> : null}
+                </span>
+                {w.extra_ok_at ? (
+                  <>
+                    <span className="small">
+                      ✓ OK to ship · {w.extra_ok_by_name ?? "Someone"}, {formatWhen(w.extra_ok_at)}
+                    </span>
+                    {canPack && (
+                      <button type="button" className="copy min-h-[44px]" onClick={() => onExtraOk(w, false)}>
+                        Undo
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button type="button" className="btn" disabled={!canPack} onClick={() => onExtraOk(w, true)}>
+                    Correct, ship it
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {orderPacked(lines.map(([, l]) => l)) && <div className="alldone">All packed.</div>}
 

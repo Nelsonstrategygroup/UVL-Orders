@@ -47,6 +47,10 @@ After the fix (144 boxes, none off a pallet): every location matches the
 sheet except Emerson (the two held boxes), Redmond and Burien (+10.00 lb
 each: pepper sticks weighed from Mohawk's label, no weight on the sheet),
 and Edmonds (+0.05 lb, scale 21.05 vs sheet 21.0).
+Since then: a box for a product not on the order shows on its customer's
+Packing card under "Not on the order" with "Correct, ship it" (who and
+when are kept; Undo). The order isn't changed, and nothing about it prints on
+the manifest (Lucas). Migration 20261026000800.
 Open: Labeled and plain Hind Shanks share Mohawk's barcode, so a scan
 comes in as Hind Shanks; the combined H/L/K box is recorded as Kidney, so
 Heart and Liver show unpacked on Packing; the sheet's #02 Kirkland and #25

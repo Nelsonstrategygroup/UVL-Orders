@@ -17,6 +17,8 @@ function describe(q: Queued): string {
       return `A weight changed to ${a.weight} lb`;
     case "weight-remove":
       return "Taking off a weight";
+    case "weight-extra-ok":
+      return a.ok ? "An extra box checked as correct" : "An extra box check undone";
     case "weight-move":
       return a.order_id ? "Moving a box to another store" : "Unassigning a box";
     case "weight-pallet":

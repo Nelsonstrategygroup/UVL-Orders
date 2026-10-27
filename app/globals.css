@@ -3014,3 +3014,11 @@ tr.zebra td,
     overflow-wrap: anywhere;
   }
 }
+
+/* Packing: boxes for a product not on the order, to check (10/26/26). Never on the manifest. */
+.pextra {
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  background: var(--warn);
+}

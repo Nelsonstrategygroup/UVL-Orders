@@ -68,6 +68,8 @@ export type Action =
       label_no: number | null;
       off_order: boolean;
     }
+  /** A box for a product not on the order: checked as correct for the shipment (ok), or the check undone. The order isn't changed. */
+  | { type: "weight-extra-ok"; order_id: string; weight_id?: string; client_id?: string; ok: boolean; by: string; by_name: string; at: string }
   /** Delete a pallet started by mistake. Only an empty one: a pallet with boxes is kept. */
   | { type: "pallet-delete"; id: string; tag: string }
   /** A pallet is full (or open again, or shipped). */
@@ -188,6 +190,11 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       const o = a.order_id ? byId.get(a.order_id) : undefined;
       if (o) o.weights = o.weights.map((w) => (hit(w) ? { ...w, pallet_id: a.pallet_id } : w));
       for (let i = 0; i < unassigned.length; i++) if (hit(unassigned[i])) unassigned[i] = { ...unassigned[i], pallet_id: a.pallet_id };
+    } else if (a.type === "weight-extra-ok") {
+      const o = byId.get(a.order_id);
+      if (!o) continue;
+      const hit = (w: PackWeight) => (a.weight_id && w.id === a.weight_id) || (a.client_id && w.client_id === a.client_id);
+      o.weights = o.weights.map((w) => (hit(w) ? { ...w, extra_ok_at: a.ok ? a.at : null, extra_ok_by_name: a.ok ? a.by_name : null } : w));
     } else if (a.type === "weight-move") {
       const hit = (w: PackWeight) => (a.weight_id && w.id === a.weight_id) || (a.client_id && w.client_id === a.client_id);
       const from = a.from_order_id ? byId.get(a.from_order_id) : undefined;
