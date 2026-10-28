@@ -3022,3 +3022,10 @@ tr.zebra td,
   border-radius: 10px;
   background: var(--warn);
 }
+
+/* Order sheet: blank rows to write in something else, after what they usually
+   buy (10/28/26). Kept with the rows above on paper where it fits. */
+.ordersheet tbody.os-writein {
+  break-before: avoid;
+  page-break-before: avoid;
+}

@@ -46,7 +46,19 @@ function comesIn(p: CatalogProduct): string {
 /** "Sat Oct 31" */
 const dayAndDate = (iso: string) => `${DAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()].slice(0, 3)} ${niceDate(iso)}`;
 
-type Section = { title: string | null; groups: { group: string; products: CatalogProduct[] }[] };
+/**
+ * A part of the sheet. writeIn: empty rows at its end to write in something
+ * else by hand (only after "What they usually buy").
+ */
+type Section = { title: string | null; groups: { group: string; products: CatalogProduct[] }[]; writeIn?: number };
+
+/**
+ * Empty rows to write in by hand, right after what the customer usually buys
+ * (Kathy, 10/28/26: a customer asks for something else on the call, and
+ * she writes it here instead of hunting through the sheet). Paper only:
+ * never entered or saved.
+ */
+const WRITE_IN_ROWS = 4;
 
 function Sheet({
   customer,
@@ -210,6 +222,22 @@ function SectionRows({ section, lastOrder }: { section: Section; lastOrder: Last
           })}
         </tbody>
       ))}
+      {section.writeIn ? (
+        <tbody className="os-writein">
+          <tr className="os-group">
+            <th colSpan={5}>Something else</th>
+          </tr>
+          {Array.from({ length: section.writeIn }, (_, i) => (
+            <tr key={i}>
+              <td />
+              <td />
+              <td />
+              <td />
+              <td />
+            </tr>
+          ))}
+        </tbody>
+      ) : null}
     </>
   );
 }
@@ -256,7 +284,7 @@ export default function OrderSheetScreen() {
     const first = active.filter((p) => usual.has(p.id));
     if (!first.length) return [{ title: null, groups: everything }];
     return [
-      { title: "What they usually buy", groups: groupProducts(first) },
+      { title: "What they usually buy", groups: groupProducts(first), writeIn: WRITE_IN_ROWS },
       { title: "Other products", groups: groupProducts(active.filter((p) => !usual.has(p.id))) },
     ];
   };
