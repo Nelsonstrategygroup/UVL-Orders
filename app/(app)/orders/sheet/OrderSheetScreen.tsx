@@ -162,31 +162,39 @@ function Sheet({
           </tbody>
         </table>
       )}
-      <table>
-        <colgroup>
-          <col className="os-prod" />
-          <col className="os-unit" />
-          <col className="os-lastq" />
-          <col className="os-qty" />
-          <col className="os-note" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Product</th>
-            <th>Comes in</th>
-            <th>Last order</th>
-            <th>How many</th>
-            <th>Note</th>
-          </tr>
-        </thead>
-        {sections.map((s) => (
-          <SectionRows key={s.title ?? "all"} section={s} lastOrder={lastOrder} />
-        ))}
-      </table>
+      {/* One table per section, with a gap between, so what they usually buy
+          (and the write-in lines) stands apart from the other products
+          (Lucas, 10/28/26). Each has its own headings, repeated on a new page. */}
+      {sections.map((s) => (
+        <table key={s.title ?? "all"} className="os-part">
+          <colgroup>
+            <col className="os-prod" />
+            <col className="os-unit" />
+            <col className="os-lastq" />
+            <col className="os-qty" />
+            <col className="os-note" />
+          </colgroup>
+          <thead>
+            {s.title && (
+              <tr className="os-section">
+                <th colSpan={5}>{s.title}</th>
+              </tr>
+            )}
+            <tr>
+              <th>Product</th>
+              <th>Comes in</th>
+              <th>Last order</th>
+              <th>How many</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <SectionRows section={s} lastOrder={lastOrder} />
+        </table>
+      ))}
       {movedOut && <p className="os-moved">Moved to next week: {movedOut}</p>}
       <div className="os-foot">
         Other notes, call back, delivery changes
-        <div />
+        {/* One line (was two) since the sections were split into two tables (Lucas, 10/28/26). */}
         <div />
       </div>
     </section>
@@ -196,13 +204,6 @@ function Sheet({
 function SectionRows({ section, lastOrder }: { section: Section; lastOrder: LastOrder | undefined }) {
   return (
     <>
-      {section.title && (
-        <tbody>
-          <tr className="os-section">
-            <th colSpan={5}>{section.title}</th>
-          </tr>
-        </tbody>
-      )}
       {section.groups.map((g) => (
         <tbody key={g.group}>
           <tr className="os-group">

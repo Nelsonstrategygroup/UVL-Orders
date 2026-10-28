@@ -3029,3 +3029,38 @@ tr.zebra td,
   break-before: avoid;
   page-break-before: avoid;
 }
+
+/* Order sheet sections (10/28/26): what they usually buy and the other
+   products as separate tables with a clear gap; the write-in lines set off by
+   a heavier rule. */
+.ordersheet table.os-part + table.os-part {
+  margin-top: 12pt;
+}
+.ordersheet table.os-part thead tr.os-section th {
+  border: 2px solid #555;
+  border-bottom-width: 1px;
+}
+.ordersheet tbody.os-writein tr.os-group th {
+  border-top: 2px solid #555;
+}
+/* A long product group may run onto the next page (its heading stays with its
+   first rows), so whole groups don't jump pages and leave big gaps. The
+   write-in lines stay together. */
+.ordersheet table.os-part tbody {
+  break-inside: auto;
+}
+.ordersheet table.os-part tbody.os-writein {
+  break-inside: avoid;
+}
+.ordersheet tr.os-group {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.ordersheet table.os-part tr {
+  break-inside: avoid;
+}
+/* The notes line stays with its label. */
+.ordersheet .os-foot {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
