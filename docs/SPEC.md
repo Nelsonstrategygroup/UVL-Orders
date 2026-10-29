@@ -580,3 +580,27 @@ One page, `/packing/pallets/manifest` (`?week=`, `?pallet=` for one pallet, none
 
 ### 14.4 Offline
 The phone keeps the week's orders, packed boxes, label numbers, pallets, shipments and plan lines, and works out suggestions itself. Scans, new pallets and "Pallet full" queue on the phone and upload when back in range; all Packing pages are kept on the phone once Packing opens with signal. Two phones packing the same line, or using the same tag, are saved and flagged for Kathy (`over-packed`, `pallet-tag`), never refused.
+
+## 15. Invoicing (change request 10/28/26)
+
+The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`. Built in three stages (foundation, drafts, lifecycle), stopping for review after each. Out of scope: invoices for half and whole lamb households, sales tax, emailing invoices.
+
+### 15.1 Rules (decided)
+- Bill from the week's box records: every box, scanned or typed. One invoice per location; each location (every PCC store included) pays its own. No billing groups for now.
+- Each product has a price unit: per lb (most), per case or per each, set in Setup > Products. Per lb bills the sum of the boxes' net weights; per case bills one case per box (a pepper-stick box is always one case).
+- An ordered product with no boxes is a shorted line at $0, whether it was marked X or not.
+- Prices: a default price per product and optional customer prices, each with an effective-from date. A line uses the newest price effective on the invoice date (the customer's own, else the default), copied onto the line when finalized. No prices are seeded; a missing price shows "Price needed" and blocks finalizing.
+- Line total = billed quantity x unit price, rounded half up to the cent, once per line; the invoice total is the sum of line totals. Exact decimals (`numeric`) throughout, never floating point.
+- Invoice number: one number per week (`weeks.invoice_number`; 10/19/26 = 3000, 10/26/26 = 3001; each week suggests the last + 1) plus the location's 3 to 5 character code: "3001-NEWP". A reissue adds -R1, -R2. The full number is stored on the invoice when it's made.
+- Invoice date starts as the Tuesday after packing and can be changed. Terms default to Net 15 (Setup > Invoicing), changeable per customer; due date = invoice date + terms.
+- Statuses: Draft, Finalized, Sent, Partially paid, Paid, Void. A finalized invoice's lines never change; corrections are Void (with a reason) and Reissue, or a credit line later. Manual lines need a note. Payments: ACH, check or other, with a reference; partial payments allowed. Everything is logged.
+- A Billing role (Invoices and Prices change) and Invoices and Prices permission areas. Nobody's role is changed (everyone stays Admin until Lucas changes them).
+
+### 15.2 Open questions
+- OPEN: per-each products: bill the piece count typed on Packing, or what was ordered?
+- OPEN: bill-to addresses for each location (blank prints the name only).
+- OPEN: remit-to address (the PO box?) and phone number.
+- OPEN: store numbers (#23 or #02 Kirkland, #22 or #25 Madison Valley); they set the PCC invoice codes.
+- OPEN: sales tax; confirm nothing is taxable (Oregon has none; Washington exempts food and resale).
+- OPEN: how backorders and freezer pulls are billed (an "inventory" line kind is reserved, not built).
+- OPEN: Kathy's approval of the location invoice codes.
