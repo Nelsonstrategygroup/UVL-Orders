@@ -21,6 +21,7 @@ export const EXPORT_TABLES: { table: string; order: string[] }[] = [
   { table: "invoice_settings", order: ["id"] },
   { table: "contact_log", order: ["id"] },
   { table: "weeks", order: ["id"] },
+  { table: "week_extra_lambs", order: ["id"] },
   { table: "orders", order: ["id"] },
   { table: "order_lines", order: ["order_id", "product_id"] },
   { table: "packing_lines", order: ["order_id", "product_id"] },

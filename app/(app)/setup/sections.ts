@@ -9,7 +9,7 @@ export const SETUP_SECTIONS = [
   { slug: "sizes", title: "Lamb sizes", sub: "Size names and weights on the cut sheet" },
   { slug: "pallets", title: "Ships to", sub: "Who ships direct, and who ships through a distributor (PCC)" },
   { slug: "gtins", title: "Box labels (GTINs)", sub: "Which product each Mohawk box label is" },
-  { slug: "le-trim", title: "Le Trim", sub: "Trim per shoulder and per half leg, to estimate the trim Le Trim takes" },
+  { slug: "le-trim", title: "Le Trim", sub: "Average shoulder and leg weights, to work out Le Trim by weight" },
   { slug: "prices", title: "Prices", sub: "Each product's price, and customer prices, from a date on" },
   { slug: "invoicing", title: "Invoicing", sub: "Invoice numbers, location codes, terms, and what prints on every invoice" },
   { slug: "processor", title: "Processor", sub: "Name, email for cut sheets, instructions on every sheet" },

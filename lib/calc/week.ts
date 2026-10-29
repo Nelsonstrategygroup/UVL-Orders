@@ -16,6 +16,11 @@
 //   added on top: lambs = lambs for parts + carcass lambs.
 // - Products with a fill note (Le Trim) take nothing from the balance. Kathy
 //   fills them from extras; they are listed on their own.
+// - Extra lambs (10/29/26): Kathy adds them on the week for any reason (Le
+//   Trim, freezer stock, small lambs...). They go on top of the count from
+//   orders: lambs = lambs for parts + carcass lambs + extra lambs. Their parts
+//   are supply in the balance like any other lamb's. "Your number" and the
+//   cut sheet total are taken as they are (Kathy puts the extras in her sets).
 
 import { BALANCE_PARTS } from "./cutsheet";
 import { addInto, ceilSafe, EPS, num } from "./num";
@@ -65,8 +70,12 @@ export type WeekCalc = {
   /** totals plus the half and whole shortfall. */
   withShort: Qty;
   rows: PartRow[];
-  /** Recommended lamb count: lambs for parts plus carcass lambs. */
+  /** Recommended lamb count: lambs for parts, plus carcass lambs, plus extra lambs. */
   recommended: number;
+  /** Lambs the orders' parts need (the largest per-part count), before carcass and extra lambs. */
+  orderLambs: number;
+  /** Extra lambs added on the week (week_extra_lambs). */
+  extra: number;
   /** Lambs the parts need: the largest per-part count. */
   partsLambs: number;
   /** Carcass lambs ordered (uncut, on top of the lambs for parts). */
@@ -106,6 +115,8 @@ export function calcWeek(input: {
    * legs halved, trim lb). It uses up extras but never sets the lamb count.
    */
   leTrim?: { shoulders: number; legs: number; trimLb: number } | null;
+  /** Extra lambs added on the week, on top of the count from orders. */
+  extraLambs?: number;
 }): WeekCalc {
   const parts = [...input.parts].sort((a, b) => a.sort - b.sort);
   const byId = new Map(parts.map((p) => [p.id, p]));
@@ -175,7 +186,8 @@ export function calcWeek(input: {
   });
 
   const partsRecommended = base.reduce((m, r) => Math.max(m, r.lambs), 0);
-  const recommended = partsRecommended + carcass;
+  const extra = Math.max(0, Math.round(num(input.extraLambs ?? 0)));
+  const recommended = partsRecommended + carcass + extra;
   const overridden = input.override != null;
   const cutSheetLambs = Math.max(0, Math.round(num(input.cutSheetLambs ?? 0)));
   const source: LambSource = overridden ? "your number" : cutSheetLambs > 0 ? "cut sheet" : "orders";
@@ -224,6 +236,8 @@ export function calcWeek(input: {
     withShort,
     rows,
     recommended,
+    orderLambs: partsRecommended,
+    extra,
     partsLambs,
     carcass,
     driver,
@@ -242,10 +256,19 @@ export function plannedExtras(rows: PartRow[]): PartRow[] {
   return rows.filter((r) => r.planned && r.left > EPS && !parents.has(r.part.id));
 }
 
-/** "78 for parts + 2 carcass = 80 lambs", or null when there are no carcass lambs. */
-export function carcassLine(c: Pick<WeekCalc, "final" | "carcass" | "partsLambs">): string | null {
-  if (!c.carcass) return null;
-  return `${c.partsLambs} for parts + ${c.carcass} carcass = ${c.final} lambs`;
+/**
+ * "78 for parts + 2 carcass = 80 lambs", "55 for parts + 16 extra = 71
+ * lambs", or null when there are no carcass or extra lambs. From orders the
+ * parts count is what orders need; otherwise it's what's left of the count.
+ */
+export function carcassLine(c: Pick<WeekCalc, "final" | "carcass" | "partsLambs"> & Partial<Pick<WeekCalc, "extra" | "orderLambs" | "source">>): string | null {
+  const extra = c.extra ?? 0;
+  if (!c.carcass && !extra) return null;
+  const fromOrders = (c.source ?? "orders") === "orders";
+  const parts = fromOrders && extra ? (c.orderLambs ?? c.partsLambs - extra) : c.partsLambs;
+  const bits = [`${parts} for parts`, c.carcass ? `${c.carcass} carcass` : "", fromOrders && extra ? `${extra} extra` : ""].filter(Boolean);
+  if (bits.length < 2) return null;
+  return `${bits.join(" + ")} = ${c.final} lambs`;
 }
 
 /**

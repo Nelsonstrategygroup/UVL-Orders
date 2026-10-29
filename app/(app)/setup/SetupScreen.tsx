@@ -475,15 +475,16 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
       return page(
         <section className="panel">
           <p className="small muted mt-0">
-            Le Trim is made from extra shoulders (boned out) or half legs, each with trim. These two numbers only estimate how
-            much trim a week&apos;s Le Trim takes; on the Le Trim screen Kathy enters what she actually used. Still to confirm
-            with Kathy.
+            Le Trim is made by weight: spare trim first, then boned-out shoulders, then half legs (half a boneless leg each). These
+            averages work out how much is spare and, when it falls short, about how many extra average-size lambs would cover it.
+            Trim per lamb is the Trim part in <Link href="/setup/parts">Parts per lamb</Link>. The shoulder weight isn&apos;t
+            confirmed yet (Chris saw about 4 lb with lighter lambs).
           </p>
           <div className="flex flex-wrap gap-4">
             {(
               [
-                ["le_trim_shoulder_trim_lb", "Trim with each shoulder (lb)", 5],
-                ["le_trim_half_leg_trim_lb", "Trim with each half leg (lb)", 6.5],
+                ["le_trim_shoulder_lb", "Average boneless shoulder (lb)", 5],
+                ["le_trim_leg_lb", "Average boneless leg (lb; a half leg is half)", 6.5],
               ] as const
             ).map(([key, label, dflt]) => (
               <label key={key} className="grid gap-1">

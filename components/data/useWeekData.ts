@@ -9,7 +9,7 @@ import { loadWeek } from "@/lib/db/load";
 import type { Order } from "@/lib/db/types";
 import { useLive } from "./useLive";
 
-const LIVE_TABLES = ["orders", "order_lines", "order_requests", "packing_lines", "packing_orders", "cut_sets", "cut_sheets", "le_trim_plans"];
+const LIVE_TABLES = ["orders", "order_lines", "order_requests", "packing_lines", "packing_orders", "cut_sets", "cut_sheets", "le_trim_plans", "week_extra_lambs"];
 
 export function useWeekData(week: string) {
   const load = useCallback((db: SupabaseClient) => loadWeek(db, week), [week]);

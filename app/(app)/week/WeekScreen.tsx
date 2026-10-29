@@ -24,14 +24,14 @@ import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/c
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
 import { plannedExtras, type PartRow } from "@/lib/calc/week";
 import { weekCalc } from "@/lib/weekCalc";
-import { leTrimCutLines, leTrimOrdered } from "@/lib/calc/leTrim";
+import { leTrimCutLines, leTrimShortText } from "@/lib/calc/leTrim";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
 import { cantConvert, unitWord } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
-import { saveWeek, setFollowUpDone } from "@/lib/db/save";
+import { addExtraLambs, removeExtraLambs, saveWeek, setFollowUpDone } from "@/lib/db/save";
 import { loadCutSheet } from "@/lib/db/cutsheet";
 import { sheetProblems, sheetStatus, specMapOf } from "@/lib/cutsheetView";
-import type { WeekRow } from "@/lib/db/types";
+import type { ExtraLambReason, ExtraLambRow, WeekRow } from "@/lib/db/types";
 
 export default function WeekScreen() {
   const { week } = useWeek();
@@ -62,7 +62,7 @@ export default function WeekScreen() {
   // number, else the cut sheet total, else the count from orders. Every lamb
   // number on this screen comes from `n` (see lib/calc/oneLambCount.test.ts).
   // Requested lines count too; the saved Le Trim plan takes from the extras.
-  const { c, cs, short, requested } = weekCalc(data, catalog);
+  const { c, cs, short, requested, leTrim: lt } = weekCalc(data, catalog);
   const n = weekNumbers(c, cs, w?.process_date ?? null);
   const message = n.message;
   const balanceGroups = [
@@ -70,9 +70,12 @@ export default function WeekScreen() {
     { title: "Comes with every lamb", sub: "No need to plan.", rows: c.rows.filter((r) => !r.planned) },
   ];
   const extras = plannedExtras(c.rows);
-  // Le Trim comes out of the extras once Kathy saves a plan (change request 10/25/26).
-  const leTrim = leTrimOrdered(c);
+  // Le Trim by weight (10/29/26): from what's spare, and about how many extra average-size lambs if that's short.
+  const leTrim = lt.ordered;
   const leTrimPlanned = data.leTrim != null;
+  const leTrimShort = leTrim.lb > 0 ? leTrimShortText(lt.need) : null;
+  // Extra lambs once there's a cut sheet: Kathy puts them in her sets (Lucas, 10/29/26).
+  const cutSheetShort = c.source === "cut sheet" && c.extra > 0 && c.cutSheetLambs < c.recommended;
   // The box label list, to say whether it needs printing again (SPEC 12.5).
   const labels = labelList(
     [...data.orders.values()].map((o) => {
@@ -153,6 +156,7 @@ export default function WeekScreen() {
               <h2>lambs to order</h2>
               {n.sourceLine && <div className="font-semibold">{n.sourceLine}.</div>}
               {n.carcassLine && <div className="font-semibold">{n.carcassLine}.</div>}
+              {c.recommended > 0 && <div className="small muted">Average-size lambs. Smaller or bigger lambs need more or fewer.</div>}
               {requested.length > 0 && (
                 <div className="small">
                   Includes {requested.length} requested line{requested.length === 1 ? "" : "s"} not confirmed yet.
@@ -177,6 +181,23 @@ export default function WeekScreen() {
               onSave={(v) => void save({ lamb_override: v })}
             />
           </fieldset>
+
+          {leTrimShort && (
+            <p className="note warn mt-2 mb-0" role="status">
+              <b>{leTrimShort}</b> Add them under Extra lambs below if you want them.{" "}
+              <Link href="/week/le-trim" className="copy">
+                Le Trim
+              </Link>
+            </p>
+          )}
+          {cutSheetShort && (
+            <p className="note warn mt-2 mb-0" role="status">
+              The cut sheet has {c.cutSheetLambs} lambs. Orders need approximately {c.orderLambs + c.carcass} average-size lambs, plus the{" "}
+              {c.extra} extra you added: {c.recommended}. Add the extra lambs to the cut sheet&apos;s sets.
+            </p>
+          )}
+
+          <ExtraLambs week={week} rows={data.extraLambs ?? []} canChange={canChange} onSaved={refresh} />
 
           <div className={`balsum ${shortLine.length ? "short" : "ok"}`}>
             {c.recommended === 0 ? (
@@ -289,7 +310,7 @@ export default function WeekScreen() {
               {data.leTrim
                 ? leTrimCutLines({ shoulders: data.leTrim.shoulders, halfLegs: data.leTrim.half_legs }).join(" · ") ||
                   `${fmt(data.leTrim.trim_lb)} lb trim`
-                : `Not planned yet · ${fmt(leTrim.lb)} lb ordered`}
+                : `Not planned yet · ${fmt(leTrim.lb)} lb ordered${lt.need.shortLb > 0 ? ` · short approximately ${fmt(Math.round(lt.need.shortLb))} lb` : ""}`}
             </Step>
           )}
           {seeCutSheet && <CutSheetStep week={week} processor={processor} />}
@@ -366,7 +387,11 @@ export default function WeekScreen() {
 
         {leTrim.lb > 0 && !leTrimPlanned && (
           <div className="note warn mt-3">
-            Le Trim isn&apos;t planned yet. Some of these extras will go to Le Trim.{" "}
+            Le Trim isn&apos;t planned yet. The balance counts approximately{" "}
+            {[lt.need.shoulders ? `${lt.need.shoulders} shoulders` : "", lt.need.legs ? `${lt.need.legs} legs` : "", `${fmt(Math.round(lt.need.trimLb))} lb trim`]
+              .filter(Boolean)
+              .join(", ")}{" "}
+            going to it.{" "}
             <Link href="/week/le-trim" className="copy">
               Plan Le Trim
             </Link>
@@ -621,6 +646,109 @@ function OverrideField({
         </button>
       ) : (
         <span className="small muted">Leave blank to use {fallback} from {fallbackFrom}.</span>
+      )}
+    </div>
+  );
+}
+
+const REASONS: { value: ExtraLambReason; label: string }[] = [
+  { value: "le_trim", label: "Le Trim" },
+  { value: "freezer", label: "Freezer stock" },
+  { value: "small_lambs", label: "Small lambs" },
+  { value: "half_whole", label: "Half/whole orders" },
+  { value: "other", label: "Other" },
+];
+const reasonLabel = (r: ExtraLambReason) => REASONS.find((x) => x.value === r)?.label ?? r;
+
+/**
+ * Extra lambs (10/29/26): lambs added to the week for any reason, on top of
+ * the count from orders. One number and a reason; a note if wanted. Their
+ * parts are supply in the balance, so Le Trim uses them before saying it's
+ * short; what nothing uses shows as extra.
+ */
+function ExtraLambs({ week, rows, canChange, onSaved }: { week: string; rows: ExtraLambRow[]; canChange: boolean; onSaved: () => void }) {
+  const db = getDb();
+  const toast = useToast();
+  const [lambs, setLambs] = useState("");
+  const [reason, setReason] = useState<ExtraLambReason>("le_trim");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const total = rows.reduce((t, r) => t + r.lambs, 0);
+
+  async function add() {
+    const n = Math.round(num(lambs));
+    if (!(n >= 1 && n <= 500)) return toast("Type how many lambs, like 16");
+    setBusy(true);
+    const err = await addExtraLambs(db, week, { lambs: n, reason, note: note.trim() });
+    setBusy(false);
+    if (err) return toast(`Couldn't save: ${err}`);
+    toast(`${n} extra lamb${n === 1 ? "" : "s"} added`);
+    setLambs("");
+    setNote("");
+    onSaved();
+  }
+
+  return (
+    <div className="mt-3">
+      <h3 className="m-0">Extra lambs{total > 0 ? `: ${total}` : ""}</h3>
+      {rows.length > 0 ? (
+        <ul className="m-0 mt-1 grid list-none gap-1 p-0">
+          {rows.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-x-3">
+              <b className="num">{r.lambs}</b>
+              <span>{reasonLabel(r.reason)}</span>
+              {r.note && <span className="small muted">{r.note}</span>}
+              {canChange && (
+                <button
+                  type="button"
+                  className="copy min-h-[44px] px-2"
+                  onClick={() => {
+                    if (!confirm(`Take off the ${r.lambs} extra lamb${r.lambs === 1 ? "" : "s"} (${reasonLabel(r.reason)})?`)) return;
+                    void removeExtraLambs(db, r.id).then((err) => {
+                      toast(err ? `Couldn't save: ${err}` : "Taken off");
+                      onSaved();
+                    });
+                  }}
+                >
+                  Take off
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="small muted mt-1 mb-0">Lambs on top of what orders need: for Le Trim, freezer stock, small lambs, and so on.</p>
+      )}
+      {canChange && (
+        <form
+          className="mt-2 flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void add();
+          }}
+        >
+          <label className="grid gap-1">
+            <span className="lbl m-0">Lambs</span>
+            <input className="field num w-24!" inputMode="numeric" value={lambs} onChange={(e) => setLambs(e.target.value.replace(/[^0-9]/g, ""))} />
+          </label>
+          <label className="grid gap-1">
+            <span className="lbl m-0">Why</span>
+            <select className="field" value={reason} onChange={(e) => setReason(e.target.value as ExtraLambReason)}>
+              {REASONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid min-w-[10rem] flex-1 gap-1">
+            <span className="lbl m-0">Note (if you want)</span>
+            <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <button type="submit" className="btn" disabled={busy || !lambs}>
+            Add
+          </button>
+        </form>
       )}
     </div>
   );

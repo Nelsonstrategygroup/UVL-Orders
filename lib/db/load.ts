@@ -22,6 +22,7 @@ import type {
   Qty,
   Units,
   WeekData,
+  ExtraLambRow,
 } from "./types";
 
 const PAGE = 1000; // Supabase returns at most 1000 rows per request.
@@ -319,8 +320,15 @@ export async function loadLeTrimPlan(db: SupabaseClient, week: string): Promise<
   };
 }
 
+/** Lambs added to the week, oldest first; empty if none (or before their migration). */
+export async function loadExtraLambs(db: SupabaseClient, week: string): Promise<ExtraLambRow[]> {
+  const { data, error } = await db.from("week_extra_lambs").select("id, lambs, reason, note, created_at").eq("week_id", week).order("created_at");
+  if (error || !data) return [];
+  return (data as ExtraLambRow[]).map((r) => ({ ...r, lambs: num(r.lambs) }));
+}
+
 export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekData> {
-  const [weekRow, orders, weights, marks, hw, freezer, sets, sheet, leTrim] = await Promise.all([
+  const [weekRow, orders, weights, marks, hw, freezer, sets, sheet, leTrim, extraLambs] = await Promise.all([
     db.from("weeks").select("id, process_date, producer, lamb_override, notes, labels_hash, labels_printed_at").eq("id", week).maybeSingle(),
     loadOrders(db, week),
     fetchAll<{ order_id: string; product_id: string; weight: number }>((a, b) =>
@@ -368,6 +376,7 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
         : null,
     })),
     loadLeTrimPlan(db, week),
+    loadExtraLambs(db, week),
   ]);
 
   // Pounds packed per line, and lines marked not filled.
@@ -400,6 +409,7 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
     cutSets: (must(sets) as { lambs: number; size_class_id: string | null }[]) ?? [],
     cutSheet: must(sheet) as WeekData["cutSheet"],
     leTrim,
+    extraLambs,
   };
 }
 

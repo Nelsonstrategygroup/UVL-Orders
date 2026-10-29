@@ -1,11 +1,12 @@
 "use client";
 
-// The Le Trim plan for a week (change request 10/25/26). After the other
-// orders are in, Kathy decides what the Le Trim is made from: boned-out extra
-// shoulders, extra legs cut in half, and trim. She types what she used; the
-// app shows what's spare and checks it in plain words, but never stops her
-// saving. Saving takes it out of the week's extras and puts it on the cut
-// sheet. It never changes the lamb count.
+// The Le Trim plan for a week (change requests 10/25/26 and 10/29/26). Le
+// Trim is made by weight: spare trim first, then boned-out shoulders, then
+// half legs. The app works out that mix and, if it falls short, about how
+// many extra average-size lambs would cover it (added on This week, Extra
+// lambs). Kathy types what she actually used; the app checks it in plain
+// words but never stops her saving. Saving puts it on the cut sheet. It
+// never changes the lamb count.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -15,7 +16,18 @@ import { useWeekData } from "@/components/data/useWeekData";
 import { useToast } from "@/components/Toast";
 import ViewOnly from "@/components/ViewOnly";
 import { useWeek, WeekBar } from "@/components/Week";
-import { leTrimChecks, leTrimCutLines, leTrimOrdered, leTrimSpare, legsFor, suggestLeTrim, trimFor, type LeTrimSettings } from "@/lib/calc/leTrim";
+import {
+  halfLegLb,
+  leTrimChecks,
+  leTrimCutLines,
+  leTrimShortText,
+  legsFor,
+  planLb,
+  suggestLeTrim,
+  type LeTrimNeed,
+  type LeTrimWeights,
+  type leTrimSpare,
+} from "@/lib/calc/leTrim";
 import { fmt, num } from "@/lib/calc/num";
 import { weekName } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
@@ -41,14 +53,11 @@ export default function LeTrimScreen() {
       </>
     );
 
-  const settings: LeTrimSettings = {
-    shoulderTrimLb: num(catalog.settings?.le_trim_shoulder_trim_lb ?? 5),
-    halfLegTrimLb: num(catalog.settings?.le_trim_half_leg_trim_lb ?? 6.5),
-  };
-  // What's spare before Le Trim (the saved plan left out, so it isn't counted against itself).
-  const { c } = weekCalc(data, catalog, { withLeTrim: false });
-  const ordered = leTrimOrdered(c);
-  const spare = leTrimSpare(c);
+  // What's spare before Le Trim (the saved plan left out, so it isn't counted against itself), and Le Trim by weight.
+  const { leTrim } = weekCalc(data, catalog);
+  const { ordered, need, weights } = leTrim;
+  // The estimate, before any kill sheet figure typed below.
+  const spare = { ...leTrim.spare, trimLb: data.leTrim?.trim_actual_lb != null ? (data.leTrim.trim_estimated_lb ?? leTrim.spare.trimLb) : leTrim.spare.trimLb };
 
   return (
     <div className="max-w-[760px]">
@@ -69,7 +78,8 @@ export default function LeTrimScreen() {
           saved={data.leTrim}
           ordered={ordered}
           spare={spare}
-          settings={settings}
+          need={need}
+          weights={weights}
           canChange={canChange}
           onSaved={refresh}
         />
@@ -83,7 +93,8 @@ function Plan({
   saved,
   ordered,
   spare,
-  settings,
+  need,
+  weights,
   canChange,
   onSaved,
 }: {
@@ -91,7 +102,8 @@ function Plan({
   saved: LeTrimPlanRow | null;
   ordered: { lb: number; packs: number };
   spare: ReturnType<typeof leTrimSpare>;
-  settings: LeTrimSettings;
+  need: LeTrimNeed;
+  weights: LeTrimWeights;
   canChange: boolean;
   onSaved: () => void;
 }) {
@@ -105,9 +117,9 @@ function Plan({
   const plan = { shoulders: Math.round(num(shoulders)), halfLegs: Math.round(num(halfLegs)), trimLb: num(trim) };
   const hasActual = actual.trim() !== "";
   const trimSpare = hasActual ? num(actual) : spare.trimLb;
-  const checks = leTrimChecks(plan, spare, ordered, { lb: trimSpare, actual: hasActual });
-  const estimate = trimFor(plan, settings);
+  const checks = leTrimChecks(plan, spare, ordered.lb, { lb: trimSpare, actual: hasActual }, weights);
   const legs = legsFor(plan.halfLegs);
+  const short = leTrimShortText(need);
 
   async function save() {
     setBusy(true);
@@ -138,7 +150,7 @@ function Plan({
         <div>
           <span>Le Trim ordered</span>
           <b>{fmt(ordered.lb)} lb</b>
-          <small>{ordered.packs} packs of 10 lb</small>
+          <small>by weight</small>
         </div>
         <div>
           <span>Extra shoulders</span>
@@ -157,6 +169,24 @@ function Plan({
         </div>
       </div>
 
+      <section className={`note mt-4 ${short ? "warn" : ""}`} aria-live="polite">
+        <b>By weight, approximately:</b> {fmt(Math.round(need.trimLb))} lb trim
+        {need.shoulders > 0 && `, ${need.shoulders} shoulder${need.shoulders === 1 ? "" : "s"} (${fmt(weights.shoulderLb)} lb each)`}
+        {need.halfLegs > 0 && `, ${need.halfLegs} half leg${need.halfLegs === 1 ? "" : "s"} (${fmt(halfLegLb(weights))} lb each, ${need.legs} leg${need.legs === 1 ? "" : "s"} halved)`}: about{" "}
+        {fmt(Math.round(need.coveredLb))} of {fmt(ordered.lb)} lb.
+        {short ? (
+          <div className="mt-1">
+            <b>{short}</b> Add them on <Link href="/week">This week</Link>, under Extra lambs.
+          </div>
+        ) : (
+          <div className="mt-1">Covered by what&apos;s spare.</div>
+        )}
+        <div className="small muted mt-1">
+          Average-size lambs: {fmt(weights.trimPerLambLb)} lb trim each, {fmt(weights.shoulderLb)} lb a shoulder, {fmt(weights.legLb)} lb a leg (Setup).
+          Smaller or bigger lambs need more or fewer.
+        </div>
+      </section>
+
       <section className="panel mt-4">
         <h3 className="m-0">What you used for Le Trim</h3>
         <div className="lt-inputs">
@@ -166,16 +196,7 @@ function Plan({
             "Trim (lb)",
             trim,
             setTrim,
-            plan.shoulders + plan.halfLegs > 0 ? (
-              <>
-                About {fmt(estimate)} lb at {fmt(settings.shoulderTrimLb)} lb a shoulder and {fmt(settings.halfLegTrimLb)} lb a half leg.{" "}
-                {canChange && (
-                  <button type="button" className="copy" onClick={() => setTrim(fmt(estimate))}>
-                    Use {fmt(estimate)}
-                  </button>
-                )}
-              </>
-            ) : null,
+            plan.shoulders + plan.halfLegs + plan.trimLb > 0 ? <>Approximately {fmt(Math.round(planLb(plan, weights)))} lb of Le Trim in all.</> : null,
             "lt-tr",
           )}
         </div>
@@ -184,13 +205,13 @@ function Plan({
             type="button"
             className="btn ghost mt-3"
             onClick={() => {
-              const s = suggestLeTrim(ordered, spare, settings);
+              const s = suggestLeTrim(need);
               setShoulders(String(s.shoulders));
               setHalfLegs(String(s.halfLegs));
               setTrim(fmt(s.trimLb));
             }}
           >
-            Suggest (shoulders first, then half legs)
+            Suggest (trim, then shoulders, then half legs)
           </button>
         )}
 

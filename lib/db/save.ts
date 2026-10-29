@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContactRole, DeleteCheck } from "../calc/contacts";
-import type { OrderStatus, PriceUnit, Qty, Units, WeekRow } from "./types";
+import type { ExtraLambReason, OrderStatus, PriceUnit, Qty, Units, WeekRow } from "./types";
 
 function msg(error: { message: string } | null): string | null {
   return error ? error.message : null;
@@ -145,7 +145,7 @@ export async function updateRow(
 
 export async function updateSettings(
   db: SupabaseClient,
-  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number; ship_from_address: string }>,
+  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; le_trim_shoulder_lb: number; le_trim_leg_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number; ship_from_address: string }>,
 ): Promise<string | null> {
   const { error } = await db.from("app_settings").update(patch).eq("id", true);
   return msg(error);
@@ -458,4 +458,22 @@ export async function saveLeTrimPlan(
     { onConflict: "week_id" },
   );
   return msg(error);
+}
+
+/** Add extra lambs to the week (on top of the count from orders), with a reason. Returns an error message, or null. */
+export async function addExtraLambs(
+  db: SupabaseClient,
+  week: string,
+  x: { lambs: number; reason: ExtraLambReason; note: string },
+): Promise<string | null> {
+  // The week row may not exist yet (nothing saved for it): make it first.
+  const { error: wErr } = await db.from("weeks").upsert({ id: week }, { onConflict: "id", ignoreDuplicates: true });
+  if (wErr) return wErr.message;
+  const { error } = await db.from("week_extra_lambs").insert({ week_id: week, lambs: x.lambs, reason: x.reason, note: x.note });
+  return error ? error.message : null;
+}
+
+export async function removeExtraLambs(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await db.from("week_extra_lambs").delete().eq("id", id);
+  return error ? error.message : null;
 }
