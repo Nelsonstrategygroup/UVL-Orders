@@ -12,7 +12,7 @@ import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName } from "@/lib/calc/customers";
-import { lbText } from "@/lib/calc/invoice";
+import { invoiceState, lbText, paidCents, STATE_LABEL } from "@/lib/calc/invoice";
 import { centsText, toFixedInt } from "@/lib/calc/prices";
 import { makeDrafts, updateDraft } from "@/lib/db/invoices";
 import { sheetFor, totalsOf } from "./sheet";
@@ -41,6 +41,7 @@ export default function InvoicesScreen() {
     return c ? displayName(c, customers.byId) : "Unknown customer";
   };
   const live = data.invoices.filter((i) => i.status !== "void");
+  const voided = data.invoices.filter((i) => i.status === "void");
   const rows = live
     .map((inv) => {
       const sheet = sheetFor(data, inv, customers, catalog);
@@ -100,6 +101,9 @@ export default function InvoicesScreen() {
             Print all
           </Link>
         )}
+        <Link href="/invoices/open" className="btn ghost">
+          Open invoices
+        </Link>
       </div>
 
       {data.weekNumber == null && anyPacked && (
@@ -137,7 +141,7 @@ export default function InvoicesScreen() {
         </p>
       )}
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && voided.length === 0 ? (
         <div className="empty">{data.packing.orders.some((o) => o.boxes > 0) ? "No invoices yet this week." : "Nothing packed this week yet."}</div>
       ) : (
         <div className="overflow-x-auto">
@@ -162,8 +166,9 @@ export default function InvoicesScreen() {
                   </td>
                   <td>{inv.number ?? <span className="tag extra">Number needed</span>}</td>
                   <td>
-                    {inv.status === "draft" ? "Draft" : inv.status}
+                    {STATE_LABEL[invoiceState(inv.status, t.totalCents, paidCents(inv.payments))]}
                     {data.outOfDate.has(inv.id) && <span className="tag extra ml-1">Out of date</span>}
+                    {data.changedSince.has(inv.id) && <span className="tag extra ml-1">Packing changed</span>}
                   </td>
                   <td className="num">{t.boxes}</td>
                   <td className="num">{lbText(lb)} lb</td>
@@ -171,6 +176,19 @@ export default function InvoicesScreen() {
                     {centsText(t.totalCents)}
                     {t.priceNeeded > 0 && <span className="small block">{t.priceNeeded} Price needed</span>}
                     {t.countNeeded > 0 && <span className="small block">{t.countNeeded} Count needed</span>}
+                  </td>
+                </tr>
+              ))}
+              {voided.map((inv) => (
+                <tr key={inv.id} className="muted">
+                  <td>
+                    <Link href={`/invoices/${inv.id}`}>{inv.issued?.customer_name ?? name(inv.customer_id)}</Link>
+                  </td>
+                  <td>
+                    <s>{inv.number}</s>
+                  </td>
+                  <td colSpan={4}>
+                    Void{inv.void_reason ? `: ${inv.void_reason}` : ""}
                   </td>
                 </tr>
               ))}
@@ -190,7 +208,7 @@ export default function InvoicesScreen() {
             </tfoot>
           </table>
           <p className="small muted mt-1">
-            This week&apos;s box records: {weekBoxes} box{weekBoxes === 1 ? "" : "es"}, {lbText(weekLb)} lb , as on the manifests.
+            This week&apos;s box records: {weekBoxes} box{weekBoxes === 1 ? "" : "es"}, {lbText(weekLb)} lb, as on the manifests.
             Weight is every box; per case lines (pepper sticks) bill by the box, not the pound.
           </p>
         </div>

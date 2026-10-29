@@ -168,3 +168,34 @@ export function parseDiscount(text: string): { kind: DiscountKind; value: string
   if (!(v > 0) || (pct && v > 100)) return null;
   return { kind: pct ? "percent" : "amount", value: num.startsWith(".") ? `0${num}` : num };
 }
+
+/** What a list shows: the status, with Paid and Partly paid worked out from the payments. */
+export type InvoiceState = "draft" | "finalized" | "sent" | "partly" | "paid" | "void";
+
+export const STATE_LABEL: Record<InvoiceState, string> = {
+  draft: "Draft",
+  finalized: "Finalized",
+  sent: "Sent",
+  partly: "Partly paid",
+  paid: "Paid",
+  void: "Void",
+};
+
+/** Payments added up, in cents. */
+export function paidCents(payments: { amount: number | string }[]): bigint {
+  return payments.reduce((s, p) => s + lineTotalCents(1, p.amount), ZERO);
+}
+
+export function invoiceState(status: InvoiceStatus, totalCents: bigint, paid: bigint): InvoiceState {
+  if (status === "draft" || status === "void") return status;
+  if (paid > ZERO && paid >= totalCents) return "paid";
+  if (paid > ZERO) return "partly";
+  return status;
+}
+
+/** Whole days past the due date (0 when not due yet). */
+export function daysOverdue(due: string | null, today: string): number {
+  if (!due) return 0;
+  const d = (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86400000;
+  return d > 0 ? Math.round(d) : 0;
+}

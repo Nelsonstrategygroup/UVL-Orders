@@ -161,8 +161,6 @@ export default function PrintScreen() {
         )}
       </Card>
 
-      {/* Tuesday, shipping and billing (manifest, invoices) goes here once the app has them. */}
-
       <Card when="Monday, packing">
         {seePacking && (
           <Item key="paper" title="Paper packing copy" action={open("/packing/print")}>
@@ -191,6 +189,22 @@ export default function PrintScreen() {
         </Item>
       </Card>
 
+      {seeInvoices && (
+        <Card when="Tuesday, invoices">
+          <Item key="inv-week" title="This week's invoices" action={open(`/invoices/print?week=${week}`)}>
+            Every location&apos;s invoice for the week, to print or save as a PDF. Make and finalize them on Invoices.
+          </Item>
+          <Item key="inv-open" title="Open invoices" action={both("open-invoices")}>
+            Every finalized invoice with money still owed: total, paid, balance and days overdue.
+          </Item>
+          <Item key="inv-lines" title="Invoice lines for QuickBooks" action={both("invoice-lines", rangeOk, { from, to })}>
+            One row per invoice line, finalized invoices dated From to To (the dates under Sales below), in the columns
+            QuickBooks Online imports. Customer and product names have to match QuickBooks.
+          </Item>
+        </Card>
+      )}
+
+
       <section className="panel mt-3">
         <h3 className="mb-1">Anytime</h3>
         <Item title="Customer list" action={both("customers")}>
@@ -210,7 +224,7 @@ export default function PrintScreen() {
           </select>
         </Item>
         <Item title="Sales over a date range" action={both("sales", rangeOk, { from, to })}>
-          How much each customer ordered of each product. Quantities only; the app doesn&apos;t have prices.
+          How much each customer ordered of each product. Quantities only, no prices.
           <span className="mt-1 flex flex-wrap items-end gap-3">
             <span>
               <label className="lbl" htmlFor="dl-from">

@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  daysOverdue,
   discountCents,
   dueDate,
   firstInvoiceDate,
+  invoiceState,
   invoiceTotals,
   lbText,
+  paidCents,
   parseDiscount,
   priceLines,
   quantityText,
+  STATE_LABEL,
   type InvoiceLineRow,
 } from "./invoice";
 import type { PriceRow } from "./prices";
@@ -143,5 +147,22 @@ describe("invoice text and dates", () => {
     expect(parseDiscount("150%")).toBeNull();
     expect(parseDiscount("0")).toBeNull();
     expect(parseDiscount("abc")).toBeNull();
+  });
+});
+
+describe("payments and status", () => {
+  it("adds up payments and works out Paid and Partly paid", () => {
+    const paid = paidCents([{ amount: "100.10" }, { amount: 25.2 }]);
+    expect(paid).toBe(BigInt(12530));
+    expect(invoiceState("sent", BigInt(12530), paid)).toBe("paid");
+    expect(invoiceState("finalized", BigInt(20000), paid)).toBe("partly");
+    expect(invoiceState("sent", BigInt(20000), BigInt(0))).toBe("sent");
+    expect(invoiceState("void", BigInt(20000), BigInt(0))).toBe("void");
+    expect(STATE_LABEL.partly).toBe("Partly paid");
+  });
+  it("counts days overdue", () => {
+    expect(daysOverdue("2026-11-11", "2026-11-20")).toBe(9);
+    expect(daysOverdue("2026-11-11", "2026-11-01")).toBe(0);
+    expect(daysOverdue(null, "2026-11-01")).toBe(0);
   });
 });

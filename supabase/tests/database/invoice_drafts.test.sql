@@ -120,7 +120,9 @@ reset role;
 select is((select count(*)::text from public.invoices where week_id = '2099-09-07' and memo = 'x'), '0', 'office can''t change an invoice');
 
 -- A finalized invoice's lines don't change.
+select set_config('uvl.invoice_fn', 'on', true);
 update public.invoices set status = 'finalized' where customer_id = '00000000-0000-4000-8000-00000000d2c2';
+select set_config('uvl.invoice_fn', '', true);
 select throws_ok($$ update public.invoice_lines set note = 'x' where product_id = 'dr-each'
   and invoice_id in (select id from public.invoices where customer_id = '00000000-0000-4000-8000-00000000d2c2') $$,
   '42501', null, 'a finalized invoice''s lines are locked');

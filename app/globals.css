@@ -3201,6 +3201,10 @@ tr.zebra td,
 .inv-remit {
   margin-top: 16pt;
 }
+.inv-paid {
+  text-align: right;
+  margin-top: 6pt;
+}
 .inv-foot {
   margin: 14pt 0 0;
   text-align: center;

@@ -1,10 +1,12 @@
-// Invoices (SPEC 15, stage 2): a week's invoices with their lines, making and
-// updating drafts from the box records (database functions, so the weights
-// are summed exactly), and changes to a draft. Money goes to the database as
-// decimal strings, never floats.
+// Invoices (SPEC 15, stages 2 and 3): a week's invoices with their lines,
+// making and updating drafts from the box records (database functions, so the
+// weights are summed exactly), changes to a draft, finalize, sent, void and
+// reissue, and payments. Money goes to the database as decimal strings, never
+// floats.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DiscountKind, InvoiceLineRow, InvoiceStatus } from "../calc/invoice";
+import { fetchAll } from "./load";
 
 export type InvoiceRow = {
   id: string;
@@ -17,11 +19,65 @@ export type InvoiceRow = {
   memo: string;
   fingerprint: string;
   created_at: string;
+  replaces_id: string | null;
+  /** Set when finalized. */
+  terms_days: number | null;
+  due_date: string | null;
+  total: number | string | null;
+  issued: Issued | null;
+  finalized_at: string | null;
+  sent_at: string | null;
+  voided_at: string | null;
+  void_reason: string;
   invoice_lines: InvoiceLineRow[];
+  payments: PaymentRow[];
+  invoice_boxes: IssuedBox[];
+};
+
+/** What a finalized invoice keeps: the name, bill-to and business details as issued. */
+export type Issued = {
+  customer_name: string;
+  bill_to: string;
+  box_detail: boolean;
+  business_name: string;
+  business_address: string;
+  business_phone: string;
+  business_email: string;
+  remit_to: string;
+  invoice_note: string;
+};
+
+export type PaymentMethod = "ach" | "check" | "other";
+
+export type PaymentRow = {
+  id: string;
+  invoice_id: string;
+  paid_on: string;
+  amount: number | string;
+  method: PaymentMethod;
+  reference: string;
+  note: string;
+  created_at: string;
+};
+
+/** A box as kept on a finalized invoice. */
+export type IssuedBox = {
+  box_id: string;
+  product_id: string;
+  weight: number | string;
+  lot: string | null;
+  pack_date: string | null;
+  serial: string | null;
+  label_no: number | null;
+  case_no: string | null;
+  source: "weigh" | "scan" | "manual";
 };
 
 const COLS =
   "id, week_id, customer_id, number, reissue, status, invoice_date, memo, fingerprint, created_at, " +
+  "replaces_id, terms_days, due_date, total, issued, finalized_at, sent_at, voided_at, void_reason, " +
+  "payments (id, invoice_id, paid_on, amount, method, reference, note, created_at), " +
+  "invoice_boxes (box_id, product_id, weight, lot, pack_date, serial, label_no, case_no, source), " +
   "invoice_lines (id, invoice_id, kind, product_id, description, ordered_qty, ordered_unit, boxes, quantity, price_unit, unit_price, discount_kind, discount, not_on_order, note, sort, detail)";
 
 /** Database errors in plain words. */
@@ -32,7 +88,9 @@ function plain(e: { message: string; code?: string } | null): string | null {
   if (e.code === "23514" && /invoice_lines_manual/.test(e.message)) return "A line you add needs a description, an amount, a price and a note.";
   if (e.code === "23514" && /discount_note/.test(e.message)) return "A discount needs a note.";
   if (e.code === "23514" && /invoice_lines_percent/.test(e.message)) return "A percent discount can't be over 100%.";
-  if (e.code === "42501") return e.message.includes("finalized") ? "This invoice is finalized; its lines can't change." : "You can't change this.";
+  if (e.code === "23514" && /payments_amount/.test(e.message)) return "A payment is more than $0.";
+  if (e.code === "42501" && /finalized|Payments go|Use Finalize/.test(e.message)) return e.message;
+  if (e.code === "42501") return "You can't change this.";
   return e.message;
 }
 
@@ -163,4 +221,57 @@ export async function loadWeekPacking(db: SupabaseClient, week: string): Promise
       boxes: o.packing_weights.length,
     })),
   };
+}
+
+/** Finalize a draft: checks prices, counts and packing, then copies the prices, boxes and details onto it. */
+export async function finalizeInvoice(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await db.rpc("finalize_invoice", { p_invoice: id });
+  return plain(error);
+}
+
+export async function markSent(db: SupabaseClient, id: string, sent: boolean): Promise<string | null> {
+  const { error } = await db.rpc("mark_invoice_sent", { p_invoice: id, p_sent: sent });
+  return plain(error);
+}
+
+export async function voidInvoice(db: SupabaseClient, id: string, reason: string): Promise<string | null> {
+  const { error } = await db.rpc("void_invoice", { p_invoice: id, p_reason: reason });
+  return plain(error);
+}
+
+/** A new draft replacing a void invoice (-R1). Its id, or an error. */
+export async function reissueInvoice(db: SupabaseClient, id: string): Promise<{ id: string | null; error: string | null }> {
+  const { data, error } = await db.rpc("reissue_invoice", { p_invoice: id });
+  return { id: (data as string | null) ?? null, error: plain(error) };
+}
+
+export async function addPayment(
+  db: SupabaseClient,
+  p: { invoiceId: string; paidOn: string; amount: string; method: PaymentMethod; reference: string; note: string },
+): Promise<string | null> {
+  const { error } = await db.from("payments").insert({
+    invoice_id: p.invoiceId,
+    paid_on: p.paidOn,
+    amount: p.amount,
+    method: p.method,
+    reference: p.reference,
+    note: p.note,
+  });
+  return plain(error);
+}
+
+export async function deletePayment(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await db.from("payments").delete().eq("id", id);
+  return plain(error);
+}
+
+/** Every finalized or sent invoice, any week, with its payments (Open invoices, and the exports). */
+export async function loadIssuedInvoices(db: SupabaseClient, opts: { from?: string; to?: string; withVoid?: boolean } = {}): Promise<InvoiceRow[]> {
+  // A page at a time: more than a year of invoices passes the 1,000-row cap.
+  return fetchAll<InvoiceRow>((a, b) => {
+    let q = db.from("invoices").select(COLS).in("status", opts.withVoid ? ["finalized", "sent", "void"] : ["finalized", "sent"]);
+    if (opts.from) q = q.gte("invoice_date", opts.from);
+    if (opts.to) q = q.lte("invoice_date", opts.to);
+    return q.order("number").order("id").range(a, b) as unknown as PromiseLike<{ data: InvoiceRow[] | null; error: { message: string } | null }>;
+  });
 }

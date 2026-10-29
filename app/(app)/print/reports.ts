@@ -10,6 +10,9 @@ import { countUnit } from "@/lib/calc/units";
 import { packingMonday, todayISO } from "@/lib/dates";
 import { loadCustomerOrders, loadOrdersBetween, loadPackingRecord } from "@/lib/db/load";
 import { loadCustomerBilling } from "@/lib/db/invoicing";
+import { loadIssuedInvoices } from "@/lib/db/invoices";
+import { daysOverdue } from "@/lib/calc/invoice";
+import { toIssued } from "@/lib/invoiceExport";
 import type { Catalog, CustomersData, WeekData } from "@/lib/db/types";
 import { formatDateTime } from "@/lib/format";
 import type { ReadableShape } from "@/lib/readable";
@@ -20,9 +23,11 @@ import {
   fileSafe,
   freezerTable,
   invoiceCodesTable,
+  openInvoicesTable,
   orderGridTable,
   packingRecordTable,
   productTotalsTable,
+  quickbooksLinesTable,
   salesTable,
   weekOrdersTable,
   type Table,
@@ -38,7 +43,9 @@ export type ReportKind =
   | "sales"
   | "freezer"
   | "box-sizes"
-  | "invoice-codes";
+  | "invoice-codes"
+  | "open-invoices"
+  | "invoice-lines";
 
 export type ReportDef = {
   title: string;
@@ -80,6 +87,8 @@ export const REPORTS: Record<ReportKind, ReportDef> = {
   freezer: { title: "Freezer on hand", filter: "none", shape: { constant: ["As of"] } },
   "box-sizes": { title: "Box sizes", filter: "none", wide: true, lined: true, shape: { keep: ["Notes"] } },
   "invoice-codes": { title: "Invoice codes", filter: "none", lined: true, shape: { keep: ["Notes"] } },
+  "open-invoices": { title: "Open invoices", filter: "none", wide: true, shape: {} },
+  "invoice-lines": { title: "Invoice lines for QuickBooks", filter: "range", wide: true, shape: {} },
 };
 
 export function isReportKind(v: string): v is ReportKind {
@@ -100,6 +109,11 @@ export type ReportInput = {
 /** The table and file name for a report, or null when its filter isn't filled in yet (no customer picked). */
 export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ table: Table; file: string; sheet: string } | null> {
   const { week, catalog, customers, data } = x;
+  const productName = (id: string) => catalog.productById.get(id)?.name ?? id;
+  const customerName = (id: string) => {
+    const c = customers.byId.get(id);
+    return c ? displayName(c, customers.byId) : "Unknown customer";
+  };
   switch (kind) {
     case "week-orders": {
       const ordering = new Set(orderingCustomers(customers.list).map((c) => c.id));
@@ -164,6 +178,24 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
         table: invoiceCodesTable(list.map((c) => ({ name: displayName(c, customers.byId), code: billing.get(c.id)?.invoice_code ?? "" }))),
         file: `invoice-codes-${todayISO()}`,
         sheet: "Invoice codes",
+      };
+    }
+    case "open-invoices": {
+      const list = await loadIssuedInvoices(x.db);
+      const today = todayISO();
+      return {
+        table: openInvoicesTable(list.map((i) => toIssued(i, productName, customerName)), (due) => daysOverdue(due, today)),
+        file: `open-invoices-${today}`,
+        sheet: "Open invoices",
+      };
+    }
+    case "invoice-lines": {
+      if (!x.from || !x.to || x.from > x.to) return null;
+      const list = await loadIssuedInvoices(x.db, { from: x.from, to: x.to });
+      return {
+        table: quickbooksLinesTable(list.map((i) => toIssued(i, productName, customerName))),
+        file: `invoice-lines-${x.from}-to-${x.to}`,
+        sheet: "Invoices",
       };
     }
     case "freezer": {

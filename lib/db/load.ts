@@ -29,7 +29,7 @@ const PAGE = 1000; // Supabase returns at most 1000 rows per request.
 type Page<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 
 /** Fetch every row, a page at a time. */
-async function fetchAll<T>(page: (from: number, to: number) => Page<T>): Promise<T[]> {
+export async function fetchAll<T>(page: (from: number, to: number) => Page<T>): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await page(from, from + PAGE - 1);

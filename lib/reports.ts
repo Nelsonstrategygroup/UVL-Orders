@@ -465,3 +465,109 @@ export function invoiceCodesTable(rows: { name: string; code: string }[]): Table
     rows.map((r) => [r.name, r.code || "(none yet)", ""]),
   );
 }
+
+/** An invoice as the invoice downloads see it (finalized or sent; any week). */
+export type IssuedInvoice = {
+  number: string;
+  customer: string;
+  invoiceDate: string;
+  dueDate: string;
+  termsDays: number;
+  memo: string;
+  totalCents: bigint;
+  paidCents: bigint;
+  status: string;
+  lines: {
+    kind: string;
+    item: string;
+    description: string;
+    quantity: number | string | null;
+    rate: string | null;
+    grossCents: bigint | null;
+    discountCents: bigint;
+    discountText: string;
+  }[];
+};
+
+/** Cents as a plain number for a spreadsheet: 1234.56, -10.01. */
+export function centsPlain(cents: bigint): string {
+  const neg = cents < BigInt(0);
+  const a = neg ? -cents : cents;
+  return `${neg ? "-" : ""}${a / BigInt(100)}.${(a % BigInt(100)).toString().padStart(2, "0")}`;
+}
+
+/** yyyy-mm-dd as MM/DD/YYYY, the way QuickBooks imports dates. */
+export const usDate = (d: string) => `${d.slice(5, 7)}/${d.slice(8, 10)}/${d.slice(0, 4)}`;
+
+const termsText = (days: number) => (days === 0 ? "Due on receipt" : `Net ${days}`);
+
+export const OPEN_INVOICE_COLUMNS = ["Location", "Invoice", "Invoice date", "Due date", "Status", "Total", "Paid", "Balance", "Days overdue"];
+
+/** Invoices with money still owed, oldest number first, with a totals line. */
+export function openInvoicesTable(list: IssuedInvoice[], daysOverdue: (due: string) => number): Table {
+  const open = list.filter((i) => i.totalCents - i.paidCents !== BigInt(0));
+  const sum = (f: (i: IssuedInvoice) => bigint) => open.reduce((s, i) => s + f(i), BigInt(0));
+  const rows: Cell[][] = open.map((i) => [
+    i.customer,
+    i.number,
+    usDate(i.invoiceDate),
+    usDate(i.dueDate),
+    i.status,
+    centsPlain(i.totalCents),
+    centsPlain(i.paidCents),
+    centsPlain(i.totalCents - i.paidCents),
+    daysOverdue(i.dueDate) || "",
+  ]);
+  rows.push([
+    `${open.length} open`,
+    "",
+    "",
+    "",
+    "",
+    centsPlain(sum((i) => i.totalCents)),
+    centsPlain(sum((i) => i.paidCents)),
+    centsPlain(sum((i) => i.totalCents - i.paidCents)),
+    "",
+  ]);
+  return { header: OPEN_INVOICE_COLUMNS, rows, rowKinds: [...open.map(() => undefined), "total" as const] };
+}
+
+/**
+ * QuickBooks Online's invoice import: one row per line. Customer and item
+ * names have to match QuickBooks. A discount is its own row (Item
+ * "Discount", a negative amount); a line that didn't ship is a row at 0.
+ */
+export const QUICKBOOKS_COLUMNS = [
+  "InvoiceNo",
+  "Customer",
+  "InvoiceDate",
+  "DueDate",
+  "Terms",
+  "Memo",
+  "Item(Product/Service)",
+  "ItemDescription",
+  "ItemQuantity",
+  "ItemRate",
+  "ItemAmount",
+];
+
+export function quickbooksLinesTable(list: IssuedInvoice[]): Table {
+  const rows: Cell[][] = [];
+  for (const i of list) {
+    const head = [i.number, i.customer, usDate(i.invoiceDate), usDate(i.dueDate), termsText(i.termsDays), i.memo];
+    for (const l of i.lines) {
+      const shorted = l.kind === "shorted";
+      rows.push([
+        ...head,
+        l.item,
+        shorted ? `${l.description} (not shipped)` : l.description,
+        shorted ? 0 : (l.quantity ?? ""),
+        shorted ? "0" : (l.rate ?? ""),
+        centsPlain(l.grossCents ?? BigInt(0)),
+      ]);
+      if (l.discountCents !== BigInt(0))
+        rows.push([...head, "Discount", l.discountText, 1, centsPlain(-l.discountCents), centsPlain(-l.discountCents)]);
+    }
+  }
+  return { header: QUICKBOOKS_COLUMNS, rows };
+}

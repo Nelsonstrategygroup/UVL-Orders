@@ -27,6 +27,10 @@ async function loadWeek(db: SupabaseClient, week: string) {
     invoices,
     /** Draft ids whose box records changed since they were made. */
     outOfDate: new Set(invoices.filter((i) => i.status === "draft" && fingerprints.get(i.id) !== i.fingerprint).map((i) => i.id)),
+    /** Finalized or sent ids whose box records changed since: a void and reissue may be needed. */
+    changedSince: new Set(
+      invoices.filter((i) => (i.status === "finalized" || i.status === "sent") && fingerprints.get(i.id) !== i.fingerprint).map((i) => i.id),
+    ),
     prices,
     billing,
     settings,
@@ -51,5 +55,6 @@ export function useInvoiceWeek(week: string) {
     "packing_lines",
     "order_lines",
     "products",
+    "payments",
   ]);
 }

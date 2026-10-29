@@ -1,11 +1,12 @@
 // The printed invoice (SPEC 15): one location, Letter, portrait. DRAFT across
-// it until it's finalized; "Price needed" and "Count needed" where a line
+// it until it's finalized, VOID once voided; payments and the balance once
+// paid; "Price needed" and "Count needed" where a line
 // can't be worked out yet. Shorted lines show at $0 so the customer sees
 // what didn't ship. With box detail on for the location, a second page lists
 // every box. Shown as a sheet on screen, printed as is.
 
 import { Fragment } from "react";
-import { invoiceTotals, lbText, quantityText, type PricedLine } from "@/lib/calc/invoice";
+import { invoiceTotals, lbText, paidCents, quantityText, type PricedLine } from "@/lib/calc/invoice";
 import { centsText, priceText, PRICE_UNIT_SHORT, toFixedInt } from "@/lib/calc/prices";
 import { boxIdOf } from "@/lib/calc/manifest";
 import { niceDate, weekName } from "@/lib/dates";
@@ -36,13 +37,15 @@ const discountText = (l: PricedLine) =>
 export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo, terms, due, settings, boxes, productName }: InvoiceSheetProps) {
   const t = invoiceTotals(lines);
   const draft = inv.status === "draft";
+  const mark = draft ? "DRAFT" : inv.status === "void" ? "VOID" : null;
+  const paid = paidCents(inv.payments ?? []);
   const remit = settings?.remit_to?.trim() || [settings?.business_name, settings?.business_address].filter(Boolean).join("\n");
   return (
     <div className="invsheet">
       <section className={`inv-page${draft ? " inv-draft" : ""}`}>
-        {draft && (
+        {mark && (
           <div className="inv-watermark" aria-hidden="true">
-            DRAFT
+            {mark}
           </div>
         )}
         <div className="inv-head">
@@ -154,6 +157,18 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
             .
           </p>
         )}
+        {paid > BigInt(0) && (
+          <div className="inv-paid">
+            {(inv.payments ?? []).map((p) => (
+              <div key={p.id}>
+                Paid {fullDate(p.paid_on)}
+                {p.reference ? ` (${p.method === "check" ? "check " : ""}${p.reference})` : ""}: -{centsText(paidCents([p]))}
+              </div>
+            ))}
+            <b>Balance due {centsText(t.totalCents - paid)}</b>
+          </div>
+        )}
+        {inv.status === "void" && <p className="inv-warn">Void{inv.void_reason ? `: ${inv.void_reason}` : ""}. Not to be paid.</p>}
         {inv.memo && <p className="whitespace-pre-line">{inv.memo}</p>}
         <div className="inv-remit">
           <b>Please send payment to</b>
@@ -185,6 +200,11 @@ function BoxDetail({
   const lb = (list: InvoiceBox[]) => list.reduce((s, b) => s + toFixedInt(b.weight, 3), BigInt(0));
   return (
     <section className={`inv-page inv-boxes${inv.status === "draft" ? " inv-draft" : ""}`}>
+      {inv.status !== "finalized" && inv.status !== "sent" && (
+        <div className="inv-watermark" aria-hidden="true">
+          {inv.status === "void" ? "VOID" : "DRAFT"}
+        </div>
+      )}
       <div className="inv-co">Box detail · {inv.number ?? "Number needed"}</div>
       <div className="mb-2">
         {customerName} · {weekName(inv.week_id)}
