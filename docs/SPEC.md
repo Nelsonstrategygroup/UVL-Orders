@@ -591,16 +591,18 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - An ordered product with no boxes is a shorted line at $0, whether it was marked X or not.
 - Prices: a default price per product and optional customer prices, each with an effective-from date. A line uses the newest price effective on the invoice date (the customer's own, else the default), copied onto the line when finalized. No prices are seeded; a missing price shows "Price needed" and blocks finalizing.
 - Line total = billed quantity x unit price, rounded half up to the cent, once per line; the invoice total is the sum of line totals. Exact decimals (`numeric`) throughout, never floating point.
-- Invoice number: one number per week (`weeks.invoice_number`; 10/19/26 = 3000, 10/26/26 = 3001; each week suggests the last + 1) plus the location's 3 to 5 character code: "3001-NEWP". A reissue adds -R1, -R2. The full number is stored on the invoice when it's made.
+- Invoice number: one number per week (`weeks.invoice_number`; 10/19/26 = 3000, 10/26/26 = 3001; each week suggests the last + 1) plus the location's 3 to 5 character code: "3001-NEWP". A reissue adds -R1, -R2. The full number is stored on the invoice when it's made, and can be changed.
 - Invoice date starts as the Tuesday after packing and can be changed. Terms default to Net 15 (Setup > Invoicing), changeable per customer; due date = invoice date + terms.
 - Statuses: Draft, Finalized, Sent, Partially paid, Paid, Void. A finalized invoice's lines never change; corrections are Void (with a reason) and Reissue, or a credit line later. Manual lines need a note. Payments: ACH, check or other, with a reference; partial payments allowed. Everything is logged.
 - A Billing role (Invoices and Prices change) and Invoices and Prices permission areas. Nobody's role is changed (everyone stays Admin until Lucas changes them).
 
-### 15.2 Open questions
-- OPEN: per-each products: bill the piece count typed on Packing, or what was ordered?
-- OPEN: bill-to addresses for each location (blank prints the name only).
-- OPEN: remit-to address (the PO box?) and phone number.
-- OPEN: store numbers (#23 or #02 Kirkland, #22 or #25 Madison Valley); they set the PCC invoice codes.
-- OPEN: sales tax; confirm nothing is taxable (Oregon has none; Washington exempts food and resale).
-- OPEN: how backorders and freezer pulls are billed (an "inventory" line kind is reserved, not built).
+### 15.2 More rules (Lucas, 10/28/26, second answers)
+- Bill what went out on the delivery, never what was ordered. Per each bills the pieces packed (the count typed on Packing); with no count the line shows "Count needed" and blocks finalizing. Backorders aren't billed.
+- Freezer pulls are billed at the product's price per lb, like any other box.
+- Any line can take a discount (a dollar amount, or a percent rounded half up to the cent), with a note: line total = round(quantity x price) - discount.
+- No bill-to addresses yet: the name only. Remit-to and business details are editable in Setup > Invoicing. Nothing is taxable.
+- Invoice codes, a week's invoice number, and an invoice's own number can always be changed (logged, still unique). Madison Valley is #22.
+
+### 15.3 Open questions
+- OPEN: Kirkland's store number (#23 or #02); its code is PCC23 until changed.
 - OPEN: Kathy's approval of the location invoice codes.

@@ -19,6 +19,19 @@ not known yet: none are seeded, guessed or invented; a missing price shows
    Tuesday after packing.
 6. **Each location pays its own invoice**, PCC stores included. A chain's
    parent is only billed if products ship to the parent directly.
+7. **Bill what went out on the delivery, never what was ordered.** Per each
+   bills the pieces packed (the count typed on Packing). Backorders aren't
+   billed, since they didn't ship.
+8. **No bill-to address yet**: a blank address prints the name only.
+9. **Remit-to and business details are editable** in Setup > Invoicing.
+10. **Nothing is taxable.** No tax is built.
+11. **Codes and numbers can always be changed.** A location's invoice code,
+    a week's invoice number, and an invoice's own number can each be
+    changed later (logged, still unique). Nothing is locked for good.
+    Madison Valley is #22 (confirmed); Kirkland is unsure and editable.
+12. **Freezer pulls** are billed at the product's price per lb, like any
+    other box.
+13. **Discounts per line**: any line can have a discount, with a note.
 
 ## What's already in the app
 
@@ -76,8 +89,9 @@ not known yet: none are seeded, guessed or invented; a missing price shows
    Prices page sits in Setup but uses its own "Prices" permission, so Billing
    can edit it.
 9. **Store numbers**: Chris's sheet calls #23 Kirkland "#02" and #22 Madison
-   Valley "#25" (open question). The codes below use the app's numbers; a
-   code can be changed until it's on a finalized invoice.
+   Valley "#25". Madison Valley is #22 (confirmed); Kirkland is unsure. Codes
+   can be changed any time; an invoice already made keeps its number unless
+   it's changed on the invoice.
 
 ## Location invoice codes (for Kathy to approve)
 
@@ -126,7 +140,7 @@ is a test customer and gets no code; it's deleted after the Le Trim test.
   newest one effective on the invoice date: the customer's own, else the
   default.
 - `invoices`: week, customer, the full invoice number as issued
-  ("3001-NEWP", "3001-NEWP-R1"), the invoice it replaces, status (Draft,
+  ("3001-NEWP", "3001-NEWP-R1"; changeable, unique), the invoice it replaces, status (Draft,
   Finalized, Sent, Partially paid, Paid, Void), invoice date (starts as the
   Tuesday after packing, changeable), terms and due date, bill-to and
   business details as issued, totals, a fingerprint of the boxes it was made
@@ -135,7 +149,8 @@ is a test customer and gets no code; it's deleted after the Le Trim test.
 - `invoice_lines`: kind (packed, shorted, manual, and **inventory**, left
   for bills from freezer stock but not built), product, description as
   issued, ordered amount (reference), box count, billed quantity, price unit,
-  unit price as issued, line total, note (required on manual lines), sort.
+  unit price as issued, discount (amount or percent), line total, note
+  (required on manual lines and discounts), sort.
 - `invoice_boxes`: the boxes on a finalized invoice, with weight, lot, pack
   date and serial as issued (for the box detail page and trace).
 - `payments`: invoice, date, amount, method (ACH, check, other), reference
@@ -159,14 +174,16 @@ is a test customer and gets no code; it's deleted after the Le Trim test.
    price, line total, with what was ordered shown small.
    - Per lb: billed weight = the sum of the boxes' net weights.
    - Per case: billed cases = the number of boxes (one case per box).
-   - Per each: open question (the piece count typed on Packing, or what was
-     ordered). Nothing is per each today.
+   - Per each: the pieces packed (the count typed on Packing). If no count
+     was typed, the line shows **Count needed** and blocks finalizing.
+   - Freezer pulls: billed like any other box, at the product's price per lb.
    - Ordered products with no boxes: a shorted line at $0.
    - Boxes for a product not on the order: billed normally (Newport's
      Sirloin), marked "not on the order".
 4. **Line total = billed quantity x price, rounded half up to the cent**,
-   once per line. The invoice total is the sum of the line totals. (Goes in
-   SPEC.)
+   once per line, less the line's discount (a dollar amount, or a percent
+   rounded half up to the cent). The invoice total is the sum of the line
+   totals.
 5. A line with no price shows **Price needed**; the invoice is marked DRAFT
    and can't be finalized until every line has a price.
 6. Manual lines (delivery fee, credit, adjustment) need a note.
@@ -177,8 +194,8 @@ is a test customer and gets no code; it's deleted after the Le Trim test.
    the new date). On a finalized invoice it can still be changed (the due
    date follows; prices stay as issued); the change is logged.
 9. **Finalize** checks every price, snapshots the lines, prices, boxes,
-   bill-to and business details, and locks them. After that the lines never
-   change: corrections are **Void** (with a reason) and **Reissue**
+   bill-to and business details, and locks the lines. The invoice number can
+   still be changed (logged). After that the lines never change: corrections are **Void** (with a reason) and **Reissue**
    (3001-NEWP-R1), or a credit line on a later invoice.
 10. **Mark sent**, then **Record payment** (any number, partial allowed).
 
@@ -217,7 +234,7 @@ that way. (QuickBooks Desktop uses IIF files, a different format.)
 
 ## Sales tax
 
-Not built. Oregon has none. The PCC stores, Key City and Port Townsend are in
+Not built: nothing is taxable (Lucas, 10/28/26). Oregon has none. The PCC stores, Key City and Port Townsend are in
 Washington; Washington doesn't tax food for people, and sales to retailers
 for resale are exempt with a reseller permit. Pepper sticks are likely food
 too. So probably nothing is taxable, but confirm with Raven or an accountant.
@@ -239,12 +256,5 @@ Room is left: a tax line kind can be added to invoice lines later.
 
 ## Open questions (also in SPEC section 15)
 
-1. Per-each products (when one is priced per each): bill the piece count
-   typed on Packing, or what was ordered?
-2. Bill-to addresses for each location (blank prints the name only).
-3. Remit-to: the same PO box? Phone number?
-4. Store numbers (#23/#02 Kirkland, #22/#25 Madison Valley).
-5. Sales tax: confirm nothing is taxable.
-6. Backorders and freezer pulls: how they should be billed (only the line
-   kind is left for them).
-7. The invoice codes above: does Kathy approve them?
+1. Kirkland's store number (#23 or #02); its code is PCC23 until changed.
+2. Kathy's OK on the invoice codes (changeable any time).
