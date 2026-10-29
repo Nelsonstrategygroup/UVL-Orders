@@ -54,8 +54,8 @@ function Business({ canEdit }: { canEdit: boolean }) {
 
   const text = (key: keyof InvoiceSettings, label: string, rows = 1, placeholder = "") => {
     const v = String(s[key] ?? "");
+    const k = `${key}:${v}`;
     const props = {
-      key: `${key}:${v}`,
       className: "field",
       defaultValue: v,
       disabled: !canEdit,
@@ -68,7 +68,7 @@ function Business({ canEdit }: { canEdit: boolean }) {
     return (
       <label className="grid gap-1">
         <span className="lbl m-0">{label}</span>
-        {rows > 1 ? <textarea rows={rows} {...props} /> : <input {...props} />}
+        {rows > 1 ? <textarea key={k} rows={rows} {...props} /> : <input key={k} {...props} />}
       </label>
     );
   };
@@ -92,7 +92,10 @@ function Business({ canEdit }: { canEdit: boolean }) {
             disabled={!canEdit}
             onBlur={(e) => {
               const n = Number(e.target.value.trim());
-              if (!Number.isInteger(n) || n < 0 || n > 365) return after("Terms are a number of days, 0 to 365.");
+              if (!Number.isInteger(n) || n < 0 || n > 365) {
+                e.target.value = String(s.default_terms_days);
+                return after("Terms are a number of days, 0 to 365.");
+              }
               if (n !== s.default_terms_days) void updateInvoiceSettings(db, { default_terms_days: n }).then(after);
             }}
           />
@@ -149,8 +152,17 @@ function WeekNumbers({ canEdit }: { canEdit: boolean }) {
                   onBlur={(e) => {
                     const t = e.target.value.trim();
                     const n = t === "" ? null : parseWeekNumber(t);
-                    if (t !== "" && n == null) return after("An invoice number is a whole number, like 3002.");
-                    if (n !== w.invoice_number) void setWeekInvoiceNumber(db, w.id, n).then(after);
+                    const el = e.target;
+                    const undo = () => (el.value = w.invoice_number == null ? "" : String(w.invoice_number));
+                    if (t !== "" && n == null) {
+                      undo();
+                      return after("An invoice number is a whole number, like 3002.");
+                    }
+                    if (n !== w.invoice_number)
+                      void setWeekInvoiceNumber(db, w.id, n).then((err) => {
+                        if (err) undo();
+                        after(err);
+                      });
                   }}
                 />
               </td>
@@ -225,10 +237,21 @@ function Locations({ canEdit }: { canEdit: boolean }) {
                       maxLength={6}
                       disabled={!canEdit}
                       onBlur={(e) => {
-                        const v = cleanCode(e.target.value);
-                        if (v === (b?.invoice_code ?? "")) return;
-                        if (v && !isInvoiceCode(v)) return after("A code is 3 to 5 capital letters or digits.");
-                        void saveCustomerBilling(db, c.id, { invoice_code: v || null }).then(after);
+                        const el = e.target;
+                        const old = b?.invoice_code ?? "";
+                        const v = cleanCode(el.value);
+                        // A refused code goes back to the saved one.
+                        const undo = () => (el.value = old);
+                        if (v === old) return undo();
+                        if (v && !isInvoiceCode(v)) {
+                          undo();
+                          return after("A code is 3 to 5 capital letters or digits.");
+                        }
+                        el.value = v;
+                        void saveCustomerBilling(db, c.id, { invoice_code: v || null }).then((err) => {
+                          if (err) undo();
+                          after(err);
+                        });
                       }}
                     />
                   </td>
@@ -244,7 +267,10 @@ function Locations({ canEdit }: { canEdit: boolean }) {
                       onBlur={(e) => {
                         const t = e.target.value.trim();
                         const n = t === "" ? null : Number(t);
-                        if (n != null && (!Number.isInteger(n) || n < 0 || n > 365)) return after("Terms are a number of days, 0 to 365.");
+                        if (n != null && (!Number.isInteger(n) || n < 0 || n > 365)) {
+                          e.target.value = b?.terms_days == null ? "" : String(b.terms_days);
+                          return after("Terms are a number of days, 0 to 365.");
+                        }
                         if (n !== (b?.terms_days ?? null)) void saveCustomerBilling(db, c.id, { terms_days: n }).then(after);
                       }}
                     />
