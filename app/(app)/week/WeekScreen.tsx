@@ -177,7 +177,7 @@ export default function WeekScreen() {
               key={`${week}:${w?.lamb_override ?? ""}`}
               value={w?.lamb_override ?? null}
               fallback={c.cutSheetLambs > 0 ? c.cutSheetLambs : c.recommended}
-              fallbackFrom={c.cutSheetLambs > 0 ? "the cut sheet" : "orders"}
+              fallbackFrom={c.cutSheetLambs > 0 ? "the cut sheet" : c.extra ? "orders and extra lambs" : "orders"}
               onSave={(v) => void save({ lamb_override: v })}
             />
           </fieldset>

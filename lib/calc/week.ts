@@ -276,16 +276,18 @@ export function carcassLine(c: Pick<WeekCalc, "final" | "carcass" | "partsLambs"
  * "144 from the cut sheet (orders suggest 0)". Null when there is nothing
  * to count yet.
  */
-export function lambSourceLine(c: Pick<WeekCalc, "final" | "source" | "recommended" | "cutSheetLambs">): string | null {
+export function lambSourceLine(c: Pick<WeekCalc, "final" | "source" | "recommended" | "cutSheetLambs"> & Partial<Pick<WeekCalc, "extra">>): string | null {
   const n = c.final;
+  // Extra lambs are in the suggested count (10/29/26).
+  const orders = c.extra ? "orders and extra lambs" : "orders";
   if (c.source === "cut sheet")
-    return `${n} from the cut sheet (${c.recommended === n ? "orders agree" : `orders suggest ${c.recommended}`})`;
+    return `${n} from the cut sheet (${c.recommended === n ? `${orders} agree` : `${orders} suggest ${c.recommended}`})`;
   if (c.source === "your number") {
     const others = [
       c.cutSheetLambs > 0 && c.cutSheetLambs !== n ? `cut sheet has ${c.cutSheetLambs}` : "",
-      c.recommended !== n ? `orders suggest ${c.recommended}` : "",
+      c.recommended !== n ? `${orders} suggest ${c.recommended}` : "",
     ].filter(Boolean);
     return `${n} is your number${others.length ? ` (${others.join(", ")})` : ""}`;
   }
-  return c.recommended > 0 ? `${n} from orders` : null;
+  return c.recommended > 0 ? `${n} from ${orders}` : null;
 }
