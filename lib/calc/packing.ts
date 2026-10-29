@@ -16,6 +16,8 @@ export type PackLine = {
   shorted: boolean;
   flagged: boolean;
   flagNote: string;
+  /** Packed in one box with these ("Liver, Kidney"): the weight is that box's. */
+  together?: string;
 };
 
 /** Done once it has a weight, or it's marked not filled. */
@@ -43,8 +45,8 @@ export function lineWords(l: PackLine): string {
   const flag = l.flagged ? ` · Flag${l.flagNote ? `: ${l.flagNote}` : ""}` : "";
   if (l.shorted) return `Not filled${flag}`;
   if (l.weight <= EPS) return `Tap to weigh${flag}`;
-  const parts = [`Packed ${fmt(l.weight)} lb`];
-  if (l.unit === "lb") {
+  const parts = [`Packed ${fmt(l.weight)} lb${l.together ? ` in one box with ${l.together}` : ""}`];
+  if (l.unit === "lb" && !l.together) {
     if (l.weight < l.ordered - EPS) parts.push(`short ${fmt(l.ordered - l.weight)} lb`);
     else if (l.weight > l.ordered + EPS) parts.push(`over ${fmt(l.weight - l.ordered)} lb`);
   } else if (l.count != null) {

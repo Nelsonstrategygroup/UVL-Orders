@@ -107,6 +107,7 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                     {l.description}
                     {l.not_on_order && <span className="inv-small"> · not on the order</span>}
                     {l.kind !== "manual" && ordered(l) && <span className="inv-small block">{ordered(l)}</span>}
+                    {l.detail && <span className="inv-small block">{l.detail}</span>}
                     {l.note && !l.discount && <span className="inv-small block">{l.note}</span>}
                   </td>
                   <td className="num">{l.kind === "manual" ? "" : l.boxes}</td>

@@ -50,7 +50,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     db
       .from("products")
       .select(
-        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, price_unit, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, label_name, box_lb_min, box_lb_max, pack_blanks, product_cut_specs(cut_spec_id, units_per_cut, sort)",
+        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, price_unit, packed_with, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, label_name, box_lb_min, box_lb_max, pack_blanks, product_cut_specs(cut_spec_id, units_per_cut, sort)",
       )
       .order("sort")
       .order("name"),

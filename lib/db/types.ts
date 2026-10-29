@@ -72,6 +72,8 @@ export type CatalogProduct = Product & {
   pack_blanks?: number | null;
   /** How it's billed: per lb (the boxes' net weight), per case (one per box), per each (pieces packed). */
   price_unit: PriceUnit;
+  /** Products with the same name here are packed in one box (Organs): one box is the order for all, one price, one invoice line. Blank: on its own. */
+  packed_with: string;
   counts_toward_lambs: boolean;
   not_lamb: boolean;
   confirmed: boolean;

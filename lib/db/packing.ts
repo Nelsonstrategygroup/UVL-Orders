@@ -4,6 +4,7 @@
 // counts), packing_weights, and packing_orders (pallet). Nothing else.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { packedWith } from "../calc/packTogether";
 import { displayName, sortByDisplayName } from "../calc/customers";
 import { labelCustomer, labelList, reportLabels, type LabelList } from "../calc/labels";
 import { sheetRows, type SheetLabel, type SheetRow } from "../calc/packSheet";
@@ -22,6 +23,8 @@ export type PackProduct = {
   per_box: number | null;
   active: boolean;
   group_name: string;
+  /** Packed in one box with the products of the same name (Organs); blank or missing: on its own. */
+  packed_with?: string;
   /** Normal box weight in lb; a scanned box outside it gets a warning. */
   box_lb_min: number | null;
   box_lb_max: number | null;
@@ -127,7 +130,10 @@ export function packLines(o: PackOrder, products: Map<string, PackProduct>): [st
     .sort(([a], [b]) => (products.get(a)?.sort ?? 1e9) - (products.get(b)?.sort ?? 1e9))
     .map(([pid, q]) => {
       const m = o.marks[pid];
-      const weight = o.weights.filter((w) => w.product_id === pid).reduce((s, w) => s + w.weight, 0);
+      // Packed together (Organs): a box of any of them counts for each.
+      const group = packedWith(pid, products);
+      const weight = o.weights.filter((w) => group.includes(w.product_id)).reduce((s, w) => s + w.weight, 0);
+      const others = group.filter((id) => id !== pid).map((id) => products.get(id)?.name ?? id);
       return [
         pid,
         {
@@ -138,6 +144,7 @@ export function packLines(o: PackOrder, products: Map<string, PackProduct>): [st
           shorted: m?.shorted ?? false,
           flagged: m?.flagged ?? false,
           flagNote: m?.flagNote ?? "",
+          together: others.length ? others.join(", ") : undefined,
         },
       ];
     });
@@ -176,7 +183,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, ships_to_point_id"),
     db.from("consolidation_points").select("id, name"),
-    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks").order("sort"),
+    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks, packed_with").order("sort"),
     db.from("profiles").select("id, display_name"),
     // Packers can't read the cut sheet; the INV# is then just left off.
     db.from("cut_sheets").select("inv_number").eq("week_id", week).maybeSingle(),

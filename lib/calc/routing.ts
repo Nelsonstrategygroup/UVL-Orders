@@ -34,9 +34,14 @@ export type Need =
 /** The need for one row of the packing sheet. */
 export function needFor(
   row: SheetRow,
-  line: { ordered: number; unit: string; weight: number; shorted: boolean; count: number | null } | undefined,
+  line: { ordered: number; unit: string; weight: number; shorted: boolean; count: number | null; together?: string } | undefined,
   lbPerUnit: number | null,
 ): Need {
+  // Packed together (Organs): one box of any of them is the order; box sizes don't apply for now.
+  if (line?.together) {
+    const packed = row.blanks.filter((b) => b.weight).length;
+    return { kind: "open", done: packed, open: !line.shorted && line.count == null && line.weight <= 0 };
+  }
   const packed = row.blanks.filter((b) => b.weight).length;
   if (row.known) return { kind: "boxes", done: packed, total: row.boxCount };
   if (!line) return { kind: "open", done: packed, open: false };

@@ -22,7 +22,7 @@ export type InvoiceRow = {
 
 const COLS =
   "id, week_id, customer_id, number, reissue, status, invoice_date, memo, fingerprint, created_at, " +
-  "invoice_lines (id, invoice_id, kind, product_id, description, ordered_qty, ordered_unit, boxes, quantity, price_unit, unit_price, discount_kind, discount, not_on_order, note, sort)";
+  "invoice_lines (id, invoice_id, kind, product_id, description, ordered_qty, ordered_unit, boxes, quantity, price_unit, unit_price, discount_kind, discount, not_on_order, note, sort, detail)";
 
 /** Database errors in plain words. */
 function plain(e: { message: string; code?: string } | null): string | null {

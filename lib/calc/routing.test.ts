@@ -15,7 +15,7 @@ const row = (known: boolean, boxCount: number, filled: number, blanks = boxCount
     weight: i < filled ? { id: `w${i}`, weight: 10, slot: i + 1, label_no: null } : null,
   })),
 });
-const line = (over: Partial<{ ordered: number; unit: string; weight: number; shorted: boolean; count: number | null }> = {}) => ({
+const line = (over: Partial<{ ordered: number; unit: string; weight: number; shorted: boolean; count: number | null; together: string }> = {}) => ({
   ordered: 10,
   unit: "each",
   weight: 0,
@@ -66,6 +66,12 @@ describe("what a customer still needs", () => {
     expect(stillNeeds(needFor(row(false, 0, 2, 6), line(), null))).toBe(true);
     expect(stillNeeds(needFor(row(false, 0, 2, 6), line({ shorted: true }), null))).toBe(false);
     expect(stillNeeds(needFor(row(false, 0, 2, 6), line({ count: 4 }), null))).toBe(false);
+  });
+
+  it("packed together (Organs): open until a box of any of them, box sizes ignored", () => {
+    const known = row(true, 2, 0, 6);
+    expect(needFor(known, line({ together: "Liver, Kidney" }), null)).toEqual({ kind: "open", done: 0, open: true });
+    expect(stillNeeds(needFor(known, line({ together: "Liver, Kidney", weight: 10.95 }), null))).toBe(false);
   });
 });
 

@@ -32,6 +32,7 @@ const blank = {
   box_lb_min: null as number | null,
   box_lb_max: null as number | null,
   price_unit: "lb" as PriceUnit,
+  packed_with: "",
   counts_toward_lambs: true,
   not_lamb: false,
   confirmed: true,
@@ -112,6 +113,7 @@ export default function EditProduct({
       box_lb_min: num(f.boxMin) > 0 ? num(f.boxMin) : null,
       box_lb_max: num(f.boxMax) > 0 ? num(f.boxMax) : null,
       price_unit: f.price_unit,
+      packed_with: (f.packed_with ?? "").trim(),
       counts_toward_lambs: f.counts_toward_lambs,
       not_lamb: f.not_lamb,
       confirmed: f.confirmed,
@@ -438,6 +440,27 @@ export default function EditProduct({
         ))}
       </select>
       <p className="small muted mt-1">Invoices bill what was packed: the boxes&apos; weight, one case per box, or the pieces packed.</p>
+
+      <label className="lbl" htmlFor="ep-packed-with">
+        Packed in one box with
+      </label>
+      <input
+        id="ep-packed-with"
+        className="field"
+        list="ep-packed-with-list"
+        value={f.packed_with ?? ""}
+        placeholder="Blank: packed on its own"
+        onChange={(e) => set("packed_with", e.target.value)}
+      />
+      <datalist id="ep-packed-with-list">
+        {[...new Set((catalog?.products ?? []).map((p) => (p.packed_with ?? "").trim()).filter(Boolean))].map((g) => (
+          <option key={g} value={g} />
+        ))}
+      </datalist>
+      <p className="small muted mt-1">
+        Products with the same name here (Organs: Heart, Liver, Kidney) go in one box. One box of any of them is the
+        store&apos;s order for all; they have one price and one line on the invoice.
+      </p>
       <label className="flex min-h-[44px] items-center gap-3">
         <input type="checkbox" className="h-6 w-6 accent-forest" checked={f.fresh_only} onChange={(e) => set("fresh_only", e.target.checked)} />
         Fresh only (never filled from the freezer)

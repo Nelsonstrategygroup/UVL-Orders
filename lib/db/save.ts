@@ -168,6 +168,7 @@ export type ProductInput = {
   box_lb_min: number | null;
   box_lb_max: number | null;
   price_unit: PriceUnit;
+  packed_with: string;
   counts_toward_lambs: boolean;
   not_lamb: boolean;
   confirmed: boolean;
@@ -226,6 +227,7 @@ export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<
     box_lb_min: p.box_lb_min,
     box_lb_max: p.box_lb_max,
     price_unit: p.price_unit,
+    packed_with: p.packed_with,
     counts_toward_lambs: p.counts_toward_lambs,
     not_lamb: p.not_lamb,
     confirmed: p.confirmed,

@@ -18,6 +18,7 @@ import { displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate, todayISO } from "@/lib/dates";
 import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
 import { packStats } from "@/lib/calc/packing";
+import { packedWith } from "@/lib/calc/packTogether";
 import { fmt, num } from "@/lib/calc/num";
 import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
@@ -98,7 +99,8 @@ export default function WeekScreen() {
         .map(([pid, q]) => ({
           ordered: q,
           unit: o.units[pid] ?? catalog.productById.get(pid)?.unit ?? "each",
-          weight: data.packed.get(o.id)?.[pid] ?? 0,
+          // Packed together (Organs): a box of any of them counts for each.
+          weight: packedWith(pid, catalog.products).reduce((sum, id) => sum + (data.packed.get(o.id)?.[id] ?? 0), 0),
           count: null,
           shorted: !!data.shorted.get(o.id)?.has(pid),
           flagged: false,

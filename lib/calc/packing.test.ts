@@ -16,6 +16,9 @@ describe("packing a line by weight", () => {
   it("compares pounds with pounds ordered", () => {
     expect(lineWords(line({}))).toBe("Tap to weigh");
     expect(lineWords(line({ weight: 20 }))).toBe("Packed 20 lb");
+    expect(lineWords(line({ weight: 10.95, unit: "pack", ordered: 3, count: 2, together: "Liver, Kidney" }))).toBe(
+      "Packed 10.95 lb in one box with Liver, Kidney, 2 of 3",
+    );
     // The paper sheet: Hind Shanks 20 ordered, 15.20 filled.
     expect(lineWords(line({ weight: 15.2 }))).toBe("Packed 15.2 lb, short 4.8 lb");
     expect(lineWords(line({ weight: 24.15 }))).toBe("Packed 24.15 lb, over 4.15 lb");

@@ -57,6 +57,7 @@ import {
   type RoutePallet,
 } from "@/lib/calc/routing";
 import { isLocal } from "@/lib/offline/outbox";
+import { onOrderAs } from "@/lib/calc/packTogether";
 import { planBoxes, type BoxSetup } from "@/lib/calc/boxes";
 import { setBoxLot, type BoxUpload } from "@/lib/db/scanning";
 import { badScan, goodScan, unlockSound } from "@/lib/scan/feedback";
@@ -310,7 +311,8 @@ export default function ScanScreen() {
         label_no: box.label_no,
         box_type_id: box.boxTypeId,
         planned_boxes: ro.need?.kind === "boxes" ? ro.need.total : null,
-        off_order: !(base.productId in order.lines),
+        // A box packed together with something ordered (Organs) is on the order.
+        off_order: !onOrderAs(base.productId, order.lines, data.packing.products),
       };
       await enqueue(
         base.photo
@@ -469,7 +471,7 @@ export default function ScanScreen() {
         pallet_id: order ? to.palletId : null,
         slot: slot.slot ?? null,
         label_no: slot.label_no ?? null,
-        off_order: !!order && !(w.product_id in order.lines),
+        off_order: !!order && !onOrderAs(w.product_id, order.lines, data.packing.products),
       });
     } catch {
       return toast("Couldn't save on this phone. Try again.");
@@ -1467,14 +1469,17 @@ function routeOrder(
 ): RouteOrder {
   const rows = orderSheet(o, data.packing, labels);
   const lines = new Map(packLines(o, data.packing.products));
-  const row = rows.find((r) => r.productId === productId);
-  const line = lines.get(productId);
+  // A box packed together with others (Organs) fills whichever of them is on the order.
+  const asId =
+    onOrderAs(productId, o.lines, data.packing.products) ?? productId;
+  const row = rows.find((r) => r.productId === asId);
+  const line = lines.get(asId);
   const need =
     row && line
       ? needFor(
           row,
           line,
-          data.packing.products.get(productId)?.lb_per_unit ?? null,
+          data.packing.products.get(asId)?.lb_per_unit ?? null,
         )
       : null;
   // How far along the whole order is: boxes packed over boxes planned (pounds where boxes aren't known).

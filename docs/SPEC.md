@@ -614,6 +614,10 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - A draft's packed lines are priced on screen from Setup > Prices on the invoice date (`lib/calc/invoice.ts`), so a price entered later shows at once. Price needed and Count needed lines are left out of the total ("Total so far").
 - Screens: Invoices (in More: Make drafts, Update out of date, Print all, the week's boxes and weight against the box records), one invoice (the printout with DRAFT; invoice date, number, note for the customer, discounts, lines added by hand, Update from packing, Delete draft), and the box detail page for locations with it on. Invoices and invoice lines are in Export all data.
 
+### 15.4a Packed together (Lucas, 10/29/26; migration 20261029000200)
+- Heart, Liver and Kidney are packed in one box (`products.packed_with` = "Organs", set in Setup > Products as "Packed in one box with"). One box of any of them, scanned or typed, is the store's order for all of them: on Packing each of their lines counts as packed ("Packed 10.95 lb in one box with Liver, Kidney"), and scanning suggests stores that still need any of them. Box sizes don't apply to them for now. Kathy fills them from what Mohawk has, so labels wait until then.
+- One price for the group, on its first product by sort (Setup > Prices shows one row, "Heart, Liver, Kidney"). The invoice has one line for the group: boxes and weight only (no ordered amounts), with the packs counted on Packing under it if typed ("2 Heart, 5 Liver"). With no organ box, the line is Not shipped, naming what was ordered.
+
 ### 15.5 Open questions
 - OPEN: the cut sheet's INV# (2403 on the 9/30/26 sheet) and the week invoice number (3001) are kept separate; is the INV# the same number?
 - OPEN: Kirkland's store number (#23 or #02); its code is PCC23 until changed.

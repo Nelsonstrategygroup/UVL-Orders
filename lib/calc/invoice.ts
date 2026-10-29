@@ -33,6 +33,8 @@ export type InvoiceLineRow = {
   not_on_order: boolean;
   note: string;
   sort: number;
+  /** Under the line: the packs counted for products packed together ("2 Heart, 5 Liver"). Missing on rows from before 10/29/26. */
+  detail?: string;
 };
 
 export type PricedLine = InvoiceLineRow & {

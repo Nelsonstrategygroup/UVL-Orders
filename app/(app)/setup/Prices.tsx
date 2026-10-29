@@ -14,6 +14,7 @@ import { useLive } from "@/components/data/useLive";
 import { useToast } from "@/components/Toast";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { parsePrice, priceFor, priceHistory, priceText, PRICE_UNIT_SHORT, type PriceRow } from "@/lib/calc/prices";
+import { groupLead, packedWith } from "@/lib/calc/packTogether";
 import { groupProducts } from "@/lib/calc/products";
 import { niceDate, todayISO } from "@/lib/dates";
 import { deletePrice, loadPrices, setPrice } from "@/lib/db/invoicing";
@@ -35,7 +36,12 @@ export default function Prices() {
   if (!prices || !catalog || !customers) return <p className="small muted">Loading...</p>;
 
   const today = todayISO();
-  const groups = groupProducts(catalog.products.filter((p) => p.active));
+  // Products packed together (Organs) have one price, on the group's first product: one row.
+  const groups = groupProducts(catalog.products.filter((p) => p.active && groupLead(p.id, catalog.products) === p.id));
+  const title = (p: CatalogProduct) => {
+    const ids = packedWith(p.id, catalog.products);
+    return ids.length > 1 ? ids.map((id) => catalog.productById.get(id)?.name ?? id).join(", ") : p.name;
+  };
   // Whole lambs first, so the whole-lamb price sits next to the cuts.
   groups.sort((a, b) => Number(b.group === WHOLE) - Number(a.group === WHOLE));
   const hasLocations = new Set(customers.list.map((c) => c.parent_customer_id).filter(Boolean));
@@ -82,6 +88,7 @@ export default function Prices() {
                 <ProductRow
                   key={p.id}
                   product={p}
+                  title={title(p)}
                   prices={prices}
                   today={today}
                   from={from}
@@ -104,6 +111,7 @@ export default function Prices() {
 
 function ProductRow({
   product: p,
+  title,
   prices,
   today,
   from,
@@ -113,6 +121,8 @@ function ProductRow({
   refresh,
 }: {
   product: CatalogProduct;
+  /** The name, or every product packed together with it ("Heart, Liver, Kidney"). */
+  title: string;
   prices: PriceRow[];
   today: string;
   from: string;
@@ -171,8 +181,9 @@ function ProductRow({
   return (
     <tr>
       <td>
-        <b>{p.name}</b>
+        <b>{title}</b>
         <span className="small muted"> · per {p.price_unit}</span>
+        {title !== p.name && <span className="small muted block">Packed in one box: one price for all of them.</span>}
         {(history.length > 0 || custIds.length > 0 || canEdit) && (
           <details className="mt-1">
             <summary className="copy">
@@ -252,7 +263,7 @@ function ProductRow({
             <input
               className="field num w-28!"
               inputMode="decimal"
-              aria-label={`New price for ${p.name}, ${unit}`}
+              aria-label={`New price for ${title}, ${unit}`}
               placeholder={unit}
               value={text}
               onChange={(e) => setText(e.target.value)}
