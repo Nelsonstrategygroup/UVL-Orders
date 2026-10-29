@@ -61,7 +61,7 @@ export function parsePrice(text: string): string | null {
 }
 
 /** A decimal string or number as a fixed-point BigInt with `places` decimals (exact for what the database sends). */
-function toFixedInt(v: number | string, places: number): bigint {
+export function toFixedInt(v: number | string, places: number): bigint {
   const s = typeof v === "number" ? String(v) : v.trim();
   if (!/^-?\d*(\.\d*)?$/.test(s) || s === "" || s === "-") throw new Error(`Not a decimal: ${s}`);
   const neg = s.startsWith("-");

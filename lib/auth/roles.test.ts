@@ -33,6 +33,7 @@ describe("screens by permission", () => {
     expect(nav.filter((n) => n.bottom).map((n) => n.short)).toEqual(["Week", "Calls", "Orders", "Packing"]);
     expect(nav.filter((n) => !n.bottom).map((n) => n.href)).toEqual([
       "/cut-sheet",
+      "/invoices",
       "/print",
       "/half-whole",
       "/freezer",
@@ -76,7 +77,7 @@ describe("effective access", () => {
   it("gives Billing invoices and prices, and Packing neither", () => {
     expect(effectivePerms("billing", defaults, {})).toMatchObject({ invoices: 2, prices: 2, setup: 1, cutsheet: 0 });
     expect(effectivePerms("packing", defaults, {})).toMatchObject({ invoices: 0, prices: 0 });
-    expect(navFor(effectivePerms("billing", defaults, {}), "billing").map((n) => n.href)).toEqual(["/orders", "/setup"]);
+    expect(navFor(effectivePerms("billing", defaults, {}), "billing").map((n) => n.href)).toEqual(["/orders", "/invoices", "/setup"]);
   });
   it("uses the role default unless the person has their own setting", () => {
     expect(effectivePerms("packing", defaults, {}).orders).toBe(0);

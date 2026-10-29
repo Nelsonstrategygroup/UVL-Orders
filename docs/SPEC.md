@@ -608,7 +608,13 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - `weeks.invoice_number` (unique; set with `set_week_invoice_number`, which Billing may call), `customer_billing` (code, bill-to, terms, box detail), `invoice_settings` (business, remit-to, Net 15, invoice note), `products.price_unit` (`billed_by_weight` kept for now, unused), `prices`.
 - Setup > Prices, Setup > Invoicing, the price unit on each product, and "Invoice codes" on Print and download. Price lookup and exact money in `lib/calc/prices.ts`; numbers and codes in `lib/calc/invoiceNumbers.ts`.
 
-### 15.4 Open questions
+### 15.4 Stage 2, as built (migration 20261029000100)
+- `invoices` (one live invoice per location per week; number as made, changeable and unique; status draft for now; invoice date starting the Tuesday after packing; memo; fingerprint) and `invoice_lines` (packed, shorted, manual; boxes, billed quantity, price unit; unit price on manual lines only until finalizing; discount as an amount or a percent, with a note; not on the order). Lines change only while the invoice is a draft; only a draft can be deleted.
+- `make_invoice_drafts(week)` makes a draft for each location with boxes (or per each pieces counted) and no invoice yet. Locations that ordered but had nothing packed get no invoice and are listed on the Invoices page. `update_invoice_draft(id)` rebuilds the packing lines, keeping manual lines and each product's discount and note. `invoice_fingerprints(week)` tells which drafts are out of date.
+- A draft's packed lines are priced on screen from Setup > Prices on the invoice date (`lib/calc/invoice.ts`), so a price entered later shows at once. Price needed and Count needed lines are left out of the total ("Total so far").
+- Screens: Invoices (in More: Make drafts, Update out of date, Print all, the week's boxes and weight against the box records), one invoice (the printout with DRAFT; invoice date, number, note for the customer, discounts, lines added by hand, Update from packing, Delete draft), and the box detail page for locations with it on. Invoices and invoice lines are in Export all data.
+
+### 15.5 Open questions
 - OPEN: the cut sheet's INV# (2403 on the 9/30/26 sheet) and the week invoice number (3001) are kept separate; is the INV# the same number?
 - OPEN: Kirkland's store number (#23 or #02); its code is PCC23 until changed.
 - OPEN: Kathy's approval of the location invoice codes.

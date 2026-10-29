@@ -35,6 +35,8 @@ export const EXPORT_TABLES: { table: string; order: string[] }[] = [
   { table: "half_whole_choices", order: ["order_id", "part_id", "slot"] },
   { table: "freezer_log", order: ["id"] },
   { table: "prices", order: ["id"] },
+  { table: "invoices", order: ["id"] },
+  { table: "invoice_lines", order: ["id"] },
   { table: "audit_log", order: ["id"] },
 ];
 

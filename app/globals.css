@@ -3064,3 +3064,183 @@ tr.zebra td,
   break-inside: avoid;
   page-break-inside: avoid;
 }
+
+/* Invoices (SPEC 15, stage 2): Letter portrait, one location per page, the
+   box detail on its own page. DRAFT across a draft. Shown as a sheet on
+   screen, printed as is. */
+.invsheet {
+  color: #000;
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 10.5pt;
+}
+.inv-page {
+  position: relative;
+  background: #fff;
+  max-width: 8.5in;
+  padding: 0.5in;
+  margin: 0.8rem 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+.inv-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 110pt;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.08);
+  transform: rotate(-30deg);
+  pointer-events: none;
+}
+.inv-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18pt;
+  border-bottom: 2pt solid #000;
+  padding-bottom: 8pt;
+  margin-bottom: 10pt;
+}
+.inv-co {
+  font-size: 15pt;
+  font-weight: 700;
+}
+.inv-title {
+  text-align: right;
+}
+.inv-word {
+  font-size: 18pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.inv-facts {
+  margin-left: auto;
+  border-collapse: collapse;
+}
+.inv-facts th {
+  text-align: right;
+  font-weight: 400;
+  padding: 1pt 8pt 1pt 0;
+}
+.inv-facts td {
+  text-align: right;
+  font-weight: 700;
+  padding: 1pt 0;
+}
+.inv-addr {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14pt;
+  margin-bottom: 10pt;
+}
+.inv-to {
+  font-size: 13pt;
+  font-weight: 700;
+}
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8pt;
+}
+.inv-table thead {
+  display: table-header-group;
+}
+.inv-table th,
+.inv-table td {
+  border-bottom: 1px solid #999;
+  padding: 4pt 5pt;
+  text-align: left;
+  vertical-align: top;
+}
+.inv-table th {
+  border-bottom: 1.5pt solid #000;
+}
+.inv-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.inv-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.inv-small {
+  font-size: 9pt;
+  color: #444;
+}
+.inv-short td {
+  color: #555;
+}
+.inv-disc td {
+  font-size: 9.5pt;
+  padding-left: 16pt;
+}
+.inv-group th {
+  background: #eee;
+  border-bottom: 1px solid #000;
+}
+.inv-sub td {
+  font-weight: 700;
+}
+.inv-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13pt;
+  font-weight: 700;
+  border-top: 2pt solid #000;
+  border-bottom: 2pt solid #000;
+  padding: 5pt 0;
+  margin-top: 6pt;
+}
+.inv-warn {
+  font-weight: 700;
+  border: 2pt solid #000;
+  padding: 5pt;
+  margin: 6pt 0;
+}
+.inv-remit {
+  margin-top: 16pt;
+}
+.inv-foot {
+  margin: 14pt 0 0;
+  text-align: center;
+}
+@media print {
+  .inv-page {
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    overflow: visible;
+  }
+  .inv-page + .inv-page,
+  .invsheet + .invsheet .inv-page:first-child {
+    break-before: page;
+    page-break-before: always;
+  }
+  .inv-group th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+@media screen and (max-width: 640px) {
+  .inv-page {
+    padding: 12px;
+  }
+  .inv-head,
+  .inv-addr {
+    display: block;
+  }
+  .inv-title {
+    text-align: left;
+    margin-top: 8px;
+  }
+  .inv-facts {
+    margin-left: 0;
+  }
+  .inv-table th,
+  .inv-table td {
+    padding: 3px;
+    font-size: 9pt;
+  }
+}

@@ -102,6 +102,7 @@ export const NAV: NavItem[] = [
   { href: "/orders", label: "Orders", short: "Orders", icon: "✎", bottom: true, sub: "Every customer's order", area: "orders" },
   { href: "/packing", label: "Packing", short: "Packing", icon: "✓", bottom: true, sub: "Pack and check off orders", area: "packing" },
   { href: "/cut-sheet", label: "Cut sheet", short: "Cut sheet", icon: "✂", bottom: false, sub: "This week's sheet for Mohawk", area: "cutsheet" },
+  { href: "/invoices", label: "Invoices", short: "Invoices", icon: "$", bottom: false, sub: "Each location's invoice, made from packing", area: "invoices" },
   { href: "/print", label: "Print and download", short: "Print", icon: "⎙", bottom: false, sub: "Order sheets, cut sheet, labels, packing copy, spreadsheets", area: "downloads" },
   { href: "/half-whole", label: "Half and whole", short: "Half/​whole", icon: "½", bottom: false, sub: "Half and whole lamb orders", area: "halfwhole" },
   { href: "/freezer", label: "Freezer", short: "Freezer", icon: "❄", bottom: false, sub: "What's on hand, add or remove cuts", area: "freezer" },
