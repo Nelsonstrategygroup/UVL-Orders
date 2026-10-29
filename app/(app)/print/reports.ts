@@ -13,6 +13,7 @@ import { loadCustomerBilling } from "@/lib/db/invoicing";
 import { loadIssuedInvoices } from "@/lib/db/invoices";
 import { daysOverdue } from "@/lib/calc/invoice";
 import { toIssued } from "@/lib/invoiceExport";
+import { packedWith } from "@/lib/calc/packTogether";
 import type { Catalog, CustomersData, WeekData } from "@/lib/db/types";
 import { formatDateTime } from "@/lib/format";
 import type { ReadableShape } from "@/lib/readable";
@@ -114,6 +115,11 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
     const c = customers.byId.get(id);
     return c ? displayName(c, customers.byId) : "Unknown customer";
   };
+  // Products packed together: the whole group, so QuickBooks always gets the same item.
+  const groupName = (id: string) => {
+    const ids = packedWith(id, catalog.products);
+    return ids.length > 1 ? ids.map(productName).join(", ") : null;
+  };
   switch (kind) {
     case "week-orders": {
       const ordering = new Set(orderingCustomers(customers.list).map((c) => c.id));
@@ -184,7 +190,7 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       const list = await loadIssuedInvoices(x.db);
       const today = todayISO();
       return {
-        table: openInvoicesTable(list.map((i) => toIssued(i, productName, customerName)), (due) => daysOverdue(due, today)),
+        table: openInvoicesTable(list.map((i) => toIssued(i, productName, customerName, groupName)), (due) => daysOverdue(due, today)),
         file: `open-invoices-${today}`,
         sheet: "Open invoices",
       };
@@ -193,7 +199,7 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       if (!x.from || !x.to || x.from > x.to) return null;
       const list = await loadIssuedInvoices(x.db, { from: x.from, to: x.to });
       return {
-        table: quickbooksLinesTable(list.map((i) => toIssued(i, productName, customerName))),
+        table: quickbooksLinesTable(list.map((i) => toIssued(i, productName, customerName, groupName))),
         file: `invoice-lines-${x.from}-to-${x.to}`,
         sheet: "Invoices",
       };

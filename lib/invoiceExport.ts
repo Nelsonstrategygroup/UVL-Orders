@@ -6,7 +6,16 @@ import { lineTotalCents, priceText } from "./calc/prices";
 import type { InvoiceRow } from "./db/invoices";
 import type { IssuedInvoice } from "./reports";
 
-export function toIssued(inv: InvoiceRow, productName: (id: string) => string, customerName: (id: string) => string): IssuedInvoice {
+/**
+ * groupName: for products packed together, the whole group ("Heart, Liver,
+ * Kidney"), so QuickBooks always gets the same item whatever was ordered.
+ */
+export function toIssued(
+  inv: InvoiceRow,
+  productName: (id: string) => string,
+  customerName: (id: string) => string,
+  groupName: (id: string) => string | null = () => null,
+): IssuedInvoice {
   const lines = priceLines(inv.invoice_lines, [], inv.customer_id, inv.invoice_date);
   const total = inv.total != null ? lineTotalCents(1, inv.total) : lines.reduce((s, l) => s + (l.totalCents ?? BigInt(0)), BigInt(0));
   const paid = paidCents(inv.payments ?? []);
@@ -23,7 +32,7 @@ export function toIssued(inv: InvoiceRow, productName: (id: string) => string, c
     lines: lines.map((l) => ({
       kind: l.kind,
       // The QuickBooks product: the line's name as printed ("Racks"; "Heart, Liver, Kidney" for the organ box).
-      item: l.description || (l.product_id ? productName(l.product_id) : ""),
+      item: (l.product_id ? groupName(l.product_id) : null) ?? (l.description || (l.product_id ? productName(l.product_id) : "")),
       description: [l.description, l.detail].filter(Boolean).join(": "),
       quantity: l.quantity,
       rate: l.price,
