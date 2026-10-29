@@ -71,7 +71,7 @@ export default function CutSheetScreen() {
     const from = data.lastWeekWithSheet;
     return (
       <>
-        <WeekBar inv={null} />
+        <WeekBar />
         <div className="panel empty mx-auto max-w-[560px]">
           <h3 className="mb-2">No cut sheet for this week yet</h3>
           {canChange && (
@@ -149,7 +149,7 @@ export default function CutSheetScreen() {
     return (
       <>
         <div className="screen-only">
-          <WeekBar inv={data.sheet?.inv_number ?? null} />
+          <WeekBar inv={data.sheet?.inv_number || undefined} />
           <h2 className="mb-1">Cut sheet</h2>
           <ViewOnly what="the cut sheet" />
           <section className="panel mt-2">
@@ -241,7 +241,7 @@ export default function CutSheetScreen() {
   return (
     <>
       <div className="screen-only">
-        <WeekBar inv={data.sheet?.inv_number ?? null} />
+        <WeekBar inv={data.sheet?.inv_number || undefined} />
 
         <div className="mb-2 flex flex-wrap items-end gap-3">
           <div className="mr-auto">
