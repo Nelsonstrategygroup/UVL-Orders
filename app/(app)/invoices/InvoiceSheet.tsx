@@ -85,7 +85,7 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
           </div>
           <div>
             <b>Packed</b>
-            <div>{weekName(inv.week_id)}</div>
+            <div>Week of {fullDate(inv.week_id)}</div>
           </div>
         </div>
 
@@ -118,13 +118,13 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                   </td>
                   <td className="num">{l.grossCents != null ? centsText(l.grossCents) : ""}</td>
                 </tr>
-                {l.discount != null && l.discountCents > BigInt(0) && (
+                {l.discount != null && (
                   <tr className="inv-disc">
                     <td colSpan={4}>
                       {discountText(l)}
                       {l.note ? `: ${l.note}` : ""}
                     </td>
-                    <td className="num">-{centsText(l.discountCents)}</td>
+                    <td className="num">{l.grossCents != null ? `-${centsText(l.discountCents)}` : ""}</td>
                   </tr>
                 )}
               </Fragment>

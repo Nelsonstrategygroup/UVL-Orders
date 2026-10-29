@@ -119,12 +119,10 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
                   type="date"
                   className="field"
                   defaultValue={inv.invoice_date}
-                  onBlur={(e) => {
+                  // Saved as soon as a whole date is picked; a year still being typed (0202) isn't a date yet.
+                  onChange={(e) => {
                     const v = e.target.value;
-                    if (!isISODate(v)) {
-                      e.target.value = inv.invoice_date;
-                      return;
-                    }
+                    if (!isISODate(v) || v < "2020-01-01" || v > "2100-12-31") return;
                     if (v !== inv.invoice_date) void updateInvoice(db, inv.id, { invoice_date: v }).then((err) => after(err, "Date saved. Prices are from this date."));
                   }}
                 />

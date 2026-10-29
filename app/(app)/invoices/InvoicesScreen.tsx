@@ -59,6 +59,9 @@ export default function InvoicesScreen() {
   );
   const weekBoxes = data.boxes.length;
   const weekLb = data.boxes.reduce((s, b) => s + toFixedInt(b.weight, 3), BigInt(0));
+  // Before packing starts, the notes about numbers and orders are just noise.
+  const anyPacked = data.packing.orders.some((o) => o.boxes > 0) || rows.length > 0;
+  const names = (ids: string[]) => ids.map(name).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(", ");
   const anyPriceNeeded = rows.some((r) => r.t.priceNeeded > 0);
 
   const make = async () => {
@@ -99,7 +102,7 @@ export default function InvoicesScreen() {
         )}
       </div>
 
-      {data.weekNumber == null && (
+      {data.weekNumber == null && anyPacked && (
         <p className="note warn mt-2">
           This week has no invoice number yet, so its invoices have no number. Set it in{" "}
           <Link href="/setup/invoicing">Setup &gt; Invoicing</Link>, then Update the drafts.
@@ -108,7 +111,7 @@ export default function InvoicesScreen() {
       {packedNoInvoice.length > 0 && (
         <p className="note mt-2">
           {packedNoInvoice.length === 1 ? "1 location has" : `${packedNoInvoice.length} locations have`} boxes and no invoice yet:{" "}
-          {packedNoInvoice.map((o) => name(o.customer_id)).join(", ")}. {canEdit ? "Tap Make drafts." : ""}
+          {names(packedNoInvoice.map((o) => o.customer_id))}. {canEdit ? "Tap Make drafts." : ""}
         </p>
       )}
       {outOfDate.length > 0 && (
@@ -123,9 +126,9 @@ export default function InvoicesScreen() {
           any invoice. Give {data.packing.unassigned === 1 ? "it" : "them"} a customer on Packing.
         </p>
       )}
-      {orderedNothingPacked.length > 0 && (
+      {anyPacked && orderedNothingPacked.length > 0 && (
         <p className="note mt-2">
-          Ordered, nothing packed, so no invoice: {orderedNothingPacked.map((o) => name(o.customer_id)).join(", ")}.
+          Ordered, nothing packed, so no invoice: {names(orderedNothingPacked.map((o) => o.customer_id))}.
         </p>
       )}
       {anyPriceNeeded && (
