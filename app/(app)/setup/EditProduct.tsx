@@ -10,7 +10,8 @@ import { fmt, num } from "@/lib/calc/num";
 import { drivesLambCount, partAmountQty, partAmountRow, type UseMode } from "@/lib/calc/products";
 import { ORDER_UNITS, UNIT_NAME, unitWord } from "@/lib/calc/units";
 import { saveProduct } from "@/lib/db/save";
-import type { CatalogProduct, OrderUnit } from "@/lib/db/types";
+import type { CatalogProduct, OrderUnit, PriceUnit } from "@/lib/db/types";
+import { PRICE_UNIT_LABEL, PRICE_UNITS } from "@/lib/calc/prices";
 
 type UseDraft = { part_id: string; mode: UseMode; amount: string };
 type LinkDraft = { cut_spec_id: string; units_per_cut: string };
@@ -30,7 +31,7 @@ const blank = {
   label_name: "",
   box_lb_min: null as number | null,
   box_lb_max: null as number | null,
-  billed_by_weight: true,
+  price_unit: "lb" as PriceUnit,
   counts_toward_lambs: true,
   not_lamb: false,
   confirmed: true,
@@ -110,7 +111,7 @@ export default function EditProduct({
       label_name: f.label_name.trim(),
       box_lb_min: num(f.boxMin) > 0 ? num(f.boxMin) : null,
       box_lb_max: num(f.boxMax) > 0 ? num(f.boxMax) : null,
-      billed_by_weight: f.billed_by_weight,
+      price_unit: f.price_unit,
       counts_toward_lambs: f.counts_toward_lambs,
       not_lamb: f.not_lamb,
       confirmed: f.confirmed,
@@ -277,7 +278,7 @@ export default function EditProduct({
           type="checkbox"
           className="h-6 w-6 accent-forest"
           checked={f.not_lamb}
-          onChange={(e) => setF((x) => ({ ...x, not_lamb: e.target.checked, billed_by_weight: e.target.checked ? false : x.billed_by_weight }))}
+          onChange={(e) => setF((x) => ({ ...x, not_lamb: e.target.checked, price_unit: e.target.checked && x.price_unit === "lb" ? "case" : x.price_unit }))}
         />
         Not a lamb product (for example pepper sticks: counted, not weighed, uses no parts)
       </label>
@@ -421,10 +422,22 @@ export default function EditProduct({
       />
       <p className="small muted mt-1">Shows behind an ⓘ button on the order screen.</p>
 
-      <label className="mt-2 flex min-h-[44px] items-center gap-3">
-        <input type="checkbox" className="h-6 w-6 accent-forest" checked={f.billed_by_weight} onChange={(e) => set("billed_by_weight", e.target.checked)} />
-        Billed by actual weight
+      <label className="lbl" htmlFor="ep-price-unit">
+        Billed
       </label>
+      <select
+        id="ep-price-unit"
+        className="field w-auto!"
+        value={f.price_unit}
+        onChange={(e) => set("price_unit", e.target.value as PriceUnit)}
+      >
+        {PRICE_UNITS.map((u) => (
+          <option key={u} value={u}>
+            {PRICE_UNIT_LABEL[u]}
+          </option>
+        ))}
+      </select>
+      <p className="small muted mt-1">Invoices bill what was packed: the boxes&apos; weight, one case per box, or the pieces packed.</p>
       <label className="flex min-h-[44px] items-center gap-3">
         <input type="checkbox" className="h-6 w-6 accent-forest" checked={f.fresh_only} onChange={(e) => set("fresh_only", e.target.checked)} />
         Fresh only (never filled from the freezer)

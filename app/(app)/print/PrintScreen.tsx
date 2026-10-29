@@ -58,6 +58,7 @@ export default function PrintScreen() {
   const seeOrders = useCan("orders").view;
   const seeCutSheet = useCan("cutsheet").view;
   const seePacking = useCan("packing").view;
+  const seeInvoices = useCan("invoices").view;
   const [busy, setBusy] = useState<string | null>(null);
   const [fileType, setFileType] = useFileType();
   const [customerId, setCustomerId] = useState("");
@@ -233,6 +234,11 @@ export default function PrintScreen() {
         <Item title="Freezer on hand" action={both("freezer")}>
           What&apos;s in the freezer now, what half and whole orders are counting on, and what&apos;s free.
         </Item>
+        {seeInvoices && (
+          <Item title="Invoice codes" action={both("invoice-codes")}>
+            Each location&apos;s invoice code (Setup &gt; Invoicing), with a column to write corrections on. For Kathy to check.
+          </Item>
+        )}
         <Item
           title="Box sizes"
           action={

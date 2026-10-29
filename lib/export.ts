@@ -17,6 +17,8 @@ export const EXPORT_TABLES: { table: string; order: string[] }[] = [
   { table: "product_part_uses", order: ["product_id", "part_id"] },
   { table: "customers", order: ["id"] },
   { table: "customer_contacts", order: ["id"] },
+  { table: "customer_billing", order: ["customer_id"] },
+  { table: "invoice_settings", order: ["id"] },
   { table: "contact_log", order: ["id"] },
   { table: "weeks", order: ["id"] },
   { table: "orders", order: ["id"] },
@@ -32,6 +34,7 @@ export const EXPORT_TABLES: { table: string; order: string[] }[] = [
   { table: "half_whole_orders", order: ["id"] },
   { table: "half_whole_choices", order: ["order_id", "part_id", "slot"] },
   { table: "freezer_log", order: ["id"] },
+  { table: "prices", order: ["id"] },
   { table: "audit_log", order: ["id"] },
 ];
 

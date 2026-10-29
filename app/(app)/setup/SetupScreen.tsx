@@ -35,6 +35,8 @@ import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { addCutSpec } from "@/lib/db/cutsheet";
 import type { CatalogProduct } from "@/lib/db/types";
 import EditProduct from "./EditProduct";
+import Invoicing from "./Invoicing";
+import Prices from "./Prices";
 
 // What each cut spec type counts as on a cut set (SPEC 6.3), in plain words.
 const USE_LABEL: Record<string, string> = {
@@ -195,7 +197,8 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
         &larr; Setup
       </Link>
       <h2 className="mt-1 mb-2">{titleOf(section)}</h2>
-      {editNote}
+      {/* Prices and Invoicing have their own permissions (SPEC 15). */}
+      {section !== "prices" && section !== "invoicing" && editNote}
       {body}
       {after}
       {editingProduct && (
@@ -501,6 +504,12 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
           </div>
         </section>,
       );
+
+    case "prices":
+      return page(<Prices />);
+
+    case "invoicing":
+      return page(<Invoicing />, true);
 
     case "processor":
       return page(

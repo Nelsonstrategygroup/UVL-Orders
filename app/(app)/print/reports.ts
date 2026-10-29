@@ -9,6 +9,7 @@ import { groupProducts } from "@/lib/calc/products";
 import { countUnit } from "@/lib/calc/units";
 import { packingMonday, todayISO } from "@/lib/dates";
 import { loadCustomerOrders, loadOrdersBetween, loadPackingRecord } from "@/lib/db/load";
+import { loadCustomerBilling } from "@/lib/db/invoicing";
 import type { Catalog, CustomersData, WeekData } from "@/lib/db/types";
 import { formatDateTime } from "@/lib/format";
 import type { ReadableShape } from "@/lib/readable";
@@ -18,6 +19,7 @@ import {
   customerListTable,
   fileSafe,
   freezerTable,
+  invoiceCodesTable,
   orderGridTable,
   packingRecordTable,
   productTotalsTable,
@@ -35,7 +37,8 @@ export type ReportKind =
   | "history"
   | "sales"
   | "freezer"
-  | "box-sizes";
+  | "box-sizes"
+  | "invoice-codes";
 
 export type ReportDef = {
   title: string;
@@ -76,6 +79,7 @@ export const REPORTS: Record<ReportKind, ReportDef> = {
   sales: { title: "Sales over a date range", filter: "range", wide: true, shape: { constant: ["From week", "To week"] } },
   freezer: { title: "Freezer on hand", filter: "none", shape: { constant: ["As of"] } },
   "box-sizes": { title: "Box sizes", filter: "none", wide: true, lined: true, shape: { keep: ["Notes"] } },
+  "invoice-codes": { title: "Invoice codes", filter: "none", lined: true, shape: { keep: ["Notes"] } },
 };
 
 export function isReportKind(v: string): v is ReportKind {
@@ -148,6 +152,19 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       // The same products and order as Setup > Boxes.
       const groups = groupProducts(catalog.products.filter((p) => p.active));
       return { table: boxSizesTable(groups, catalog.boxes.types, catalog.boxes.limits), file: `box-sizes-${todayISO()}`, sheet: "Box sizes" };
+    }
+    case "invoice-codes": {
+      const billing = await loadCustomerBilling(x.db);
+      const hasLocations = new Set(customers.list.map((c) => c.parent_customer_id).filter(Boolean));
+      const list = sortByDisplayName(
+        customers.list.filter((c) => !hasLocations.has(c.id) && (c.active || billing.get(c.id)?.invoice_code)),
+        customers.byId,
+      );
+      return {
+        table: invoiceCodesTable(list.map((c) => ({ name: displayName(c, customers.byId), code: billing.get(c.id)?.invoice_code ?? "" }))),
+        file: `invoice-codes-${todayISO()}`,
+        sheet: "Invoice codes",
+      };
     }
     case "freezer": {
       const { need, onHand } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);

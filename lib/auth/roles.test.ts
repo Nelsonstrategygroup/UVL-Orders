@@ -71,7 +71,13 @@ describe("effective access", () => {
     office: { ...ALL_ACCESS, downloads: 1, setup: 1 } as Perms,
     packing: { ...NO_ACCESS, packing: 2 } as Perms,
     viewer: { ...NO_ACCESS, orders: 1 } as Perms,
+    billing: { ...NO_ACCESS, invoices: 2, prices: 2, orders: 1, setup: 1 } as Perms,
   };
+  it("gives Billing invoices and prices, and Packing neither", () => {
+    expect(effectivePerms("billing", defaults, {})).toMatchObject({ invoices: 2, prices: 2, setup: 1, cutsheet: 0 });
+    expect(effectivePerms("packing", defaults, {})).toMatchObject({ invoices: 0, prices: 0 });
+    expect(navFor(effectivePerms("billing", defaults, {}), "billing").map((n) => n.href)).toEqual(["/orders", "/setup"]);
+  });
   it("uses the role default unless the person has their own setting", () => {
     expect(effectivePerms("packing", defaults, {}).orders).toBe(0);
     expect(effectivePerms("packing", defaults, { orders: 1, cutsheet: 1 })).toMatchObject({ orders: 1, cutsheet: 1, packing: 2 });

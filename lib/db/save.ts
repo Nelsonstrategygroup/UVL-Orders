@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContactRole, DeleteCheck } from "../calc/contacts";
-import type { OrderStatus, Qty, Units, WeekRow } from "./types";
+import type { OrderStatus, PriceUnit, Qty, Units, WeekRow } from "./types";
 
 function msg(error: { message: string } | null): string | null {
   return error ? error.message : null;
@@ -167,7 +167,7 @@ export type ProductInput = {
   label_name: string;
   box_lb_min: number | null;
   box_lb_max: number | null;
-  billed_by_weight: boolean;
+  price_unit: PriceUnit;
   counts_toward_lambs: boolean;
   not_lamb: boolean;
   confirmed: boolean;
@@ -225,7 +225,7 @@ export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<
     label_name: p.label_name,
     box_lb_min: p.box_lb_min,
     box_lb_max: p.box_lb_max,
-    billed_by_weight: p.billed_by_weight,
+    price_unit: p.price_unit,
     counts_toward_lambs: p.counts_toward_lambs,
     not_lamb: p.not_lamb,
     confirmed: p.confirmed,

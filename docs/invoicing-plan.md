@@ -66,10 +66,11 @@ not known yet: none are seeded, guessed or invented; a missing price shows
 1. **Everyone is Admin**, so "Packing can't see prices" has no effect until
    roles change. Built now, takes effect when Lucas changes roles.
 2. **The invoice number lives on the cut sheet**, which most weeks don't have.
-   Move it to the week (`weeks.invoice_number`, one per week, unique), with
-   the cut sheet's INV# box showing and editing the same number. 10/19 = 3000
-   and 10/26 = 3001 are set by a migration; each new week suggests the last
-   number + 1.
+   Built (stage 1): the week has its own number (`weeks.invoice_number`, one
+   per week, unique), set in Setup > Invoicing; 10/19 = 3000 and 10/26 = 3001;
+   the next week suggests the last number + 1. **The cut sheet's INV# is left
+   as it is, separate**: Kathy's 9/30/26 sheet has INV# 2403, which doesn't
+   fit the 3000s, so it may be a different number (open question).
 3. **Typed boxes** (no barcode) also have a recorded weight (4 on 10/26, all
    confirmed against Chris's sheet). Bill every box record, scanned or typed;
    the box detail page shows which were typed.
@@ -255,6 +256,10 @@ Room is left: a tax line kind can be added to invoice lines later.
    behind.
 
 ## Open questions (also in SPEC section 15)
+
+0. The cut sheet's INV# (2403 on Kathy's 9/30/26 sheet): is it the same
+   number as the invoice number, or a different one? They're separate
+   until we know.
 
 1. Kirkland's store number (#23 or #02); its code is PCC23 until changed.
 2. Kathy's OK on the invoice codes (changeable any time).

@@ -49,6 +49,9 @@ export type CatalogPart = Part & { source_note: string; drives_count: boolean };
 export type CutLink = { cut_spec_id: string; units_per_cut: number; sort: number };
 
 /** A customer product (SPEC change requests 10/2026) as Setup and the order screens use it. */
+/** How a product is billed (SPEC 15). */
+export type PriceUnit = "lb" | "case" | "each";
+
 export type CatalogProduct = Product & {
   note: string;
   unit: string;
@@ -67,7 +70,8 @@ export type CatalogProduct = Product & {
   box_lb_max: number | null;
   /** Weight blanks on the paper packing copy when its box count isn't known; null: the setting. */
   pack_blanks?: number | null;
-  billed_by_weight: boolean;
+  /** How it's billed: per lb (the boxes' net weight), per case (one per box), per each (pieces packed). */
+  price_unit: PriceUnit;
   counts_toward_lambs: boolean;
   not_lamb: boolean;
   confirmed: boolean;

@@ -603,6 +603,12 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - No bill-to addresses yet: the name only. Remit-to and business details are editable in Setup > Invoicing. Nothing is taxable.
 - Invoice codes, a week's invoice number, and an invoice's own number can always be changed (logged, still unique). Madison Valley is #22.
 
-### 15.3 Open questions
+### 15.3 Stage 1, as built (migration 20261028000100)
+- Areas Invoices and Prices; role Billing (Invoices and Prices change; Orders, Packing, This week, Customers, Print and download, Setup view). Office: Invoices and Prices view. Packing and Viewer: off. Nobody's role was changed.
+- `weeks.invoice_number` (unique; set with `set_week_invoice_number`, which Billing may call), `customer_billing` (code, bill-to, terms, box detail), `invoice_settings` (business, remit-to, Net 15, invoice note), `products.price_unit` (`billed_by_weight` kept for now, unused), `prices`.
+- Setup > Prices, Setup > Invoicing, the price unit on each product, and "Invoice codes" on Print and download. Price lookup and exact money in `lib/calc/prices.ts`; numbers and codes in `lib/calc/invoiceNumbers.ts`.
+
+### 15.4 Open questions
+- OPEN: the cut sheet's INV# (2403 on the 9/30/26 sheet) and the week invoice number (3001) are kept separate; is the INV# the same number?
 - OPEN: Kirkland's store number (#23 or #02); its code is PCC23 until changed.
 - OPEN: Kathy's approval of the location invoice codes.

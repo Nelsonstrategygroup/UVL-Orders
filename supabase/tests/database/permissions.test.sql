@@ -32,7 +32,7 @@ insert into public.cut_sets (id, week_id, name, lambs) values ('00000000-0000-40
 insert into public.contact_log (customer_id, kind, summary, created_by)
   values ('00000000-0000-4000-8000-0000000000c1', 'call', 'Perm note', '00000000-0000-4000-8000-0000000000a1');
 
-select is((select count(*)::int from public.role_permissions), 33, 'three roles have a default for each of the 11 areas');
+select is((select count(*)::int from public.role_permissions), 52, 'four roles have a default for each of the 13 areas');
 
 set local role authenticated;
 
@@ -42,7 +42,7 @@ select is(public.perm('orders'), 2::smallint, 'office changes orders');
 select is(public.perm('setup'), 1::smallint, 'office sees Setup but cannot change it, even with an override');
 update public.parts set per_lamb = 9 where id = 'perm-part';
 select is((select per_lamb from public.parts where id = 'perm-part'), 1::numeric, 'office cannot change Setup numbers');
-select is((select count(*)::int from jsonb_object_keys(public.my_permissions())), 11, 'my_permissions lists every area');
+select is((select count(*)::int from jsonb_object_keys(public.my_permissions())), 13, 'my_permissions lists every area');
 
 -- Packing: the packing screen only.
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a2","role":"authenticated"}';

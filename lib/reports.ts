@@ -457,3 +457,11 @@ export function boxSizesTable(
   }
   return { header, rows, freezeFirstColumn: true, rowKinds };
 }
+
+/** Invoice codes (SPEC 15): each location and its code, sorted by name, with a Notes column to write corrections on. */
+export function invoiceCodesTable(rows: { name: string; code: string }[]): Table {
+  return table(
+    ["Location", "Invoice code", "Notes"],
+    rows.map((r) => [r.name, r.code || "(none yet)", ""]),
+  );
+}

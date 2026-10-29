@@ -17,7 +17,9 @@ describe("export all data", () => {
 
   it("covers every table, with parents before the rows that point at them", () => {
     const names = EXPORT_TABLES.map((t) => t.table);
-    expect(names).toHaveLength(25);
+    expect(names).toHaveLength(28);
+    expect(names.indexOf("customers")).toBeLessThan(names.indexOf("customer_billing"));
+    expect(names.indexOf("products")).toBeLessThan(names.indexOf("prices"));
     expect(names.indexOf("customers")).toBeLessThan(names.indexOf("orders"));
     expect(names.indexOf("orders")).toBeLessThan(names.indexOf("order_lines"));
     expect(names.indexOf("cut_sheets")).toBeLessThan(names.indexOf("cut_sets"));

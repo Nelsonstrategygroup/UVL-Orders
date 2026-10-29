@@ -3,15 +3,16 @@
 // the same levels (migration 20261014000100), so hiding a screen is never
 // the only lock.
 
-export type Role = "admin" | "office" | "packing" | "viewer";
+export type Role = "admin" | "office" | "packing" | "viewer" | "billing";
 
-export const ROLES: Role[] = ["admin", "office", "packing", "viewer"];
+export const ROLES: Role[] = ["admin", "office", "packing", "viewer", "billing"];
 
 export const ROLE_INFO: Record<Role, { label: string; sub: string }> = {
   admin: { label: "Admin", sub: "Everything, including users and settings" },
   office: { label: "Office", sub: "Calls, orders, cut sheet, customers. Not users or settings" },
   packing: { label: "Packing", sub: "Just the packing list, big and simple" },
   viewer: { label: "Viewer", sub: "Can look at everything but Setup and Users. Can't change anything" },
+  billing: { label: "Billing", sub: "Invoices, payments and prices. Looks at orders and packing" },
 };
 
 /** Screen areas, in the order the Users screen lists them. Users itself is admin-only. */
@@ -27,6 +28,8 @@ export const AREAS = [
   "callnotes",
   "downloads",
   "setup",
+  "invoices",
+  "prices",
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -48,6 +51,8 @@ export const AREA_INFO: Record<Area, { label: string; sub: string }> = {
   callnotes: { label: "Call notes", sub: "The history of calls and follow-ups" },
   downloads: { label: "Print and download", sub: "Order sheets, labels, spreadsheets (looking only)" },
   setup: { label: "Setup", sub: "Products and parts. Only admins can change it" },
+  invoices: { label: "Invoices", sub: "Invoices, payments, invoice codes and terms" },
+  prices: { label: "Prices", sub: "Product prices (Setup > Prices)" },
 };
 
 /** The most a non-admin can have in an area (the database caps it too). */

@@ -216,7 +216,7 @@ export async function resetUserPermissions(userId: string): Promise<ActionResult
 /** Change what a role can do by default. Affects everyone with that role (except their own settings). */
 export async function setRoleDefault(role: string, area: string, level: number): Promise<ActionResult> {
   await requireAdmin();
-  if (role !== "office" && role !== "packing" && role !== "viewer") return fail("Admins always have everything.");
+  if (role !== "office" && role !== "packing" && role !== "viewer" && role !== "billing") return fail("Admins always have everything.");
   if (!isArea(area)) return fail("Unknown area.");
   if (!isLevel(level)) return fail("Choose Off, View, or Change.");
   const supabase = await createClient();

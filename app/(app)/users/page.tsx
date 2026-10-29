@@ -21,7 +21,7 @@ export default async function UsersPage() {
   ]);
 
   // What each role can do by default, and each person's own settings.
-  const defaults: RoleDefaults = { office: { ...NO_ACCESS }, packing: { ...NO_ACCESS }, viewer: { ...NO_ACCESS } };
+  const defaults: RoleDefaults = { office: { ...NO_ACCESS }, packing: { ...NO_ACCESS }, viewer: { ...NO_ACCESS }, billing: { ...NO_ACCESS } };
   for (const r of (roleRows ?? []) as { role: keyof RoleDefaults; area: Area; level: Level }[]) {
     if (defaults[r.role] && (AREAS as readonly string[]).includes(r.area)) defaults[r.role][r.area] = r.level;
   }
