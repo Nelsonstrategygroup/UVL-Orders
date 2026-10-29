@@ -42,19 +42,19 @@ export function useWeek(): WeekValue {
 // What happens on each weekday (0 Sunday ... 6 Saturday).
 const PLAN: Record<number, string> = { 4: "Orders", 1: "Mohawk, pack", 2: "Invoice, ship", 3: "Ship" };
 
-/** The week's INV# from the cut sheet, unless the screen already has it; null offline or for packers. */
+/** The week's INV# (its invoice number, the same on the cut sheet and invoices), unless the screen already has it; null offline. */
 function useInvNumber(week: string, given: string | null | undefined): string | null {
   const [found, setFound] = useState<{ week: string; inv: string | null } | null>(null);
   useEffect(() => {
     if (given !== undefined) return;
     let live = true;
     getDb()
-      .from("cut_sheets")
-      .select("inv_number")
-      .eq("week_id", week)
+      .from("weeks")
+      .select("invoice_number")
+      .eq("id", week)
       .maybeSingle()
       .then(
-        ({ data }) => live && setFound({ week, inv: (data as { inv_number: string } | null)?.inv_number?.trim() || null }),
+        ({ data }) => live && setFound({ week, inv: (data as { invoice_number: number | null } | null)?.invoice_number?.toString() ?? null }),
         () => {},
       );
     return () => {

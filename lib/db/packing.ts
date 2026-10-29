@@ -4,7 +4,8 @@
 // counts), packing_weights, and packing_orders (pallet). Nothing else.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { packedWith } from "../calc/packTogether";
+import { groupLead, packedWith } from "../calc/packTogether";
+import { qtyText } from "../orders";
 import { displayName, sortByDisplayName } from "../calc/customers";
 import { labelCustomer, labelList, reportLabels, type LabelList } from "../calc/labels";
 import { sheetRows, type SheetLabel, type SheetRow } from "../calc/packSheet";
@@ -185,8 +186,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db.from("consolidation_points").select("id, name"),
     db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks, packed_with").order("sort"),
     db.from("profiles").select("id, display_name"),
-    // Packers can't read the cut sheet; the INV# is then just left off.
-    db.from("cut_sheets").select("inv_number").eq("week_id", week).maybeSingle(),
+    // The INV#: the week's invoice number (the same on the cut sheet, manifest and invoices).
+    db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
     db.from("box_labels").select("number, key").eq("week_id", week),
     // Everything, so a setting added later (ship_from_address) can't break Packing before its migration runs.
     db.from("app_settings").select("*").maybeSingle(),
@@ -348,7 +349,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     ship_from_address?: string;
   } | null;
   const wr = must(weekRow) as { process_date: string | null; labels_hash: string | null; labels_printed_at: string | null } | null;
-  const inv = sheet.error ? null : ((sheet.data as { inv_number: string | null } | null)?.inv_number ?? null);
+  const invN = sheet.error ? null : ((sheet.data as { invoice_number: number | null } | null)?.invoice_number ?? null);
+  const inv = invN == null ? null : String(invN);
   return {
     week,
     processDate: wr?.process_date ?? null,
@@ -447,10 +449,33 @@ export function sheetLabels(data: PackingData, boxes: BoxSetup): SheetLabel[] {
  * isn't on the order (scanned anyway).
  */
 export function orderSheet(o: PackOrder, data: PackingData, labels: SheetLabel[], extra?: Record<string, number>): SheetRow[] {
-  const ids = packLines(o, data.products).map(([pid]) => pid);
-  for (const w of o.weights) if (!ids.includes(w.product_id)) ids.push(w.product_id);
+  // Products packed together (Organs) are one row, under the group's first product, holding all their boxes.
+  const lead = (pid: string) => groupLead(pid, data.products);
+  const ids: string[] = [];
+  for (const [pid] of packLines(o, data.products)) if (!ids.includes(lead(pid))) ids.push(lead(pid));
+  for (const w of o.weights) if (!ids.includes(lead(w.product_id))) ids.push(lead(w.product_id));
+  const weights = o.weights.map((w) => (lead(w.product_id) === w.product_id ? w : { ...w, product_id: lead(w.product_id) }));
   const perProduct = new Map([...data.products.values()].map((p) => [p.id, p.pack_blanks ?? null]));
-  return sheetRows({ customerId: o.customerId, productIds: ids, weights: o.weights }, labels, data.labelNumbers, { ...data.blanks, perProduct }, extra);
+  return sheetRows({ customerId: o.customerId, productIds: ids, weights }, labels, data.labelNumbers, { ...data.blanks, perProduct }, extra);
+}
+
+/** The sheet row a product's boxes go in: its own, or its group's (Organs) under the group's first product. */
+export const sheetRowId = (pid: string, data: PackingData) => groupLead(pid, data.products);
+
+/**
+ * A sheet row's name, and for a group what each product ordered ("8 Heart,
+ * 8 Liver, 6 Kidney"; null for a product on its own), and the products in it.
+ */
+export function sheetRowText(o: PackOrder, data: PackingData, pid: string): { name: string; ordered: string | null; members: string[] } {
+  const members = packedWith(pid, data.products);
+  const nameOf = (id: string) => data.products.get(id)?.name ?? id;
+  if (members.length < 2) return { name: nameOf(pid), ordered: null, members: [pid] };
+  const on = members.filter((id) => (o.lines[id] ?? 0) > 0);
+  return {
+    name: members.map(nameOf).join(", "),
+    ordered: on.length ? on.map((id) => `${qtyText(o.lines[id], o.units[id] ?? data.products.get(id)?.unit ?? "each")} ${nameOf(id)}`).join(", ") : null,
+    members,
+  };
 }
 
 /** Give an unassigned box to a customer's order (Pallets, by Kathy). */

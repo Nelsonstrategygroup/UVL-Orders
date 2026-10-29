@@ -616,6 +616,7 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 
 ### 15.4a Packed together (Lucas, 10/29/26; migration 20261029000200)
 - Heart, Liver and Kidney are packed in one box (`products.packed_with` = "Organs", set in Setup > Products as "Packed in one box with"). One box of any of them, scanned or typed, is the store's order for all of them: on Packing each of their lines counts as packed ("Packed 10.95 lb in one box with Liver, Kidney"), and scanning suggests stores that still need any of them. Box sizes don't apply to them for now. Kathy fills them from what Mohawk has, so labels wait until then.
+- The box label list, the paper packing copy, Type in from paper and the boxes scanning fills show them as one item: one label per store ("8 Heart, 8 Liver, 6 Kidney", no box size), one row with one box, under the group's first product (Lucas, 10/29/26).
 - One price for the group, on its first product by sort (Setup > Prices shows one row, "Heart, Liver, Kidney"). The invoice has one line for the group: boxes and weight only (no ordered amounts), with the packs counted on Packing under it if typed ("2 Heart, 5 Liver"). With no organ box, the line is Not shipped, naming what was ordered.
 
 ### 15.4b Stage 3, as built (migration 20261030000100)
@@ -625,6 +626,7 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - Screens: the invoice page (Finalize with what's missing in plain words; Mark sent; Payments; Void; Reissue; VOID across a void one; payments and the balance on the printout), Invoices (status words, void invoices listed below), Open invoices (any week, money owed, days overdue; by number, due date or location). Print and download, "Tuesday, invoices": the week's invoices, Open invoices, and Invoice lines for QuickBooks (one row per line for a date range, in QuickBooks Online's import columns; a discount is its own row). Payments and invoice boxes are in Export all data.
 
 ### 15.5 Open questions
-- OPEN: the cut sheet's INV# (2403 on the 9/30/26 sheet) and the week invoice number (3001) are kept separate; is the INV# the same number?
+- DECIDED (Lucas, 10/29/26; migration 20261030000200): the cut sheet, manifest and invoices share one INV#, the week's invoice number (weeks.invoice_number). The cut sheet's INV# box sets it; cut_sheets.inv_number is no longer used.
+- ON HOLD (Lucas, 10/29/26): Kirkland's store number and Kathy's OK on the invoice codes. Stage 4 (QuickBooks Online connection) is tabled until Lucas raises it again.
 - OPEN: Kirkland's store number (#23 or #02); its code is PCC23 until changed.
 - OPEN: Kathy's approval of the location invoice codes.

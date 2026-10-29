@@ -36,6 +36,7 @@ import {
   orderSheet,
   packLines,
   sheetLabels,
+  sheetRowId,
   type PackingData,
   type PackOrder,
   type PackProduct,
@@ -1472,7 +1473,8 @@ function routeOrder(
   // A box packed together with others (Organs) fills whichever of them is on the order.
   const asId =
     onOrderAs(productId, o.lines, data.packing.products) ?? productId;
-  const row = rows.find((r) => r.productId === asId);
+  // Packed together (Organs): their row is under the group's first product.
+  const row = rows.find((r) => r.productId === sheetRowId(asId, data.packing));
   const line = lines.get(asId);
   const need =
     row && line
@@ -2018,7 +2020,7 @@ function boxFor(
   filled: Set<string>,
 ) {
   const row = orderSheet(order, data, labels).find(
-    (r) => r.productId === productId,
+    (r) => r.productId === sheetRowId(productId, data),
   );
   if (!row) return { slot: 1, label_no: null, boxTypeId: null, words: "Box 1" };
   const b = row.blanks.find(

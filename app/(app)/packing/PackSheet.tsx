@@ -14,6 +14,7 @@ import {
   packLines,
   sheetLabels,
   type PackingData,
+  sheetRowText,
   type PackOrder,
 } from "@/lib/db/packing";
 import { qtyText } from "@/lib/orders";
@@ -63,7 +64,6 @@ export function PaperSheet({
   preview?: boolean;
 }) {
   const labels = sheetLabels(data, boxes);
-  const name = (pid: string) => data.products.get(pid)?.name ?? pid;
   return (
     <div className={preview ? "pksheet preview" : "print-only pksheet"}>
       <h1>
@@ -110,7 +110,11 @@ export function PaperSheet({
                 </tr>
               )}
               {orderSheet(o, data, labels).map((row) => {
-                const line = lines.get(row.productId);
+                // Packed together (Organs): one row, each product ordered listed.
+                const t = sheetRowText(o, data, row.productId);
+                const memberLines = t.members.map((id) => lines.get(id)).filter((l) => !!l);
+                const line = lines.get(row.productId) ?? memberLines[0];
+                const shorted = memberLines.length > 0 && memberLines.every((l) => l.shorted);
                 return (
                   <tr key={row.productId}>
                     <td>
@@ -120,15 +124,15 @@ export function PaperSheet({
                             ☐
                           </span>
                           <div>
-                            <b>{name(row.productId)}</b>
-                            <div>{rowWords(row, line)}</div>
+                            <b>{t.name}</b>
+                            <div>{t.ordered ? `${t.ordered} · one box` : rowWords(row, line)}</div>
                             {!row.known && (
                               <div className="pk-unknown">
                                 box count unknown
                               </div>
                             )}
                             <div className="pk-nf">
-                              Not filled {line?.shorted ? "☒" : "☐"}
+                              Not filled {shorted ? "☒" : "☐"}
                             </div>
                           </div>
                         </div>

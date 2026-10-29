@@ -58,10 +58,10 @@ function err(e: { message: string } | null): string | null {
 
 export async function loadCutSheet(db: SupabaseClient, week: string): Promise<CutSheetData> {
   const [weekRow, sheet, banners, goals, sets, orders, last, leTrim] = await Promise.all([
-    db.from("weeks").select("process_date").eq("id", week).maybeSingle(),
+    db.from("weeks").select("process_date, invoice_number").eq("id", week).maybeSingle(),
     db
       .from("cut_sheets")
-      .select("inv_number, notes, pulled_large, pulled_medium, pulled_small, sent_at, sent_hash, sent_by, profiles(display_name)")
+      .select("notes, pulled_large, pulled_medium, pulled_small, sent_at, sent_hash, sent_by, profiles(display_name)")
       .eq("week_id", week)
       .maybeSingle(),
     db.from("cut_sheet_banners").select("id, text, sort").eq("week_id", week).order("sort"),
@@ -122,7 +122,8 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
     processDate: (must(weekRow) as { process_date: string | null } | null)?.process_date ?? null,
     sheet: sh
       ? {
-          inv_number: sh.inv_number,
+          // The INV# is the week's invoice number (Setup > Invoicing, or typed here).
+          inv_number: (must(weekRow) as { invoice_number: number | null } | null)?.invoice_number?.toString() ?? "",
           notes: sh.notes,
           pulled_large: sh.pulled_large,
           pulled_medium: sh.pulled_medium,

@@ -5,6 +5,7 @@
 
 import { planBoxes, type BoxSetup } from "./boxes";
 import { fmt, num } from "./num";
+import { packedWith } from "./packTogether";
 import { groupProducts } from "./products";
 import type { Qty } from "./types";
 import { toProductUnit, unitWord } from "./units";
@@ -18,6 +19,8 @@ export type LabelProduct = {
   lb_per_unit?: number | null;
   group_name: string;
   sort: number;
+  /** Packed in one box with the products of the same name (Organs); blank: on its own. */
+  packed_with?: string | null;
 };
 
 export type LabelOrder = {
@@ -105,6 +108,45 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
 
   for (const g of groupProducts([...products.values()].filter((p) => ordered.has(p.id)))) {
     for (const p of g.products) {
+      // Packed together (Organs, Lucas 10/29/26): one box per store, one label, no box size.
+      const members = packedWith(p.id, products);
+      if (members.length > 1) {
+        if (p.id !== members.find((id) => ordered.has(id))) continue;
+        const lead = members[0];
+        const groupLabel = members.map((id) => products.get(id)?.name ?? id).join(", ");
+        const table: LabelTable = { product: { ...p, id: lead, name: groupLabel }, group: g.group, rows: [], weightUnknown: false, noBox: false };
+        for (const o of sorted) {
+          const parts = members
+            .filter((id) => num(o.lines[id]) > 0)
+            .map((id) => {
+              const q = num(o.lines[id]);
+              const pr = products.get(id);
+              return (o.units?.[id] ?? pr?.unit) === "lb" ? `${fmt(q)} lb ${pr?.name ?? id}` : `${fmt(q)} ${pr?.name ?? id}`;
+            });
+          if (!parts.length) continue;
+          const name = o.name ?? o.customer;
+          const location = o.location ?? "";
+          const line2 = parts.join(", ");
+          table.rows.push({
+            customer: o.customer,
+            line2,
+            qty: "",
+            unit: "",
+            product: groupLabel,
+            boxType: "",
+            boxTypeId: null,
+            ofN: "",
+            boxNo: 1,
+            boxCount: 1,
+            key: `${o.customerId ?? o.customer}|${lead}|1`,
+            name,
+            location,
+            print: hash([name, location, line2, "", 1, 1].join("|")),
+          });
+        }
+        if (table.rows.length) tables.push(table);
+        continue;
+      }
       const label = (p.label_name ?? "").trim() || p.name;
       const table: LabelTable = { product: p, group: g.group, rows: [], weightUnknown: false, noBox: false };
       const row = (

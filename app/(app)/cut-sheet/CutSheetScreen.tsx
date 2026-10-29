@@ -22,10 +22,12 @@ import { cutSheetTotals } from "@/lib/calc/summary";
 import { niceDate, weekName } from "@/lib/dates";
 import { formatDateTime } from "@/lib/format";
 import * as cs from "@/lib/db/cutsheet";
+import { parseWeekNumber } from "@/lib/calc/invoiceNumbers";
+import { setWeekInvoiceNumber } from "@/lib/db/invoicing";
 import type { SheetLine, SheetSet } from "@/lib/db/cutsheet";
 import SetCard, { type SetActions } from "./SetCard";
 
-const LIVE_TABLES = ["cut_sheets", "cut_sets", "cut_set_lines", "orders", "order_lines", "le_trim_plans"];
+const LIVE_TABLES = ["cut_sheets", "weeks", "cut_sets", "cut_set_lines", "orders", "order_lines", "le_trim_plans"];
 
 export default function CutSheetScreen() {
   const { week } = useWeek();
@@ -258,7 +260,25 @@ export default function CutSheetScreen() {
               key={`inv-${sh.inv_number}`}
               className="field"
               defaultValue={sh.inv_number}
-              onBlur={(e) => e.target.value.trim() !== sh.inv_number && void run(cs.updateSheet(db, week, { inv_number: e.target.value.trim() }))}
+              inputMode="numeric"
+              placeholder="3002"
+              // The week's invoice number: the same on the manifest and invoices (Setup > Invoicing too).
+              onBlur={(e) => {
+                const el = e.target;
+                const t = el.value.trim();
+                if (t === sh.inv_number) return;
+                const n = t === "" ? null : parseWeekNumber(t);
+                if (t !== "" && n == null) {
+                  el.value = sh.inv_number;
+                  return toast("The INV# is a whole number, like 3002.");
+                }
+                void setWeekInvoiceNumber(db, week, n).then((err) => {
+                  if (err) {
+                    el.value = sh.inv_number;
+                    toast(`Couldn't save: ${err}`);
+                  }
+                });
+              }}
             />
           </div>
         </div>

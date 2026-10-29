@@ -28,7 +28,7 @@ import {
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
-import { orderSheet, packLines, sheetLabels, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
+import { orderSheet, packLines, sheetLabels, sheetRowId, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
 import { blankWords, nextBlank, type SheetRow } from "@/lib/calc/packSheet";
 import { PackNotes, PaperSheet } from "./PackSheet";
@@ -99,7 +99,7 @@ export default function PackingScreen() {
   };
   const wOrder = weighing && data.orders.find((o) => o.id === weighing.orderId);
   // The product's boxes as on the paper copy: each weight goes in the next empty one.
-  const wRow = wOrder ? orderSheet(wOrder, data, sheetLabels(data, boxSetup)).find((r) => r.productId === weighing!.productId) : undefined;
+  const wRow = wOrder ? orderSheet(wOrder, data, sheetLabels(data, boxSetup)).find((r) => r.productId === sheetRowId(weighing!.productId, data)) : undefined;
 
   return (
     <>

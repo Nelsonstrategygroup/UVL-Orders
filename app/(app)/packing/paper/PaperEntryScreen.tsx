@@ -18,7 +18,7 @@ import ViewOnly from "@/components/ViewOnly";
 import { useWeek, WeekBar } from "@/components/Week";
 import { fmt, num } from "@/lib/calc/num";
 import type { SheetBlank, SheetRow } from "@/lib/calc/packSheet";
-import { orderSheet, packLines, sheetLabels, type LineMark, type PackOrder } from "@/lib/db/packing";
+import { orderSheet, packLines, sheetLabels, type LineMark, type PackOrder, sheetRowText } from "@/lib/db/packing";
 import { isLocal, type Action } from "@/lib/offline/outbox";
 import { blankLabel, PackNotes, rowWords } from "../PackSheet";
 import { useLabelNumbers } from "../useLabelNumbers";
@@ -49,7 +49,6 @@ export default function PaperEntryScreen() {
     );
 
   const save = (a: Action) => void enqueue(a).catch(() => toast("Couldn't save on this phone. Try again."));
-  const name = (pid: string) => data.products.get(pid)?.name ?? pid;
 
   return (
     <>
@@ -93,21 +92,28 @@ export default function PaperEntryScreen() {
               </h3>
               <PackNotes o={o} />
               {orderSheet(o, data, labels, mine).map((row) => {
-                const line = lines.get(row.productId);
-                const mark = o.marks[row.productId] ?? NO_MARK;
+                // Packed together (Organs): one row; Not filled marks each product ordered.
+                const t = sheetRowText(o, data, row.productId);
+                const onOrder = t.members.filter((id) => lines.has(id));
+                const line = lines.get(row.productId) ?? lines.get(onOrder[0] ?? "");
+                const mark = o.marks[onOrder[0] ?? row.productId] ?? NO_MARK;
+                const shorted = onOrder.length > 0 && onOrder.every((id) => (o.marks[id] ?? NO_MARK).shorted);
                 return (
                   <div key={row.productId} className="pe-row">
                     <div className="pe-prod">
-                      <b>{name(row.productId)}</b>
-                      <div className="small">{rowWords(row, line)}</div>
+                      <b>{t.name}</b>
+                      <div className="small">{t.ordered ? `${t.ordered} · one box` : rowWords(row, line)}</div>
                       {!row.known && <div className="small muted italic">box count unknown</div>}
                       {line && (
                         <label className="mt-1 flex items-center gap-2 small">
                           <input
                             type="checkbox"
                             className="h-5 w-5 accent-forest"
-                            checked={mark.shorted}
-                            onChange={(e) => save({ type: "mark", order_id: o.id, product_id: row.productId, mark: { ...mark, shorted: e.target.checked } })}
+                            checked={t.ordered ? shorted : mark.shorted}
+                            onChange={(e) => {
+                              for (const id of t.ordered ? onOrder : [row.productId])
+                                save({ type: "mark", order_id: o.id, product_id: id, mark: { ...(o.marks[id] ?? NO_MARK), shorted: e.target.checked } });
+                            }}
                           />
                           Not filled
                         </label>
@@ -123,12 +129,12 @@ export default function PaperEntryScreen() {
                           draft={drafts[`${o.id}|${row.productId}|${b.slot}`] ?? ""}
                           setDraft={(v) => setDrafts((d) => ({ ...d, [`${o.id}|${row.productId}|${b.slot}`]: v }))}
                           save={save}
-                          productName={name(row.productId)}
+                          productName={t.name}
                         />
                       ))}
                       <div className="pe-cell pe-total">
                         <span className="pe-lab">Total lbs</span>
-                        <output className="pe-sum num" aria-label={`${name(row.productId)} total`}>
+                        <output className="pe-sum num" aria-label={`${t.name} total`}>
                           {row.total > 0 ? fmt(row.total) : "0"}
                         </output>
                       </div>

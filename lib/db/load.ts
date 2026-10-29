@@ -354,7 +354,19 @@ export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekDa
       db.from("freezer_log").select("product_id, qty").range(a, b),
     ),
     db.from("cut_sets").select("lambs, size_class_id").eq("week_id", week),
-    db.from("cut_sheets").select("sent_at, inv_number").eq("week_id", week).maybeSingle(),
+    // The INV# is the week's invoice number (the same on the cut sheet, manifest and invoices).
+    Promise.all([
+      db.from("cut_sheets").select("sent_at").eq("week_id", week).maybeSingle(),
+      db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
+    ]).then(([cs, wk]) => ({
+      error: cs.error ?? wk.error,
+      data: cs.data
+        ? {
+            sent_at: (cs.data as { sent_at: string | null }).sent_at,
+            inv_number: (wk.data as { invoice_number: number | null } | null)?.invoice_number?.toString() ?? null,
+          }
+        : null,
+    })),
     loadLeTrimPlan(db, week),
   ]);
 

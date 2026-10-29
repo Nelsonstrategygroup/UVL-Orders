@@ -139,3 +139,32 @@ describe("labels", () => {
     });
   });
 });
+
+describe("products packed together (Organs)", () => {
+  const organs = new Map<string, LabelProduct>([
+    ...products,
+    ["heart", { id: "heart", name: "Heart", unit: "pack", group_name: "Byproducts", sort: 750, packed_with: "Organs" }],
+    ["liver", { id: "liver", name: "Liver", unit: "pack", group_name: "Byproducts", sort: 751, packed_with: "Organs" }],
+    ["kidney", { id: "kidney", name: "Kidney", unit: "pack", group_name: "Byproducts", sort: 752, packed_with: "Organs" }],
+  ]);
+  const withLimits = { ...boxes, limits: new Map([...boxes.limits, ["heart", [ok("jerky", 25)]], ["kidney", [ok("jerky", 25)]]]) };
+  const list = labelList(
+    [
+      { customer: "PCC Bothell", customerId: "c1", sortKey: "0", lines: { heart: 8, liver: 8, kidney: 6 } },
+      { customer: "PCC Ballard", customerId: "c2", sortKey: "1", lines: { liver: 3 } },
+    ],
+    organs,
+    withLimits,
+  );
+
+  it("is one table and one label per store, box sizes ignored", () => {
+    const t = list.tables.filter((x) => ["heart", "liver", "kidney"].includes(x.product.id));
+    expect(t).toHaveLength(1);
+    expect(t[0].product.name).toBe("Heart, Liver, Kidney");
+    expect(t[0].rows.map((r) => [r.customer, r.line2, r.boxType, r.key])).toEqual([
+      ["PCC Bothell", "8 Heart, 8 Liver, 6 Kidney", "", "c1|heart|1"],
+      ["PCC Ballard", "3 Liver", "", "c2|heart|1"],
+    ]);
+    expect(list.noBoxProducts).toEqual([]);
+  });
+});
