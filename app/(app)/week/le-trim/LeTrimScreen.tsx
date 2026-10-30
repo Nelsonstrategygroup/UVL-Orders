@@ -31,7 +31,7 @@ import {
 import { fmt, num } from "@/lib/calc/num";
 import { weekName } from "@/lib/dates";
 import { formatWhen } from "@/lib/format";
-import { saveLeTrimPlan } from "@/lib/db/save";
+import { deleteLeTrimPlan, saveLeTrimPlan } from "@/lib/db/save";
 import type { LeTrimPlanRow } from "@/lib/db/types";
 import { cleanQtyInput } from "@/lib/orders";
 import { weekCalc } from "@/lib/weekCalc";
@@ -136,6 +136,16 @@ function Plan({
     onSaved();
   }
 
+  async function remove() {
+    if (!confirm("Remove the saved Le Trim plan? The app goes back to its worked-out mix, and the plan comes off the cut sheet.")) return;
+    setBusy(true);
+    const err = await deleteLeTrimPlan(getDb(), week);
+    setBusy(false);
+    if (err) return toast(`Couldn't remove: ${err}`);
+    toast("Le Trim plan removed");
+    onSaved();
+  }
+
   const box = (label: string, value: string, set: (v: string) => void, hint?: React.ReactNode, id?: string) => (
     <label className="lt-input" htmlFor={id}>
       <span>{label}</span>
@@ -233,10 +243,15 @@ function Plan({
               {saved ? "Save changes" : "Save Le Trim plan"}
             </button>
             {saved && (
-              <span className="small muted">
-                Saved {formatWhen(saved.saved_at)}
-                {saved.saved_by_name ? ` by ${saved.saved_by_name}` : ""}.
-              </span>
+              <>
+                <span className="small muted">
+                  Saved {formatWhen(saved.saved_at)}
+                  {saved.saved_by_name ? ` by ${saved.saved_by_name}` : ""}.
+                </span>
+                <button type="button" className="btn ghost" disabled={busy} onClick={() => void remove()}>
+                  Remove saved plan
+                </button>
+              </>
             )}
           </div>
         )}

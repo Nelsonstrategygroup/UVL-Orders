@@ -477,3 +477,9 @@ export async function removeExtraLambs(db: SupabaseClient, id: string): Promise<
   const { error } = await db.from("week_extra_lambs").delete().eq("id", id);
   return error ? error.message : null;
 }
+
+/** Remove the week's saved Le Trim plan: the worked-out mix is used again, and the cut sheet loses the plan's lines. */
+export async function deleteLeTrimPlan(db: SupabaseClient, week: string): Promise<string | null> {
+  const { error } = await db.from("le_trim_plans").delete().eq("week_id", week);
+  return msg(error);
+}
