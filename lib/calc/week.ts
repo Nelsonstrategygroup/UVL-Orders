@@ -197,19 +197,22 @@ export function calcWeek(input: {
   const partsLambs = Math.max(0, final - carcass);
 
   const toRow = (r: (typeof base)[number]): PartRow => {
+    const lb = r.part.unit === "lb";
     const up = parentOf(r.part);
     // A cut-from part gets one per whole loin that is cut (not those that go out whole).
     const supply = up
       ? Math.max(0, partsLambs * num(byId.get(up)!.per_lamb) - (intact[up] ?? 0))
       : partsLambs * num(r.part.per_lamb);
     const left = supply - r.need;
+    // Pieces are whole (10/29/26): less than a whole piece spare is even; any part of one short is one short.
+    const shown = lb ? left : Math.floor(left + EPS);
     let status: PartStatus;
     // Nothing ordered and nothing coming: no tag. Nothing ordered but the
     // lambs still give some: all of it is extra.
     if (r.need === 0 && supply < EPS) status = "none";
-    else if (left < -EPS) status = "short";
+    else if (shown < -EPS) status = "short";
     else if (r.drives && source === "orders" && partsRecommended > 0 && r.lambs === partsRecommended) status = "sets";
-    else if (Math.abs(left) < EPS) status = "even";
+    else if (Math.abs(shown) < EPS) status = "even";
     else status = "extra";
     const parent = parentOf(r.part);
     return {
@@ -249,11 +252,19 @@ export function calcWeek(input: {
   };
 }
 
-/** Main cuts with some left over: the extras Kathy has to find a home for. */
+/**
+ * Pieces are whole (10/29/26): a need for 84.67 shoulders (pounds ordered of a
+ * piece product) is 85, 22.3 left over is 22, 0.33 left over is none, and
+ * 0.33 short is 1 short. Pounds (trim) stay as they are.
+ */
+export const wholeNeed = (r: Pick<PartRow, "part" | "need">) => (r.part.unit === "lb" ? r.need : Math.ceil(r.need - EPS));
+export const wholeLeft = (r: Pick<PartRow, "part" | "left">) => (r.part.unit === "lb" ? r.left : Math.floor(r.left + EPS));
+
+/** Main cuts with at least one whole piece left over: the extras Kathy has to find a home for. */
 export function plannedExtras(rows: PartRow[]): PartRow[] {
   // A spare whole loin is already counted as a spare rack and short loin.
   const parents = new Set(rows.map((r) => r.parent).filter(Boolean));
-  return rows.filter((r) => r.planned && r.left > EPS && !parents.has(r.part.id));
+  return rows.filter((r) => r.planned && wholeLeft(r) > EPS && !parents.has(r.part.id));
 }
 
 /**

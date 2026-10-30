@@ -1,7 +1,7 @@
 // Text and totals shown on This week (SPEC 5.4, 6.5).
 
 import { longDate } from "../dates";
-import { carcassLine, lambSourceLine, type PartRow, type WeekCalc } from "./week";
+import { wholeLeft, carcassLine, lambSourceLine, type PartRow, type WeekCalc } from "./week";
 import { fmt, num } from "./num";
 import { packsText } from "./packs";
 import type { Product, Qty } from "./types";
@@ -115,7 +115,7 @@ export function shortParts(rows: Pick<PartRow, "part" | "left" | "status">[], pa
     .filter((r) => r.status === "short")
     .map((r) => {
       const pack = packSizes.get(r.part.id);
-      if (pack) return `${r.part.name}s short ${packsText(-r.left / pack)}`;
-      return `${r.part.name} short ${fmt(-r.left)}${r.part.unit === "lb" ? " lb" : ""}`;
+      if (pack) return `${r.part.name}s short ${packsText(-wholeLeft(r) / pack)}`;
+      return `${r.part.name} short ${fmt(-wholeLeft(r))}${r.part.unit === "lb" ? " lb" : ""}`;
     });
 }

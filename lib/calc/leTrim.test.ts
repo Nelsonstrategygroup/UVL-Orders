@@ -16,7 +16,7 @@ import {
   type LeTrimWeights,
 } from "./leTrim";
 import type { Part, Product, Qty } from "./types";
-import { carcassLine, calcWeek } from "./week";
+import { carcassLine, calcWeek, plannedExtras, wholeLeft, wholeNeed } from "./week";
 
 const part = (id: string, per_lamb: number, drives: boolean, sort: number, made_from: string | null = null): Part => ({
   id,
@@ -165,5 +165,21 @@ describe("Le Trim", () => {
     expect(leTrimCutLines({ shoulders: 24, halfLegs: 7 })).toEqual(["Bone out 24 shoulders for Le Trim", "Halve 4 legs for Le Trim"]);
     expect(leTrimCutLines({ shoulders: 0, halfLegs: 0 })).toEqual([]);
     expect(leTrimCutLines(null)).toEqual([]);
+  });
+});
+
+describe("whole pieces (10/29/26)", () => {
+  it("less than a whole piece spare is even; any part of one short is one short; needs round up", () => {
+    const spareThird = calcWeek({ parts, products, orders: [{ legs: 50, shoulders: 49 + 2 / 3 }] });
+    const sh = spareThird.rows.find((r) => r.part.id === "shoulder")!;
+    expect(sh.left).toBeCloseTo(1 / 3);
+    // Shoulders tie with legs for the count here, so they "set" it; none shows as extra.
+    expect([wholeLeft(sh), wholeNeed(sh), sh.status]).toEqual([0, 50, "sets"]);
+    expect(plannedExtras(spareThird.rows).map((r) => r.part.id)).not.toContain("shoulder");
+
+    // Short only when the count is fixed (Your number 25): a third of a shoulder short is one short.
+    const shortThird = calcWeek({ parts, products, orders: [{ legs: 50, shoulders: 50 + 1 / 3 }], override: 25 });
+    const s2 = shortThird.rows.find((r) => r.part.id === "shoulder")!;
+    expect([wholeLeft(s2), wholeNeed(s2), s2.status]).toEqual([-1, 51, "short"]);
   });
 });

@@ -22,7 +22,7 @@ import { packedWith } from "@/lib/calc/packTogether";
 import { fmt, num } from "@/lib/calc/num";
 import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
-import { plannedExtras, type PartRow } from "@/lib/calc/week";
+import { plannedExtras, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
 import { weekCalc } from "@/lib/weekCalc";
 import { leTrimCutLines, leTrimShortText } from "@/lib/calc/leTrim";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
@@ -166,7 +166,7 @@ export default function WeekScreen() {
                 {c.recommended === 0
                   ? "No orders entered for this week yet."
                   : c.driver
-                    ? `${c.source === "orders" ? "Set" : "Orders: set"} by ${c.driver.part.name.toLowerCase()}. ${fmt(c.driver.need)}${unit(c.driver)} needed, ${fmt(c.driver.part.per_lamb)}${unit(c.driver)} per lamb.`
+                    ? `${c.source === "orders" ? "Set" : "Orders: set"} by ${c.driver.part.name.toLowerCase()}. ${fmt(wholeNeed(c.driver))}${unit(c.driver)} needed, ${fmt(c.driver.part.per_lamb)}${unit(c.driver)} per lamb.`
                     : "Only carcass lambs so far."}
               </div>
             </div>
@@ -253,10 +253,10 @@ export default function WeekScreen() {
                             )}{" "}
                             <span className="small muted">{pack > 1 ? "packs" : r.part.unit === "lb" ? "lb" : ""}</span>
                           </td>
-                          <td className="num">{fmt(r.need / pack)}</td>
+                          <td className="num">{fmt(wholeNeed(r) / pack)}</td>
                           <td className="num">{fmt(r.supply / pack)}</td>
                           <td>
-                            <div className={`bar ${r.status === "short" ? "short" : ""}`} title={`${fmt(r.need / pack)} of ${fmt(r.supply / pack)}`}>
+                            <div className={`bar ${r.status === "short" ? "short" : ""}`} title={`${fmt(wholeNeed(r) / pack)} of ${fmt(r.supply / pack)}`}>
                               <i style={{ width: `${Math.min(100, r.supply ? (r.need / r.supply) * 100 : r.need ? 100 : 0)}%` }} />
                             </div>
                           </td>
@@ -399,7 +399,7 @@ export default function WeekScreen() {
         )}
         {extras.length > 0 && (
           <div className="note mt-3">
-            <b>Extra cuts to plan for:</b> {extras.map((r) => `${r.part.name} ${fmt(r.left)}`).join(", ")}.
+            <b>Extra cuts to plan for:</b> {extras.map((r) => `${r.part.name} ${fmt(wholeLeft(r))}`).join(", ")}.
             {(seeFreezer || seeCutSheet || seeHalfWhole) && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="small">Decide where they go:</span>
@@ -588,7 +588,7 @@ function FollowUps({ week }: { week: string }) {
 
 /** Short, even, extra or available; in packs for parts ordered in packs (pack > 1). */
 function StatusTag({ row, pack = 1 }: { row: PartRow; pack?: number }) {
-  const left = row.left / pack;
+  const left = wholeLeft(row) / pack;
   switch (row.status) {
     case "short":
       return <span className="tag short">Short {fmt(-left)}</span>;
