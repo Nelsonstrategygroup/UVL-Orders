@@ -3263,3 +3263,82 @@ tr.zebra td,
   padding-top: 0;
   border-top: 0;
 }
+
+/* Carcass balance report (10/29/26): a summary, then each part as a subtraction. */
+.cb {
+  max-width: 760px;
+}
+.cb p {
+  margin: 0.3rem 0;
+}
+.cb-lambs {
+  font-size: 1.15rem;
+}
+.cb-short {
+  color: var(--barn);
+}
+.cb-compact,
+.cb-sub {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+.cb-compact th,
+.cb-compact td,
+.cb-sub td {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.cb-compact .num,
+.cb-sub .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cb-group th {
+  background: var(--field);
+  font-weight: 700;
+}
+.cb-part {
+  margin-top: 1.1rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.cb-part h3 {
+  margin: 0;
+}
+.cb-from td {
+  font-weight: 700;
+  border-top: 2px solid currentColor;
+}
+.cb-minus {
+  padding-left: 1.4rem !important;
+}
+.cb-result td {
+  font-weight: 700;
+  border-top: 2px solid currentColor;
+}
+.cb-neg td,
+td.cb-neg {
+  color: var(--barn);
+}
+@media print {
+  .cb-summary {
+    break-after: avoid;
+  }
+  .cb-group th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+/* The summary table on a phone: let the cells wrap so nothing scrolls sideways. */
+@media screen and (max-width: 640px) {
+  .cb-compact th,
+  .cb-compact td,
+  .cb-compact .num {
+    white-space: normal;
+    padding: 0.25rem 0.3rem;
+    font-size: 0.9rem;
+  }
+}

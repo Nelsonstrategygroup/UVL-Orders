@@ -15,8 +15,7 @@ import { daysOverdue } from "@/lib/calc/invoice";
 import { toIssued } from "@/lib/invoiceExport";
 import { packedWith } from "@/lib/calc/packTogether";
 import { partPackSizes } from "@/lib/calc/packs";
-import { lambSourceLine } from "@/lib/calc/week";
-import { partBalances } from "@/lib/calc/working";
+import { carcassReport, type CarcassReport } from "@/lib/calc/carcassReport";
 import { weekCalc } from "@/lib/weekCalc";
 import type { Catalog, CustomersData, WeekData } from "@/lib/db/types";
 import { formatDateTime } from "@/lib/format";
@@ -97,7 +96,7 @@ export const REPORTS: Record<ReportKind, ReportDef> = {
   "carcass-balance": {
     title: "Carcass balance",
     filter: "week",
-    shape: { constant: ["Week of", "Lambs"], groupBy: "Part", items: ["Goes to", "Quantity", "Unit"] },
+    shape: { constant: ["Week of"], groupBy: "Part", items: ["Line", "Quantity", "Unit"] },
   },
   "open-invoices": { title: "Open invoices", filter: "none", wide: true, shape: {} },
   "invoice-lines": { title: "Invoice lines for QuickBooks", filter: "range", wide: true, shape: {} },
@@ -119,7 +118,7 @@ export type ReportInput = {
 };
 
 /** The table and file name for a report, or null when its filter isn't filled in yet (no customer picked). */
-export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ table: Table; file: string; sheet: string } | null> {
+export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ table: Table; file: string; sheet: string; carcass?: CarcassReport } | null> {
   const { week, catalog, customers, data } = x;
   const productName = (id: string) => catalog.productById.get(id)?.name ?? id;
   const customerName = (id: string) => {
@@ -200,8 +199,26 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
     case "carcass-balance": {
       // The same balance as This week, with Le Trim's share in it.
       const { c, leTrim } = weekCalc(data, catalog);
+      const plan = data.leTrim;
+      const report = carcassReport({
+        c,
+        products: catalog.products,
+        parts: catalog.parts,
+        packSizes: partPackSizes(catalog.products),
+        extraLambs: data.extraLambs ?? [],
+        leTrim: {
+          planned: !!plan,
+          orderedLb: leTrim.ordered.lb,
+          shoulders: plan ? plan.shoulders : leTrim.need.shoulders,
+          halfLegs: plan ? plan.half_legs : leTrim.need.halfLegs,
+          trimLb: plan ? plan.trim_lb : leTrim.need.trimLb,
+          shoulderLb: leTrim.weights.shoulderLb,
+          legLb: leTrim.weights.legLb,
+        },
+      });
       return {
-        table: carcassBalanceTable(week, lambSourceLine(c) ?? String(c.final), partBalances(c, catalog.products), partPackSizes(catalog.products), leTrim.planned),
+        carcass: report,
+        table: carcassBalanceTable(week, report),
         file: `carcass-balance-week-of-${week}`,
         sheet: "Carcass balance",
       };

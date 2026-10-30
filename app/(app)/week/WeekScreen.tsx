@@ -24,6 +24,7 @@ import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/c
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
 import { plannedExtras, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
 import { weekCalc } from "@/lib/weekCalc";
+import { qtyWords } from "@/lib/calc/carcassReport";
 import Working from "./Working";
 import { leTrimCutLines, leTrimShortText } from "@/lib/calc/leTrim";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
@@ -407,7 +408,7 @@ export default function WeekScreen() {
         )}
         {extras.length > 0 && (
           <div className="note mt-3">
-            <b>Extra cuts to plan for:</b> {extras.map((r) => `${r.part.name} ${fmt(wholeLeft(r))}`).join(", ")}.
+            <b>Extra cuts to plan for:</b> {extras.map((r) => `${r.part.name} ${qtyWords(wholeLeft(r), packSizes.get(r.part.id) ? { kind: "packs", size: packSizes.get(r.part.id)! } : r.part.unit === "lb" ? { kind: "lb" } : { kind: "pieces" }, r.part)}`).join(", ")}.
             {(seeFreezer || seeCutSheet || seeHalfWhole) && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="small">Decide where they go:</span>
@@ -428,20 +429,6 @@ export default function WeekScreen() {
                 )}
               </div>
             )}
-          </div>
-        )}
-        {c.filled.length > 0 && (
-          <div className="note mt-3">
-            <b>Filled from extras, not in the table:</b>
-            {c.filled.map((f) => {
-              const step = catalog.productById.get(f.product.id)?.order_step ?? 1;
-              return (
-                <div key={f.product.id} className="mt-1">
-                  {f.product.name}: {fmt(f.qty)} {unitWord(f.product.unit, f.qty)}
-                  {step > 1 && ` (${fmt(f.qty / step)} × ${fmt(step)} ${unitWord(f.product.unit, step)})`}. {f.note}
-                </div>
-              );
-            })}
           </div>
         )}
         {shortCount > 0 && (

@@ -10,7 +10,7 @@ import { lineUnit, toProductUnit, unitWord } from "./calc/units";
 import { csvCell } from "./import/csv";
 import { boxCellText, type BoxLimit, type BoxType } from "./calc/boxes";
 import { fmt } from "./calc/num";
-import type { PartBalance } from "./calc/working";
+import type { CarcassReport } from "./calc/carcassReport";
 
 type Cell = string | number | null | undefined;
 type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
@@ -573,47 +573,39 @@ export function quickbooksLinesTable(list: IssuedInvoice[]): Table {
   return { header: QUICKBOOKS_COLUMNS, rows };
 }
 
-export const CARCASS_BALANCE_COLUMNS = ["Week of", "Lambs", "Part", "Goes to", "Quantity", "Unit"];
+export const CARCASS_BALANCE_COLUMNS = ["Week of", "Part", "Line", "Quantity", "Unit", "Pieces"];
 
 /**
- * The carcass balance for building the cut sheet (Lucas, 10/29/26): part by
- * part, what the lambs give, where every piece goes (each product, Le Trim,
- * cut into racks and short loins), and what's left over or short. Pieces are
- * whole (a need rounds up, less than a whole piece spare is none); shanks
- * read in packs, trim in pounds.
+ * The Carcass balance as a spreadsheet (Lucas, 10/29/26): the summary lines,
+ * then each part as a subtraction (From, minus each use, = Left over / Short
+ * / Cut), then Le Trim. The page lays the same report out to read
+ * (lib/calc/carcassReport.ts).
  */
-export function carcassBalanceTable(
-  week: string,
-  lambsText: string,
-  balances: PartBalance[],
-  packSizes: Map<string, number>,
-  leTrimPlanned: boolean,
-): Table {
+export function carcassBalanceTable(week: string, r: CarcassReport): Table {
   const rows: Cell[][] = [];
   const kinds: Table["rowKinds"] = [];
-  for (const b of balances) {
-    if (!(b.supply > 0) && !b.uses.length) continue;
-    const pack = packSizes.get(b.part.id) ?? 1;
-    const lb = b.part.unit === "lb";
-    const unit = lb ? "lb" : pack > 1 ? "packs" : "";
-    const amt = (v: number, round: "up" | "down" | "none" = "none") => {
-      const whole = lb || round === "none" ? Math.round(v * 100) / 100 : round === "up" ? Math.ceil(v - 1e-9) : Math.floor(v + 1e-9);
-      return Math.round((whole / pack) * 100) / 100;
+  const push = (cells: Cell[], kind?: "section" | "total") => {
+    rows.push([week, ...cells]);
+    kinds.push(kind);
+  };
+  for (const line of [r.lambsLine, r.sourceLine, r.setLine, r.statusLine, r.tightLine, r.guessLine, r.notOrdered]) if (line) push(["Summary", line, "", "", ""]);
+  for (const s of r.sections) {
+    const q = (pieces: number) => {
+      if (s.unit.kind === "packs") return [Math.round((pieces / s.unit.size) * 100) / 100, "packs", pieces];
+      return [Math.round(pieces * 100) / 100, s.unit.kind === "lb" ? "lb" : "", ""];
     };
-    const add = (goesTo: string, v: number, kind?: "total") => {
-      rows.push([week, lambsText, b.part.name, goesTo, v, unit]);
-      kinds.push(kind);
-    };
-    add(b.parent ? `Cut from ${b.parent.name.toLowerCase()}s` : "From the lambs", amt(b.supply));
-    // Packs (shanks) read as packs ordered; otherwise "Whole Lamb (4 x 2)" shows how a product takes more than one.
-    for (const u of b.uses) add(u.each !== 1 && pack === 1 ? `${u.product} (${fmt(u.qty)} x ${fmt(u.each)})` : u.product, amt(u.total, "up"));
-    if (b.cut) add(`Cut into ${b.cut.into.map((p) => p.name.toLowerCase() + "s").join(" and ")}`, amt(b.cut.amount, "up"));
-    if (b.leTrim > 0) {
-      const what = b.part.id === "shoulder" ? " (boned out)" : b.part.id === "leg" ? " (legs cut in half)" : "";
-      add(`Le Trim${what}${leTrimPlanned ? ", your plan" : ", worked out"}`, amt(b.leTrim, "up"));
-    }
-    const left = lb ? b.left : Math.floor(b.left + 1e-9);
-    add(left < -1e-9 ? "Short" : "Left over", Math.abs(amt(left)), "total");
+    push([s.part.name, s.from.label, ...q(s.from.pieces)]);
+    for (const m of s.minus) push([s.part.name, `minus ${m.label}`, ...q(m.pieces)]);
+    push([s.part.name, s.result.label, ...q(s.result.pieces)], "total");
+    if (s.note) push([s.part.name, s.note, "", "", ""]);
+  }
+  const lt = r.leTrim;
+  if (lt) {
+    push(["Le Trim", `Ordered (${lt.units} units of ${lt.unitLb} lb)`, lt.orderedLb, "lb", ""]);
+    push(["Le Trim", `Shoulders boned out (${lt.shoulders} x ${fmt(lt.shoulderLb)} lb)`, Math.round(lt.shoulders * lt.shoulderLb * 100) / 100, "lb", ""]);
+    push(["Le Trim", `Half legs (${lt.halfLegs} x ${fmt(lt.halfLegLb)} lb)`, Math.round(lt.halfLegs * lt.halfLegLb * 100) / 100, "lb", ""]);
+    push(["Le Trim", "Trim", lt.trimLb, "lb", ""]);
+    push(["Le Trim", lt.diffLb >= 0 ? `Total (${fmt(lt.diffLb)} lb over)` : `Total (${fmt(-lt.diffLb)} lb short)`, lt.totalLb, "lb", ""], "total");
   }
   return { header: CARCASS_BALANCE_COLUMNS, rows, rowKinds: kinds };
 }

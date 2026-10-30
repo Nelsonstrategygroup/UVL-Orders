@@ -18,9 +18,11 @@ import { fmt } from "@/lib/calc/num";
 import { addDays, currentWeek, longDate, niceDate, packingMonday, todayISO, weekName } from "@/lib/dates";
 import { readable } from "@/lib/readable";
 import type { Table } from "@/lib/reports";
+import type { CarcassReport } from "@/lib/calc/carcassReport";
 import { buildReport, REPORTS, reportHref, type ReportKind } from "../../reports";
+import CarcassBalance from "./CarcassBalance";
 
-type Built = { key: string; table: Table; file: string; sheet: string } | { key: string; none: true } | { key: string; error: string };
+type Built = { key: string; table: Table; file: string; sheet: string; carcass?: CarcassReport } | { key: string; none: true } | { key: string; error: string };
 
 export default function ReportScreen(props: { kind: ReportKind; customer: string; from: string; to: string; print?: boolean }) {
   const { kind } = props;
@@ -170,6 +172,8 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
           <p className="empty">
             {def.filter === "customer" ? "Pick a customer to see their orders." : "Pick a From date on or before the To date."}
           </p>
+        ) : "carcass" in current && current.carcass ? (
+          <CarcassBalance r={current.carcass} />
         ) : !view?.rows.length ? (
           <p className="empty">Nothing to show for this {def.filter === "week" ? "week" : "report"} yet.</p>
         ) : (
