@@ -3248,3 +3248,18 @@ tr.zebra td,
     font-size: 9pt;
   }
 }
+
+/* How the lamb count was worked out (This week, 10/29/26). */
+.working ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.3rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.working table.simple {
+  width: 100%;
+}
+.working tr.working-from td {
+  padding-top: 0;
+  border-top: 0;
+}

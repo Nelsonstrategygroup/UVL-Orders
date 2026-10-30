@@ -24,6 +24,7 @@ import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/c
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
 import { plannedExtras, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
 import { weekCalc } from "@/lib/weekCalc";
+import Working from "./Working";
 import { leTrimCutLines, leTrimShortText } from "@/lib/calc/leTrim";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
 import { cantConvert, unitWord } from "@/lib/calc/units";
@@ -171,6 +172,7 @@ export default function WeekScreen() {
               </div>
             </div>
           </div>
+          <Working c={c} parts={catalog.parts} products={catalog.products} extraLambs={data.extraLambs ?? []} leTrim={lt} />
 
           <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
             <OverrideField
