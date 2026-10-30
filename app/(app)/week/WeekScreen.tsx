@@ -278,6 +278,12 @@ export default function WeekScreen() {
             </p>
           ))}
           {legs && <p className="mt-3 mb-0 font-medium">{legs}</p>}
+          <p className="mt-2 mb-0">
+            <Link href="/print/report/carcass-balance" className="copy">
+              Carcass balance report
+            </Link>{" "}
+            <span className="small muted">where every piece goes, part by part, to print for the cut sheet</span>
+          </p>
           {uncounted.length > 0 && (
             <p className="note bad small mt-3">
               Not counted: {uncounted.map((u) => `${u.name} ${fmt(u.qty)} ${unitWord(u.unit, u.qty)}`).join(", ")}. Add a weight

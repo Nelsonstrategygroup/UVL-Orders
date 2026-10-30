@@ -10,6 +10,7 @@ import { lineUnit, toProductUnit, unitWord } from "./calc/units";
 import { csvCell } from "./import/csv";
 import { boxCellText, type BoxLimit, type BoxType } from "./calc/boxes";
 import { fmt } from "./calc/num";
+import type { PartBalance } from "./calc/working";
 
 type Cell = string | number | null | undefined;
 type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
@@ -570,4 +571,49 @@ export function quickbooksLinesTable(list: IssuedInvoice[]): Table {
     }
   }
   return { header: QUICKBOOKS_COLUMNS, rows };
+}
+
+export const CARCASS_BALANCE_COLUMNS = ["Week of", "Lambs", "Part", "Goes to", "Quantity", "Unit"];
+
+/**
+ * The carcass balance for building the cut sheet (Lucas, 10/29/26): part by
+ * part, what the lambs give, where every piece goes (each product, Le Trim,
+ * cut into racks and short loins), and what's left over or short. Pieces are
+ * whole (a need rounds up, less than a whole piece spare is none); shanks
+ * read in packs, trim in pounds.
+ */
+export function carcassBalanceTable(
+  week: string,
+  lambsText: string,
+  balances: PartBalance[],
+  packSizes: Map<string, number>,
+  leTrimPlanned: boolean,
+): Table {
+  const rows: Cell[][] = [];
+  const kinds: Table["rowKinds"] = [];
+  for (const b of balances) {
+    if (!(b.supply > 0) && !b.uses.length) continue;
+    const pack = packSizes.get(b.part.id) ?? 1;
+    const lb = b.part.unit === "lb";
+    const unit = lb ? "lb" : pack > 1 ? "packs" : "";
+    const amt = (v: number, round: "up" | "down" | "none" = "none") => {
+      const whole = lb || round === "none" ? Math.round(v * 100) / 100 : round === "up" ? Math.ceil(v - 1e-9) : Math.floor(v + 1e-9);
+      return Math.round((whole / pack) * 100) / 100;
+    };
+    const add = (goesTo: string, v: number, kind?: "total") => {
+      rows.push([week, lambsText, b.part.name, goesTo, v, unit]);
+      kinds.push(kind);
+    };
+    add(b.parent ? `Cut from ${b.parent.name.toLowerCase()}s` : "From the lambs", amt(b.supply));
+    // Packs (shanks) read as packs ordered; otherwise "Whole Lamb (4 x 2)" shows how a product takes more than one.
+    for (const u of b.uses) add(u.each !== 1 && pack === 1 ? `${u.product} (${fmt(u.qty)} x ${fmt(u.each)})` : u.product, amt(u.total, "up"));
+    if (b.cut) add(`Cut into ${b.cut.into.map((p) => p.name.toLowerCase() + "s").join(" and ")}`, amt(b.cut.amount, "up"));
+    if (b.leTrim > 0) {
+      const what = b.part.id === "shoulder" ? " (boned out)" : b.part.id === "leg" ? " (legs cut in half)" : "";
+      add(`Le Trim${what}${leTrimPlanned ? ", your plan" : ", worked out"}`, amt(b.leTrim, "up"));
+    }
+    const left = lb ? b.left : Math.floor(b.left + 1e-9);
+    add(left < -1e-9 ? "Short" : "Left over", Math.abs(amt(left)), "total");
+  }
+  return { header: CARCASS_BALANCE_COLUMNS, rows, rowKinds: kinds };
 }

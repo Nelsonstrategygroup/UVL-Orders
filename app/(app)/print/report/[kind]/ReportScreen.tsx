@@ -81,7 +81,8 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
   const sorted = sortByDisplayName(customers.list, customers.byId);
   const subtitle =
     def.filter === "week"
-      ? `Packing ${weekName(week)}`
+      ? // Columns with one value for the whole report (the carcass balance's lambs) go under the title.
+        [`Packing ${weekName(week)}`, ...(view?.constants ?? []).filter((f) => f.label !== "Week of").map((f) => `${f.label}: ${f.value}`)].join(" · ")
       : def.filter === "range" && from && to && from <= to
         ? `Packing Mondays ${niceDate(packingMonday(from))} through ${niceDate(packingMonday(to))}`
         : def.filter === "customer" && customers.byId.get(customerId)
@@ -151,7 +152,7 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
             </div>
           </div>
         )}
-        {def.filter === "none" && subtitle && <p className="muted mt-1 mb-0">{subtitle}</p>}
+        {(def.filter === "none" || (def.filter === "week" && subtitle.includes(" · "))) && subtitle && <p className="muted mt-1 mb-0">{subtitle}</p>}
         {def.wide && <p className="note small rp-laptop">Easier to read on a laptop.</p>}
       </div>
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Part, Product } from "./types";
 import { calcWeek } from "./week";
-import { countWorking } from "./working";
+import { countWorking, partBalances } from "./working";
 
 const part = (id: string, name: string, per_lamb: number, drives: boolean, sort: number, made_from: string | null = null): Part => ({
   id,
@@ -78,5 +78,29 @@ describe("how the lamb count was worked out", () => {
     expect(w.carcass).toEqual([{ product: "Carcass Lamb", qty: 1 }]);
     expect(w.notCounted).toEqual([{ product: "Pepper Sticks", qty: 2 }]);
     expect(c.recommended).toBe(45 + 1 + 15);
+  });
+});
+
+describe("the carcass balance, part by part", () => {
+  const orders = [{ bnls: 60, bis: 30, rack: 82, sl: 76, whole: 4, carc: 1, sticks: 2, le: 720 }];
+  // 45 lambs from orders; Le Trim takes 10 shoulders and 5 legs from what's spare.
+  const c = calcWeek({ parts, products, orders, leTrim: { shoulders: 10, legs: 5, trimLb: 0 } });
+  const b = partBalances(c, products);
+  const row = (id: string) => b.find((x) => x.part.id === id)!;
+
+  it("shows what the lambs give, where every piece goes, and what's left", () => {
+    expect(row("leg")).toMatchObject({ supply: 90, leTrim: 5, left: 17 });
+    expect(row("leg").uses.map((u) => [u.product, u.total])).toEqual([
+      ["BNLS Legs", 60],
+      ["Whole Lamb", 8],
+    ]);
+    expect(row("shoulder")).toMatchObject({ supply: 90, leTrim: 10, left: 42 });
+  });
+
+  it("whole loins: those going out whole, then those cut into racks and short loins", () => {
+    expect(row("wholeloin")).toMatchObject({ supply: 90, leTrim: 0, left: 0, cut: { amount: 82 } });
+    expect(row("wholeloin").uses.map((u) => [u.product, u.total])).toEqual([["Whole Lamb", 8]]);
+    expect(row("rack")).toMatchObject({ supply: 82, left: 0, parent: { id: "wholeloin" } });
+    expect(row("loin")).toMatchObject({ supply: 82, left: 6 });
   });
 });

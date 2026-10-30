@@ -97,3 +97,59 @@ export function countWorking(c: Pick<WeekCalc, "withShort" | "orderLambs">, part
   for (const r of out) r.sets = top > 0 && r.lambs === top && r.lambs === c.orderLambs;
   return { parts: out, never, notCounted, carcass };
 }
+
+/** Where one part's pieces go this week. */
+export type PartBalance = {
+  part: Part;
+  /** What the week's lambs give. */
+  supply: number;
+  /** Each product that uses it (every product ordered, counted toward the lambs or not), in the part's pieces. */
+  uses: WorkingLine[];
+  /** A part others are cut from (whole loin): how many are cut into them. */
+  cut: { into: Part[]; amount: number } | null;
+  /** Taken by Le Trim (its saved plan, or the worked-out mix). */
+  leTrim: number;
+  /** supply - everything above. Negative: short. */
+  left: number;
+  /** The part this one is cut from, if any (rack and short loin: whole loin). */
+  parent: Part | null;
+};
+
+/**
+ * The carcass balance laid out part by part, for the Carcass balance report
+ * (Lucas, 10/29/26): what the lambs give, where every piece goes (each
+ * product, Le Trim, cut into racks and short loins), and what's left over or
+ * short. `c` is from calcWeek with the Le Trim mix in it (lib/weekCalc.ts).
+ */
+export function partBalances(c: Pick<WeekCalc, "withShort" | "rows">, products: Product[]): PartBalance[] {
+  const lines = new Map<string, WorkingLine[]>();
+  for (const p of [...products].sort((a, b) => a.sort - b.sort)) {
+    const q = num(c.withShort[p.id] ?? 0);
+    if (!(q > EPS) || p.carcass || (p.fill_note ?? "").trim()) continue;
+    for (const u of p.uses) {
+      const each = num(u.qty);
+      if (!each) continue;
+      const list = lines.get(u.part_id) ?? [];
+      list.push({ product: p.name, qty: round2(q), each, total: round2(q * each) });
+      lines.set(u.part_id, list);
+    }
+  }
+  const byId = new Map(c.rows.map((r) => [r.part.id, r]));
+  return c.rows.map((r) => {
+    const uses = lines.get(r.part.id) ?? [];
+    const used = uses.reduce((s, l) => s + l.total, 0);
+    const kids = c.rows.filter((k) => k.parent === r.part.id);
+    // A parent's need is what's ordered whole plus the larger of its cut-from parts' needs.
+    const cutAmount = kids.length ? kids.reduce((m, k) => Math.max(m, k.need), 0) : 0;
+    const leTrim = round2(Math.max(0, r.need - used - cutAmount));
+    return {
+      part: r.part,
+      supply: round2(r.supply),
+      uses,
+      cut: kids.length ? { into: kids.map((k) => k.part), amount: round2(cutAmount) } : null,
+      leTrim,
+      left: round2(r.left),
+      parent: r.parent ? (byId.get(r.parent)?.part ?? null) : null,
+    };
+  });
+}

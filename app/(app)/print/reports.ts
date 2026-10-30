@@ -14,6 +14,10 @@ import { loadIssuedInvoices } from "@/lib/db/invoices";
 import { daysOverdue } from "@/lib/calc/invoice";
 import { toIssued } from "@/lib/invoiceExport";
 import { packedWith } from "@/lib/calc/packTogether";
+import { partPackSizes } from "@/lib/calc/packs";
+import { lambSourceLine } from "@/lib/calc/week";
+import { partBalances } from "@/lib/calc/working";
+import { weekCalc } from "@/lib/weekCalc";
 import type { Catalog, CustomersData, WeekData } from "@/lib/db/types";
 import { formatDateTime } from "@/lib/format";
 import type { ReadableShape } from "@/lib/readable";
@@ -24,6 +28,7 @@ import {
   fileSafe,
   freezerTable,
   invoiceCodesTable,
+  carcassBalanceTable,
   openInvoicesTable,
   orderGridTable,
   packingRecordTable,
@@ -45,6 +50,7 @@ export type ReportKind =
   | "freezer"
   | "box-sizes"
   | "invoice-codes"
+  | "carcass-balance"
   | "open-invoices"
   | "invoice-lines";
 
@@ -88,6 +94,11 @@ export const REPORTS: Record<ReportKind, ReportDef> = {
   freezer: { title: "Freezer on hand", filter: "none", shape: { constant: ["As of"] } },
   "box-sizes": { title: "Box sizes", filter: "none", wide: true, lined: true, shape: { keep: ["Notes"] } },
   "invoice-codes": { title: "Invoice codes", filter: "none", lined: true, shape: { keep: ["Notes"] } },
+  "carcass-balance": {
+    title: "Carcass balance",
+    filter: "week",
+    shape: { constant: ["Week of", "Lambs"], groupBy: "Part", items: ["Goes to", "Quantity", "Unit"] },
+  },
   "open-invoices": { title: "Open invoices", filter: "none", wide: true, shape: {} },
   "invoice-lines": { title: "Invoice lines for QuickBooks", filter: "range", wide: true, shape: {} },
 };
@@ -184,6 +195,15 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
         table: invoiceCodesTable(list.map((c) => ({ name: displayName(c, customers.byId), code: billing.get(c.id)?.invoice_code ?? "" }))),
         file: `invoice-codes-${todayISO()}`,
         sheet: "Invoice codes",
+      };
+    }
+    case "carcass-balance": {
+      // The same balance as This week, with Le Trim's share in it.
+      const { c, leTrim } = weekCalc(data, catalog);
+      return {
+        table: carcassBalanceTable(week, lambSourceLine(c) ?? String(c.final), partBalances(c, catalog.products), partPackSizes(catalog.products), leTrim.planned),
+        file: `carcass-balance-week-of-${week}`,
+        sheet: "Carcass balance",
       };
     }
     case "open-invoices": {

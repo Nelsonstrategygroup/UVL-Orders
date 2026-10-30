@@ -147,6 +147,10 @@ export default function PrintScreen() {
             Open the sheet to check it, then print it or email it.
           </Item>
         )}
+        <Item key="balance" title="Carcass balance" action={both("carcass-balance")}>
+          Part by part: what the week&apos;s lambs give, where every piece goes (each product, Le Trim, racks and short loins), and
+          what&apos;s left over or short. For building the cut sheet.
+        </Item>
         <Item key="totals" title="Product totals" action={both("product-totals")}>
           Each product added up across customers, plus half and whole lambs, with packed and short. A pick list, and a check
           against what Mohawk cut.
