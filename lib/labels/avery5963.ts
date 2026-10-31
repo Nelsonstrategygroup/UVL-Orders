@@ -110,10 +110,12 @@ export type LabelLayout = {
   /** Green band with the product name, one or two lines; none on a write-in label. */
   band: Rect | null;
   productLines: TextLine[];
-  /** Write-in label: the blanks to write on (lines), each one's name after it, what was ordered under it in gray, the slashes between. */
-  blanks: { x: number; y: number; w: number }[];
+  /** Write-in label: on the green band, each organ's name in white, a white box under it to write the count in, what was ordered under that. */
+  writeBoxes: Rect[];
   writeText: TextLine[];
   orderedText: TextLine[];
+  /** Lines to write on: "Box ___ of ___" on a write-in label. */
+  blanks: { x: number; y: number; w: number }[];
   /** "BOX 2 OF 3" in a red tag when there's more than one box; plain "Box 1 of 1" otherwise; "Box ___ of ___" on a write-in label. */
   boxTag: Rect | null;
   boxText: TextLine;
@@ -141,12 +143,11 @@ export const LAYOUT = {
   tagH: 0.21 * IN,
   radius: 5,
   tagRadius: 4,
-  /** Write-in label: a blank about 0.75 in, room above it for a marker, the names at up to 11 pt. */
-  blankW: 0.75 * IN,
-  blankMin: 0.6 * IN,
-  writeRoom: 0.4 * IN,
-  writeMax: 11,
-  writeMin: 8,
+  /** Write-in label: a taller green band, names up to 18 pt, white write-in boxes up to 1.2 in wide. */
+  writeH: 0.9 * IN,
+  writeMax: 18,
+  writeMin: 10,
+  writeBoxMaxW: 1.2 * IN,
   boxBlankW: 0.3 * IN,
 } as const;
 
@@ -188,8 +189,8 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const tagTop = H - PAD - LAYOUT.tagH;
   const midTag = (size: number) => tagTop + (LAYOUT.tagH + ASCENT * size) / 2;
 
-  // Item: the quantity box and the product band, above the bottom line.
-  const itemTop = tagTop - 4 - LAYOUT.itemH;
+  // Item: the quantity box and the product band, above the bottom line (taller on a write-in label).
+  const itemTop = tagTop - 4 - (l.writeIn?.length ? LAYOUT.writeH : LAYOUT.itemH);
   const ruleY = itemTop - 4;
 
   // Destination: "PCC #10 Issaquah", wrapped to two lines before shrinking, sitting just above the rule.
@@ -248,14 +249,15 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const typeText = typeTag ? { text: type, x: typeTag.x + 6, y: midTag(9), size: 9 } : null;
 
   // Middle: the label number, for the office only (worked out above).
-  return { dest, ruleY, qtyBox, qtyLines, band, productLines, blanks: [], writeText: [], orderedText: [], boxTag, boxText, boxMore: [], labelNo, typeTag, typeText };
+  return { dest, ruleY, qtyBox, qtyLines, band, productLines, writeBoxes: [], writeText: [], orderedText: [], blanks: [], boxTag, boxText, boxMore: [], labelNo, typeTag, typeText };
 }
 
 /**
  * The write-in label (Hearts, Livers, Kidneys; Lucas, 10/31/26): in place of
- * the quantity and product, "______ Hearts / ______ Livers / ______ Kidneys"
- * for the ones ordered, room above each blank for a marker, "ordered: 4 pk"
- * small and gray under it; "Box ___ of ___" at the bottom; no box type.
+ * the quantity and product, a taller green band with a column for each one
+ * ordered: its name in big white letters, a white box under it to write the
+ * count in with a marker, and "ordered: 4 pk" small under that. "Box ___ of
+ * ___" at the bottom; no box type.
  */
 function writeInLayout(
   items: { name: string; ordered: string }[],
@@ -264,53 +266,49 @@ function writeInLayout(
   inner: number,
   m: Measure,
 ) {
+  const band = { x: PAD, y: itemTop, w: inner, h: LAYOUT.writeH };
+  const pad = 6;
+  const colGap = 6;
+  const n = items.length;
+  const colW = (band.w - 2 * pad - (n - 1) * colGap) / n;
   const names = items.map((i) => plain(i.name));
-  const gap = 3; // between a blank and its name
-  const slash = " / ";
-  // Names as big as fits with blanks of at least blankMin; blanks up to blankW.
+  // One size for every name: the biggest that fits the widest in its column.
   let size: number = LAYOUT.writeMax;
-  let blankW: number = LAYOUT.blankW;
-  for (; size >= LAYOUT.writeMin; size -= 0.5) {
-    const fixed = names.reduce((s, n) => s + m.bold(n, size) + gap, 0) + (names.length - 1) * m.bold(slash, size);
-    blankW = Math.min(LAYOUT.blankW, (inner - fixed) / names.length);
-    if (blankW >= LAYOUT.blankMin) break;
-  }
-  size = Math.max(size, LAYOUT.writeMin);
-  const lineY = itemTop + LAYOUT.writeRoom;
-  const blanks: { x: number; y: number; w: number }[] = [];
+  while (size > LAYOUT.writeMin && Math.max(...names.map((t) => m.bold(t, size))) > colW - 4) size -= 0.5;
+  const nameBase = band.y + 5 + size * ASCENT;
+  const oSize = 7.5;
+  const boxTop = nameBase + 4;
+  const boxH = band.y + band.h - 4 - oSize * ASCENT - 3 - boxTop;
+  const boxW = Math.min(colW, LAYOUT.writeBoxMaxW);
+  const writeBoxes: Rect[] = [];
   const writeText: TextLine[] = [];
   const orderedText: TextLine[] = [];
-  let x = PAD;
-  names.forEach((n, i) => {
-    if (i > 0) {
-      writeText.push({ text: slash.trim(), x: x + m.bold(" ", size), y: lineY, size });
-      x += m.bold(slash, size);
-    }
-    blanks.push({ x, y: lineY, w: blankW });
+  names.forEach((t, i) => {
+    const cx = band.x + pad + i * (colW + colGap) + colW / 2;
+    writeText.push({ text: t, x: cx - m.bold(t, size) / 2, y: nameBase, size });
+    writeBoxes.push({ x: cx - boxW / 2, y: boxTop, w: boxW, h: boxH });
     const o = plain(`ordered: ${items[i].ordered}`);
-    orderedText.push({ text: o, x, y: lineY + 2 + 7 * ASCENT + 1, size: 7 });
-    x += blankW + gap;
-    writeText.push({ text: n, x, y: lineY, size });
-    x += m.bold(n, size);
+    orderedText.push({ text: o, x: cx - m.regular(o, oSize) / 2, y: boxTop + boxH + 3 + oSize * ASCENT, size: oSize });
   });
   // "Box ___ of ___" on the bottom line.
   const s = 9;
   const y = midTag(s);
   const boxText = { text: "Box", x: PAD, y, size: s };
   let bx = PAD + m.regular("Box ", s);
-  const boxBlanks = [{ x: bx, y: y + 1, w: LAYOUT.boxBlankW }];
+  const blanks = [{ x: bx, y: y + 1, w: LAYOUT.boxBlankW }];
   bx += LAYOUT.boxBlankW;
   const of = { text: "of", x: bx + m.regular(" ", s), y, size: s };
   bx += m.regular(" of ", s);
-  boxBlanks.push({ x: bx, y: y + 1, w: LAYOUT.boxBlankW });
+  blanks.push({ x: bx, y: y + 1, w: LAYOUT.boxBlankW });
   return {
     qtyBox: null,
     qtyLines: [],
-    band: null,
+    band,
     productLines: [],
-    blanks: [...blanks, ...boxBlanks],
+    writeBoxes,
     writeText,
     orderedText,
+    blanks,
     boxTag: null,
     boxText,
     boxMore: [of],
@@ -335,6 +333,7 @@ function roundRect(w: number, h: number, r: number): string {
 }
 
 const FOREST = rgb(0x3b / 255, 0x5e / 255, 0x27 / 255);
+const PALE = rgb(0xe4 / 255, 0xee / 255, 0xdc / 255);
 const BARN = rgb(0x7a / 255, 0x33 / 255, 0x27 / 255);
 
 function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel, f: { regular: PDFFont; bold: PDFFont }) {
@@ -356,10 +355,11 @@ function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel
   for (const t of L.qtyLines) text(t, f.bold, white);
   if (L.band) rounded(L.band, LAYOUT.radius, { color: FOREST });
   for (const t of L.productLines) text(t, f.bold, white);
-  // Write-in label: real lines to write on, the names, what was ordered in gray.
+  // Write-in label: white boxes to write in on the green band, the names in white, what was ordered in pale green.
+  for (const r of L.writeBoxes) rounded(r, LAYOUT.tagRadius, { color: white });
+  for (const t of L.writeText) text(t, f.bold, white);
+  for (const t of L.orderedText) text(t, f.regular, PALE);
   for (const b of L.blanks) page.drawLine({ start: { x: X(b.x), y: Y(b.y) }, end: { x: X(b.x + b.w), y: Y(b.y) }, thickness: 1, color: black });
-  for (const t of L.writeText) text(t, f.bold);
-  for (const t of L.orderedText) text(t, f.regular, rgb(0.45, 0.45, 0.45));
   for (const t of L.boxMore) text(t, f.regular);
 
   if (L.boxTag) {
