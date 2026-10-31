@@ -97,7 +97,7 @@ describe("the label layout (10/24/26)", async () => {
   it("a long destination wraps to two lines (before shrinking) without overlapping the rule", () => {
     const l = L({ name: "Preservation Meat Collective", location: "Portland" });
     expect(l.dest.length).toBe(2);
-    expect(l.dest[0].size).toBe(22);
+    expect(l.dest[0].size).toBeGreaterThanOrEqual(20); // its first line reaches up beside the INV#, so it fits to the left of it
     for (const d of l.dest) expect(m.bold(d.text, d.size)).toBeLessThanOrEqual(inner);
     const last = l.dest[l.dest.length - 1];
     expect(last.y + last.size * 0.207).toBeLessThan(l.ruleY); // descenders stay above the rule
@@ -152,7 +152,7 @@ describe("the label layout (10/24/26)", async () => {
     }
     for (const t of l.writeText) expect(t.x + m.bold(t.text, t.size)).toBeLessThanOrEqual(l.band!.x + l.band!.w);
     // The customer still fits above the rule.
-    expect(L({ name: "PCC", location: "#10 Issaquah", writeIn }).dest[0].size).toBe(22);
+    expect(L({ name: "PCC", location: "#10 Issaquah", writeIn, inv: "3001" }).dest[0].size).toBe(22);
     expect(l.boxText.text).toBe("Box");
     expect(l.boxMore.map((t) => t.text)).toEqual(["of"]);
     expect(l.blanks).toHaveLength(2);
@@ -167,13 +167,57 @@ describe("the label layout (10/24/26)", async () => {
     expect(doc.getPageCount()).toBe(1);
   });
 
+  it("the week's INV# sits alone in the top right corner, bold 12 pt, inside the padding; a blank when not set (10/31/26)", () => {
+    const l = L({ inv: "3001" });
+    expect(l.inv.text).toBe("INV# 3001");
+    expect(l.inv.size).toBeGreaterThanOrEqual(12);
+    expect(l.inv.x + l.inv.w).toBeCloseTo(288 - 0.18 * 72);
+    expect(l.inv.y - l.inv.size * 0.718).toBeCloseTo(0.18 * 72);
+    expect(L({ inv: null }).inv.text).toBe("INV# ______");
+    // Only once: not with the label number any more.
+    expect(l.labelNo.text).not.toContain("INV");
+  });
+
+  // The longest customer and location in the system (PCC #24 Central District), and longer, on both kinds of label.
+  const names: [string, string][] = [
+    ["PCC", "#24 Central District"],
+    ["PCC", "#22 Madison Valley"],
+    ["Windy River Livestock", ""],
+    ["Preservation Meat Collective", "Portland"],
+    ["Jalapeno Honey Pepper Sticks Wholesale Distribution Company", "Southern Oregon"],
+  ];
+  const writeIn = [
+    { name: "Hearts", ordered: "4 pk" },
+    { name: "Livers", ordered: "4 pk" },
+    { name: "Kidneys", ordered: "4 pk" },
+  ];
+  for (const [name, location] of names)
+    for (const kind of ["box", "organs"] as const)
+      it(`the INV# never touches the customer: ${name} ${location} (${kind} label)`, () => {
+        const l = L({ name, location, inv: "______", ...(kind === "organs" ? { writeIn } : {}) });
+        const invBox = { left: l.inv.x, top: l.inv.y - l.inv.size * 0.718, bottom: l.inv.y + l.inv.size * 0.207 };
+        for (const d of l.dest) {
+          const top = d.y - d.size * 0.718;
+          const bottom = d.y + d.size * 0.207;
+          const right = d.x + m.bold(d.text, d.size);
+          const besideIt = top < invBox.bottom && bottom > invBox.top;
+          if (besideIt) expect(right).toBeLessThan(invBox.left - 4);
+          expect(bottom).toBeLessThan(l.ruleY);
+        }
+      });
+
+  it("a name that fits on one line keeps its size and place", () => {
+    const l = L({ name: "PCC", location: "#24 Central District", inv: "3001" });
+    expect(l.dest).toHaveLength(1);
+    expect(l.dest[0].size).toBe(22);
+  });
+
   it("the red box tag and the ROLL STOCK tag don't overlap the label number", () => {
     const l = L({ number: 168, boxNo: 10, boxCount: 12, boxType: "Roll Stock", inv: "3001" });
     expect(l.boxTag).not.toBeNull();
     expect(l.boxText.text).toBe("BOX 10 OF 12");
     expect(l.typeText!.text).toBe("ROLL STOCK");
-    expect(l.labelNo.text).toBe("INV# 3001 · label 168");
-    expect(L({ number: 9, inv: null }).labelNo.text).toBe("INV# ____ · label 9"); // the week has none yet: a blank
+    expect(l.labelNo.text).toBe("label 168");
     expect(l.boxTag!.x + l.boxTag!.w).toBeLessThan(l.labelNo.x);
     expect(l.labelNo.x + l.labelNo.w).toBeLessThan(l.typeTag!.x);
   });
