@@ -61,7 +61,16 @@ export type LabelRow = {
   location: string;
   /** Fingerprint of what the label says, to tell when it changed after printing. */
   print: string;
+  /**
+   * Packed together (Hearts, Livers, Kidneys): the label has a blank for each
+   * one ordered, counts written in by hand at Mohawk, with what was ordered
+   * small underneath, and "Box ___ of ___" (Lucas, 10/31/26).
+   */
+  writeIn?: WriteIn[];
 };
+
+/** One blank on a packed-together label: "______ Hearts", "ordered: 4 pk". */
+export type WriteIn = { name: string; ordered: string };
 
 export type LabelTable = {
   product: LabelProduct;
@@ -71,6 +80,8 @@ export type LabelTable = {
   weightUnknown: boolean;
   /** Some rows have no box size yet (shown with "?" and a note under the heading). */
   noBox: boolean;
+  /** Packed together (Organs): one write-in label per store; these tables come last. */
+  together?: boolean;
 };
 
 export type LabelList = {
@@ -114,7 +125,7 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
         if (p.id !== members.find((id) => ordered.has(id))) continue;
         const lead = members[0];
         const groupLabel = members.map((id) => products.get(id)?.name ?? id).join(", ");
-        const table: LabelTable = { product: { ...p, id: lead, name: groupLabel }, group: g.group, rows: [], weightUnknown: false, noBox: false };
+        const table: LabelTable = { product: { ...p, id: lead, name: groupLabel }, group: g.group, rows: [], weightUnknown: false, noBox: false, together: true };
         for (const o of sorted) {
           const parts = members
             .filter((id) => num(o.lines[id]) > 0)
@@ -124,6 +135,16 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
               return (o.units?.[id] ?? pr?.unit) === "lb" ? `${fmt(q)} lb ${pr?.name ?? id}` : `${fmt(q)} ${pr?.name ?? id}`;
             });
           if (!parts.length) continue;
+          // A blank for each one ordered, in the group's order (Hearts, Livers, Kidneys).
+          const writeIn = members
+            .filter((id) => num(o.lines[id]) > 0)
+            .map((id) => {
+              const pr = products.get(id);
+              const word = ((pr?.label_name ?? "").trim() || pr?.name || id).trim();
+              const u = o.units?.[id] ?? pr?.unit;
+              const q = fmt(num(o.lines[id]));
+              return { name: /s$/i.test(word) ? word : `${word}s`, ordered: u === "pack" ? `${q} pk` : u === "lb" ? `${q} lb` : q };
+            });
           const name = o.name ?? o.customer;
           const location = o.location ?? "";
           const line2 = parts.join(", ");
@@ -142,6 +163,7 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
             name,
             location,
             print: hash([name, location, line2, "", 1, 1].join("|")),
+            writeIn,
           });
         }
         if (table.rows.length) tables.push(table);
@@ -208,6 +230,8 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
     }
   }
 
+  // Packed-together labels last, so they print as one batch (Lucas, 10/31/26).
+  tables.sort((a, b) => Number(!!a.together) - Number(!!b.together));
   const total = tables.reduce((n, t) => n + t.rows.length, 0);
   // Order-independent: the same labels give the same fingerprint on every screen.
   const canon = tables

@@ -113,19 +113,53 @@ describe("the label layout (10/24/26)", async () => {
     expect(l.productLines.length).toBeLessThanOrEqual(2);
     expect(l.productLines[0].size).toBeGreaterThanOrEqual(LAYOUT.productMin);
     for (const p of l.productLines) {
-      expect(p.x + m.bold(p.text, p.size)).toBeLessThanOrEqual(l.band.x + l.band.w);
-      expect(p.y - p.size * 0.718).toBeGreaterThanOrEqual(l.band.y);
-      expect(p.y).toBeLessThanOrEqual(l.band.y + l.band.h);
+      expect(p.x + m.bold(p.text, p.size)).toBeLessThanOrEqual(l.band!.x + l.band!.w);
+      expect(p.y - p.size * 0.718).toBeGreaterThanOrEqual(l.band!.y);
+      expect(p.y).toBeLessThanOrEqual(l.band!.y + l.band!.h);
     }
-    expect(l.band.x - (l.qtyBox.x + l.qtyBox.w)).toBeCloseTo(0.07 * 72);
-    expect(l.band.x + l.band.w).toBeCloseTo(288 - 0.18 * 72);
-    expect([l.qtyBox.w, l.qtyBox.h, l.band.h]).toEqual([0.85 * 72, 0.66 * 72, 0.66 * 72]);
+    expect(l.band!.x - (l.qtyBox!.x + l.qtyBox!.w)).toBeCloseTo(0.07 * 72);
+    expect(l.band!.x + l.band!.w).toBeCloseTo(288 - 0.18 * 72);
+    expect([l.qtyBox!.w, l.qtyBox!.h, l.band!.h]).toEqual([0.85 * 72, 0.66 * 72, 0.66 * 72]);
   });
 
   it("the quantity fits its box: '10' with 'lb' underneath", () => {
     const l = L({ qty: "10", unit: "lb" });
     expect(l.qtyLines.map((q) => q.text)).toEqual(["10", "lb"]);
-    for (const q of l.qtyLines) expect(m.bold(q.text, q.size)).toBeLessThanOrEqual(l.qtyBox.w - 8 + 0.01);
+    for (const q of l.qtyLines) expect(m.bold(q.text, q.size)).toBeLessThanOrEqual(l.qtyBox!.w - 8 + 0.01);
+  });
+
+  it("the write-in label: a blank for each organ, names after, ordered under, Box ___ of ___ (10/31/26)", () => {
+    const writeIn = [
+      { name: "Hearts", ordered: "4 pk" },
+      { name: "Livers", ordered: "12 pk" },
+      { name: "Kidneys", ordered: "6 pk" },
+    ];
+    const l = L({ qty: "", unit: "", product: "Heart, Liver, Kidney", boxType: "", writeIn });
+    expect(l.qtyBox).toBeNull();
+    expect(l.band).toBeNull();
+    expect(l.typeTag).toBeNull();
+    expect(l.writeText.map((t) => t.text)).toEqual(["Hearts", "/", "Livers", "/", "Kidneys"]);
+    expect(l.orderedText.map((t) => t.text)).toEqual(["ordered: 4 pk", "ordered: 12 pk", "ordered: 6 pk"]);
+    const organBlanks = l.blanks.slice(0, 3);
+    for (const b of organBlanks) {
+      expect(b.w).toBeGreaterThanOrEqual(0.6 * 72);
+      expect(b.y - l.ruleY).toBeGreaterThanOrEqual(0.4 * 72); // room above to write
+    }
+    const last = l.writeText.at(-1)!;
+    expect(last.x + m.bold(last.text, last.size)).toBeLessThanOrEqual(288 - 0.18 * 72 + 0.01);
+    expect(l.boxText.text).toBe("Box");
+    expect(l.boxMore.map((t) => t.text)).toEqual(["of"]);
+    expect(l.blanks).toHaveLength(5);
+    expect(l.blanks[4].x + l.blanks[4].w).toBeLessThan(l.labelNo.x);
+    // Gray "ordered" stays above the bottom line.
+    for (const o of l.orderedText) expect(o.y).toBeLessThan(l.boxText.y - 9);
+    // One organ: a full 0.75 in blank.
+    expect(L({ writeIn: [{ name: "Livers", ordered: "3 pk" }] }).blanks[0].w).toBeCloseTo(0.75 * 72);
+  });
+
+  it("the write-in label makes a PDF", async () => {
+    const doc = await PDFDocument.load(await labelsPdf([{ ...label(3), writeIn: [{ name: "Hearts", ordered: "4 pk" }] }]));
+    expect(doc.getPageCount()).toBe(1);
   });
 
   it("the red box tag and the ROLL STOCK tag don't overlap the label number", () => {

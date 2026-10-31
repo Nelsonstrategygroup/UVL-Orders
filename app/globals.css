@@ -2410,6 +2410,58 @@ tr.zebra td,
   width: 1.4em;
   text-align: center;
 }
+/* Packed together (Hearts, Livers, Kidneys): full width at the end, a real line to write each count on, what was ordered under it. */
+.ls-together {
+  column-span: all;
+}
+.ls-table caption .ls-together-note {
+  display: block;
+  font-size: 10pt;
+  margin-top: 2pt;
+}
+.ls-write {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4pt 0;
+  margin-top: 4pt;
+}
+.ls-write-item {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4pt;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.ls-write-slash {
+  margin: 0 8pt 0 6pt;
+  font-weight: 400;
+}
+.ls-boxwrite {
+  color: #333;
+}
+.ls-boxwrite > span {
+  white-space: nowrap;
+}
+.ls-blank-wrap {
+  display: inline-flex;
+  flex-direction: column;
+}
+.ls-blank {
+  display: inline-block;
+  width: 0.75in;
+  height: 1.15em;
+  border-bottom: 1.5px solid #000;
+  vertical-align: baseline;
+}
+.ls-blank-sm {
+  width: 0.35in;
+}
+.ls-ordered {
+  font-size: 8pt;
+  font-weight: 400;
+  color: #666;
+  margin-top: 1pt;
+}
 @media (max-width: 700px) {
   .ls-cols {
     column-count: 1;

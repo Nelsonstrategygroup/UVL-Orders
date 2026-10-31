@@ -74,6 +74,8 @@ export type PrintLabel = {
   boxCount: number;
   /** "MVM", "White", or "?" when the box size isn't worked out. */
   boxType: string;
+  /** Packed together (Hearts, Livers, Kidneys): a blank for each, counts written in at Mohawk. */
+  writeIn?: { name: string; ordered: string }[];
 };
 
 // The standard PDF fonts only have Western characters: swap the common
@@ -102,15 +104,20 @@ export type LabelLayout = {
   /** Customer and location, bold, one or two lines, sitting just above the rule. */
   dest: TextLine[];
   ruleY: number;
-  /** Black box with the quantity (and its unit underneath, smaller). */
-  qtyBox: Rect;
+  /** Black box with the quantity (and its unit underneath, smaller); none on a write-in label. */
+  qtyBox: Rect | null;
   qtyLines: TextLine[];
-  /** Green band with the product name, one or two lines. */
-  band: Rect;
+  /** Green band with the product name, one or two lines; none on a write-in label. */
+  band: Rect | null;
   productLines: TextLine[];
-  /** "BOX 2 OF 3" in a red tag when there's more than one box; plain "Box 1 of 1" otherwise. */
+  /** Write-in label: the blanks to write on (lines), each one's name after it, what was ordered under it in gray, the slashes between. */
+  blanks: { x: number; y: number; w: number }[];
+  writeText: TextLine[];
+  orderedText: TextLine[];
+  /** "BOX 2 OF 3" in a red tag when there's more than one box; plain "Box 1 of 1" otherwise; "Box ___ of ___" on a write-in label. */
   boxTag: Rect | null;
   boxText: TextLine;
+  boxMore: TextLine[];
   /** "label 14", small and gray, in the middle. */
   labelNo: TextLine & { w: number };
   /** The box type in an outlined tag on the right; left off when the box type isn't known ("?"). */
@@ -134,6 +141,13 @@ export const LAYOUT = {
   tagH: 0.21 * IN,
   radius: 5,
   tagRadius: 4,
+  /** Write-in label: a blank about 0.75 in, room above it for a marker, the names at up to 11 pt. */
+  blankW: 0.75 * IN,
+  blankMin: 0.6 * IN,
+  writeRoom: 0.4 * IN,
+  writeMax: 11,
+  writeMin: 8,
+  boxBlankW: 0.3 * IN,
 } as const;
 
 /** Greedy word wrap; null if a single word is wider than the line. */
@@ -185,6 +199,12 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const lastBase = ruleY - 3 - DESCENT * d.size;
   const dest = d.lines.map((text, i) => ({ text, x: PAD, y: lastBase - (d.lines.length - 1 - i) * d.size * 1.05, size: d.size }));
 
+  const no = `label ${l.number}`;
+  const noW = m.regular(no, 6.5);
+  const labelNo = { text: no, x: (W - noW) / 2, y: midTag(6.5), size: 6.5, w: noW };
+
+  if (l.writeIn?.length) return { dest, ruleY, labelNo, ...writeInLayout(l.writeIn, itemTop, midTag, inner, m) };
+
   // Quantity: a big white number, its unit smaller underneath.
   const qtyBox = { x: PAD, y: itemTop, w: LAYOUT.qtyW, h: LAYOUT.itemH };
   const qtyText = plain(l.qty);
@@ -227,12 +247,76 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const typeTag = known ? { x: W - PAD - typeW, y: tagTop, w: typeW, h: LAYOUT.tagH } : null;
   const typeText = typeTag ? { text: type, x: typeTag.x + 6, y: midTag(9), size: 9 } : null;
 
-  // Middle: the label number, for the office only.
-  const no = `label ${l.number}`;
-  const noW = m.regular(no, 6.5);
-  const labelNo = { text: no, x: (W - noW) / 2, y: midTag(6.5), size: 6.5, w: noW };
+  // Middle: the label number, for the office only (worked out above).
+  return { dest, ruleY, qtyBox, qtyLines, band, productLines, blanks: [], writeText: [], orderedText: [], boxTag, boxText, boxMore: [], labelNo, typeTag, typeText };
+}
 
-  return { dest, ruleY, qtyBox, qtyLines, band, productLines, boxTag, boxText, labelNo, typeTag, typeText };
+/**
+ * The write-in label (Hearts, Livers, Kidneys; Lucas, 10/31/26): in place of
+ * the quantity and product, "______ Hearts / ______ Livers / ______ Kidneys"
+ * for the ones ordered, room above each blank for a marker, "ordered: 4 pk"
+ * small and gray under it; "Box ___ of ___" at the bottom; no box type.
+ */
+function writeInLayout(
+  items: { name: string; ordered: string }[],
+  itemTop: number,
+  midTag: (size: number) => number,
+  inner: number,
+  m: Measure,
+) {
+  const names = items.map((i) => plain(i.name));
+  const gap = 3; // between a blank and its name
+  const slash = " / ";
+  // Names as big as fits with blanks of at least blankMin; blanks up to blankW.
+  let size: number = LAYOUT.writeMax;
+  let blankW: number = LAYOUT.blankW;
+  for (; size >= LAYOUT.writeMin; size -= 0.5) {
+    const fixed = names.reduce((s, n) => s + m.bold(n, size) + gap, 0) + (names.length - 1) * m.bold(slash, size);
+    blankW = Math.min(LAYOUT.blankW, (inner - fixed) / names.length);
+    if (blankW >= LAYOUT.blankMin) break;
+  }
+  size = Math.max(size, LAYOUT.writeMin);
+  const lineY = itemTop + LAYOUT.writeRoom;
+  const blanks: { x: number; y: number; w: number }[] = [];
+  const writeText: TextLine[] = [];
+  const orderedText: TextLine[] = [];
+  let x = PAD;
+  names.forEach((n, i) => {
+    if (i > 0) {
+      writeText.push({ text: slash.trim(), x: x + m.bold(" ", size), y: lineY, size });
+      x += m.bold(slash, size);
+    }
+    blanks.push({ x, y: lineY, w: blankW });
+    const o = plain(`ordered: ${items[i].ordered}`);
+    orderedText.push({ text: o, x, y: lineY + 2 + 7 * ASCENT + 1, size: 7 });
+    x += blankW + gap;
+    writeText.push({ text: n, x, y: lineY, size });
+    x += m.bold(n, size);
+  });
+  // "Box ___ of ___" on the bottom line.
+  const s = 9;
+  const y = midTag(s);
+  const boxText = { text: "Box", x: PAD, y, size: s };
+  let bx = PAD + m.regular("Box ", s);
+  const boxBlanks = [{ x: bx, y: y + 1, w: LAYOUT.boxBlankW }];
+  bx += LAYOUT.boxBlankW;
+  const of = { text: "of", x: bx + m.regular(" ", s), y, size: s };
+  bx += m.regular(" of ", s);
+  boxBlanks.push({ x: bx, y: y + 1, w: LAYOUT.boxBlankW });
+  return {
+    qtyBox: null,
+    qtyLines: [],
+    band: null,
+    productLines: [],
+    blanks: [...blanks, ...boxBlanks],
+    writeText,
+    orderedText,
+    boxTag: null,
+    boxText,
+    boxMore: [of],
+    typeTag: null,
+    typeText: null,
+  };
 }
 
 /** A rounded rectangle as an SVG path from its top left corner (pdf-lib draws SVG paths y-down). */
@@ -268,10 +352,15 @@ function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel
   for (const t of L.dest) text(t, f.bold);
   page.drawLine({ start: { x: X(PAD), y: Y(L.ruleY) }, end: { x: X(W - PAD), y: Y(L.ruleY) }, thickness: 0.6, color: black });
 
-  rounded(L.qtyBox, LAYOUT.radius, { color: black });
+  if (L.qtyBox) rounded(L.qtyBox, LAYOUT.radius, { color: black });
   for (const t of L.qtyLines) text(t, f.bold, white);
-  rounded(L.band, LAYOUT.radius, { color: FOREST });
+  if (L.band) rounded(L.band, LAYOUT.radius, { color: FOREST });
   for (const t of L.productLines) text(t, f.bold, white);
+  // Write-in label: real lines to write on, the names, what was ordered in gray.
+  for (const b of L.blanks) page.drawLine({ start: { x: X(b.x), y: Y(b.y) }, end: { x: X(b.x + b.w), y: Y(b.y) }, thickness: 1, color: black });
+  for (const t of L.writeText) text(t, f.bold);
+  for (const t of L.orderedText) text(t, f.regular, rgb(0.45, 0.45, 0.45));
+  for (const t of L.boxMore) text(t, f.regular);
 
   if (L.boxTag) {
     rounded(L.boxTag, LAYOUT.tagRadius, { color: BARN });

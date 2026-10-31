@@ -83,6 +83,7 @@ export default function LabelsScreen() {
           boxNo: l.boxNo,
           boxCount: l.boxCount,
           boxType: l.boxType,
+          writeIn: l.writeIn,
         }))
     : [];
   const changedKeys = labels.filter((l) => labelState(l, nums?.get(l.key)).changed).map((l) => l.key);
@@ -192,13 +193,18 @@ export default function LabelsScreen() {
 
         <div className="ls-cols">
           {list.tables.map((t) => (
-            <table key={t.product.id} id={`lt-${t.product.id}`} className="ls-table">
+            <table key={t.product.id} id={`lt-${t.product.id}`} className={`ls-table${t.together ? " ls-together" : ""}`}>
               <caption>
                 {t.product.name}
                 <span>
                   {" "}
                   · {t.rows.length} label{t.rows.length === 1 ? "" : "s"}
                 </span>
+                {t.together && (
+                  <span className="ls-together-note">
+                    Packed in one box. Counts are written on the label at Mohawk; what was ordered is under each blank.
+                  </span>
+                )}
                 {t.noBox && (
                   <span className="ls-nobox-note">
                     Box size not worked out. Needs a weight per pack in Setup &gt; Products, or a pack count in Setup &gt; Boxes.
@@ -243,7 +249,22 @@ export default function LabelsScreen() {
                     <td>
                       <b>{r.customer}</b>
                       <br />
-                      {r.line2}
+                      {r.writeIn ? (
+                        <span className="ls-write">
+                          {r.writeIn.map((w, k) => (
+                            <span key={w.name} className="ls-write-item">
+                              <span className="ls-blank-wrap">
+                                <span className="ls-blank" aria-hidden="true" />
+                                <span className="ls-ordered">ordered: {w.ordered}</span>
+                              </span>{" "}
+                              {w.name}
+                              {k < r.writeIn!.length - 1 && <span className="ls-write-slash">/</span>}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        r.line2
+                      )}
                       {changed ? (
                         <span className="ls-changed">Changed since printed</span>
                       ) : wasPrinted ? (
@@ -253,8 +274,21 @@ export default function LabelsScreen() {
                         </span>
                       ) : null}
                     </td>
-                    <td>{r.boxType}</td>
-                    <td className="ls-of">{r.ofN}</td>
+                    {r.writeIn ? (
+                      <td colSpan={2} className="ls-boxwrite">
+                        <span>
+                          Box <span className="ls-blank ls-blank-sm" aria-hidden="true" />
+                        </span>{" "}
+                        <span>
+                          of <span className="ls-blank ls-blank-sm" aria-hidden="true" />
+                        </span>
+                      </td>
+                    ) : (
+                      <>
+                        <td>{r.boxType}</td>
+                        <td className="ls-of">{r.ofN}</td>
+                      </>
+                    )}
                     <td className="ls-ck">☐</td>
                   </tr>
                   );

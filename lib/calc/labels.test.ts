@@ -166,5 +166,25 @@ describe("products packed together (Organs)", () => {
       ["PCC Ballard", "3 Liver", "", "c2|heart|1"],
     ]);
     expect(list.noBoxProducts).toEqual([]);
+    expect(t[0].noBox || t[0].weightUnknown).toBe(false);
+  });
+
+  it("has a write-in blank for each organ ordered, in order, with what was ordered (10/31/26)", () => {
+    const t = list.tables.find((x) => x.together)!;
+    expect(t.rows[0].writeIn).toEqual([
+      { name: "Hearts", ordered: "8 pk" },
+      { name: "Livers", ordered: "8 pk" },
+      { name: "Kidneys", ordered: "6 pk" },
+    ]);
+    expect(t.rows[1].writeIn).toEqual([{ name: "Livers", ordered: "3 pk" }]);
+  });
+
+  it("prints last, as one batch", () => {
+    const withOther = labelList(
+      [{ customer: "PCC Bothell", customerId: "c1", sortKey: "0", lines: { heart: 2, zz: 1 } }],
+      new Map([...organs, ["zz", { id: "zz", name: "Zebra Last", unit: "lb", group_name: "Zzz", sort: 9999 }]]),
+      withLimits,
+    );
+    expect(withOther.tables.at(-1)!.together).toBe(true);
   });
 });
