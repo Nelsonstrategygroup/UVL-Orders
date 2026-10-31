@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useStaffData } from "@/components/data/StaffData";
 import { useWeekData } from "@/components/data/useWeekData";
+import PrintHeader from "@/components/PrintHeader";
 import { useWeek } from "@/components/Week";
 import { downloadTable } from "@/components/download";
 import { orderGridTable } from "@/lib/reports";
@@ -19,7 +20,8 @@ import { deliveryDate, deliveryDayOf, type LastOrder } from "@/lib/calc/lastOrde
 import { fmt } from "@/lib/calc/num";
 import { groupProducts } from "@/lib/calc/products";
 import { lineUnit, unitWord } from "@/lib/calc/units";
-import { DAYS, niceDate, weekName } from "@/lib/dates";
+import { DAYS, niceDate, todayISO, weekName } from "@/lib/dates";
+import { invFileName, invLabel } from "@/lib/weekInv";
 import type { CatalogProduct, Customer, OrderRequest } from "@/lib/db/types";
 import { askedOn, requestText } from "@/components/RequestedLines";
 import { qtyText } from "@/lib/orders";
@@ -67,6 +69,7 @@ function Sheet({
   lastOrder,
   delivery,
   invoice,
+  week,
   requests,
   movedOut,
   products,
@@ -79,6 +82,8 @@ function Sheet({
   delivery: string;
   /** The week's invoice number, or "" to write in. */
   invoice: string;
+  /** "Packing Mon Nov 2", or "" on a sheet for no particular week. */
+  week: string;
   /** Requested for this week, to confirm on the call (listed first, not again below). */
   requests: OrderRequest[];
   /** "Moved to next week: 12 packs Front Shanks" at the bottom. */
@@ -89,7 +94,7 @@ function Sheet({
   const contact = customer?.contacts.find((k) => k.name)?.name ?? "";
   return (
     <section className="ordersheet">
-      <h1>Umpqua Valley Lamb · Order</h1>
+      <PrintHeader inv={invoice || null} title={<h1>Umpqua Valley Lamb · Order</h1>} when={week} />
       <div className="os-head">
         <div>
           <b>Customer</b>
@@ -98,10 +103,6 @@ function Sheet({
         <div>
           <b>Scheduled delivery</b>
           {delivery}
-        </div>
-        <div>
-          <b>Invoice batch</b>
-          {invoice}
         </div>
         <div>
           <b>Contact</b>
@@ -267,7 +268,8 @@ export default function OrderSheetScreen() {
   const active = catalog.products.filter((p) => p.active);
   const everything = groupProducts(active);
   const list = sortByDisplayName(orderingCustomers(customers.list), customers.byId);
-  const invoice = withWeek ? (data?.cutSheet?.inv_number?.trim() ?? "") : "";
+  // The week's invoice number (Setup > Invoicing), the same as on the cut sheet and invoices.
+  const invoice = withWeek && data?.weekRow?.invoice_number != null ? String(data.weekRow.invoice_number) : "";
 
   /** What they usually buy first (the order screen's rule: anything they've ever ordered, or have on this week's order), then the rest. */
   const sectionsFor = (c: Customer | null): Section[] => {
@@ -301,6 +303,7 @@ export default function OrderSheetScreen() {
         lastOrder={c ? data?.lastOrder.get(c.id) : undefined}
         delivery={date ? dayAndDate(date) : ""}
         invoice={c ? invoice : ""}
+        week={c && withWeek ? `Packing ${weekName(week)}` : ""}
         requests={c ? (data?.requests.get(c.id) ?? []) : []}
         movedOut={c ? (data?.movedOut.get(c.id) ?? []).map((r) => requestText(r, catalog.productById)).join(", ") : ""}
         products={catalog.productById}
@@ -357,8 +360,9 @@ export default function OrderSheetScreen() {
             className="btn ghost"
             onClick={() =>
               void downloadTable(
-                "blank-order-grid",
-                orderGridTable(list, customers.byId, null, everything.flatMap((g) => g.products)),
+                // A blank grid for any week: the INV# to write in.
+                invFileName(null, "Blank Order Grid", todayISO()),
+                { ...orderGridTable(list, customers.byId, null, everything.flatMap((g) => g.products)), title: `${invLabel(null)} · Order grid · Packing Monday ______` },
                 "Orders",
                 "xlsx",
               )

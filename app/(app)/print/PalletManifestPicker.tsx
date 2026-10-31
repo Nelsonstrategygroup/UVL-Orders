@@ -12,7 +12,7 @@ import { useState } from "react";
 import { downloadTable } from "@/components/download";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { weekName } from "@/lib/dates";
-import { manifestsTable, palletManifests } from "../packing/pallets/Manifest";
+import { manifestFile, manifestsTable, palletManifests } from "../packing/pallets/Manifest";
 
 export default function PalletManifestPicker({ week }: { week: string }) {
   const bundle = usePackingBundle(week);
@@ -47,7 +47,10 @@ export default function PalletManifestPicker({ week }: { week: string }) {
         <button
           type="button"
           className="btn ghost"
-          onClick={() => void downloadTable(`pallet-manifests-week-of-${week}`, manifestsTable(list), "Manifest", "csv")}
+          onClick={() => {
+            const inv = bundle.data?.packing.invNumber ?? null;
+            void downloadTable(manifestFile(inv, week), manifestsTable(list, inv, week), "Manifest", "csv");
+          }}
         >
           Download CSV
         </button>

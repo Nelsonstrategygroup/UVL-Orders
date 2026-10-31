@@ -11,18 +11,20 @@ import { useEffect, useMemo, useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useWeekData } from "@/components/data/useWeekData";
 import { downloadTable, useFileType } from "@/components/download";
+import PrintHeader from "@/components/PrintHeader";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { fmt } from "@/lib/calc/num";
 import { addDays, currentWeek, longDate, niceDate, packingMonday, todayISO, weekName } from "@/lib/dates";
 import { readable } from "@/lib/readable";
+import { invLabel } from "@/lib/weekInv";
 import type { Table } from "@/lib/reports";
 import type { CarcassReport } from "@/lib/calc/carcassReport";
 import { buildReport, REPORTS, reportHref, type ReportKind } from "../../reports";
 import CarcassBalance from "./CarcassBalance";
 
-type Built = { key: string; table: Table; file: string; sheet: string; carcass?: CarcassReport } | { key: string; none: true } | { key: string; error: string };
+type Built = { key: string; table: Table; file: string; sheet: string; carcass?: CarcassReport; inv: string } | { key: string; none: true } | { key: string; error: string };
 
 export default function ReportScreen(props: { kind: ReportKind; customer: string; from: string; to: string; print?: boolean }) {
   const { kind } = props;
@@ -159,10 +161,12 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
       </div>
 
       <div className="rp">
-        <header className="rp-head">
-          <h1>{def.title}</h1>
-          {subtitle && <div>{subtitle}</div>}
-        </header>
+        <PrintHeader
+          label={current && "inv" in current ? current.inv : def.filter === "week" ? invLabel(data?.weekRow?.invoice_number) : ""}
+          title={<h1>{def.title}</h1>}
+          when={subtitle}
+          className="rp-head"
+        />
 
         {!current ? (
           <div className="empty">Getting it ready...</div>

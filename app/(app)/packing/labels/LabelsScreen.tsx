@@ -10,6 +10,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useMe } from "@/components/CurrentUser";
+import PrintHeader from "@/components/PrintHeader";
 import { getDb } from "@/components/data/db";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { useToast } from "@/components/Toast";
@@ -84,6 +85,7 @@ export default function LabelsScreen() {
           boxCount: l.boxCount,
           boxType: l.boxType,
           writeIn: l.writeIn,
+          inv: data.invNumber,
         }))
     : [];
   const changedKeys = labels.filter((l) => labelState(l, nums?.get(l.key)).changed).map((l) => l.key);
@@ -150,13 +152,15 @@ export default function LabelsScreen() {
       </div>
 
       <div className="labelsheet">
-        <header className="ls-head">
-          <h1>Box Label Report · Packing {weekName(week)}</h1>
-          <div>
-            {data.invNumber && <>INV# {data.invNumber} · </>}
-            Printed {formatWhen(stamp)} · {list.total} labels{noBoxNote}
-          </div>
-        </header>
+        <PrintHeader
+          inv={data.invNumber}
+          title={<h1>Box Label Report</h1>}
+          when={
+            <>
+              Packing {weekName(week)} · Printed {formatWhen(stamp)} · {list.total} labels{noBoxNote}
+            </>
+          }
+        />
 
         {noBox.length > 0 && (
           <p className="ls-nobox-top">

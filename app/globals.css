@@ -1664,6 +1664,39 @@
   }
 }
 
+/* The header on every printout (Lucas, 10/31/26): the week's invoice number
+   large and bold at the top left, then the report's name and week. */
+.ph {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2pt 14pt;
+  border-bottom: 2px solid #000;
+  padding-bottom: 4pt;
+  margin: 0 0 8pt;
+  color: #000;
+}
+.ph-inv {
+  font-size: 24pt;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.ph-what {
+  min-width: 0;
+}
+.ph-title,
+.ph-title h1 {
+  font-size: 14pt;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+.ph-when {
+  font-size: 11pt;
+}
+
 /* Reports from Print and download, as pages (change request 10/21/26). Phones:
    one card per customer, product or week. Wide screens and paper: a table.
    Wide reports: sideways scroll with the first column fixed. */
@@ -1820,15 +1853,7 @@
 }
 @media print {
   .rp-head {
-    display: block;
-    margin-bottom: 8pt;
-  }
-  .rp-head h1 {
-    font-size: 16pt;
-    margin: 0;
-  }
-  .rp-head div {
-    font-size: 11pt;
+    display: flex;
   }
   .rp-cards {
     display: none;
@@ -2455,6 +2480,15 @@ tr.zebra td,
 }
 .ls-blank-sm {
   width: 0.35in;
+}
+/* A small phone: shorter lines, so the row fits without scrolling sideways (paper keeps 0.75 in). */
+@media screen and (max-width: 420px) {
+  .ls-blank {
+    width: 0.5in;
+  }
+  .ls-blank-sm {
+    width: 0.25in;
+  }
 }
 .ls-ordered {
   font-size: 8pt;

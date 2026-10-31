@@ -47,13 +47,14 @@ describe("customer order history download", () => {
           { week: "2026-10-12", status: "ordered", notes: "Before 10, please", lines: { rack: 4, leg: 2 }, packed: { leg: 2 } },
         ],
         products,
+        new Map([["2026-10-12", 2999]]),
       ),
     );
-    expect(r[0]).toEqual(["Customer", "Week of", "Answer", "Product", "Quantity", "Unit", "Packed (lb)", "Order notes"]);
+    expect(r[0]).toEqual(["Customer", "Week of", "INV#", "Answer", "Product", "Quantity", "Unit", "Packed (lb)", "Order notes"]);
     expect(r.slice(1)).toEqual([
-      ["Key City", "2026-10-12", "Ordered", "legs Bone In to VAC", "2", "each", "2", "Before 10, please"],
-      ["Key City", "2026-10-12", "Ordered", "French Rack to Vac", "4", "each", "", "Before 10, please"],
-      ["Key City", "2026-10-05", "No order", "", "", "", "", ""],
+      ["Key City", "2026-10-12", "2999", "Ordered", "legs Bone In to VAC", "2", "each", "2", "Before 10, please"],
+      ["Key City", "2026-10-12", "2999", "Ordered", "French Rack to Vac", "4", "each", "", "Before 10, please"],
+      ["Key City", "2026-10-05", "", "No order", "", "", "", "", ""],
     ]);
   });
 

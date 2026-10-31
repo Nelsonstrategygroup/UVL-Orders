@@ -7,9 +7,9 @@ import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/cu
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { groupProducts } from "@/lib/calc/products";
 import { countUnit } from "@/lib/calc/units";
-import { packingMonday, todayISO } from "@/lib/dates";
+import { currentWeek, packingMonday, todayISO, weekName } from "@/lib/dates";
 import { loadCustomerOrders, loadOrdersBetween, loadPackingRecord } from "@/lib/db/load";
-import { loadCustomerBilling } from "@/lib/db/invoicing";
+import { loadCustomerBilling, loadWeekNumbers } from "@/lib/db/invoicing";
 import { loadIssuedInvoices } from "@/lib/db/invoices";
 import { daysOverdue } from "@/lib/calc/invoice";
 import { toIssued } from "@/lib/invoiceExport";
@@ -20,6 +20,7 @@ import { weekCalc } from "@/lib/weekCalc";
 import type { Catalog, CustomersData, WeekData } from "@/lib/db/types";
 import { formatDateTime } from "@/lib/format";
 import type { ReadableShape } from "@/lib/readable";
+import { invFileName, invLabel, invRangeFilePrefix, invRangeLabel } from "@/lib/weekInv";
 import {
   boxSizesTable,
   customerHistoryTable,
@@ -36,6 +37,7 @@ import {
   salesTable,
   weekOrdersTable,
   type Table,
+  type WeekInvs,
 } from "@/lib/reports";
 
 export type ReportKind =
@@ -117,9 +119,42 @@ export type ReportInput = {
   to?: string;
 };
 
-/** The table and file name for a report, or null when its filter isn't filled in yet (no customer picked). */
-export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ table: Table; file: string; sheet: string; carcass?: CarcassReport } | null> {
+export type BuiltReport = {
+  table: Table;
+  file: string;
+  sheet: string;
+  carcass?: CarcassReport;
+  /** "INV# 3001" (the week's), "INV# 2998 to 3002" (a range), "INV# ______" (not set), or "" (not about a week: customers, box sizes, codes). */
+  inv: string;
+  /** What it covers, after the name: "Packing Mon Nov 2", "As of 2026-10-31". */
+  when?: string;
+};
+
+/** Each week's invoice number, for reports over many weeks. */
+async function weekInvs(db: SupabaseClient): Promise<WeekInvs> {
+  return new Map((await loadWeekNumbers(db)).map((w) => [w.id, w.invoice_number]));
+}
+
+/**
+ * The table and file name for a report, or null when its filter isn't filled
+ * in yet (no customer picked). Every report about a week carries that week's
+ * invoice number (Lucas, 10/31/26): in the page header, in the file's top row,
+ * and at the start of the file name ("INV3001 Order Grid 2026-10-26").
+ */
+export async function buildReport(kind: ReportKind, x: ReportInput): Promise<BuiltReport | null> {
+  const r = await buildTable(kind, x);
+  if (!r) return null;
+  // The QuickBooks import reads its first row as the column names: no top row there.
+  const top = r.inv && kind !== "invoice-lines" ? [r.inv, REPORTS[kind].title, r.when].filter(Boolean).join(" · ") : undefined;
+  return { ...r, table: { ...r.table, title: top } };
+}
+
+async function buildTable(kind: ReportKind, x: ReportInput): Promise<BuiltReport | null> {
   const { week, catalog, customers, data } = x;
+  const title = REPORTS[kind].title;
+  // A report about the picked week: its number, its name, its date.
+  const n = data.weekRow?.invoice_number ?? null;
+  const ofWeek = { inv: invLabel(n), when: `Packing ${weekName(week)}`, file: invFileName(n, title, week) };
   const productName = (id: string) => catalog.productById.get(id)?.name ?? id;
   const customerName = (id: string) => {
     const c = customers.byId.get(id);
@@ -136,7 +171,7 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       const list = customers.list.filter((c) => ordering.has(c.id) || data.orders.has(c.id));
       return {
         table: weekOrdersTable(week, list, customers.byId, data.orders, data.packed, catalog.products),
-        file: `orders-week-of-${week}`,
+        ...ofWeek,
         sheet: "Orders",
       };
     }
@@ -144,13 +179,13 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       // The same customers and products as the grid on Orders.
       const shown = groupProducts(catalog.products.filter((p) => p.active)).flatMap((g) => g.products);
       const list = sortByDisplayName(orderingCustomers(customers.list), customers.byId);
-      return { table: orderGridTable(list, customers.byId, data.orders, shown), file: `order-grid-week-of-${week}`, sheet: "Orders" };
+      return { table: orderGridTable(list, customers.byId, data.orders, shown), ...ofWeek, sheet: "Orders" };
     }
     case "product-totals": {
       const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);
       return {
         table: productTotalsTable(week, catalog.products, [...data.orders.values()], data.packed, short, [...data.requests.values()].flat()),
-        file: `product-totals-week-of-${week}`,
+        ...ofWeek,
         sheet: "Product totals",
       };
     }
@@ -158,30 +193,44 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       const records = await loadPackingRecord(x.db, week);
       return {
         table: packingRecordTable(week, records, customers.byId, catalog.products, formatDateTime),
-        file: `packing-record-week-of-${week}`,
+        ...ofWeek,
         sheet: "Packing record",
       };
     }
     case "customers":
-      return { table: customerListTable(customers.list, customers.byId), file: "customer-list", sheet: "Customers" };
+      return { table: customerListTable(customers.list, customers.byId), file: "customer-list", sheet: "Customers", inv: "" };
     case "history": {
       const c = x.customerId ? customers.byId.get(x.customerId) : undefined;
       if (!c) return null;
       const name = displayName(c, customers.byId);
-      const orders = await loadCustomerOrders(x.db, c.id);
-      return { table: customerHistoryTable(name, orders, catalog.products), file: `${fileSafe(name)}-order-history`, sheet: "Order history" };
+      const [orders, invs] = await Promise.all([loadCustomerOrders(x.db, c.id), weekInvs(x.db)]);
+      const nums = orders.map((o) => invs.get(o.week));
+      return {
+        table: customerHistoryTable(name, orders, catalog.products, invs),
+        file: `${invRangeFilePrefix(nums)} ${fileSafe(name)} Order History`,
+        sheet: "Order history",
+        inv: invRangeLabel(nums),
+        when: name,
+      };
     }
     case "sales": {
       if (!x.from || !x.to || x.from > x.to) return null;
       const a = packingMonday(x.from);
       const b = packingMonday(x.to);
-      const orders = await loadOrdersBetween(x.db, a, b);
-      return { table: salesTable(a, b, orders, customers.byId, catalog.products), file: `sales-${a}-to-${b}`, sheet: "Sales" };
+      const [orders, invs] = await Promise.all([loadOrdersBetween(x.db, a, b), weekInvs(x.db)]);
+      const nums = [...invs].filter(([w]) => w >= a && w <= b).map(([, v]) => v);
+      return {
+        table: salesTable(a, b, orders, customers.byId, catalog.products, invs),
+        file: `${invRangeFilePrefix(nums)} Sales ${a} to ${b}`,
+        sheet: "Sales",
+        inv: invRangeLabel(nums),
+        when: `Packing ${weekName(a)} to ${weekName(b)}`,
+      };
     }
     case "box-sizes": {
       // The same products and order as Setup > Boxes.
       const groups = groupProducts(catalog.products.filter((p) => p.active));
-      return { table: boxSizesTable(groups, catalog.boxes.types, catalog.boxes.limits), file: `box-sizes-${todayISO()}`, sheet: "Box sizes" };
+      return { table: boxSizesTable(groups, catalog.boxes.types, catalog.boxes.limits), file: `box-sizes-${todayISO()}`, sheet: "Box sizes", inv: "" };
     }
     case "invoice-codes": {
       const billing = await loadCustomerBilling(x.db);
@@ -194,6 +243,7 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
         table: invoiceCodesTable(list.map((c) => ({ name: displayName(c, customers.byId), code: billing.get(c.id)?.invoice_code ?? "" }))),
         file: `invoice-codes-${todayISO()}`,
         sheet: "Invoice codes",
+        inv: "",
       };
     }
     case "carcass-balance": {
@@ -219,26 +269,33 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       return {
         carcass: report,
         table: carcassBalanceTable(week, report),
-        file: `carcass-balance-week-of-${week}`,
+        ...ofWeek,
         sheet: "Carcass balance",
       };
     }
     case "open-invoices": {
-      const list = await loadIssuedInvoices(x.db);
+      const [list, invs] = await Promise.all([loadIssuedInvoices(x.db), weekInvs(x.db)]);
       const today = todayISO();
+      const issued = list.map((i) => toIssued(i, productName, customerName, groupName, (w) => String(invs.get(w) ?? "")));
+      const t = openInvoicesTable(issued, (due) => daysOverdue(due, today));
+      const nums = t.rows.map((r) => r[0] as string);
       return {
-        table: openInvoicesTable(list.map((i) => toIssued(i, productName, customerName, groupName)), (due) => daysOverdue(due, today)),
-        file: `open-invoices-${today}`,
+        table: t,
+        file: `${invRangeFilePrefix(nums)} Open Invoices ${today}`,
         sheet: "Open invoices",
+        inv: invRangeLabel(nums),
+        when: `As of ${today}`,
       };
     }
     case "invoice-lines": {
       if (!x.from || !x.to || x.from > x.to) return null;
-      const list = await loadIssuedInvoices(x.db, { from: x.from, to: x.to });
+      const [list, invs] = await Promise.all([loadIssuedInvoices(x.db, { from: x.from, to: x.to }), weekInvs(x.db)]);
+      const nums = list.map((i) => invs.get(i.week_id));
       return {
         table: quickbooksLinesTable(list.map((i) => toIssued(i, productName, customerName, groupName))),
-        file: `invoice-lines-${x.from}-to-${x.to}`,
+        file: `${invRangeFilePrefix(nums)} Invoice Lines ${x.from} to ${x.to}`,
         sheet: "Invoices",
+        inv: invRangeLabel(nums),
       };
     }
     case "freezer": {
@@ -246,7 +303,16 @@ export async function buildReport(kind: ReportKind, x: ReportInput): Promise<{ t
       const products = catalog.products
         .filter((p) => !p.fresh_only && (p.active || (onHand[p.id] ?? 0) !== 0))
         .map((p) => ({ ...p, countUnit: countUnit(p, catalog.parts) }));
-      return { table: freezerTable(todayISO(), products, onHand, need), file: `freezer-${todayISO()}`, sheet: "Freezer" };
+      // On hand today: this week's number.
+      const now = currentWeek();
+      const nowInv = now === week ? n : ((await weekInvs(x.db)).get(now) ?? null);
+      return {
+        table: freezerTable(todayISO(), products, onHand, need),
+        file: invFileName(nowInv, title, todayISO()),
+        sheet: "Freezer",
+        inv: invLabel(nowInv),
+        when: `As of ${todayISO()}`,
+      };
     }
   }
 }

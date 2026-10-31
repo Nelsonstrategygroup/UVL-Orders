@@ -168,11 +168,12 @@ describe("the label layout (10/24/26)", async () => {
   });
 
   it("the red box tag and the ROLL STOCK tag don't overlap the label number", () => {
-    const l = L({ number: 168, boxNo: 10, boxCount: 12, boxType: "Roll Stock" });
+    const l = L({ number: 168, boxNo: 10, boxCount: 12, boxType: "Roll Stock", inv: "3001" });
     expect(l.boxTag).not.toBeNull();
     expect(l.boxText.text).toBe("BOX 10 OF 12");
     expect(l.typeText!.text).toBe("ROLL STOCK");
-    expect(l.labelNo.text).toBe("label 168");
+    expect(l.labelNo.text).toBe("INV# 3001 · label 168");
+    expect(L({ number: 9, inv: null }).labelNo.text).toBe("INV# ____ · label 9"); // the week has none yet: a blank
     expect(l.boxTag!.x + l.boxTag!.w).toBeLessThan(l.labelNo.x);
     expect(l.labelNo.x + l.labelNo.w).toBeLessThan(l.typeTag!.x);
   });

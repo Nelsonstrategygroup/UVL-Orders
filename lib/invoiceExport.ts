@@ -15,12 +15,14 @@ export function toIssued(
   productName: (id: string) => string,
   customerName: (id: string) => string,
   groupName: (id: string) => string | null = () => null,
+  weekInv: (week: string) => string = () => "",
 ): IssuedInvoice {
   const lines = priceLines(inv.invoice_lines, [], inv.customer_id, inv.invoice_date);
   const total = inv.total != null ? lineTotalCents(1, inv.total) : lines.reduce((s, l) => s + (l.totalCents ?? BigInt(0)), BigInt(0));
   const paid = paidCents(inv.payments ?? []);
   return {
     number: inv.number ?? "",
+    weekInv: weekInv(inv.week_id),
     customer: inv.issued?.customer_name ?? customerName(inv.customer_id),
     invoiceDate: inv.invoice_date,
     dueDate: inv.due_date ?? inv.invoice_date,

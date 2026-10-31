@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
 import MohawkSheet from "@/components/MohawkSheet";
+import PrintHeader from "@/components/PrintHeader";
 import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
@@ -180,6 +181,7 @@ export default function CutSheetScreen() {
           </section>
         </div>
         <div className="print-only">
+          <PrintHeader inv={data.sheet?.inv_number || null} title="Cut sheet" when={`Packing ${weekName(week)}`} />
           <MohawkSheet data={data} specs={specMap} sizes={catalog.sizes} standing={standing} />
         </div>
       </>
@@ -472,6 +474,7 @@ export default function CutSheetScreen() {
       </div>
 
       <div className="print-only">
+        <PrintHeader inv={data.sheet?.inv_number || null} title="Cut sheet" when={`Packing ${weekName(week)}`} />
         <MohawkSheet data={data} specs={specMap} sizes={catalog.sizes} standing={standing} />
       </div>
 

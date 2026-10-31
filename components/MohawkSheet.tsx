@@ -38,7 +38,7 @@ export default function MohawkSheet({
           <div className="cs-meta">
             DATE: {slashDate(data.processDate ?? data.week)}
             <br />
-            INV# {sh.inv_number}
+            INV# {sh.inv_number || "______"}
             <br />
             Total Lamb: {total}
           </div>

@@ -8,6 +8,7 @@ import type { BoxSetup } from "@/lib/calc/boxes";
 import { fmt } from "@/lib/calc/num";
 import type { SheetBlank, SheetRow } from "@/lib/calc/packSheet";
 import type { PackLine } from "@/lib/calc/packing";
+import PrintHeader from "@/components/PrintHeader";
 import { weekName } from "@/lib/dates";
 import {
   orderSheet,
@@ -66,10 +67,7 @@ export function PaperSheet({
   const labels = sheetLabels(data, boxes);
   return (
     <div className={preview ? "pksheet preview" : "print-only pksheet"}>
-      <h1>
-        Packing list, {weekName(data.week)}
-        {data.invNumber ? ` · INV ${data.invNumber}` : ""}
-      </h1>
+      <PrintHeader inv={data.invNumber} title={<h1>Packing list</h1>} when={`Packing ${weekName(data.week)}`} footer={!preview} />
       <p className="pk-how">
         Write each box&apos;s weight under its label number. On a blank marked
         &ldquo;Label #&rdquo;, write the label number too.

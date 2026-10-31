@@ -21,6 +21,8 @@ import { niceDate, weekName } from "@/lib/dates";
 import { downloadTable } from "@/components/download";
 import { loadCustomerHistory, loadCustomerOrders, type HistoryEntry } from "@/lib/db/load";
 import { customerHistoryTable, fileSafe } from "@/lib/reports";
+import { loadWeekNumbers } from "@/lib/db/invoicing";
+import { invRangeFilePrefix, invRangeLabel } from "@/lib/weekInv";
 import {
   customerDeleteCheck,
   deleteCustomer,
@@ -640,9 +642,17 @@ function DownloadHistory({ customer, name }: { customer: Customer; name: string 
     if (!catalog) return;
     setBusy(true);
     try {
-      const orders = await loadCustomerOrders(getDb(), customer.id);
+      const [orders, weeks] = await Promise.all([loadCustomerOrders(getDb(), customer.id), loadWeekNumbers(getDb())]);
+      // Each week's invoice number on its rows, the range on top and in the file name.
+      const invs = new Map(weeks.map((w) => [w.id, w.invoice_number]));
+      const nums = orders.map((o) => invs.get(o.week));
       if (!orders.length) toast("No orders yet to download.");
-      else await downloadTable(`${fileSafe(name)}-order-history`, customerHistoryTable(name, orders, catalog.products), "Order history");
+      else
+        await downloadTable(
+          `${invRangeFilePrefix(nums)} ${fileSafe(name)} Order History`,
+          { ...customerHistoryTable(name, orders, catalog.products, invs), title: `${invRangeLabel(nums)} · Order history · ${name}` },
+          "Order history",
+        );
     } catch {
       toast("Couldn't download. Check the internet connection.");
     }

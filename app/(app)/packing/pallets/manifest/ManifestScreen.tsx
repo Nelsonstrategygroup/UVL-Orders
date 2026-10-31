@@ -17,6 +17,7 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import {
   looseBoxes,
+  manifestFile,
   ManifestSheets,
   manifestsTable,
   palletManifests,
@@ -103,8 +104,8 @@ export default function ManifestScreen() {
             disabled={!list.length}
             onClick={() =>
               void downloadTable(
-                `manifest-${palletId ? list[0].pallet.tag : "all"}-week-of-${week}`,
-                manifestsTable(list),
+                manifestFile(bundle.data!.packing.invNumber, week, palletId ? list[0].pallet.tag : undefined),
+                manifestsTable(list, bundle.data!.packing.invNumber, week),
                 "Manifest",
                 "csv",
               )

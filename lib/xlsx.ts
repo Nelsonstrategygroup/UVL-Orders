@@ -14,12 +14,17 @@ export type Sheet = {
   rows: Cell[][];
   /** Keep the first column on screen too (a grid with names down the side). */
   freezeFirstColumn?: boolean;
+  /** A top row above the column names, bold and larger ("INV# 3001 · Order grid · Packing Mon Oct 26"). */
+  title?: string;
+  /** At the foot of every printed page, before "page X of Y" ("INV# 3001"). */
+  footer?: string;
 };
 
-// Cell styles (cellXfs in STYLES): plain, header, every other row.
+// Cell styles (cellXfs in STYLES): plain, header, every other row, the title row.
 const PLAIN = 0;
 const HEADER = 1;
 const STRIPE = 2;
+const TITLE = 3;
 
 /** Excel's limit for one cell. */
 const MAX_CELL = 32767;
@@ -69,23 +74,30 @@ function cellXml(ref: string, v: Cell, style = 0): string {
 
 function sheetXml(sheet: Sheet): string {
   const all = [sheet.header, ...sheet.rows];
+  // The title row, when there is one, pushes everything down a row.
+  const top = sheet.title ? 1 : 0;
   const widths = sheet.header.map((_, c) => {
     const longest = all.reduce((m, r) => Math.max(m, String(r[c] ?? "").length), 0);
     return Math.min(60, Math.max(8, longest + 2));
   });
   const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("");
   const width = Math.max(sheet.header.length, ...all.map((r) => r.length));
-  const rows = all
-    .map((r, ri) => {
-      // Header, then grey on every other row (the 2nd, 4th... data row).
-      const style = ri === 0 ? HEADER : ri % 2 === 0 ? STRIPE : PLAIN;
-      const cells = Array.from({ length: style ? width : r.length }, (_, ci) => cellXml(`${colName(ci)}${ri + 1}`, r[ci], style)).join("");
-      return `<row r="${ri + 1}">${cells}</row>`;
-    })
-    .join("");
+  const titleRow = sheet.title ? `<row r="1" ht="22" customHeight="1">${cellXml("A1", sheet.title, TITLE)}</row>` : "";
+  const rows =
+    titleRow +
+    all
+      .map((r, ri) => {
+        // Header, then grey on every other row (the 2nd, 4th... data row).
+        const style = ri === 0 ? HEADER : ri % 2 === 0 ? STRIPE : PLAIN;
+        const n = ri + 1 + top;
+        const cells = Array.from({ length: style ? width : r.length }, (_, ci) => cellXml(`${colName(ci)}${n}`, r[ci], style)).join("");
+        return `<row r="${n}">${cells}</row>`;
+      })
+      .join("");
+  const split = 1 + top;
   const pane = sheet.freezeFirstColumn
-    ? `<pane xSplit="1" ySplit="1" topLeftCell="B2" activePane="bottomRight" state="frozen"/>`
-    : `<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>`;
+    ? `<pane xSplit="1" ySplit="${split}" topLeftCell="B${split + 1}" activePane="bottomRight" state="frozen"/>`
+    : `<pane ySplit="${split}" topLeftCell="A${split + 1}" activePane="bottomLeft" state="frozen"/>`;
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
@@ -96,6 +108,8 @@ function sheetXml(sheet: Sheet): string {
     `<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>` +
     // Landscape, one page wide, as many pages tall as it needs.
     `<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>` +
+    // "INV# 3001, page 2 of 3" at the foot of every printed page.
+    (sheet.footer ? `<headerFooter><oddFooter>${xml(`&C${sheet.footer.replace(/&/g, "&&")}, page &P of &N`)}</oddFooter></headerFooter>` : "") +
     `</worksheet>`
   );
 }
@@ -103,15 +117,16 @@ function sheetXml(sheet: Sheet): string {
 const STYLES =
   `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
   `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-  `<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>` +
+  `<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>` +
   `<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>` +
   `<fill><patternFill patternType="solid"><fgColor rgb="FFEEEEEE"/><bgColor indexed="64"/></patternFill></fill>` +
   `<fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/><bgColor indexed="64"/></patternFill></fill></fills>` +
   `<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>` +
   `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-  `<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
+  `<cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>` +
   `<xf numFmtId="0" fontId="1" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/>` +
-  `<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/></cellXfs>` +
+  `<xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/>` +
+  `<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>` +
   `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
   `</styleSheet>`;
 
@@ -152,7 +167,7 @@ export async function xlsxFile(sheets: Sheet[]): Promise<Uint8Array> {
       `<definedNames>${names
         .map((n, i) => {
           const q = `'${xml(n).replace(/'/g, "''")}'`;
-          return `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${list[i].freezeFirstColumn ? `${q}!$A:$A,` : ""}${q}!$1:$1</definedName>`;
+          return `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${list[i].freezeFirstColumn ? `${q}!$A:$A,` : ""}${q}!$1:$${list[i].title ? 2 : 1}</definedName>`;
         })
         .join("")}</definedNames>` +
       `</workbook>`,

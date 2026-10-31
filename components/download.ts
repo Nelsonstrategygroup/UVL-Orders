@@ -60,7 +60,9 @@ export function useFileType(): [FileType, (t: FileType) => void] {
 export async function downloadTable(base: string, t: Table, sheet: string, type: FileType = getFileType()) {
   if (type === "xlsx") {
     const { xlsxFile, XLSX_TYPE } = await import("@/lib/xlsx");
-    const bytes = await xlsxFile([{ name: sheet, header: t.header, rows: t.rows, freezeFirstColumn: t.freezeFirstColumn }]);
+    // The title row starts "INV# 3001": that goes at the foot of every printed page too.
+    const footer = t.title?.match(/^INV# [^·]+/)?.[0].trim();
+    const bytes = await xlsxFile([{ name: sheet, header: t.header, rows: t.rows, freezeFirstColumn: t.freezeFirstColumn, title: t.title, footer }]);
     save(`${base}.xlsx`, new Blob([bytes as BlobPart], { type: XLSX_TYPE }));
   } else {
     downloadText(`${base}.csv`, tableCsv(t));

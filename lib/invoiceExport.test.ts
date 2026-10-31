@@ -75,10 +75,11 @@ describe("invoice downloads", () => {
 
   it("lists what's still owed, with totals", () => {
     const paidUp = invoice({ id: "j", number: "99301-PAID", total: "50", payments: [{ id: "q", invoice_id: "j", paid_on: "2099-11-20", amount: "50", method: "ach", reference: "", note: "", created_at: "" }] });
-    const t = openInvoicesTable([toIssued(inv, names.product, names.customer), toIssued(paidUp, names.product, names.customer)], () => 3);
+    const wk = () => "99301";
+    const t = openInvoicesTable([toIssued(inv, names.product, names.customer, undefined, wk), toIssued(paidUp, names.product, names.customer, undefined, wk)], () => 3);
     expect(t.rows).toEqual([
-      ["Life Market", "99301-LIFE", "11/03/2099", "11/18/2099", "Partly paid", "385.67", "100.00", "285.67", 3],
-      ["1 open", "", "", "", "", "385.67", "100.00", "285.67", ""],
+      ["99301", "Life Market", "99301-LIFE", "11/03/2099", "11/18/2099", "Partly paid", "385.67", "100.00", "285.67", 3],
+      ["", "1 open", "", "", "", "", "385.67", "100.00", "285.67", ""],
     ]);
   });
 

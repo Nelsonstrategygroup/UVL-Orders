@@ -76,6 +76,8 @@ export type PrintLabel = {
   boxType: string;
   /** Packed together (Hearts, Livers, Kidneys): a blank for each, counts written in at Mohawk. */
   writeIn?: { name: string; ordered: string }[];
+  /** The week's invoice number ("3001"), printed small on every label; a blank when the week has none. */
+  inv?: string | null;
 };
 
 // The standard PDF fonts only have Western characters: swap the common
@@ -120,7 +122,7 @@ export type LabelLayout = {
   boxTag: Rect | null;
   boxText: TextLine;
   boxMore: TextLine[];
-  /** "label 14", small and gray, in the middle. */
+  /** "INV# 3001 · label 14", small, in the middle: the week's number on every label (Lucas, 10/31/26). */
   labelNo: TextLine & { w: number };
   /** The box type in an outlined tag on the right; left off when the box type isn't known ("?"). */
   typeTag: Rect | null;
@@ -200,9 +202,9 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const lastBase = ruleY - 3 - DESCENT * d.size;
   const dest = d.lines.map((text, i) => ({ text, x: PAD, y: lastBase - (d.lines.length - 1 - i) * d.size * 1.05, size: d.size }));
 
-  const no = `label ${l.number}`;
-  const noW = m.regular(no, 6.5);
-  const labelNo = { text: no, x: (W - noW) / 2, y: midTag(6.5), size: 6.5, w: noW };
+  const no = `INV# ${l.inv?.trim() || "____"} · label ${l.number}`;
+  const noW = m.bold(no, 7);
+  const labelNo = { text: plain(no), x: (W - noW) / 2, y: midTag(7), size: 7, w: noW };
 
   if (l.writeIn?.length) return { dest, ruleY, labelNo, ...writeInLayout(l.writeIn, itemTop, midTag, inner, m) };
 
@@ -366,7 +368,7 @@ function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel
     rounded(L.boxTag, LAYOUT.tagRadius, { color: BARN });
     text(L.boxText, f.bold, white);
   } else text(L.boxText, f.regular);
-  text(L.labelNo, f.regular, rgb(0.45, 0.45, 0.45));
+  text(L.labelNo, f.bold);
   if (L.typeTag && L.typeText) {
     rounded(L.typeTag, LAYOUT.tagRadius, { borderColor: black, borderWidth: 0.75 });
     text(L.typeText, f.bold);

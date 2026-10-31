@@ -13,6 +13,8 @@ import {
   netWeight,
   type Manifest,
 } from "@/lib/calc/manifest";
+import PrintHeader from "@/components/PrintHeader";
+import { invFileName, invLabel } from "@/lib/weekInv";
 import { weekName } from "@/lib/dates";
 import type { PalletRow } from "@/lib/db/scanning";
 
@@ -102,9 +104,15 @@ export function looseBoxes(data: PackingBundle): Manifest {
   );
 }
 
-/** The CSV for these manifests: pallet, customer, box ID, lot, product, net weight. */
-export const manifestsTable = (list: PalletManifest[]) =>
-  manifestTable(list.map((m) => ({ tag: m.pallet.tag, manifest: m.manifest })));
+/** The CSV for these manifests: pallet, customer, box ID, lot, product, net weight; the week's INV# on top. */
+export const manifestsTable = (list: PalletManifest[], inv: string | null, week: string) => ({
+  ...manifestTable(list.map((m) => ({ tag: m.pallet.tag, manifest: m.manifest }))),
+  title: `${invLabel(inv)} · Pallet manifest · Packing ${weekName(week)}`,
+});
+
+/** "INV3001 Pallet Manifest 2026-10-26", or "INV3001 Pallet Manifest P3 2026-10-26" for one pallet. */
+export const manifestFile = (inv: string | null, week: string, tag?: string) =>
+  invFileName(inv, tag ? `Pallet Manifest ${tag}` : "Pallet Manifests", week);
 
 /** "Data as of Mon Oct 26, 3:05 PM", and whether it's the copy saved on this phone (no signal). */
 export type ManifestAsOf = { at: string | null; fromPhone: boolean };
@@ -124,7 +132,10 @@ export function ManifestSheets({
   /** Print them as their own page (Print all). */
   showLoose?: boolean;
 }) {
-  const { company, shipFrom, week } = data.packing;
+  const { company, shipFrom, week, invNumber } = data.packing;
+  const header = (i: number) => (
+    <PrintHeader inv={invNumber} title="Pallet manifest" when={`Packing ${weekName(week)}`} footer={i === 0} />
+  );
   const asOfText = asOf.at
     ? new Date(asOf.at).toLocaleString("en-US", {
         timeZone: "America/Los_Angeles",
@@ -163,8 +174,9 @@ export function ManifestSheets({
   );
   return (
     <div className="pkmanifest">
-      {list.map(({ pallet, ship, ofN, manifest: m }) => (
+      {list.map(({ pallet, ship, ofN, manifest: m }, i) => (
         <section key={pallet.id} className="mf-pallet">
+          {header(i)}
           <div className="mf-head">
             <div className="mf-tag">{pallet.tag}</div>
             <div className="flex-1">
@@ -258,6 +270,7 @@ export function ManifestSheets({
       ))}
       {showLoose && loose.boxes > 0 && (
         <section className="mf-pallet">
+          {header(list.length)}
           <div className="mf-head">
             <div className="mf-tag">—</div>
             <div className="flex-1">

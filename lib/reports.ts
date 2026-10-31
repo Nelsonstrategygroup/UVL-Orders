@@ -23,6 +23,8 @@ export type Table = {
   freezeFirstColumn?: boolean;
   /** Rows that aren't data: a group heading ("section") or the totals line ("total"). Pages show them differently. */
   rowKinds?: ("section" | "total" | undefined)[];
+  /** The top row of the file, above the column names: "INV# 3001 · Order grid · Packing Mon Oct 26" (Lucas, 10/31/26). */
+  title?: string;
 };
 
 function table(header: string[], rows: Cell[][]): Table {
@@ -31,13 +33,13 @@ function table(header: string[], rows: Cell[][]): Table {
 
 /** A table as a CSV file Excel opens cleanly. */
 export function tableCsv(t: Table): string {
-  return csvFile(t.header, t.rows);
+  return csvFile(t.header, t.rows, t.title);
 }
 
 /** Rows to a CSV file Excel opens cleanly. */
-export function csvFile(header: string[], rows: Cell[][]): string {
+export function csvFile(header: string[], rows: Cell[][], title?: string): string {
   const line = (r: Cell[]) => r.map((v) => csvCell(v ?? "")).join(",");
-  return "﻿" + [line(header), ...rows.map(line)].join("\r\n") + "\r\n";
+  return "﻿" + [...(title ? [line([title])] : []), line(header), ...rows.map(line)].join("\r\n") + "\r\n";
 }
 
 /** A safe file name: "PCC Community Markets: Fremont" -> "PCC-Community-Markets-Fremont". */
@@ -54,20 +56,29 @@ function orderedLines(lines: Qty, products: ProductLite[]): { product: ProductLi
     .sort((a, b) => (a.product?.sort ?? 1e9) - (b.product?.sort ?? 1e9) || a.id.localeCompare(b.id));
 }
 
-export const HISTORY_COLUMNS = ["Customer", "Week of", "Answer", "Product", "Quantity", "Unit", "Packed (lb)", "Order notes"];
+/** Each week's invoice number (weeks.invoice_number), for reports over many weeks: "3001", or "" when the week has none. */
+export type WeekInvs = Map<string, number | string | null>;
+const invOf = (invs: WeekInvs | undefined, week: string): string => {
+  const n = invs?.get(week);
+  return n == null ? "" : String(n);
+};
+
+export const HISTORY_COLUMNS = ["Customer", "Week of", "INV#", "Answer", "Product", "Quantity", "Unit", "Packed (lb)", "Order notes"];
 
 /** One customer's order history: a row per product per week, newest week first. */
 export function customerHistoryTable(
   name: string,
   orders: { week: string; status: OrderStatus; notes: string; lines: Qty; units?: Units; packed: Qty }[],
   products: ProductLite[],
+  invs?: WeekInvs,
 ): Table {
   const rows: Cell[][] = [];
   for (const o of [...orders].sort((a, b) => b.week.localeCompare(a.week))) {
     const lines = orderedLines(o.lines, products);
-    if (!lines.length) rows.push([name, o.week, STATUS_LABEL[o.status], "", "", "", "", o.notes]);
+    const inv = invOf(invs, o.week);
+    if (!lines.length) rows.push([name, o.week, inv, STATUS_LABEL[o.status], "", "", "", "", o.notes]);
     for (const l of lines)
-      rows.push([name, o.week, STATUS_LABEL[o.status], l.product?.name ?? l.id, l.qty, lineUnit(l.id, l.product ?? undefined, o.units), o.packed[l.id] ?? "", o.notes]);
+      rows.push([name, o.week, inv, STATUS_LABEL[o.status], l.product?.name ?? l.id, l.qty, lineUnit(l.id, l.product ?? undefined, o.units), o.packed[l.id] ?? "", o.notes]);
   }
   return table(HISTORY_COLUMNS, rows);
 }
@@ -221,7 +232,12 @@ export function customerListTable(customers: Customer[], byId: Map<string, Custo
 // Sales over a date range: quantities by customer and product (no prices yet).
 // ---------------------------------------------------------------------------
 
-export const SALES_COLUMNS = ["From week", "To week", "Customer", "Chain", "Product", "Unit", "Total", "Weeks ordered", "First week", "Last week"];
+export const SALES_COLUMNS = ["From week", "To week", "Customer", "Chain", "Product", "Unit", "Total", "Weeks ordered", "First week", "Last week", "INV#"];
+
+/** The invoice numbers of a row's first and last week: "3000 to 3001", "3001", or one of them when the other has none. */
+function invSpan(a: string, b: string): string {
+  return a && b && a !== b ? `${a} to ${b}` : a || b;
+}
 
 export function salesTable(
   from: string,
@@ -229,6 +245,7 @@ export function salesTable(
   orders: { customer_id: string; week: string; lines: Qty; units?: Units }[],
   byId: Map<string, Customer>,
   products: ProductLite[],
+  invs?: WeekInvs,
 ): Table {
   const prodBy = new Map(products.map((p) => [p.id, p]));
   type Acc = { total: number; weeks: Set<string>; first: string; last: string };
@@ -256,7 +273,7 @@ export function salesTable(
     return {
       sortName: c ? displayName(c, byId) : cid,
       sortProduct: p?.sort ?? 1e9,
-      row: [from, to, c?.name ?? "(deleted customer)", parent?.name ?? "", p?.name ?? pid, p?.unit ?? "", a.total, a.weeks.size, a.first, a.last] as Cell[],
+      row: [from, to, c?.name ?? "(deleted customer)", parent?.name ?? "", p?.name ?? pid, p?.unit ?? "", a.total, a.weeks.size, a.first, a.last, invSpan(invOf(invs, a.first), invOf(invs, a.last))] as Cell[],
     };
   });
   rows.sort((x, y) => x.sortName.localeCompare(y.sortName, undefined, { sensitivity: "base" }) || x.sortProduct - y.sortProduct);
@@ -470,6 +487,8 @@ export function invoiceCodesTable(rows: { name: string; code: string }[]): Table
 /** An invoice as the invoice downloads see it (finalized or sent; any week). */
 export type IssuedInvoice = {
   number: string;
+  /** The week's invoice number ("3001"; "" when the week has none). */
+  weekInv?: string;
   customer: string;
   invoiceDate: string;
   dueDate: string;
@@ -502,13 +521,14 @@ export const usDate = (d: string) => `${d.slice(5, 7)}/${d.slice(8, 10)}/${d.sli
 
 const termsText = (days: number) => (days === 0 ? "Due on receipt" : `Net ${days}`);
 
-export const OPEN_INVOICE_COLUMNS = ["Location", "Invoice", "Invoice date", "Due date", "Status", "Total", "Paid", "Balance", "Days overdue"];
+export const OPEN_INVOICE_COLUMNS = ["INV#", "Location", "Invoice", "Invoice date", "Due date", "Status", "Total", "Paid", "Balance", "Days overdue"];
 
 /** Invoices with money still owed, oldest number first, with a totals line. */
 export function openInvoicesTable(list: IssuedInvoice[], daysOverdue: (due: string) => number): Table {
   const open = list.filter((i) => i.totalCents - i.paidCents !== BigInt(0));
   const sum = (f: (i: IssuedInvoice) => bigint) => open.reduce((s, i) => s + f(i), BigInt(0));
   const rows: Cell[][] = open.map((i) => [
+    i.weekInv ?? "",
     i.customer,
     i.number,
     usDate(i.invoiceDate),
@@ -520,6 +540,7 @@ export function openInvoicesTable(list: IssuedInvoice[], daysOverdue: (due: stri
     daysOverdue(i.dueDate) || "",
   ]);
   rows.push([
+    "",
     `${open.length} open`,
     "",
     "",
