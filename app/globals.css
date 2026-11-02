@@ -3096,6 +3096,11 @@ tr.zebra td,
     break-after: auto;
     page-break-after: auto;
   }
+  /* A pallet label fills its landscape page: the stores and boxes spread out. */
+  .plab {
+    height: 7.6in;
+    justify-content: space-between;
+  }
 }
 
 /* Scan boxes: scrolled to under the sticky header (10/26/26). */
