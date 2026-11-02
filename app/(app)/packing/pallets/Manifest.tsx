@@ -129,7 +129,13 @@ export function weekDuplicates(data: PackingBundle): DuplicateBox[] {
 /** One customer's boxes: a row per product, its box count, every box ID with its net weight, the product's total; the store total last. */
 function GroupTable({ g, withLot }: { g: ManifestGroup; withLot: boolean }) {
   return (
-    <table className="mf-table">
+    <table className="mf-table mf-byproduct">
+      <colgroup>
+        <col className="mf-c-prod" />
+        <col className="mf-c-qty" />
+        <col />
+        <col className="mf-c-total" />
+      </colgroup>
       <thead>
         <tr>
           <th colSpan={4} className="mf-group">

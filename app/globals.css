@@ -2846,6 +2846,21 @@ tr.zebra td,
 .mf-lot {
   font-weight: 700;
 }
+/* On paper and wider screens, box IDs get most of the width; on a phone the columns size themselves. */
+@media print, (min-width: 640px) {
+  .mf-byproduct {
+    table-layout: fixed;
+  }
+  .mf-c-prod {
+    width: 24%;
+  }
+  .mf-c-qty {
+    width: 7%;
+  }
+  .mf-c-total {
+    width: 15%;
+  }
+}
 .mf-table .num {
   text-align: right;
   white-space: nowrap;
