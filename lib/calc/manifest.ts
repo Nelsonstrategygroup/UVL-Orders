@@ -69,3 +69,67 @@ export function manifestTable(pallets: { tag: string; manifest: Manifest }[]): T
     ),
   };
 }
+
+// --- Grouped by product (Lucas, 11/2/26): one row per product per customer,
+// every box ID with its own net weight, the product's total. The CSV stays
+// one row per box (manifestTable above). ---
+
+export type ProductRow = {
+  product: string;
+  /** The product's boxes, by box ID. */
+  boxes: ManifestBox[];
+  /** Net weight of the boxes that have one. */
+  lb: number;
+  /** Boxes with no weight. */
+  missing: number;
+};
+
+/** A customer's boxes as one row per product, sorted by product name. */
+export function productRows(rows: ManifestBox[]): ProductRow[] {
+  const by = new Map<string, ManifestBox[]>();
+  for (const r of rows) by.set(r.product, [...(by.get(r.product) ?? []), r]);
+  return [...by.entries()]
+    .sort(([a], [b]) => byName(a, b))
+    .map(([product, list]) => {
+      const boxes = [...list].sort((a, b) => byName(a.boxId, b.boxId));
+      return { product, boxes, lb: round2(boxes.reduce((s, b) => s + (b.lb ?? 0), 0)), missing: boxes.filter((b) => b.lb == null).length };
+    });
+}
+
+/** The lot when every box on the manifest shares one (printed once in the header); null when they differ or there's none. */
+export function oneLot(m: Manifest): string | null {
+  const lots = new Set(m.groups.flatMap((g) => g.rows.map((r) => r.lot.trim())));
+  if (lots.size !== 1) return null;
+  const [lot] = lots;
+  return lot || null;
+}
+
+/** "2630610100 (40.90)"; with the lot in front when lots differ: "092426-2628720009 (10.00)"; "(MISSING)" with no weight. */
+export function boxEntry(b: ManifestBox, withLot: boolean): string {
+  const id = withLot && b.lot.trim() ? `${b.lot.trim()}-${b.boxId}` : b.boxId;
+  return `${id} (${b.lb == null ? "MISSING" : b.lb.toFixed(2)})`;
+}
+
+/** A product's total: "62.00 lb", or "40.90 lb + 1 MISSING" when a box has no weight. */
+export function productTotalText(r: ProductRow): string {
+  return `${r.lb.toFixed(2)} lb${r.missing ? ` + ${r.missing} MISSING` : ""}`;
+}
+
+export type DuplicateBox = { boxId: string; where: string[] };
+
+/**
+ * Box IDs that appear more than once in the week (Lucas, 11/2/26), and where
+ * each one is ("PCC #13 Edmonds · Racks · P2"). Boxes with no ID are skipped.
+ */
+export function duplicateBoxIds(boxes: { boxId: string; where: string }[]): DuplicateBox[] {
+  const by = new Map<string, string[]>();
+  for (const b of boxes) {
+    const id = b.boxId.trim();
+    if (!id) continue;
+    by.set(id, [...(by.get(id) ?? []), b.where]);
+  }
+  return [...by.entries()]
+    .filter(([, where]) => where.length > 1)
+    .sort(([a], [b]) => byName(a, b))
+    .map(([boxId, where]) => ({ boxId, where }));
+}

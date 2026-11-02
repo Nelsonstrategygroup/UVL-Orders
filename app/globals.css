@@ -2833,8 +2833,18 @@ tr.zebra td,
 .mf-table th,
 .mf-table td {
   border: 1px solid #999;
-  padding: 3pt 5pt;
+  padding: 2pt 4pt;
   text-align: left;
+  vertical-align: top;
+}
+/* Every box ID with its weight, wrapping when there are many (11/2/26). */
+.mf-table td.mf-ids {
+  font-size: 9.5pt;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.mf-lot {
+  font-weight: 700;
 }
 .mf-table .num {
   text-align: right;
