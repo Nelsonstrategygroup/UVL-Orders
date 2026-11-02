@@ -3521,3 +3521,19 @@ td.cb-neg {
     page-break-after: auto;
   }
 }
+
+/* Packing: Heart, Liver and Kidney share one box; a pack count for each one ordered (11/2/26). */
+.organ-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+.organ-count {
+  display: grid;
+  gap: 0.25rem;
+}
+.organ-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+}

@@ -27,6 +27,7 @@ import {
 } from "@/lib/calc/packing";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
+import { packedWith } from "@/lib/calc/packTogether";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
 import { orderSheet, packLines, sheetLabels, sheetRowId, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
@@ -42,6 +43,8 @@ const FILTERS: [PackFilter, string][] = [
 ];
 // ✕ is the paper sheet's X (not filled); − is packed but short.
 const MARK: Record<string, string> = { done: "✓", short: "−", over: "+", flag: "!" };
+
+const NO_MARK: LineMark = { count: null, shorted: false, flagged: false, flagNote: "" };
 
 export default function PackingScreen() {
   const { week } = useWeek();
@@ -247,9 +250,9 @@ export default function PackingScreen() {
               ),
             );
           }}
-          onMark={(m) => {
+          onMark={(m, pid = weighing.productId) => {
             keep(wOrder.id);
-            void save(enqueue({ type: "mark", order_id: wOrder.id, product_id: weighing.productId, mark: m }));
+            void save(enqueue({ type: "mark", order_id: wOrder.id, product_id: pid, mark: m }));
           }}
         />
       )}
@@ -405,25 +408,46 @@ function WeighSheet({
   onClose: () => void;
   onAdd: (weight: number) => Promise<void>;
   onRemove: (id: string) => void;
-  onMark: (m: LineMark) => void;
+  /** Save a line's marks: this product's, or (packed together) another product in the box. */
+  onMark: (m: LineMark, productId?: string) => void;
 }) {
-  const line = packLines(o, data.products).find(([pid]) => pid === productId)?.[1];
-  const mark: LineMark = o.marks[productId] ?? { count: null, shorted: false, flagged: false, flagNote: "" };
+  const lines = packLines(o, data.products);
+  const line = lines.find(([pid]) => pid === productId)?.[1];
+  const mark: LineMark = o.marks[productId] ?? NO_MARK;
+  // Packed together (Heart, Liver, Kidney): one box, a pack count for each one ordered (Lucas, 11/2/26).
+  const members = packedWith(productId, data.products).filter((id) => lines.some(([pid]) => pid === id));
+  const together = members.length > 1 || !!data.products.get(productId)?.packed_with?.trim();
   const mine = o.weights.filter((w) => w.product_id === productId);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(mark.flagNote);
   const [count, setCount] = useState(mark.count == null ? "" : fmt(mark.count));
+  // The organs' counts as typed, by product, until saved.
+  const [counts, setCounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(members.map((id) => [id, o.marks[id]?.count == null ? "" : fmt(o.marks[id]!.count!)])),
+  );
   if (!line) return null;
+  const countOf = (v: string) => (v.trim() === "" ? null : num(v));
+  /** Save one organ's count if it changed. */
+  const saveCount = (id: string) => {
+    const c = countOf(counts[id] ?? "");
+    const m = o.marks[id] ?? NO_MARK;
+    if (c !== m.count) onMark({ ...m, count: c }, id);
+  };
   const slotOf = (id: string) => row.blanks.find((b) => b.weight?.id === id)?.slot;
   const next = nextBlank(row);
   const value = num(text);
 
   /** Done: save a flag note or count still being typed, then close. */
   function finish() {
-    const c = count.trim() === "" ? null : num(count);
-    if (canPack && ((mark.flagged && note !== mark.flagNote) || (line!.unit !== "lb" && c !== mark.count)))
-      onMark({ ...mark, flagNote: mark.flagged ? note : mark.flagNote, count: line!.unit !== "lb" ? c : mark.count });
+    if (canPack && together) {
+      for (const id of members) saveCount(id);
+      if (mark.flagged && note !== mark.flagNote) onMark({ ...mark, flagNote: note });
+    } else {
+      const c = count.trim() === "" ? null : num(count);
+      if (canPack && ((mark.flagged && note !== mark.flagNote) || (line!.unit !== "lb" && c !== mark.count)))
+        onMark({ ...mark, flagNote: mark.flagged ? note : mark.flagNote, count: line!.unit !== "lb" ? c : mark.count });
+    }
     onClose();
   }
 
@@ -436,10 +460,17 @@ function WeighSheet({
   }
 
   return (
-    <Sheet title={data.products.get(productId)?.name ?? productId} onClose={finish}>
-      <p className="mt-0 text-[1.05rem]">
-        Ordered <b>{qtyText(line.ordered, line.unit)}</b>. {lineWords(line)}.
-      </p>
+    <Sheet title={together ? packedWith(productId, data.products).map((id) => data.products.get(id)?.name ?? id).join(", ") : (data.products.get(productId)?.name ?? productId)} onClose={finish}>
+      {together ? (
+        <p className="mt-0 text-[1.05rem]">
+          One box. Ordered{" "}
+          <b>{members.map((id) => `${qtyText(lines.find(([pid]) => pid === id)![1].ordered, lines.find(([pid]) => pid === id)![1].unit)} ${data.products.get(id)?.name ?? id}`).join(", ")}</b>.
+        </p>
+      ) : (
+        <p className="mt-0 text-[1.05rem]">
+          Ordered <b>{qtyText(line.ordered, line.unit)}</b>. {lineWords(line)}.
+        </p>
+      )}
 
       <fieldset disabled={!canPack || busy} className="m-0 min-w-0 border-0 p-0">
         {mine.length > 0 && (
@@ -479,7 +510,38 @@ function WeighSheet({
         </div>
 
 
-        {line.unit !== "lb" && (
+        {together && (
+          <div className="mt-4">
+            <span className="lbl m-0">Packs in the box</span>
+            <p className="small muted m-0">Count what went in after cutting. The invoice shows these under the weight.</p>
+            <div className="organ-counts">
+              {members.map((id) => {
+                const l = lines.find(([pid]) => pid === id)![1];
+                const p = data.products.get(id);
+                const word = ((p?.label_name ?? "").trim() || p?.name || id).trim();
+                return (
+                  <label key={id} className="organ-count">
+                    <span className="organ-name">{/s$/i.test(word) ? word : `${word}s`}</span>
+                    <input
+                      className="field big num"
+                      inputMode="numeric"
+                      aria-label={`${word}: packs in the box`}
+                      value={counts[id] ?? ""}
+                      onChange={(e) => setCounts((c) => ({ ...c, [id]: e.target.value.replace(/[^0-9.]/g, "") }))}
+                      onBlur={() => saveCount(id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
+                    />
+                    <span className="small muted">ordered {qtyText(l.ordered, l.unit)}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {line.unit !== "lb" && !together && (
           <>
             <label className="lbl" htmlFor="weigh-count">
               How many {line.unit === "pack" ? "packs" : line.unit === "case" ? "cases" : "pieces"}? (optional)
@@ -503,8 +565,12 @@ function WeighSheet({
             <input
               type="checkbox"
               className="h-6 w-6 accent-forest"
-              checked={mark.shorted}
-              onChange={(e) => onMark({ ...mark, shorted: e.target.checked })}
+              checked={together ? members.every((id) => (o.marks[id] ?? NO_MARK).shorted) : mark.shorted}
+              onChange={(e) => {
+                // One box: not filled means none of the organs in it.
+                if (together) for (const id of members) onMark({ ...(o.marks[id] ?? NO_MARK), shorted: e.target.checked }, id);
+                else onMark({ ...mark, shorted: e.target.checked });
+              }}
             />
             Not filled (none packed)
           </label>

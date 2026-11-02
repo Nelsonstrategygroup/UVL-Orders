@@ -41,6 +41,18 @@ questions doc.
 
 ## Decisions
 
+### Heart, Liver and Kidney pack counts on Packing (11/2/26)
+The organs share one box, and Mohawk only knows the counts after cutting.
+Tapping Heart, Liver or Kidney on a store's card now opens one panel for the
+box: its weight, then "Packs in the box" with a count for each organ that
+store ordered (the ordered amount under each). Each count is saved on that
+organ's own line (packing_lines.packed_qty), which the invoice already
+reads: the organ line is charged by weight with "4 Heart, 5 Liver, 3 Kidney"
+under it, from the counts, not the order; a draft made before the counts
+shows as out of date. The packing record's Pieces packed shows them too.
+"Not filled" in that panel marks all the organs in the box. Checked on the
+TEST order (3/1/2027), then the test lines removed. No database change.
+
 ### Weigh Sheet and Pallet Sheet (11/1/26)
 The paper packing copy ran about 13 pages for INV 3002 and was grouped by
 customer, but boxes come off the line on carts by box size, products and
