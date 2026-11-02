@@ -47,6 +47,16 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       if (r.error?.code === "23503") return { kind: "done", note: "A weight was for an order that no longer exists. Kathy should check it." };
       return classify(r.error, r.status);
     }
+    case "weight-unassigned": {
+      // No store and no lot: weighed and typed in from paper, like the other paper weights (a scanned box needs a lot).
+      const r = await withTimeout(
+        db.from("packing_weights").upsert(
+          { client_id: a.client_id, order_id: null, week_id: a.week_id, product_id: a.product_id, weight: a.weight, route: "unassigned" },
+          { onConflict: "client_id", ignoreDuplicates: true },
+        ),
+      );
+      return classify(r.error, r.status);
+    }
     case "weight-edit": {
       let query = db.from("packing_weights").update({ weight: a.weight, label_no: a.label_no });
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");

@@ -8,7 +8,7 @@ in `docs/questions-for-kathy-and-chris.md`.
 
 Built 11/1/26, not live yet: the Weigh Sheet and the Pallet Sheet, replacing
 the paper packing copy, and Type in from paper laid out like the Weigh Sheet
-(see below). Migration 20261101000100 waits on a db push.
+(see below). Migration 20261101000100 is applied.
 
 Live since the last status: invoice drafts, finalizing, payments and the
 invoice downloads (QuickBooks connection on hold); Heart, Liver and Kidney
@@ -70,12 +70,16 @@ customer, both large on the label. It's replaced by two printouts (Lucas):
 - Type in from paper: the Weigh Sheet's layout; totals per row, per product
   and per store; "+ Add a box" per row; the 5 blank rows with Product and
   Store pickers. A store not ordering this week saves the box unassigned,
-  to put on a pallet on Pallets (Lucas). Each box's weight is stored on its
+  to put on a pallet on Pallets (Lucas); it saves like the other paper
+  weights (no lot, which only a scanned box needs). Each box's weight is stored on its
   own under its store and product, with its place in the row and no label
   number (the sheet prints none; Lucas: fine, so a box typed in from paper
   shows no label number on the manifest). Scanned boxes keep theirs.
 - INV 3002 (11/2/26), measured on the week's orders: Weigh Sheet 5 pages
   (22 products, 114 rows); Pallet Sheet 3 pages (19 stores, 114 lines).
+  Checked with print styles: every page exactly the printable area, nothing
+  running past a page or out of a row; saving checked on the TEST order
+  (3/1/2027), then the test weights deleted.
 - Same migration: the weekly invoice numbers. 11/2 is 3002, so 11/9 is set
   to 3003; 3003 and 3004 had been typed on 12/28 and the test week of
   3/1/2027 by mistake and are cleared (Lucas).

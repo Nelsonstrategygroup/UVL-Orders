@@ -3383,7 +3383,7 @@ td.cb-neg {
 .ws-cols,
 .ws-row {
   display: grid;
-  grid-template-columns: 1.6in 0.75in 1fr 0.68in;
+  grid-template-columns: 1.5in 0.85in 1fr 0.68in;
 }
 .ws-cols {
   font-size: 7.5pt;
@@ -3419,6 +3419,7 @@ td.cb-neg {
   display: block;
   font-size: 7pt;
   font-style: italic;
+  white-space: nowrap;
 }
 .ws-cells {
   display: flex;
@@ -3429,7 +3430,7 @@ td.cb-neg {
   display: block;
   width: 0.58in;
   height: calc(var(--rowh) - 0.06in);
-  margin: 0.03in 0;
+  margin: 0.025in 0;
   border: 1.2pt solid #000;
   background: #fff;
   box-sizing: border-box;

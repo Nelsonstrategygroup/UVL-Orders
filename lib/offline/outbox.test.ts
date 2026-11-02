@@ -194,3 +194,13 @@ describe("errors and the status line", () => {
     expect(statusLine({ online: true, waiting: 0, stuck: 2, needLogin: false, syncing: false })).toBe("Online, 2 couldn't upload");
   });
 });
+
+describe("a box from the Weigh Sheet's blank rows with no store (11/1/26)", () => {
+  it("shows straight away as an unassigned box, once", () => {
+    const a = { type: "weight-unassigned", client_id: "u1", week_id: "2026-10-19", product_id: "rack", weight: 33.3, at: "2026-11-02T15:00:00Z" } as const;
+    const out = applyQueue(data(), [q(a), q(a)]);
+    expect(out.unassigned).toHaveLength(1);
+    expect(out.unassigned[0]).toMatchObject({ client_id: "u1", product_id: "rack", weight: 33.3, slot: null, label_no: null, source: "weigh" });
+    expect(out.orders[0].weights).toHaveLength(0);
+  });
+});

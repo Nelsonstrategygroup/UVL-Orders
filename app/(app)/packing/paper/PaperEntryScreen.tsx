@@ -267,10 +267,7 @@ function SpareRows({
     if (!r.product || !r.customer || !(lb > 0)) return;
     const at = new Date().toISOString();
     if (r.customer === NOT_ORDERING) {
-      save({
-        type: "box",
-        box: { client_id: crypto.randomUUID(), order_id: null, week_id: week, product_id: r.product, source: "manual", weight: lb, lot: "", scanned_at: at, route: "unassigned" },
-      });
+      save({ type: "weight-unassigned", client_id: crypto.randomUUID(), week_id: week, product_id: r.product, weight: lb, at });
       toast("Saved with no store. Put it on a pallet on the Pallets page.");
     } else {
       const sheetRow = sections.find((s) => s.productId === r.product)?.rows.find((x) => x.order.id === r.customer)?.row;

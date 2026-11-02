@@ -23,6 +23,8 @@ export type Action =
       slot?: number | null;
       label_no?: number | null;
     }
+  /** A box typed in from the Weigh Sheet's blank rows for a store not ordering this week: no store yet (unassigned), for Kathy to put on a pallet (11/1/26). */
+  | { type: "weight-unassigned"; client_id: string; week_id: string; product_id: string; weight: number; at: string }
   /** Change a weight, or the label number written above it (typed in from the paper sheet). */
   | { type: "weight-edit"; order_id: string; weight_id?: string; client_id?: string; weight: number; label_no: number | null }
   /** Take a weight off: one already uploaded (weight_id) or one still waiting (client_id). */
@@ -179,6 +181,9 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
           at: a.at,
         }),
       );
+    } else if (a.type === "weight-unassigned") {
+      if (!onServer.has(a.client_id) && !unassigned.some((w) => w.client_id === a.client_id))
+        unassigned.push(blankWeight({ id: localId(a.client_id), client_id: a.client_id, product_id: a.product_id, weight: a.weight, box_no: null, by: who, at: a.at }));
     } else if (a.type === "weight-edit") {
       const o = byId.get(a.order_id);
       if (!o) continue;
