@@ -120,6 +120,13 @@ function Plan({
   const checks = leTrimChecks(plan, spare, ordered.lb, { lb: trimSpare, actual: hasActual }, weights);
   const legs = legsFor(plan.halfLegs);
   const short = leTrimShortText(need);
+  // The saved plan is what the week uses (This week, the cut sheet): shown at the top once saved (Lucas, 11/2/26).
+  const sp = saved ? { shoulders: saved.shoulders, halfLegs: saved.half_legs, trimLb: num(saved.trim_lb) } : null;
+  const spLb = sp ? Math.round(planLb(sp, weights)) : 0;
+  const spDiff = spLb - Math.round(ordered.lb);
+  /** "3 left after your plan" or "2 short for your plan", once a plan is saved. */
+  const leftWords = (n: number, unit = "") =>
+    n >= 0 ? `${fmt(n)}${unit} left after your plan` : `${fmt(-n)}${unit} short for your plan`;
 
   async function save() {
     setBusy(true);
@@ -165,31 +172,49 @@ function Plan({
         <div>
           <span>Extra shoulders</span>
           <b>{spare.shoulders}</b>
-          <small>after all other orders</small>
+          <small>{sp ? leftWords(spare.shoulders - sp.shoulders) : "after all other orders"}</small>
         </div>
         <div>
           <span>Extra legs</span>
           <b>{spare.legs}</b>
-          <small>up to {spare.halfLegs} half legs</small>
+          <small>{sp ? `${leftWords(spare.halfLegs - sp.halfLegs)} (half legs)` : `up to ${spare.halfLegs} half legs`}</small>
         </div>
         <div>
           <span>Extra trim</span>
           <b>{fmt(Math.round(trimSpare))} lb</b>
           <small className={hasActual ? "" : "lt-est"}>{hasActual ? "From the kill sheet" : "Estimated"}</small>
+          {sp && <small>{leftWords(Math.round(trimSpare - sp.trimLb), " lb")}</small>}
         </div>
       </div>
 
-      <section className={`note mt-4 ${short ? "warn" : ""}`} aria-live="polite">
-        <b>By weight, approximately:</b> {fmt(Math.round(need.trimLb))} lb trim
-        {need.shoulders > 0 && `, ${need.shoulders} shoulder${need.shoulders === 1 ? "" : "s"} (${fmt(weights.shoulderLb)} lb each)`}
-        {need.halfLegs > 0 && `, ${need.halfLegs} half leg${need.halfLegs === 1 ? "" : "s"} (${fmt(halfLegLb(weights))} lb each, ${need.legs} leg${need.legs === 1 ? "" : "s"} halved)`}: about{" "}
-        {fmt(Math.round(need.coveredLb))} of {fmt(ordered.lb)} lb.
+      <section className={`note mt-4 ${short || (sp && spDiff < 0) ? "warn" : ""}`} aria-live="polite">
+        {sp && (
+          <>
+            <b>Your saved plan:</b> {fmt(Math.round(sp.trimLb))} lb trim, {sp.shoulders} shoulder{sp.shoulders === 1 ? "" : "s"} ({fmt(weights.shoulderLb)} lb
+            each), {sp.halfLegs} half leg{sp.halfLegs === 1 ? "" : "s"} ({fmt(halfLegLb(weights))} lb each, {legsFor(sp.halfLegs)} leg
+            {legsFor(sp.halfLegs) === 1 ? "" : "s"} halved): approximately {fmt(spLb)} of {fmt(ordered.lb)} lb
+            {spDiff > 0 ? `, about ${fmt(spDiff)} lb over.` : spDiff < 0 ? `. About ${fmt(-spDiff)} lb short.` : "."} This is what This week and the cut
+            sheet use.
+            <div className="small mt-1">
+              The app&apos;s own mix would be about {fmt(Math.round(need.trimLb))} lb trim, {need.shoulders} shoulders and {need.halfLegs} half legs.
+            </div>
+          </>
+        )}
+        {!sp && <b>The app&apos;s mix by weight, approximately:</b>}
+        {!sp && <> {fmt(Math.round(need.trimLb))} lb trim</>}
+        {!sp && (
+          <>
+            {need.shoulders > 0 && `, ${need.shoulders} shoulder${need.shoulders === 1 ? "" : "s"} (${fmt(weights.shoulderLb)} lb each)`}
+            {need.halfLegs > 0 && `, ${need.halfLegs} half leg${need.halfLegs === 1 ? "" : "s"} (${fmt(halfLegLb(weights))} lb each, ${need.legs} leg${need.legs === 1 ? "" : "s"} halved)`}: about{" "}
+            {fmt(Math.round(need.coveredLb))} of {fmt(ordered.lb)} lb.
+          </>
+        )}
         {short ? (
           <div className="mt-1">
             <b>{short}</b> Add them on <Link href="/week">This week</Link>, under Extra lambs.
           </div>
         ) : (
-          <div className="mt-1">Covered by what&apos;s spare.</div>
+          !sp && <div className="mt-1">Covered by what&apos;s spare.</div>
         )}
         <div className="small muted mt-1">
           Average-size lambs: {fmt(weights.trimPerLambLb)} lb trim each, {fmt(weights.shoulderLb)} lb a shoulder, {fmt(weights.legLb)} lb a leg (Setup).
