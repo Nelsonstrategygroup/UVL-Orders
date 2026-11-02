@@ -29,6 +29,13 @@ export type AppSettings = {
   pack_spare_blanks?: number;
   /** Printed as "Ship from" on pallet manifests (10/26/26). */
   ship_from_address?: string;
+  /** The primary and secondary contacts on cross dock sheets and pallet labels (11/2/26). */
+  contact1_name?: string;
+  contact1_phone?: string;
+  contact1_email?: string;
+  contact2_name?: string;
+  contact2_phone?: string;
+  contact2_email?: string;
 };
 
 /** A week's saved Le Trim plan (change request 10/25/26). */

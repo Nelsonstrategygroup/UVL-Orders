@@ -199,3 +199,45 @@ export function daysOverdue(due: string | null, today: string): number {
   const d = (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86400000;
   return d > 0 ? Math.round(d) : 0;
 }
+
+// --- Box weights under each line (Lucas, 11/2/26) ---------------------------
+
+/** A box as an invoice line needs it: its product, net weight, and what orders it (Mohawk's serial, else its label number). */
+export type LineBox = { product_id: string; weight: number | string; serial: string | null; label_no: number | null };
+
+/**
+ * Each line's box weights, in the order packed (Mohawk's serials run in
+ * packing order; boxes typed in by label number after them), by line id.
+ * Only shipped lines sold by the pound: a per-case line (pepper sticks) shows
+ * its box count only, "Not shipped" and added lines show nothing. `lead`
+ * gives the product a box is billed under (Heart, Liver and Kidney under the
+ * group's first). Weights as recorded, never rounded or priced per box.
+ */
+export function lineBoxWeights(
+  lines: Pick<PricedLine, "id" | "kind" | "product_id" | "price_unit">[],
+  boxes: LineBox[],
+  lead: (productId: string) => string,
+): Map<string, number[]> {
+  const out = new Map<string, number[]>();
+  const order = (b: LineBox) => [b.serial ? 0 : 1, b.serial ?? "", b.label_no ?? 0] as const;
+  for (const l of lines) {
+    if (l.kind !== "packed" || !l.product_id || l.price_unit === "case") continue;
+    const mine = boxes
+      .filter((b) => lead(b.product_id) === l.product_id)
+      .sort((a, b) => {
+        const x = order(a);
+        const y = order(b);
+        return x[0] - y[0] || x[1].localeCompare(y[1], undefined, { numeric: true }) || x[2] - y[2];
+      })
+      .map((b) => Number(b.weight))
+      .filter((w) => Number.isFinite(w) && w > 0);
+    if (mine.length) out.set(l.id, mine);
+  }
+  return out;
+}
+
+/** "Boxes: 41.35, 21.70 lb" (two decimals, thousands separators). */
+export function boxWeightsText(weights: number[]): string {
+  const f = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `Boxes: ${weights.map(f).join(", ")} lb`;
+}

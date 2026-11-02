@@ -1,64 +1,71 @@
 "use client";
 
-// Print and download > Pallet manifest (change request 10/26/26): pick one of
-// the week's pallets (tag, destination, boxes) and open its manifest, print
-// every pallet's, or download the box rows as a CSV for invoicing. Opens the
-// same manifest page as Pallets. Ship dates aren't set yet (Lucas, 10/26/26),
-// so the pallets are the week's: the week being looked at, this week to
-// start (it holds today's shipment).
+// Print and download > Cross dock sheets, Pallet labels, Pallet manifests
+// (Lucas, 11/2/26): pick a ship date from the week's pallets and print all
+// for it. Manifests for a date come grouped by distributor, each
+// distributor's cross dock sheet first, then each pallet's customer pages.
+// The manifest CSV (one row per box) is kept. Opens the same pages as
+// Pallets.
 
 import Link from "next/link";
 import { useState } from "react";
 import { downloadTable } from "@/components/download";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
-import { weekName } from "@/lib/dates";
+import { longDate, weekName } from "@/lib/dates";
 import { manifestFile, manifestsTable, palletManifests } from "../packing/pallets/Manifest";
 
-export default function PalletManifestPicker({ week }: { week: string }) {
+export type PalletPaper = "crossdock" | "labels" | "manifests";
+
+const PATH: Record<PalletPaper, string> = {
+  crossdock: "/packing/pallets/crossdock",
+  labels: "/packing/pallets/pallet-labels",
+  manifests: "/packing/pallets/manifest",
+};
+
+export default function PalletManifestPicker({ week, kind }: { week: string; kind: PalletPaper }) {
   const bundle = usePackingBundle(week);
-  const [picked, setPicked] = useState("");
+  const [picked, setPicked] = useState<string | null>(null);
   if (bundle.error) return <span className="small muted">Couldn&apos;t load the pallets.</span>;
   if (!bundle.data) return <span className="small muted">Loading pallets...</span>;
 
-  const list = palletManifests(bundle.data);
-  if (!list.length) return <span className="small muted">No pallets for {weekName(week)} yet.</span>;
-  const pallet = list.find((m) => m.pallet.id === picked) ?? list[0];
-  const base = `/packing/pallets/manifest?week=${week}`;
+  const pallets = bundle.data.pallets;
+  if (!pallets.length) return <span className="small muted">No pallets for {weekName(week)} yet.</span>;
+  // The week's ship dates, soonest first; "none" for pallets without one yet.
+  const dates = [...new Set(pallets.map((p) => p.ship_date ?? "none"))].sort((a, b) => (a === "none" ? 1 : b === "none" ? -1 : a.localeCompare(b)));
+  const date = picked && dates.includes(picked) ? picked : dates[0];
+  const href = `${PATH[kind]}?week=${week}&date=${date}`;
 
   return (
     <div className="grid w-full gap-2">
-      <select className="field" aria-label="Pallet" value={pallet.pallet.id} onChange={(e) => setPicked(e.target.value)}>
-        {list.map((m) => (
-          <option key={m.pallet.id} value={m.pallet.id}>
-            {m.pallet.tag} · {m.ship} · {m.manifest.boxes} box{m.manifest.boxes === 1 ? "" : "es"}
+      <select className="field" aria-label="Ship date" value={date} onChange={(e) => setPicked(e.target.value)}>
+        {dates.map((d) => (
+          <option key={d} value={d}>
+            {d === "none" ? "No ship date yet" : `Ships ${longDate(d)}`} · {pallets.filter((p) => (p.ship_date ?? "none") === d).length} pallet
+            {pallets.filter((p) => (p.ship_date ?? "none") === d).length === 1 ? "" : "s"}
           </option>
         ))}
       </select>
       <div className="flex flex-wrap gap-2">
-        <Link href={`${base}&pallet=${pallet.pallet.id}&print=1`} className="btn">
-          Open {pallet.pallet.tag}
+        <Link href={`${href}&print=1`} className="btn">
+          Print all for this date
         </Link>
-        <Link href={`${base}&print=1`} className="btn ghost">
-          Print all for {weekName(week)}
+        <Link href={href} className="btn ghost">
+          Open
         </Link>
-        <Link href={base} className="btn ghost">
-          Save as PDF
-        </Link>
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={() => {
-            const inv = bundle.data?.packing.invNumber ?? null;
-            void downloadTable(manifestFile(inv, week), manifestsTable(list, inv, week), "Manifest", "csv");
-          }}
-        >
-          Download CSV
-        </button>
+        {kind === "manifests" && (
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              const inv = bundle.data?.packing.invNumber ?? null;
+              const list = palletManifests(bundle.data!);
+              void downloadTable(manifestFile(inv, week), manifestsTable(list, inv, week), "Manifest", "csv");
+            }}
+          >
+            Download CSV
+          </button>
+        )}
       </div>
-      <p className="small muted m-0">
-        Save as PDF opens every pallet&apos;s manifest; tap Save as PDF there and choose &ldquo;Save as PDF&rdquo; as the
-        printer.
-      </p>
     </div>
   );
 }

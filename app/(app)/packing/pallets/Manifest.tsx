@@ -1,30 +1,26 @@
-// The pallet shipping manifest (change request 10/26/26), one component for
-// every entry point: the manifest page (opened from Pallets, and from Print
-// and download) draws it, and the CSV download uses the same rows. Letter,
-// portrait, the browser's print: one pallet per page, each customer's rows
-// with column headings repeated if they run onto the next page. Since
-// 11/2/26 each customer's boxes are one row per product (every box ID with
-// its net weight, the product's total), the lot once in the header when the
-// whole pallet shares one, and a warning when a box ID is used twice in the
-// week. The CSV is still one row per box.
+// The pallet shipping manifest (change request 10/26/26; one customer per
+// page since 11/2/26), one component for every entry point: the manifest
+// page (opened from Pallets, and from Print and download) draws it, and the
+// CSV download (one row per box) uses the same boxes. Each customer gets its
+// own Letter page: a row per box by product, a subtotal under any product
+// with 2 or more boxes, the customer's total, Received by / Date. Printing
+// all for a ship date puts each distributor's cross dock sheet first, then
+// its pallets' customer pages (./Paperwork.tsx). A box ID used twice in the
+// week is flagged on each customer it touches.
 
 import type { PackingBundle } from "@/components/offline/usePackingBundle";
 import {
-  boxEntry,
   boxIdOf,
   buildManifest,
   duplicateBoxIds,
-  lbText,
   manifestTable,
   netWeight,
-  oneLot,
-  productRows,
-  productTotalText,
   type DuplicateBox,
   type Manifest,
-  type ManifestGroup,
 } from "@/lib/calc/manifest";
-import PrintHeader from "@/components/PrintHeader";
+import { crossDockGroups, customerManifests } from "@/lib/calc/paperwork";
+import { weekBoxes, weekPallets, weekPoints } from "@/lib/paperworkData";
+import { CrossDockSheet, CustomerPages, type PaperworkContext } from "./Paperwork";
 import { invFileName, invLabel } from "@/lib/weekInv";
 import { weekName } from "@/lib/dates";
 import type { PalletRow } from "@/lib/db/scanning";
@@ -126,56 +122,6 @@ export function weekDuplicates(data: PackingBundle): DuplicateBox[] {
   ]);
 }
 
-/** One customer's boxes: a row per product, its box count, every box ID with its net weight, the product's total; the store total last. */
-function GroupTable({ g, withLot }: { g: ManifestGroup; withLot: boolean }) {
-  return (
-    <table className="mf-table mf-byproduct">
-      <colgroup>
-        <col className="mf-c-prod" />
-        <col className="mf-c-qty" />
-        <col />
-        <col className="mf-c-total" />
-      </colgroup>
-      <thead>
-        <tr>
-          <th colSpan={4} className="mf-group">
-            {g.customer}
-          </th>
-        </tr>
-        <tr>
-          <th>Product</th>
-          <th className="num">Qty</th>
-          <th>Box IDs (net lb)</th>
-          <th className="num">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {productRows(g.rows).map((r) => (
-          <tr key={r.product}>
-            <td>{r.product}</td>
-            <td className="num">{r.boxes.length}</td>
-            <td className="mf-ids">
-              {r.boxes.map((b, i) => (
-                <span key={b.id}>
-                  {i > 0 && ", "}
-                  {b.lb == null ? <b>{boxEntry(b, withLot)}</b> : boxEntry(b, withLot)}
-                </span>
-              ))}
-            </td>
-            <td className="num">{r.missing ? <b>{productTotalText(r)}</b> : productTotalText(r)}</td>
-          </tr>
-        ))}
-        <tr className="mf-sub">
-          <td>{g.customer} total</td>
-          <td className="num">{g.boxes}</td>
-          <td />
-          <td className="num">{lbText(g.lb)}</td>
-        </tr>
-      </tbody>
-    </table>
-  );
-}
-
 /** The CSV for these manifests: pallet, customer, box ID, lot, product, net weight; the week's INV# on top. */
 export const manifestsTable = (list: PalletManifest[], inv: string | null, week: string) => ({
   ...manifestTable(list.map((m) => ({ tag: m.pallet.tag, manifest: m.manifest }))),
@@ -189,165 +135,130 @@ export const manifestFile = (inv: string | null, week: string, tag?: string) =>
 /** "Data as of Mon Oct 26, 3:05 PM", and whether it's the copy saved on this phone (no signal). */
 export type ManifestAsOf = { at: string | null; fromPhone: boolean };
 
+/** Which pallets: one, or a ship date ("none": not set yet), or all of the week. */
+export type PalletPick = { palletId?: string | null; date?: string | null };
+
+/** The pallets the paperwork covers, grouped by distributor and ship date, and those with no distributor. */
+export function pickPallets(data: PackingBundle, pick: PalletPick) {
+  const pallets = weekPallets(data).filter((p) => !pick.palletId || p.id === pick.palletId);
+  const { groups, blocked } = crossDockGroups(pallets, weekPoints(data));
+  const onDate = (d: string | null) => !pick.date || (pick.date === "none" ? d == null : d === pick.date);
+  return {
+    groups: groups.filter((g) => onDate(g.shipDate)),
+    blocked: blocked.filter((b) => onDate(b.pallet.shipDate)),
+  };
+}
+
+/** The paperwork's shared details: company, INV#, week, ship from, contacts. */
+export function paperworkContext(data: PackingBundle): PaperworkContext {
+  const p = data.packing;
+  return { company: p.company, inv: p.invNumber, week: p.week, shipFrom: p.shipFrom, contacts: p.contacts ?? [] };
+}
+
+/** Duplicate box IDs that touch a customer ("PCC #13 Edmonds · ...") or any of these pallet tags ("... · P2"). */
+const dupsForCustomer = (dups: DuplicateBox[], customer: string) => dups.filter((d) => d.where.some((w) => w.startsWith(`${customer} · `)));
+const dupsForTags = (dups: DuplicateBox[], tags: string[]) => dups.filter((d) => d.where.some((w) => tags.some((t) => w.endsWith(` · ${t}`))));
+
+/**
+ * The manifests (Lucas, 11/2/26): grouped by distributor and ship date, each
+ * with its cross dock sheet first (when `crossDock`), then each pallet's
+ * customer pages. Pallets with no distributor come after, with no sheet; boxes
+ * on no pallet last (when `showLoose`).
+ */
 export function ManifestSheets({
   data,
-  list,
-  loose,
+  pick,
+  crossDock,
   asOf,
   showLoose = false,
 }: {
   data: PackingBundle;
-  list: PalletManifest[];
-  /** The week's boxes on no pallet (looseBoxes). */
-  loose: Manifest;
+  pick: PalletPick;
+  /** The distributor's cross dock sheet before its pallets (Print all for a date). */
+  crossDock: boolean;
   asOf: ManifestAsOf;
-  /** Print them as their own page (Print all). */
   showLoose?: boolean;
 }) {
+  const ctx = paperworkContext(data);
   const dups = weekDuplicates(data);
-  const { company, shipFrom, week, invNumber } = data.packing;
-  const header = (i: number) => (
-    <PrintHeader inv={invNumber} title="Pallet manifest" when={`Packing ${weekName(week)}`} footer={i === 0} />
-  );
+  const { groups, blocked } = pickPallets(data, pick);
+  const loose = weekBoxes(data).filter((b) => !b.palletId);
   const asOfText = asOf.at
-    ? new Date(asOf.at).toLocaleString("en-US", {
-        timeZone: "America/Los_Angeles",
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      })
+    ? new Date(asOf.at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
     : "";
-  const notices = (
-    <>
-      {dups.length > 0 && (
-        <p className="mf-warn">
-          ⚠ Box ID{dups.length === 1 ? "" : "s"} used more than once this week:{" "}
-          {dups.map((d, i) => (
-            <span key={d.boxId}>
-              {i > 0 && "; "}
-              {d.boxId} ({d.where.join(" and ")})
-            </span>
-          ))}
-          . Check the labels before this pallet ships.
-        </p>
-      )}
-      {asOf.fromPhone && (
-        <p className="mf-warn">
-          ⚠ No signal: this is the copy saved on this phone
-          {asOfText ? ` at ${asOfText}` : ""}. Boxes scanned on other phones
-          since then aren&apos;t on it. Print again with signal before the
-          pallet ships.
-        </p>
-      )}
-      {loose.boxes > 0 && (
-        <p className="mf-warn">
-          ⚠ {loose.boxes} box
-          {loose.boxes === 1 ? " this week is" : "es this week are"} on no
-          pallet, so not on any manifest:{" "}
-          {loose.groups
-            .flatMap((g) =>
-              g.rows.map((r) => `${g.customer} ${r.product} ${lbText(r.lb)}`),
-            )
-            .join("; ")}
-          . Put {loose.boxes === 1 ? "it" : "them"} on a pallet (scan again,
-          then Wrong pallet) before shipping.
-        </p>
-      )}
-    </>
-  );
+  // On every page, when it's the copy saved on this phone.
+  const phone = asOf.fromPhone ? (
+    <p className="mf-warn">
+      ⚠ No signal: this is the copy saved on this phone{asOfText ? ` at ${asOfText}` : ""}. Boxes scanned on other phones since then aren&apos;t on it. Print
+      again with signal before the pallet ships.
+    </p>
+  ) : null;
+  const looseNote =
+    loose.length > 0 ? (
+      <p className="mf-warn">
+        ⚠ {loose.length} box{loose.length === 1 ? " this week is" : "es this week are"} on no pallet, so not on any manifest. Put{" "}
+        {loose.length === 1 ? "it" : "them"} on a pallet before shipping.
+      </p>
+    ) : null;
+
   return (
     <div className="pkmanifest">
-      {list.map(({ pallet, ship, ofN, manifest: m }, i) => (
-        <section key={pallet.id} className="mf-pallet">
-          {header(i)}
-          <div className="mf-head">
-            <div className="mf-tag">{pallet.tag}</div>
-            <div className="flex-1">
-              <div className="mf-co">{company}</div>
-              <div>
-                Pallet {pallet.tag}
-                {ofN ? ` · ${ofN}` : ""} · {weekName(week)}
-              </div>
-              {oneLot(m) && <div className="mf-lot">Lot {oneLot(m)}</div>}
-              <div>
-                Ship date: <span className="mf-line" />
-              </div>
-            </div>
-          </div>
-          <div className="mf-addr">
-            <div>
-              <b>Ship from</b>
-              {shipFrom ? (
-                <div className="whitespace-pre-line">{shipFrom}</div>
-              ) : (
-                <div className="mf-lines" />
-              )}
-            </div>
-            <div>
-              <b>Ship to</b>
-              <div className="mf-ship">{ship}</div>
-            </div>
-          </div>
-          {notices}
-          {m.missing > 0 && (
-            <p className="mf-warn">
-              ⚠ {m.missing} box{m.missing === 1 ? " has" : "es have"} no weight
-              (MISSING below). Weigh {m.missing === 1 ? "it" : "them"} before
-              this pallet ships.
-            </p>
+      {groups.map((g) => (
+        <div key={`${g.point.id}|${g.shipDate ?? ""}`}>
+          {crossDock && (
+            <>
+              <CrossDockSheet group={g} ctx={ctx} dups={dupsForTags(dups, g.pallets.map((r) => r.pallet.tag))} />
+            </>
           )}
-          {!m.boxes && <p>No boxes scanned onto this pallet yet.</p>}
-          {m.groups.map((g) => (
-            <GroupTable key={g.customer} g={g} withLot={!oneLot(m)} />
-          ))}
-          <div className="mf-total">
-            <span>
-              Pallet {pallet.tag}: {m.boxes} box{m.boxes === 1 ? "" : "es"}
-            </span>
-            <span>{lbText(m.lb)}</span>
-          </div>
-          <div className="mf-sign">
-            <span>
-              Received by <span className="mf-line wide" />
-            </span>
-            <span>
-              Date <span className="mf-line" />
-            </span>
-          </div>
-          <p className="mf-foot">
-            Copy 1 ships with pallet / Copy 2 retained.
-            {asOfText ? ` Data as of ${asOfText}.` : ""}
-          </p>
-        </section>
+          {g.pallets.map((r) =>
+            customerManifests(r.pallet.boxes).map((cm) => (
+              <CustomerPages
+                key={`${r.pallet.id}|${cm.customer}`}
+                cm={cm}
+                point={g.point}
+                palletTag={r.pallet.tag}
+                palletName={`${g.point.shortName} ${r.n} of ${r.of}`}
+                shipDate={g.shipDate}
+                ctx={ctx}
+                dups={dupsForCustomer(dups, cm.customer)}
+                extraWarnings={phone ? 1 : 0}
+                notices={phone}
+              />
+            )),
+          )}
+        </div>
       ))}
-      {showLoose && loose.boxes > 0 && (
-        <section className="mf-pallet">
-          {header(list.length)}
-          <div className="mf-head">
-            <div className="mf-tag">—</div>
-            <div className="flex-1">
-              <div className="mf-co">{company}</div>
-              <div>Boxes on no pallet · {weekName(week)}</div>
-              {oneLot(loose) && <div className="mf-lot">Lot {oneLot(loose)}</div>}
-            </div>
-          </div>
-          <p className="mf-warn">
-            These boxes are packed but on no pallet, so they&apos;re not on any
-            manifest above. Put each on its pallet before shipping.
-          </p>
-          {loose.groups.map((g) => (
-            <GroupTable key={g.customer} g={g} withLot={!oneLot(loose)} />
-          ))}
-          <div className="mf-total">
-            <span>
-              On no pallet: {loose.boxes} box{loose.boxes === 1 ? "" : "es"}
-            </span>
-            <span>{lbText(loose.lb)}</span>
-          </div>
-        </section>
+      {blocked.map(({ pallet }) =>
+        customerManifests(pallet.boxes).map((cm) => (
+          <CustomerPages
+            key={`${pallet.id}|${cm.customer}`}
+            cm={cm}
+            point={null}
+            palletTag={pallet.tag}
+            palletName=""
+            shipDate={pallet.shipDate}
+            ctx={ctx}
+            dups={dupsForCustomer(dups, cm.customer)}
+            extraWarnings={phone ? 1 : 0}
+            notices={phone}
+          />
+        )),
       )}
+      {showLoose &&
+        customerManifests(loose).map((cm) => (
+          <CustomerPages
+            key={`loose|${cm.customer}`}
+            cm={cm}
+            point={null}
+            palletTag="On no pallet"
+            palletName=""
+            shipDate={null}
+            ctx={ctx}
+            dups={dupsForCustomer(dups, cm.customer)}
+            extraWarnings={1}
+            notices={looseNote}
+          />
+        ))}
     </div>
   );
 }

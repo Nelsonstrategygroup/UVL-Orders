@@ -185,9 +185,20 @@ export default function PrintScreen() {
           </Item>
         )}
         {seePacking && (
-          <Item key="manifest" title="Pallet manifest" action={<PalletManifestPicker week={week} />}>
-            Every box on a pallet by customer (stores by number), with lot, net weight and totals, to ship with the pallet.
-            Also a CSV of the boxes for invoicing.
+          <Item key="crossdock" title="Cross dock sheets" action={<PalletManifestPicker week={week} kind="crossdock" />}>
+            One page per distributor and ship date: each pallet with its cases and weight, the totals, Received by.
+          </Item>
+        )}
+        {seePacking && (
+          <Item key="pallet-labels" title="Pallet labels" action={<PalletManifestPicker week={week} kind="labels" />}>
+            One label per pallet for the outside, two copies each: the carrier and distributor, the stores, pallet 1 of 3 and
+            the cases.
+          </Item>
+        )}
+        {seePacking && (
+          <Item key="manifest" title="Pallet manifests" action={<PalletManifestPicker week={week} kind="manifests" />}>
+            Every box by customer, one customer per page, with lot and net weight, to ship with the pallet. Each distributor&apos;s
+            cross dock sheet comes first. Also a CSV of the boxes for invoicing.
           </Item>
         )}
         {seePacking && (

@@ -145,7 +145,7 @@ export async function updateRow(
 
 export async function updateSettings(
   db: SupabaseClient,
-  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; le_trim_shoulder_lb: number; le_trim_leg_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number; ship_from_address: string }>,
+  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; le_trim_shoulder_lb: number; le_trim_leg_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number; ship_from_address: string } & Record<`contact${1 | 2}_${"name" | "phone" | "email"}`, string>>,
 ): Promise<string | null> {
   const { error } = await db.from("app_settings").update(patch).eq("id", true);
   return msg(error);
@@ -348,16 +348,28 @@ export async function deleteCutSpec(db: SupabaseClient, id: string): Promise<{ e
 
 // ----- Distributors and Ships to (Setup; change request 10/26/26) -----
 
-export type ConsolidationPoint = { id: string; name: string; note: string; active: boolean };
+export type ConsolidationPoint = {
+  id: string;
+  name: string;
+  note: string;
+  active: boolean;
+  /** For the paperwork (11/2/26): "Plymouth", PP, the carrier, the cross dock, #RRGGBB. Missing before their migration. */
+  short_name?: string;
+  code?: string;
+  carrier?: string;
+  cross_dock?: string;
+  color?: string;
+};
 
 export async function loadPoints(db: SupabaseClient): Promise<ConsolidationPoint[]> {
-  const { data, error } = await db.from("consolidation_points").select("id, name, note, active").order("name");
+  // Everything, so the paperwork's fields can't break Setup before their migration runs.
+  const { data, error } = await db.from("consolidation_points").select("*").order("name");
   if (error) throw new Error(error.message);
   return (data ?? []) as ConsolidationPoint[];
 }
 
-export async function addPoint(db: SupabaseClient, name: string): Promise<string | null> {
-  const { error } = await db.from("consolidation_points").insert({ name });
+export async function addPoint(db: SupabaseClient, name: string, color?: string): Promise<string | null> {
+  const { error } = await db.from("consolidation_points").insert(color ? { name, color } : { name });
   return msg(error);
 }
 

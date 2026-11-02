@@ -2,7 +2,8 @@
 // name, bill-to, terms and due date, and its boxes when it has box detail.
 
 import { displayName } from "@/lib/calc/customers";
-import { dueDate, invoiceTotals, priceLines, termsFor } from "@/lib/calc/invoice";
+import { dueDate, invoiceTotals, lineBoxWeights, priceLines, termsFor } from "@/lib/calc/invoice";
+import { groupLead } from "@/lib/calc/packTogether";
 import type { Catalog, CustomersData } from "@/lib/db/types";
 import type { InvoiceRow } from "@/lib/db/invoices";
 import type { InvoiceSheetProps } from "./InvoiceSheet";
@@ -10,13 +11,18 @@ import type { InvoiceWeek } from "./useInvoiceWeek";
 
 export function sheetFor(data: InvoiceWeek, inv: InvoiceRow, customers: CustomersData, catalog: Catalog | null): InvoiceSheetProps {
   const productName = (id: string) => catalog?.productById.get(id)?.name ?? id;
+  // A box is billed under its product, or for Heart, Liver and Kidney the group's first.
+  const lead = (id: string) => (catalog ? groupLead(id, catalog.products) : id);
   // Finalized (or void after it): everything as issued, never today's settings.
   const is = inv.issued;
   if (inv.status !== "draft" && is) {
     const terms = inv.terms_days ?? 0;
+    const lines = priceLines(inv.invoice_lines, [], inv.customer_id, inv.invoice_date);
     return {
       invoice: inv,
-      lines: priceLines(inv.invoice_lines, [], inv.customer_id, inv.invoice_date),
+      lines,
+      // The boxes as finalized (invoice_boxes), never today's box records.
+      boxWeights: lineBoxWeights(lines, inv.invoice_boxes, lead),
       customerName: is.customer_name,
       billTo: is.bill_to,
       terms,
@@ -37,9 +43,15 @@ export function sheetFor(data: InvoiceWeek, inv: InvoiceRow, customers: Customer
   const c = customers.byId.get(inv.customer_id);
   const b = data.billing.get(inv.customer_id);
   const terms = termsFor(b?.terms_days, data.settings?.default_terms_days ?? 15);
+  const lines = priceLines(inv.invoice_lines, data.prices, inv.customer_id, inv.invoice_date);
   return {
     invoice: inv,
-    lines: priceLines(inv.invoice_lines, data.prices, inv.customer_id, inv.invoice_date),
+    lines,
+    boxWeights: lineBoxWeights(
+      lines,
+      data.boxes.filter((x) => x.customer_id === inv.customer_id),
+      lead,
+    ),
     customerName: c ? displayName(c, customers.byId) : "Unknown customer",
     billTo: b?.bill_to_address ?? "",
     terms,

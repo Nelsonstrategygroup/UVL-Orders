@@ -6,7 +6,7 @@
 // every box. Shown as a sheet on screen, printed as is.
 
 import { Fragment } from "react";
-import { invoiceTotals, lbText, paidCents, quantityText, type PricedLine } from "@/lib/calc/invoice";
+import { boxWeightsText, invoiceTotals, lbText, paidCents, quantityText, type PricedLine } from "@/lib/calc/invoice";
 import { centsText, priceText, PRICE_UNIT_SHORT, toFixedInt } from "@/lib/calc/prices";
 import { boxIdOf } from "@/lib/calc/manifest";
 import { niceDate, weekName } from "@/lib/dates";
@@ -23,6 +23,8 @@ export type InvoiceSheetProps = {
   settings: InvoiceSettings | null;
   /** The box detail page: the location's boxes, or null when it's off. */
   boxes: InvoiceBox[] | null;
+  /** Each shipped line's box weights, in the order packed, by line id (11/2/26). */
+  boxWeights: Map<string, number[]>;
   productName: (id: string) => string;
 };
 
@@ -34,7 +36,7 @@ const ordered = (l: PricedLine) => (l.ordered_qty == null ? "" : `Ordered ${Numb
 const discountText = (l: PricedLine) =>
   l.discount_kind === "percent" ? `Discount ${Number(l.discount)}%` : `Discount ${priceText(l.discount ?? 0)}`;
 
-export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo, terms, due, settings, boxes, productName }: InvoiceSheetProps) {
+export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo, terms, due, settings, boxes, boxWeights, productName }: InvoiceSheetProps) {
   const t = invoiceTotals(lines);
   const draft = inv.status === "draft";
   const mark = draft ? "DRAFT" : inv.status === "void" ? "VOID" : null;
@@ -111,6 +113,7 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                     {l.not_on_order && <span className="inv-small"> · not on the order</span>}
                     {l.kind !== "manual" && ordered(l) && <span className="inv-small block">{ordered(l)}</span>}
                     {l.detail && <span className="inv-small block">{l.detail}</span>}
+                    {boxWeights.get(l.id) && <span className="inv-boxw">{boxWeightsText(boxWeights.get(l.id)!)}</span>}
                     {l.note && !l.discount && <span className="inv-small block">{l.note}</span>}
                   </td>
                   <td className="num">{l.kind === "manual" ? "" : l.boxes}</td>

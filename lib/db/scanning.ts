@@ -44,6 +44,8 @@ export type PalletRow = {
   plan: { customerId: string; productId: string; boxes: number }[];
   /** Customers (stores) planned onto this pallet for the week (pallet_customers). */
   customers: string[];
+  /** The day it ships to the cross dock; null until set. Missing on a copy saved on a phone before 11/2/26. */
+  ship_date?: string | null;
 };
 
 type PalletDb = {
@@ -52,6 +54,7 @@ type PalletDb = {
   tag: string;
   status: PalletRow["status"];
   created_at: string;
+  ship_date: string | null;
   pallet_shipments: { shipments: { ship_to_customer_id: string | null; ship_to_point_id: string | null } | null }[] | null;
   pallet_plan_lines: { customer_id: string; product_id: string; planned_boxes: number }[] | null;
   pallet_customers: { customer_id: string }[] | null;
@@ -62,7 +65,7 @@ export async function loadPallets(db: SupabaseClient, week: string): Promise<Pal
   const { data, error } = await db
     .from("pallets")
     .select(
-      "id, week_id, tag, status, created_at, pallet_shipments(shipments(ship_to_customer_id, ship_to_point_id)), pallet_plan_lines(customer_id, product_id, planned_boxes), pallet_customers(customer_id)",
+      "id, week_id, tag, status, created_at, ship_date, pallet_shipments(shipments(ship_to_customer_id, ship_to_point_id)), pallet_plan_lines(customer_id, product_id, planned_boxes), pallet_customers(customer_id)",
     )
     .eq("week_id", week)
     .order("created_at");
@@ -79,7 +82,15 @@ export async function loadPallets(db: SupabaseClient, week: string): Promise<Pal
       .map((x) => (x.ship_to_point_id ? `point:${x.ship_to_point_id}` : `customer:${x.ship_to_customer_id}`)),
     plan: (p.pallet_plan_lines ?? []).map((l) => ({ customerId: l.customer_id, productId: l.product_id, boxes: l.planned_boxes })),
     customers: (p.pallet_customers ?? []).map((c) => c.customer_id),
+    ship_date: p.ship_date ?? null,
   }));
+}
+
+/** Set the day pallets ship to the cross dock (the cross dock sheet; 11/2/26). Only the date: boxes and packing aren't touched. */
+export async function setPalletShipDate(db: SupabaseClient, palletIds: string[], date: string | null): Promise<string | null> {
+  if (!palletIds.length) return null;
+  const { error } = await db.from("pallets").update({ ship_date: date }).in("id", palletIds);
+  return error ? error.message : null;
 }
 
 /** One box, as sent to record_box() (SPEC 11.11). */

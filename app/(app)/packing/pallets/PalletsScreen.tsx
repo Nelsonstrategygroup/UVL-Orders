@@ -20,6 +20,8 @@ import { palletTotals } from "@/lib/calc/routing";
 import { assignBox, type PackWeight } from "@/lib/db/packing";
 import type { PalletRow } from "@/lib/db/scanning";
 import Link from "next/link";
+import { palletPoint, palletPointProblem } from "@/lib/calc/paperwork";
+import { weekPallets, weekPoints } from "@/lib/paperworkData";
 import { shipName as shipNameOf } from "./Manifest";
 import PlanPallets from "./PlanPallets";
 
@@ -72,6 +74,10 @@ export default function PalletsScreen() {
   // The manifest page (one shared manifest for Pallets and Print and download).
   const manifestHref = (palletId?: string) =>
     `/packing/pallets/manifest?week=${week}${palletId ? `&pallet=${palletId}` : ""}&print=1`;
+  // Each pallet's distributor, from the stores on it (Setup > Ships to; 11/2/26).
+  const pw = new Map(weekPallets(data).map((x) => [x.id, x]));
+  const pointNames = new Map([...weekPoints(data).values()].map((d) => [d.id, d.name]));
+  const labelHref = (palletId: string) => `/packing/pallets/pallet-labels?week=${week}&pallet=${palletId}&print=1`;
   const isPoint = (pl: PalletRow) =>
     pl.shipKeys.some((k) => k.startsWith("point:"));
   const onPallet = (id: string) => all.filter((b) => b.pallet_id === id);
@@ -120,6 +126,10 @@ export default function PalletsScreen() {
         {data.pallets.map((pl) => {
           const boxes = onPallet(pl.id);
           const t = palletTotals(boxes);
+          const x = pw.get(pl.id);
+          const pp = x ? palletPoint(x) : null;
+          // Mixed distributors, or a store with none: say so here (the label won't print).
+          const problem = pp && (pp.mixed.length || pp.noPoint.length) ? palletPointProblem(pp, pointNames) : null;
           return (
             <section key={pl.id} className="panel mt-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -137,6 +147,14 @@ export default function PalletsScreen() {
                   {STATUS[pl.status]}
                 </span>
               </div>
+              {problem && (
+                <p className="note warn mt-2 mb-0">
+                  ⚠ {problem}{" "}
+                  <Link href="/setup/pallets" className="copy">
+                    Setup &gt; Ships to
+                  </Link>
+                </p>
+              )}
               {isPoint(pl) && t.byCustomer.size > 0 && (
                 <table className="simple mt-2">
                   <thead>
@@ -172,8 +190,11 @@ export default function PalletsScreen() {
                 </table>
               )}
               <div className="mt-2 flex flex-wrap gap-2">
+                <Link href={labelHref(pl.id)} className="btn">
+                  Print label
+                </Link>
                 <Link href={manifestHref(pl.id)} className="btn">
-                  Print Manifest
+                  Print manifest
                 </Link>
                 {(canPack || canWeek) && (
                   <>

@@ -6,6 +6,7 @@
 // admins can change things.
 
 import { deleteGtin, loadGtins, saveGtin } from "@/lib/db/scanning";
+import { DISTRIBUTOR_COLORS, nextDistributorColor } from "@/lib/calc/distributorColors";
 import BoxLimits from "./BoxLimits";
 import Link from "next/link";
 import { SETUP_SECTIONS, type SetupSlug } from "./sections";
@@ -456,6 +457,34 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
               }}
             />
           </label>
+          <h3>Contacts on the paperwork</h3>
+          <p className="small muted mt-0">Printed on cross dock sheets (both) and pallet labels (the primary contact&apos;s name and phone).</p>
+          <div className="grid gap-2 mb-4">
+            {([1, 2] as const).map((n) => (
+              <div key={n} className="flex flex-wrap items-end gap-2">
+                <b className="w-24">{n === 1 ? "Primary" : "Secondary"}</b>
+                {(["name", "phone", "email"] as const).map((k) => {
+                  const key = `contact${n}_${k}` as const;
+                  return (
+                    <label key={k} className="grid gap-1">
+                      <span className="lbl m-0">{k === "name" ? "Name" : k === "phone" ? "Phone" : "Email"}</span>
+                      <input
+                        key={`${key}:${settings?.[key] ?? ""}`}
+                        className="field w-56!"
+                        inputMode={k === "phone" ? "tel" : k === "email" ? "email" : undefined}
+                        defaultValue={settings?.[key] ?? ""}
+                        disabled={!canEdit}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (settings?.[key] ?? "")) void updateSettings(db, { [key]: v }).then(done);
+                        }}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
           <ShipsTo canEdit={canEdit} />
         </section>,
       );
@@ -834,25 +863,60 @@ function ShipsTo({ canEdit }: { canEdit: boolean }) {
   return (
     <>
       <h3>Distributors</h3>
-      <ul className="m-0 mt-1 grid list-none gap-2 p-0">
-        {points.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center gap-2">
-            <input
-              key={`${p.id}:${p.name}`}
-              className="field max-w-[22rem]"
-              aria-label="Distributor name"
-              defaultValue={p.name}
-              disabled={!canEdit}
-              onBlur={(e) => {
-                const v = e.target.value.trim();
-                if (v && v !== p.name) void updatePoint(db, p.id, { name: v }).then(after);
-              }}
-            />
-            <span className="small muted">
-              {customers.list.filter((c) => c.ships_to_point_id === p.id).length} customers ship here
-            </span>
-          </li>
-        ))}
+      <p className="small muted mt-0">
+        Printed on the cross dock sheets and pallet labels: the short name (&ldquo;Plymouth 1 of 3&rdquo;), the short code, the
+        carrier, the cross dock, and the distributor&apos;s color.
+      </p>
+      <ul className="m-0 mt-1 grid list-none gap-3 p-0">
+        {points.map((p) => {
+          const field = (key: "name" | "short_name" | "code" | "carrier" | "cross_dock", label: string, width: string, upper = false) => (
+            <label className="grid gap-1">
+              <span className="lbl m-0">{label}</span>
+              <input
+                key={`${p.id}:${key}:${p[key] ?? ""}`}
+                className={`field ${width}`}
+                defaultValue={p[key] ?? ""}
+                disabled={!canEdit}
+                maxLength={key === "code" ? 4 : undefined}
+                onBlur={(e) => {
+                  const v = upper ? e.target.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "") : e.target.value.trim();
+                  if (key === "name" && !v) return;
+                  if (v !== (p[key] ?? "")) void updatePoint(db, p.id, { [key]: v }).then(after);
+                }}
+              />
+            </label>
+          );
+          return (
+            <li key={p.id} className="grid gap-2 rounded-lg border border-line p-3">
+              <div className="flex flex-wrap items-end gap-2">
+                {field("name", "Name", "max-w-[18rem]")}
+                {field("short_name", "Short name", "w-36!")}
+                {field("code", "Code", "w-20!", true)}
+                {field("carrier", "Carrier", "w-40!")}
+                {field("cross_dock", "Cross dock", "w-48!")}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="lbl m-0">Color</span>
+                {DISTRIBUTOR_COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    className="swatch"
+                    style={{ background: c.hex }}
+                    aria-label={c.name}
+                    aria-pressed={(p.color ?? "").toUpperCase() === c.hex.toUpperCase()}
+                    title={c.name}
+                    disabled={!canEdit}
+                    onClick={() => void updatePoint(db, p.id, { color: c.hex }).then(after)}
+                  />
+                ))}
+                <span className="small muted">
+                  {customers.list.filter((c) => c.ships_to_point_id === p.id).length} customers ship here
+                </span>
+              </div>
+            </li>
+          );
+        })}
       </ul>
       {canEdit && (
         <form
@@ -860,7 +924,7 @@ function ShipsTo({ canEdit }: { canEdit: boolean }) {
           onSubmit={(e) => {
             e.preventDefault();
             if (!name.trim()) return;
-            void addPoint(db, name.trim()).then((err) => {
+            void addPoint(db, name.trim(), nextDistributorColor(points.map((p) => p.color ?? ""))).then((err) => {
               setName("");
               void after(err);
             });

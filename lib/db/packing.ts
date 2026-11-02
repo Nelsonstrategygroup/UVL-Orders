@@ -110,6 +110,10 @@ export type PackingData = {
   unassigned: PackWeight[];
   /** Distributors (Ships to), by id. */
   points: Map<string, string>;
+  /** Distributors with their paperwork details (short name, code, carrier, color), by id (11/2/26). Missing on a copy saved on a phone before then. */
+  distributors?: Map<string, Distributor>;
+  /** The primary and secondary contacts printed on the paperwork (blank ones left out). */
+  contacts?: Contact[];
   /** For the pallet manifest: the company name and the ship-from address (blank: a line to write it on). */
   company: string;
   shipFrom: string;
@@ -118,6 +122,38 @@ export type PackingData = {
   /** Weight blanks on the packing sheet: when the box count isn't known, and spares after known boxes. */
   blanks: { unknown: number; spare: number };
 };
+
+/** A distributor as the paperwork needs it (Setup > Ships to; 11/2/26). */
+export type Distributor = {
+  id: string;
+  name: string;
+  /** "Plymouth": pallets are "Plymouth 1 of 3". */
+  shortName: string;
+  /** "PP": large on the cross dock sheet and pallet labels. */
+  code: string;
+  carrier: string;
+  crossDock: string;
+  /** #RRGGBB. */
+  color: string;
+  active: boolean;
+};
+
+/** A contact printed on the paperwork. */
+export type Contact = { name: string; phone: string; email: string };
+
+/** A consolidation_points row as a Distributor; fields missing before their migration fall back. */
+export function toDistributor(g: { id: string; name: string; short_name?: string; code?: string; carrier?: string; cross_dock?: string; color?: string; active?: boolean }): Distributor {
+  return {
+    id: g.id,
+    name: g.name,
+    shortName: (g.short_name ?? "").trim() || g.name,
+    code: (g.code ?? "").trim(),
+    carrier: (g.carrier ?? "").trim(),
+    crossDock: (g.cross_dock ?? "").trim(),
+    color: /^#[0-9a-f]{6}$/i.test(g.color ?? "") ? g.color! : "#3B5E27",
+    active: g.active ?? true,
+  };
+}
 
 function must<T>(r: { data: T | null; error: { message: string } | null }): T {
   if (r.error) throw new Error(r.error.message);
@@ -183,7 +219,8 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, ships_to_point_id"),
-    db.from("consolidation_points").select("id, name"),
+    // Everything, so the paperwork's fields (short name, code, color) can't break Packing before their migration runs.
+    db.from("consolidation_points").select("*"),
     db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks, packed_with").order("sort"),
     db.from("profiles").select("id, display_name"),
     // The INV#: the week's invoice number (the same on the cut sheet, manifest and invoices).
@@ -208,8 +245,9 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     ships_to_point_id: string | null;
   }[];
   const byId = new Map(custList.map((c) => [c.id, c]));
-  const pointList = (must(groups) ?? []) as { id: string; name: string }[];
+  const pointList = (must(groups) ?? []) as (Partial<Distributor> & { id: string; name: string })[];
   const pointName = new Map(pointList.map((g) => [g.id, g.name]));
+  const distributors = new Map(pointList.map((g) => [g.id, toDistributor(g)]));
   // Distributors in name order, for sorting.
   const pointRank = new Map([...pointList].sort((a, b) => a.name.localeCompare(b.name)).map((g, i) => [g.id, i]));
   const names = new Map((must(people) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
@@ -347,7 +385,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     pack_spare_blanks: number;
     company_name?: string;
     ship_from_address?: string;
-  } | null;
+  } & Partial<Record<`contact${1 | 2}_${"name" | "phone" | "email"}`, string>> | null;
   const wr = must(weekRow) as { process_date: string | null; labels_hash: string | null; labels_printed_at: string | null } | null;
   const invN = sheet.error ? null : ((sheet.data as { invoice_number: number | null } | null)?.invoice_number ?? null);
   const inv = invN == null ? null : String(invN);
@@ -360,6 +398,14 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     products: new Map(prods.map((p) => [p.id, p])),
     unassigned: ((loose.error ? [] : loose.data) as WeightRow[]).map((w) => toWeight(w)),
     points: pointName,
+    distributors,
+    contacts: [1, 2]
+      .map((n) => ({
+        name: (set?.[`contact${n as 1 | 2}_name`] ?? "").trim(),
+        phone: (set?.[`contact${n as 1 | 2}_phone`] ?? "").trim(),
+        email: (set?.[`contact${n as 1 | 2}_email`] ?? "").trim(),
+      }))
+      .filter((c) => c.name || c.phone || c.email),
     company: set?.company_name?.trim() || "Umpqua Valley Lamb",
     shipFrom: set?.ship_from_address?.trim() ?? "",
     labelNumbers: new Map((must(labels) as { number: number; key: string }[]).map((l) => [l.key, l.number])),

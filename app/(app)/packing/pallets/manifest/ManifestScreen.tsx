@@ -15,12 +15,13 @@ import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { downloadTable } from "@/components/download";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
+import { longDate } from "@/lib/dates";
 import {
-  looseBoxes,
   manifestFile,
   ManifestSheets,
   manifestsTable,
   palletManifests,
+  pickPallets,
 } from "../Manifest";
 
 export default function ManifestScreen() {
@@ -39,10 +40,11 @@ export default function ManifestScreen() {
   const onWeek = !asked || asked === week;
   const bundle = usePackingBundle(week);
   const palletId = params.get("pallet");
-  const list =
-    bundle.data && onWeek
-      ? palletManifests(bundle.data, palletId ? [palletId] : undefined)
-      : null;
+  // ?date=2026-11-04 (or "none": no ship date yet): every pallet shipping that day, by distributor.
+  const date = params.get("date");
+  const picked = bundle.data && onWeek ? pickPallets(bundle.data, { palletId, date }) : null;
+  const ids = picked ? [...picked.groups.flatMap((g) => g.pallets.map((r) => r.pallet.id)), ...picked.blocked.map((b) => b.pallet.id)] : [];
+  const list = bundle.data && picked ? palletManifests(bundle.data).filter((m) => ids.includes(m.pallet.id)) : null;
 
   // ?print=1: the print dialog opens once, when the manifest is drawn.
   const printed = useRef(false);
@@ -66,7 +68,9 @@ export default function ManifestScreen() {
   const missing = list.reduce((n, m) => n + m.manifest.missing, 0);
   const title = palletId
     ? `Manifest for pallet ${list[0]?.pallet.tag ?? ""}`
-    : "Manifests for every pallet";
+    : date
+      ? `Manifests for ${date === "none" ? "pallets with no ship date yet" : longDate(date)}`
+      : "Manifests for every pallet";
   return (
     <>
       <div className="screen-only">
@@ -137,12 +141,14 @@ export default function ManifestScreen() {
           </p>
         )}
       </div>
+      {/* Each customer on its own Letter page; printing more than one pallet puts each distributor's cross dock sheet first. */}
+      <style>{`@media print { @page { size: letter portrait; margin: 0.4in; } }`}</style>
       <ManifestSheets
         data={bundle.data}
-        list={list}
-        loose={looseBoxes(bundle.data)}
+        pick={{ palletId, date }}
+        crossDock={!palletId}
         asOf={{ at: bundle.savedAt, fromPhone: bundle.fromPhone }}
-        showLoose={!palletId}
+        showLoose={!palletId && !date}
       />
     </>
   );
