@@ -141,12 +141,11 @@ export default function ManifestScreen() {
           </p>
         )}
       </div>
-      {/* Each customer on its own Letter page; printing more than one pallet puts each distributor's cross dock sheet first. */}
+      {/* A cover page per pallet, then each customer on its own Letter page. Cross dock sheets print from their own option. */}
       <style>{`@media print { @page { size: letter portrait; margin: 0.4in; } }`}</style>
       <ManifestSheets
         data={bundle.data}
         pick={{ palletId, date }}
-        crossDock={!palletId}
         asOf={{ at: bundle.savedAt, fromPhone: bundle.fromPhone }}
         showLoose={!palletId && !date}
       />

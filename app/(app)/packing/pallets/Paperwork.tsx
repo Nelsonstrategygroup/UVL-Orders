@@ -16,7 +16,7 @@ import type { CSSProperties } from "react";
 import type { DuplicateBox } from "@/lib/calc/manifest";
 import { lbWords, manifestPages, type CrossDockGroup, type CrossDockPallet, type CustomerManifest, type PwDistributor } from "@/lib/calc/paperwork";
 import type { Contact } from "@/lib/db/packing";
-import { longDate, weekName } from "@/lib/dates";
+import { longDate, shipDay, weekName } from "@/lib/dates";
 import { invLabel } from "@/lib/weekInv";
 
 export type PaperworkContext = {
@@ -29,7 +29,6 @@ export type PaperworkContext = {
 
 const contactLine = (c: Contact) => [c.name, c.phone, c.email].filter(Boolean).join(" · ");
 /** "Monday, Nov 2", or a line to write the date on. */
-const dateOrLine = (d: string | null) => (d ? longDate(d) : <span className="pw-line" />);
 const colorVars = (color: string) => ({ "--pw-color": color }) as CSSProperties;
 
 /** Box ID warnings that touch these customers or pallets. */
@@ -79,7 +78,7 @@ export function CrossDockSheet({ group, ctx, dups }: { group: CrossDockGroup; ct
             <b>Cross dock:</b> {p.crossDock || <span className="pw-line" />}
           </div>
           <div>
-            <b>Ship date:</b> {dateOrLine(group.shipDate)}
+            <b>Ship date:</b> {longDate(group.shipDate ?? shipDay(ctx.week))}
           </div>
         </div>
         <div className="cd-inv">{invLabel(ctx.inv)}</div>
@@ -167,7 +166,7 @@ export function PalletLabel({ row, group, ctx }: { row: CrossDockPallet; group: 
       <div className="plab-top">
         <b>{ctx.company}</b>
         <span>
-          Cross dock {group.shipDate ? longDate(group.shipDate) : <span className="pw-line" />} · {invLabel(ctx.inv)}
+          Cross dock {longDate(group.shipDate ?? shipDay(ctx.week))} · {invLabel(ctx.inv)}
         </span>
       </div>
       <div className="plab-center">
@@ -201,17 +200,102 @@ export function PalletLabel({ row, group, ctx }: { row: CrossDockPallet; group: 
 }
 
 // ---------------------------------------------------------------------------
-// The manifest: one customer per page
+// The manifest: a cover page per pallet, then one page per customer
 // ---------------------------------------------------------------------------
 
 /** Rows on a customer page: fixed heights (in), so a long customer splits into pages the app can number. */
-export const CM = { rowH: 0.24, pageH: 10.2, head: 2.35, colHead: 0.3, pageOf: 0.25, foot: 1.35, warn: 0.5 } as const;
+export const CM = { rowH: 0.24, pageH: 10.2, head: 2.3, colHead: 0.3, pageOf: 0.25, foot: 1.35, warn: 0.5 } as const;
 
+/**
+ * A pallet's cover page, before its customers (Lucas, 11/2/26): the pallet
+ * large in the distributor's color with its short code, each customer's boxes
+ * and weight, and the pallet's total.
+ */
+export function PalletCover({
+  tag,
+  palletName,
+  point,
+  customers,
+  shipDate,
+  ctx,
+}: {
+  tag: string;
+  /** "Plymouth 1 of 3", or "" when the pallet has no distributor. */
+  palletName: string;
+  point: PwDistributor | null;
+  customers: CustomerManifest[];
+  shipDate: string | null;
+  ctx: PaperworkContext;
+}) {
+  const boxes = customers.reduce((s, c) => s + c.boxes, 0);
+  const lb = Math.round(customers.reduce((s, c) => s + c.lb, 0) * 100) / 100;
+  const missing = customers.reduce((s, c) => s + c.missing, 0);
+  return (
+    <section className="pw-page cmc" style={colorVars(point?.color ?? "#333333")}>
+      <div className="cd-band">
+        <span className="cd-name">
+          {tag}
+          {palletName ? ` · ${palletName}` : ""}
+        </span>
+        {point?.code && <span className="cd-code">{point.code}</span>}
+      </div>
+      <div className="cd-meta">
+        <div className="cd-meta-left">
+          <div>
+            <b>{ctx.company}</b> · Pallet manifest
+          </div>
+          {point && (
+            <div>
+              <b>Via:</b> {point.name}
+              {point.carrier ? ` · Carrier: ${point.carrier}` : ""}
+            </div>
+          )}
+          <div>
+            <b>Packing</b> {weekName(ctx.week)} · <b>Ship date</b> {longDate(shipDate ?? shipDay(ctx.week))}
+          </div>
+        </div>
+        <div className="cd-inv">{invLabel(ctx.inv)}</div>
+      </div>
+      <MissingWarning n={missing} />
+      <table className="cmc-table">
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th className="num">Boxes</th>
+            <th className="num">Net weight</th>
+          </tr>
+        </thead>
+        <tbody>
+          {customers.map((c) => (
+            <tr key={c.customer}>
+              <td>{c.customer}</td>
+              <td className="num">{c.boxes}</td>
+              <td className="num">
+                {lbWords(c.lb)}
+                {c.missing ? ` + ${c.missing} MISSING` : ""}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mf-total">
+        <span>
+          {tag}: {customers.length} customer{customers.length === 1 ? "" : "s"}, {boxes} box{boxes === 1 ? "" : "es"}
+        </span>
+        <span>{lbWords(lb)}</span>
+      </div>
+    </section>
+  );
+}
+
+/** One customer's pages. */
 export function CustomerPages({
   cm,
   point,
   palletTag,
   palletName,
+  storeN,
+  storeOf,
   shipDate,
   ctx,
   dups,
@@ -223,6 +307,9 @@ export function CustomerPages({
   palletTag: string;
   /** "Plymouth 1 of 3", or "" when the pallet has no distributor. */
   palletName: string;
+  /** "Store 2 of 5 on P1". */
+  storeN: number;
+  storeOf: number;
   shipDate: string | null;
   ctx: PaperworkContext;
   dups: DuplicateBox[];
@@ -231,109 +318,134 @@ export function CustomerPages({
   notices?: React.ReactNode;
 }) {
   const warns = (cm.missing ? 1 : 0) + (dups.length ? 1 : 0) + extraWarnings;
-  const room = CM.pageH - CM.head - CM.colHead - CM.pageOf - warns * CM.warn;
+  const room = CM.pageH - CM.head - (ctx.shipFrom ? 0.6 : 0) - CM.colHead - CM.pageOf - warns * CM.warn;
   const pages = manifestPages(cm.rows, Math.floor(room / CM.rowH), Math.floor((room - CM.foot) / CM.rowH));
   return (
     <>
-      {pages.map((rows, i) => (
-        <section key={i} className="pw-page cm" style={colorVars(point?.color ?? "#333333")}>
-          <div className="cm-head">
-            <div className="cm-head-left">
-              <div className="cm-co">{ctx.company}</div>
-              <div className="cm-cust">{cm.customer}</div>
-              <div className="cm-pallet">
-                {point?.code && <span className="cm-code">{point.code}</span>}
-                <b>
-                  {palletTag}
-                  {palletName ? ` · ${palletName}` : ""}
-                </b>
+      {pages.map((rows, i) => {
+        // One lot on this page: once in the header, no Lot column (Lucas, 11/2/26).
+        const lots = new Set(rows.flatMap((r) => (r.kind === "box" ? [r.box.lot.trim()] : [])));
+        const oneLot = lots.size === 1 ? [...lots][0] : "";
+        const lotCol = !oneLot;
+        return (
+          <section key={i} className="pw-page cm" style={colorVars(point?.color ?? "#333333")}>
+            <div className="cm-head">
+              <div className="cm-head-left">
+                <div className="cm-co">{ctx.company}</div>
+                <div className="cm-cust">{cm.customer}</div>
+                <div className="cm-pallet">
+                  {point?.code && <span className="cm-code">{point.code}</span>}
+                  <b>
+                    {palletTag}
+                    {palletName ? ` · ${palletName}` : ""}
+                  </b>
+                  <span className="cm-store">
+                    Store {storeN} of {storeOf} on {palletTag}
+                  </span>
+                </div>
               </div>
+              <div className="cm-inv">{invLabel(ctx.inv)}</div>
             </div>
-            <div className="cm-inv">{invLabel(ctx.inv)}</div>
-          </div>
-          <div className="cm-dates">
-            <span>
-              <b>Packing</b> {weekName(ctx.week)}
-            </span>
-            <span>
-              <b>Ship date</b> {dateOrLine(shipDate)}
-            </span>
-          </div>
-          <div className="mf-addr">
-            <div>
-              <b>Ship from</b>
-              {ctx.shipFrom ? <div className="whitespace-pre-line">{ctx.shipFrom}</div> : <div className="mf-lines" />}
-            </div>
-            <div>
-              <b>Ship to</b>
-              <div className="mf-ship">{point ? [point.name, point.crossDock].filter(Boolean).join(", ") : <span className="pw-line wide" />}</div>
-            </div>
-          </div>
-          {i === 0 && (
-            <>
-              <MissingWarning n={cm.missing} />
-              <DupWarning dups={dups} />
-              {notices}
-            </>
-          )}
-          {pages.length > 1 && (
-            <p className="cm-pageof">
-              {cm.customer}, page {i + 1} of {pages.length}
-            </p>
-          )}
-          <table className="cm-table">
-            <thead>
-              <tr>
-                <th>Box ID</th>
-                <th>Lot</th>
-                <th>Product</th>
-                <th className="num">Net weight</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) =>
-                r.kind === "box" ? (
-                  <tr key={r.box.id} style={{ height: `${CM.rowH}in` }}>
-                    <td>{r.box.boxId}</td>
-                    <td>{r.box.lot}</td>
-                    <td>{r.box.product}</td>
-                    <td className="num">{r.box.lb == null ? <b>MISSING</b> : lbWords(r.box.lb)}</td>
-                  </tr>
-                ) : (
-                  <tr key={`sub:${r.product}`} className="cm-sub" style={{ height: `${CM.rowH}in` }}>
-                    <td colSpan={4}>
-                      {r.product} · {r.boxes} boxes · {lbWords(r.lb)}
-                      {r.missing ? ` + ${r.missing} MISSING` : ""}
-                    </td>
-                  </tr>
-                ),
+            <div className="cm-dates">
+              <span>
+                <b>Packing</b> {weekName(ctx.week)}
+              </span>
+              <span>
+                <b>Ship date</b> {longDate(shipDate ?? shipDay(ctx.week))}
+              </span>
+              {oneLot && (
+                <span>
+                  <b>Lot</b> {oneLot}
+                </span>
               )}
-            </tbody>
-          </table>
-          {i === pages.length - 1 && (
-            <>
-              <div className="mf-total">
-                <span>
-                  {cm.customer}: {cm.boxes} box{cm.boxes === 1 ? "" : "es"}
-                </span>
-                <span>
-                  {lbWords(cm.lb)}
-                  {cm.missing ? ` + ${cm.missing} MISSING` : ""}
-                </span>
+            </div>
+            <div className="cm-deliver">
+              <div>
+                <b>Deliver to:</b> <span className="mf-ship">{cm.customer}</span>
               </div>
-              <div className="mf-sign">
-                <span>
-                  Received by <span className="mf-line wide" />
-                </span>
-                <span>
-                  Date <span className="mf-line" />
-                </span>
-              </div>
-              <p className="mf-foot">Copy 1 ships with pallet / Copy 2 retained.</p>
-            </>
-          )}
-        </section>
-      ))}
+              {point && (
+                <div>
+                  <b>Via:</b> {point.name}
+                  {point.carrier ? ` · Carrier: ${point.carrier}` : ""}
+                </div>
+              )}
+              {ctx.shipFrom && (
+                <div className="cm-from">
+                  <b>Ship from:</b> <span className="whitespace-pre-line">{ctx.shipFrom}</span>
+                </div>
+              )}
+            </div>
+            {i === 0 && (
+              <>
+                <MissingWarning n={cm.missing} />
+                <DupWarning dups={dups} />
+                {notices}
+              </>
+            )}
+            {pages.length > 1 && (
+              <p className="cm-pageof">
+                {cm.customer}, page {i + 1} of {pages.length}
+              </p>
+            )}
+            <table className="cm-table">
+              <thead>
+                <tr>
+                  <th>Box ID</th>
+                  {lotCol && <th>Lot</th>}
+                  <th>Product</th>
+                  <th className="num">Net weight</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) =>
+                  r.kind === "box" ? (
+                    <tr key={r.box.id} style={{ height: `${CM.rowH}in` }}>
+                      <td>{r.box.boxId}</td>
+                      {lotCol && <td>{r.box.lot}</td>}
+                      <td>{r.box.product}</td>
+                      <td className="num">{r.box.lb == null ? <b>MISSING</b> : lbWords(r.box.lb)}</td>
+                    </tr>
+                  ) : (
+                    // The product's subtotal: gray and small, lined up under its boxes; a thin rule above only.
+                    <tr key={`sub:${r.product}`} className="cm-sub" style={{ height: `${CM.rowH}in` }}>
+                      <td colSpan={lotCol ? 2 : 1} />
+                      <td>
+                        {r.product} · {r.boxes} boxes
+                      </td>
+                      <td className="num">
+                        {lbWords(r.lb)}
+                        {r.missing ? ` + ${r.missing} MISSING` : ""}
+                      </td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+            {i === pages.length - 1 && (
+              <>
+                <div className="mf-total">
+                  <span>
+                    {cm.customer}: {cm.boxes} box{cm.boxes === 1 ? "" : "es"}
+                  </span>
+                  <span>
+                    {lbWords(cm.lb)}
+                    {cm.missing ? ` + ${cm.missing} MISSING` : ""}
+                  </span>
+                </div>
+                <div className="mf-sign">
+                  <span>
+                    Received by <span className="mf-line wide" />
+                  </span>
+                  <span>
+                    Date <span className="mf-line" />
+                  </span>
+                </div>
+                <p className="mf-foot">Copy 1 ships with pallet / Copy 2 retained.</p>
+              </>
+            )}
+          </section>
+        );
+      })}
     </>
   );
 }

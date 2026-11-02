@@ -20,7 +20,7 @@ import {
 } from "@/lib/calc/manifest";
 import { crossDockGroups, customerManifests } from "@/lib/calc/paperwork";
 import { weekBoxes, weekPallets, weekPoints } from "@/lib/paperworkData";
-import { CrossDockSheet, CustomerPages, type PaperworkContext } from "./Paperwork";
+import { CustomerPages, PalletCover, type PaperworkContext } from "./Paperwork";
 import { invFileName, invLabel } from "@/lib/weekInv";
 import { weekName } from "@/lib/dates";
 import type { PalletRow } from "@/lib/db/scanning";
@@ -157,36 +157,37 @@ export function paperworkContext(data: PackingBundle): PaperworkContext {
 
 /** Duplicate box IDs that touch a customer ("PCC #13 Edmonds · ...") or any of these pallet tags ("... · P2"). */
 const dupsForCustomer = (dups: DuplicateBox[], customer: string) => dups.filter((d) => d.where.some((w) => w.startsWith(`${customer} · `)));
-const dupsForTags = (dups: DuplicateBox[], tags: string[]) => dups.filter((d) => d.where.some((w) => tags.some((t) => w.endsWith(` · ${t}`))));
 
 /**
- * The manifests (Lucas, 11/2/26): grouped by distributor and ship date, each
- * with its cross dock sheet first (when `crossDock`), then each pallet's
- * customer pages. Pallets with no distributor come after, with no sheet; boxes
- * on no pallet last (when `showLoose`).
+ * The manifests (Lucas, 11/2/26): only customer pages (cross dock sheets
+ * print from their own option). Pallets in number order (P1, P2, ...), each
+ * with a short cover page, then its customers by name. Boxes on no pallet
+ * last (when `showLoose`).
  */
 export function ManifestSheets({
   data,
   pick,
-  crossDock,
   asOf,
   showLoose = false,
 }: {
   data: PackingBundle;
   pick: PalletPick;
-  /** The distributor's cross dock sheet before its pallets (Print all for a date). */
-  crossDock: boolean;
   asOf: ManifestAsOf;
   showLoose?: boolean;
 }) {
   const ctx = paperworkContext(data);
   const dups = weekDuplicates(data);
   const { groups, blocked } = pickPallets(data, pick);
+  // Every pallet with its distributor and "Plymouth 1 of 3" (none for a pallet with no distributor), by pallet number.
+  const pallets = [
+    ...groups.flatMap((g) => g.pallets.map((r) => ({ pallet: r.pallet, point: g.point, name: `${g.point.shortName} ${r.n} of ${r.of}` }))),
+    ...blocked.map((b) => ({ pallet: b.pallet, point: null, name: "" })),
+  ].sort((a, b) => a.pallet.tag.localeCompare(b.pallet.tag, undefined, { numeric: true, sensitivity: "base" }));
   const loose = weekBoxes(data).filter((b) => !b.palletId);
   const asOfText = asOf.at
     ? new Date(asOf.at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
     : "";
-  // On every page, when it's the copy saved on this phone.
+  // On every customer page, when it's the copy saved on this phone.
   const phone = asOf.fromPhone ? (
     <p className="mf-warn">
       ⚠ No signal: this is the copy saved on this phone{asOfText ? ` at ${asOfText}` : ""}. Boxes scanned on other phones since then aren&apos;t on it. Print
@@ -203,55 +204,40 @@ export function ManifestSheets({
 
   return (
     <div className="pkmanifest">
-      {groups.map((g) => (
-        <div key={`${g.point.id}|${g.shipDate ?? ""}`}>
-          {crossDock && (
-            <>
-              <CrossDockSheet group={g} ctx={ctx} dups={dupsForTags(dups, g.pallets.map((r) => r.pallet.tag))} />
-            </>
-          )}
-          {g.pallets.map((r) =>
-            customerManifests(r.pallet.boxes).map((cm) => (
+      {pallets.map(({ pallet, point, name }) => {
+        const customers = customerManifests(pallet.boxes);
+        return (
+          <div key={pallet.id}>
+            <PalletCover tag={pallet.tag} palletName={name} point={point} customers={customers} shipDate={pallet.shipDate} ctx={ctx} />
+            {customers.map((cm, i) => (
               <CustomerPages
-                key={`${r.pallet.id}|${cm.customer}`}
+                key={cm.customer}
                 cm={cm}
-                point={g.point}
-                palletTag={r.pallet.tag}
-                palletName={`${g.point.shortName} ${r.n} of ${r.of}`}
-                shipDate={g.shipDate}
+                point={point}
+                palletTag={pallet.tag}
+                palletName={name}
+                storeN={i + 1}
+                storeOf={customers.length}
+                shipDate={pallet.shipDate}
                 ctx={ctx}
                 dups={dupsForCustomer(dups, cm.customer)}
                 extraWarnings={phone ? 1 : 0}
                 notices={phone}
               />
-            )),
-          )}
-        </div>
-      ))}
-      {blocked.map(({ pallet }) =>
-        customerManifests(pallet.boxes).map((cm) => (
-          <CustomerPages
-            key={`${pallet.id}|${cm.customer}`}
-            cm={cm}
-            point={null}
-            palletTag={pallet.tag}
-            palletName=""
-            shipDate={pallet.shipDate}
-            ctx={ctx}
-            dups={dupsForCustomer(dups, cm.customer)}
-            extraWarnings={phone ? 1 : 0}
-            notices={phone}
-          />
-        )),
-      )}
+            ))}
+          </div>
+        );
+      })}
       {showLoose &&
-        customerManifests(loose).map((cm) => (
+        customerManifests(loose).map((cm, i, all) => (
           <CustomerPages
             key={`loose|${cm.customer}`}
             cm={cm}
             point={null}
-            palletTag="On no pallet"
+            palletTag="No pallet"
             palletName=""
+            storeN={i + 1}
+            storeOf={all.length}
             shipDate={null}
             ctx={ctx}
             dups={dupsForCustomer(dups, cm.customer)}

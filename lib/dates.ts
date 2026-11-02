@@ -107,3 +107,8 @@ export function ago(at: string | Date | null | undefined, now: Date = new Date()
 export function isISODate(v: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(v) && iso(parse(v)) === v;
 }
+
+/** The week's ship day when a pallet has no ship date of its own: the Tuesday after packing Monday (Invoice, ship; Lucas, 11/2/26). */
+export function shipDay(week: string): string {
+  return addDays(week, 1);
+}
