@@ -3131,13 +3131,14 @@ tr.zebra td,
     margin: 0;
     padding: 0;
     max-width: none;
-    break-after: page;
-    page-break-after: always;
+    /* Every page starts a new sheet, wherever it sits (a pallet's pages are grouped), except the very first. */
+    break-before: page;
+    page-break-before: always;
   }
-  .pkmanifest > :last-child > .pw-page:last-child,
-  .pw-page:last-child {
-    break-after: auto;
-    page-break-after: auto;
+  .pkmanifest > .pw-page:first-child,
+  .pkmanifest > :first-child > .pw-page:first-child {
+    break-before: auto;
+    page-break-before: auto;
   }
   /* A pallet label fills its landscape page: the stores and boxes spread out. */
   .plab {
