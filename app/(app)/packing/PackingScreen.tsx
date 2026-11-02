@@ -31,7 +31,9 @@ import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
 import { orderSheet, packLines, sheetLabels, sheetRowId, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
 import { blankWords, nextBlank, type SheetRow } from "@/lib/calc/packSheet";
-import { PackNotes, PaperSheet } from "./PackSheet";
+import { PackNotes } from "./PackSheet";
+import WeighPrint from "./sheets/WeighPrint";
+import { weighLayout, weighSections } from "@/lib/packSheets";
 import { useLabelNumbers } from "./useLabelNumbers";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
@@ -194,15 +196,18 @@ export default function PackingScreen() {
 
       {data.orders.length > 0 && (
         <div className="screen-only mt-5 flex flex-wrap gap-2">
+          <Link href="/packing/weigh" className="btn ghost">
+            Weigh Sheet (no internet)
+          </Link>
           <Link href="/packing/print" className="btn ghost">
-            Paper copy (no internet)
+            Pallet Sheet
           </Link>
           <Link href="/packing/paper" className="btn ghost">
             Type in from paper
           </Link>
         </div>
       )}
-      <PaperSheet data={data} boxes={boxSetup} />
+      {data.orders.length > 0 && <WeighPrint layout={weighLayout(weighSections(data, sheetLabels(data, boxSetup)))} inv={data.invNumber} week={data.week} />}
 
       {weighing && wOrder && wRow && (
         <WeighSheet

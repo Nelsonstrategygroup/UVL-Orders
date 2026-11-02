@@ -12,7 +12,7 @@ import { boxCellText, type BoxLimit, type BoxType } from "./calc/boxes";
 import { fmt } from "./calc/num";
 import type { CarcassReport } from "./calc/carcassReport";
 
-type Cell = string | number | null | undefined;
+export type Cell = string | number | null | undefined;
 type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
 
 /** A download: column names and rows, saved as CSV or Excel. */

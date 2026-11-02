@@ -1,31 +1,32 @@
 "use client";
 
-// The paper packing copy (change request 10/26/26), opened from Print and
-// download and from Packing: the backup for when the internet is down. One
-// blank per box with its label number, so Chris writes each box's weight; the
-// weights are typed in afterwards on "Type in from paper", laid out the same.
+// The Pallet Sheet (Lucas, 11/1/26), opened from Print and download and from
+// Packing: by store, a checkbox per product with what was ordered and how many
+// boxes, Pallet and Initials once per store. It replaces the paper packing
+// copy; box weights go on the Weigh Sheet.
 
 import Link from "next/link";
-import { useCan } from "@/components/CurrentUser";
+import { useMemo } from "react";
+import { downloadTable } from "@/components/download";
 import { usePackingBundle } from "@/components/offline/usePackingBundle";
+import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { weekName } from "@/lib/dates";
-import { packLines } from "@/lib/db/packing";
-import { PaperSheet } from "../PackSheet";
-import { useLabelNumbers } from "../useLabelNumbers";
+import { sheetLabels } from "@/lib/db/packing";
+import { palletCustomers, palletLayout, palletTable } from "@/lib/packSheets";
+import { invFileName } from "@/lib/weekInv";
+import PalletPrint from "../sheets/PalletPrint";
 
 export default function PackingPrintScreen() {
   const { week } = useWeek();
+  const toast = useToast();
   const bundle = usePackingBundle(week);
-  const canPacking = useCan("packing").change;
-  const canWeek = useCan("week").change;
-  const canOrders = useCan("orders").change;
-  const canNumber = canPacking || canWeek || canOrders;
-  const { missing } = useLabelNumbers(week, bundle.data, bundle.refresh, canNumber);
   const data = bundle.data?.packing ?? null;
+  const customers = useMemo(() => (bundle.data ? palletCustomers(bundle.data.packing, sheetLabels(bundle.data.packing, bundle.data.boxes)) : null), [bundle.data]);
+  const pages = useMemo(() => (customers ? palletLayout(customers) : []), [customers]);
 
   if (bundle.error) return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
-  if (!data || !bundle.data)
+  if (!data || !customers)
     return (
       <>
         <WeekBar />
@@ -33,45 +34,51 @@ export default function PackingPrintScreen() {
       </>
     );
 
-  const lines = data.orders.reduce((n, o) => n + packLines(o, data.products).length, 0);
+  const lines = customers.reduce((n, c) => n + c.lines.length, 0);
   return (
     <>
       <div className="screen-only">
         <WeekBar inv={data.invNumber} />
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="mr-auto">Paper packing copy</h2>
+          <h2 className="mr-auto">Pallet Sheet</h2>
           <Link href="/print" className="btn ghost">
             &larr; Print and download
           </Link>
-          <Link href="/packing/paper" className="btn ghost">
-            Type in from paper
+          <Link href="/packing/weigh" className="btn ghost">
+            Weigh Sheet
           </Link>
-          <button type="button" className="btn" disabled={!data.orders.length} onClick={() => window.print()}>
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={!lines}
+            onClick={() =>
+              void downloadTable(invFileName(data.invNumber, "Pallet Sheet", week), palletTable(customers, data.invNumber, week), "Pallet Sheet").catch(() =>
+                toast("Couldn't download. Try again."),
+              )
+            }
+          >
+            Download
+          </button>
+          <button type="button" className="btn" disabled={!lines} onClick={() => window.print()}>
             Print
           </button>
         </div>
         <p className="mt-2">
-          {data.orders.length
-            ? `Packing list for ${weekName(week)}: ${data.orders.length} customers, ${lines} lines.`
+          {lines
+            ? `${weekName(week)}: ${customers.length} customers, ${lines} lines, ${pages.length} page${pages.length === 1 ? "" : "s"}.`
             : "No orders for this week yet."}
         </p>
         <p className="small muted">
-          The backup for when there&apos;s no internet. Each box gets a blank with its label number above it. Products
-          with no box size get 6 blanks with a space to write the label number. Weights already in the app are filled in.
+          By store, in the usual order: a box to check for each product, what was ordered and how many boxes. Pallet and
+          Initials once per store. Box weights go on the Weigh Sheet.
         </p>
-        {missing > 0 && (
-          <p className="note warn">
-            {missing} box{missing === 1 ? " has" : "es have"} no label number yet. Open this page with internet to number
-            them, so the paper matches the labels.
-          </p>
-        )}
       </div>
-      {data.orders.length > 0 && (
-        <div className="screen-only pk-scroll">
-          <PaperSheet data={data} boxes={bundle.data.boxes} preview />
+      {lines > 0 && (
+        <div className="screen-only">
+          <PalletPrint customers={customers} pages={pages} inv={data.invNumber} week={week} preview />
         </div>
       )}
-      <PaperSheet data={data} boxes={bundle.data.boxes} />
+      {lines > 0 && <PalletPrint customers={customers} pages={pages} inv={data.invNumber} week={week} />}
     </>
   );
 }

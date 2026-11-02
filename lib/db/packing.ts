@@ -363,7 +363,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     company: set?.company_name?.trim() || "Umpqua Valley Lamb",
     shipFrom: set?.ship_from_address?.trim() ?? "",
     labelNumbers: new Map((must(labels) as { number: number; key: string }[]).map((l) => [l.key, l.number])),
-    blanks: { unknown: set?.pack_unknown_blanks ?? 6, spare: set?.pack_spare_blanks ?? 2 },
+    blanks: { unknown: set?.pack_unknown_blanks ?? 3, spare: set?.pack_spare_blanks ?? 1 },
     orders: list.map((o) => {
       const { rank, ...rest } = o;
       void rank;

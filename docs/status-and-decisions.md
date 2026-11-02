@@ -4,6 +4,18 @@ Where the UVL Orders app stands, and the decisions behind it, newest first.
 The full rules are in `docs/SPEC.md`; open questions for Kathy and Chris are
 in `docs/questions-for-kathy-and-chris.md`.
 
+## Status (11/1/26)
+
+Built 11/1/26, not live yet: the Weigh Sheet and the Pallet Sheet, replacing
+the paper packing copy, and Type in from paper laid out like the Weigh Sheet
+(see below). Migration 20261101000100 waits on a db push.
+
+Live since the last status: invoice drafts, finalizing, payments and the
+invoice downloads (QuickBooks connection on hold); Heart, Liver and Kidney
+packed together on one write-in label; Le Trim by weight and extra lambs;
+the Carcass balance report; the week's INV# on every printout, download and
+box label.
+
 ## Status (10/25/26)
 
 Live at uvl.nelsonstrategygroup.com: orders, Calls, This week, cut sheet,
@@ -28,6 +40,45 @@ limits marked "needs checking"; delivery days; pallet groups; see the
 questions doc.
 
 ## Decisions
+
+### Weigh Sheet and Pallet Sheet (11/1/26)
+The paper packing copy ran about 13 pages for INV 3002 and was grouped by
+customer, but boxes come off the line on carts by box size, products and
+customers mixed. Chris finds a box's line by the product name, then the
+customer, both large on the label. It's replaced by two printouts (Lucas):
+- Weigh Sheet (Print and download, listed first; Packing; /packing/weigh):
+  by product A to Z, named as on the box label (Heart, Liver, Kidney is one,
+  as on its label), large headings; a row per store as on the label, in the
+  usual customer order: ordered, a weight cell per planned box plus 1 spare
+  (3 cells when the box count isn't known, with "box count unknown"), Total
+  lbs. No label numbers. Letter landscape, two columns, rows 0.32 in, cells
+  0.58 x 0.26 in, shading on every other row. A product stays in one column
+  unless it can't fit one (then it carries on with "(continued)"). Page 1
+  has an index of each product's page; every page has the INV#, packing
+  date and "Page X of Y". 5 blank rows at the end (Product, Customer,
+  Weight) for boxes not on the sheet.
+- Pallet Sheet (/packing/print, which was the paper copy): by store in the
+  usual order; ships to, Pallet and Initials once per store; a line per
+  product: checkbox, product, ordered, boxes. No weight blanks, no notes,
+  no Not filled (Lucas: the one checkbox is enough). Letter portrait, two
+  columns, a store kept in one column unless it can't fit.
+- Pages are laid out by the app (lib/packSheets.ts, lib/calc/printPages.ts)
+  with fixed heights, not by the browser, so the index and page numbers are
+  exact.
+- Settings (Setup > Boxes, migration 20261101000100): 3 cells when the box
+  count isn't known (was 6), 1 spare cell per row (was 2) (Lucas).
+- Type in from paper: the Weigh Sheet's layout; totals per row, per product
+  and per store; "+ Add a box" per row; the 5 blank rows with Product and
+  Store pickers. A store not ordering this week saves the box unassigned,
+  to put on a pallet on Pallets (Lucas). Each box's weight is stored on its
+  own under its store and product, with its place in the row and no label
+  number (the sheet prints none; Lucas: fine, so a box typed in from paper
+  shows no label number on the manifest). Scanned boxes keep theirs.
+- INV 3002 (11/2/26), measured on the week's orders: Weigh Sheet 5 pages
+  (22 products, 114 rows); Pallet Sheet 3 pages (19 stores, 114 lines).
+- Same migration: the weekly invoice numbers. 11/2 is 3002, so 11/9 is set
+  to 3003; 3003 and 3004 had been typed on 12/28 and the test week of
+  3/1/2027 by mistake and are cleared (Lucas).
 
 ### Reconciling 10/26 against Chris's pack sheet (10/26/26)
 Chris's handwritten sheet (145 rows, every weight confirmed by Chris)

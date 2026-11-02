@@ -16,8 +16,8 @@ insert into public.orders (id, week_id, customer_id, status) values
 insert into public.order_lines (order_id, product_id, qty, unit) values
   ('00000000-0000-4000-8000-0000000007d1', 'cp-le-trim', 120, 'lb');
 
-select is((select pack_unknown_blanks || ':' || pack_spare_blanks from public.app_settings), '6:2',
-  '6 blanks when the box count is unknown, 2 spares');
+select is((select pack_unknown_blanks || ':' || pack_spare_blanks from public.app_settings), '3:1',
+  '3 boxes when the box count is unknown, 1 spare (Weigh Sheet, 11/1/26)');
 select is((select pack_blanks from public.products where id = 'cp-le-trim'), null::int, 'no product sets its own blanks yet');
 
 set local role authenticated;

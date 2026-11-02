@@ -1031,25 +1031,25 @@ function GtinMap({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-/** Weight blanks on the paper packing copy (change request 10/26/26): how many when a product's box count isn't known, spares after known boxes, and a number for any one product. */
+/** Weight boxes on the Weigh Sheet (10/26/26; 3 and 1 from 11/1/26): how many when a product's box count isn't known, spares after known boxes, and a number for any one product. */
 function PackBlanks({ canEdit, onDone }: { canEdit: boolean; onDone: (err: string | null) => Promise<void> }) {
   const { catalog } = useStaffData();
   const db = getDb();
   if (!catalog) return null;
   const s = catalog.settings;
-  const unknown = num(s?.pack_unknown_blanks ?? 6);
-  const spare = num(s?.pack_spare_blanks ?? 2);
+  const unknown = num(s?.pack_unknown_blanks ?? 3);
+  const spare = num(s?.pack_spare_blanks ?? 1);
   const whole = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(num(v))));
   return (
     <section className="panel mt-4">
-      <h3>Weight blanks on the paper packing copy</h3>
+      <h3>Weight boxes on the Weigh Sheet</h3>
       <p className="small muted mt-1">
-        Each box gets a blank with its label number. When a product&apos;s box count isn&apos;t known (no box size), it gets
-        blanks with a space to write the label number.
+        Each store&apos;s row gets a box for each of its boxes, plus spares. When a product&apos;s box count isn&apos;t known (no box
+        size), the row gets this many boxes instead.
       </p>
       <div className="flex flex-wrap gap-4">
         <label className="grid gap-1">
-          <span className="lbl m-0">Blanks when the box count isn&apos;t known</span>
+          <span className="lbl m-0">Boxes when the box count isn&apos;t known</span>
           <input
             key={`u:${unknown}`}
             className="field num w-28!"
@@ -1063,7 +1063,7 @@ function PackBlanks({ canEdit, onDone }: { canEdit: boolean; onDone: (err: strin
           />
         </label>
         <label className="grid gap-1">
-          <span className="lbl m-0">Spare blanks after the known boxes</span>
+          <span className="lbl m-0">Spare boxes after the known boxes</span>
           <input
             key={`s:${spare}`}
             className="field num w-28!"

@@ -17,6 +17,7 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { addDays, currentWeek, packingMonday, niceDate, todayISO } from "@/lib/dates";
+import PackSheetButtons from "./PackSheetButtons";
 import PalletManifestPicker from "./PalletManifestPicker";
 import { buildReport, REPORTS, reportHref, type ReportKind } from "./reports";
 
@@ -167,9 +168,15 @@ export default function PrintScreen() {
 
       <Card when="Monday, packing">
         {seePacking && (
-          <Item key="paper" title="Paper packing copy" action={open("/packing/print")}>
-            The backup for when there&apos;s no internet: a blank for each box&apos;s weight under its label number, then
-            the total. Print it before packing day.
+          <Item key="weigh" title="Weigh Sheet" action={<PackSheetButtons week={week} kind="weigh" fileType={fileType} />}>
+            For writing each box&apos;s weight: by product A to Z, as on the box labels, then each store, with a box for each
+            box&apos;s weight and the total. Print it before packing day.
+          </Item>
+        )}
+        {seePacking && (
+          <Item key="pallet-sheet" title="Pallet Sheet" action={<PackSheetButtons week={week} kind="pallet" fileType={fileType} />}>
+            For building pallets: by store, a box to check for each product, what was ordered and how many boxes, Pallet and
+            Initials.
           </Item>
         )}
         {seePacking && (
@@ -185,7 +192,7 @@ export default function PrintScreen() {
         )}
         {seePacking && (
           <Item key="paper-in" title="Type in from paper" action={open("/packing/paper")}>
-            After packing on paper, type the weights in. Laid out just like the paper.
+            After weighing on the Weigh Sheet, type the weights in. Laid out just like the sheet.
           </Item>
         )}
         <Item key="record" title="Packing record" action={both("packing-record")}>

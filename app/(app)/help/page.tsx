@@ -70,8 +70,9 @@ export default async function HelpPage() {
         up by themselves within a few seconds.
       </Step>
       <Step n={6} title="Paper copy">
-        If the internet is down, pack on the <Link href="/packing/print">paper packing copy</Link>: write each box&apos;s weight
-        under its label number, then the total. Print it before packing day. Afterwards, type the weights in on{" "}
+        If the internet is down, pack on the <Link href="/packing/weigh">Weigh Sheet</Link>: find the product, then the
+        store, and write each box&apos;s weight in a box on that row. The <Link href="/packing/print">Pallet Sheet</Link> lists
+        each store&apos;s products to check off on the pallet. Print both before packing day. Afterwards, type the weights in on{" "}
         <Link href="/packing/paper">Type in from paper</Link>, which is laid out the same. Both are also under <b>More</b>,{" "}
         <b>Print and download</b>.
       </Step>
