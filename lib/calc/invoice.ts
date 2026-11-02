@@ -235,9 +235,3 @@ export function lineBoxWeights(
   }
   return out;
 }
-
-/** "Boxes: 41.35, 21.70 lb" (two decimals, thousands separators). */
-export function boxWeightsText(weights: number[]): string {
-  const f = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `Boxes: ${weights.map(f).join(", ")} lb`;
-}

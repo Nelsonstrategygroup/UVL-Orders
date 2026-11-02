@@ -3821,14 +3821,42 @@ td.cb-neg {
   outline-offset: 2px;
 }
 
-/* Invoices: each line's box weights, small and lighter, wrapping inside the
-   product column without pushing Price or Amount (11/2/26). */
-.inv-boxw {
-  display: block;
-  font-size: 8.5pt;
-  color: #555;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
+/* Invoices: the Net weight column (11/2/26). Two or more boxes: each box's
+   weight on its own line, dark gray, then a short rule and "Total" with the
+   weight in bold; Price and Amount sit on the total's row. A product's list
+   never breaks across a printed page. */
+.inv-boxlist {
+  display: inline-grid;
+  justify-items: end;
+}
+.inv-box {
+  color: #333;
+  font-weight: 400;
+}
+.inv-boxtotal {
+  border-top: 0.75pt solid #777;
+  margin-top: 2pt;
+  padding-top: 1pt;
+  min-width: 5.5em;
+  text-align: right;
+}
+.inv-boxtotal small {
+  color: #777;
+  font-size: 8pt;
+  margin-right: 4pt;
+}
+.inv-boxtotal b {
+  color: #000;
+}
+.inv-table tr.inv-many td {
+  vertical-align: bottom;
+}
+.inv-table tr.inv-many td:first-child {
+  vertical-align: top;
+}
+.inv-table tr.inv-many {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 .inv-table td:first-child {
   overflow-wrap: anywhere;

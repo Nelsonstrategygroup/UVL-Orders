@@ -6,8 +6,9 @@
 // every box. Shown as a sheet on screen, printed as is.
 
 import { Fragment } from "react";
-import { boxWeightsText, invoiceTotals, lbText, paidCents, quantityText, type PricedLine } from "@/lib/calc/invoice";
-import { centsText, priceText, PRICE_UNIT_SHORT, toFixedInt } from "@/lib/calc/prices";
+import { invoiceTotals, lbText, paidCents, quantityText, type PricedLine } from "@/lib/calc/invoice";
+import type { PriceUnit } from "@/lib/db/types";
+import { centsText, priceText, toFixedInt } from "@/lib/calc/prices";
 import { boxIdOf } from "@/lib/calc/manifest";
 import { niceDate, weekName } from "@/lib/dates";
 import type { InvoiceSettings } from "@/lib/db/invoicing";
@@ -32,6 +33,12 @@ export type InvoiceSheetProps = {
 const fullDate = (d: string) => `${niceDate(d)}, ${d.slice(0, 4)}`;
 
 const ordered = (l: PricedLine) => (l.ordered_qty == null ? "" : `Ordered ${Number(l.ordered_qty)} ${l.ordered_unit}`.trim());
+
+/** The unit after a price: "$7.50 / lb", "$45.00 / case" (11/2/26). */
+const PER: Record<PriceUnit, string> = { lb: " / lb", case: " / case", each: " / each" };
+
+/** One box's weight in the Net weight column: "41.35 lb". */
+const boxLb = (w: number) => `${w.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} lb`;
 
 const discountText = (l: PricedLine) =>
   l.discount_kind === "percent" ? `Discount ${Number(l.discount)}%` : `Discount ${priceText(l.discount ?? 0)}`;
@@ -99,29 +106,53 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
             <tr>
               <th>Product</th>
               <th className="num">Boxes</th>
-              <th className="num">Quantity</th>
+              <th className="num">Net weight</th>
               <th className="num">Price</th>
               <th className="num">Amount</th>
             </tr>
           </thead>
           <tbody>
-            {lines.map((l) => (
+            {lines.map((l) => {
+              // Two or more boxes: each box's weight, then the total Price multiplies (11/2/26).
+              const list = l.kind === "packed" && !l.countNeeded ? (boxWeights.get(l.id) ?? []) : [];
+              const many = list.length > 1;
+              return (
               <Fragment key={l.id}>
-                <tr className={l.kind === "shorted" ? "inv-short" : ""}>
+                <tr className={`${l.kind === "shorted" ? "inv-short" : ""}${many ? " inv-many" : ""}`}>
                   <td>
                     {l.description}
                     {l.not_on_order && <span className="inv-small"> · not on the order</span>}
                     {l.kind !== "manual" && ordered(l) && <span className="inv-small block">{ordered(l)}</span>}
                     {l.detail && <span className="inv-small block">{l.detail}</span>}
-                    {boxWeights.get(l.id) && <span className="inv-boxw">{boxWeightsText(boxWeights.get(l.id)!)}</span>}
                     {l.note && !l.discount && <span className="inv-small block">{l.note}</span>}
                   </td>
                   <td className="num">{l.kind === "manual" ? "" : l.boxes}</td>
                   <td className="num">
-                    {l.kind === "shorted" ? "Not shipped" : l.countNeeded ? <b>Count needed</b> : l.kind === "manual" ? Number(l.quantity) : quantityText(l.quantity, l.price_unit)}
+                    {l.kind === "shorted" ? (
+                      "Not shipped"
+                    ) : l.countNeeded ? (
+                      <b>Count needed</b>
+                    ) : l.kind === "manual" ? (
+                      Number(l.quantity)
+                    ) : many ? (
+                      <span className="inv-boxlist">
+                        {list.map((w, i) => (
+                          <span key={i} className="inv-box">
+                            {boxLb(w)}
+                          </span>
+                        ))}
+                        <span className="inv-boxtotal">
+                          <small>Total</small> <b>{quantityText(l.quantity, l.price_unit)}</b>
+                        </span>
+                      </span>
+                    ) : l.price_unit === "case" ? (
+                      quantityText(l.quantity, l.price_unit)
+                    ) : (
+                      <b>{quantityText(l.quantity, l.price_unit)}</b>
+                    )}
                   </td>
                   <td className="num">
-                    {l.kind === "shorted" ? "" : l.price != null ? `${priceText(l.price)}${l.price_unit ? PRICE_UNIT_SHORT[l.price_unit] : ""}` : <b>Price needed</b>}
+                    {l.kind === "shorted" ? "" : l.price != null ? `${priceText(l.price)}${l.price_unit ? PER[l.price_unit] : ""}` : <b>Price needed</b>}
                   </td>
                   <td className="num">{l.grossCents != null ? centsText(l.grossCents) : ""}</td>
                 </tr>
@@ -135,7 +166,8 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                   </tr>
                 )}
               </Fragment>
-            ))}
+              );
+            })}
           </tbody>
         </table>
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxWeightsText, lineBoxWeights } from "./invoice";
+import { lineBoxWeights } from "./invoice";
 import {
   crossDockGroups,
   customerManifests,
@@ -129,13 +129,12 @@ describe("box weights on invoices (11/2/26)", () => {
   const w = lineBoxWeights(lines, boxes, lead);
 
   it("lists each box's weight in the order packed, under its line; one box too", () => {
-    expect(boxWeightsText(w.get("l1")!)).toBe("Boxes: 41.35, 21.70 lb");
-    expect(boxWeightsText(w.get("l4")!)).toBe("Boxes: 6.10 lb");
+    expect(w.get("l1")).toEqual([41.35, 21.7]);
+    expect(w.get("l4")).toEqual([6.1]);
   });
 
   it("no weights for a per-case line or a line that didn't ship", () => {
     expect(w.has("l2")).toBe(false);
     expect(w.has("l3")).toBe(false);
-    expect(boxWeightsText([1234.5])).toBe("Boxes: 1,234.50 lb");
   });
 });
