@@ -169,22 +169,50 @@ function Plan({
           <b>{fmt(ordered.lb)} lb</b>
           <small>by weight</small>
         </div>
-        <div>
-          <span>Extra shoulders</span>
-          <b>{spare.shoulders}</b>
-          <small>{sp ? leftWords(spare.shoulders - sp.shoulders) : "after all other orders"}</small>
-        </div>
-        <div>
-          <span>Extra legs</span>
-          <b>{spare.legs}</b>
-          <small>{sp ? `${leftWords(spare.halfLegs - sp.halfLegs)} (half legs)` : `up to ${spare.halfLegs} half legs`}</small>
-        </div>
-        <div>
-          <span>Extra trim</span>
-          <b>{fmt(Math.round(trimSpare))} lb</b>
-          <small className={hasActual ? "" : "lt-est"}>{hasActual ? "From the kill sheet" : "Estimated"}</small>
-          {sp && <small>{leftWords(Math.round(trimSpare - sp.trimLb), " lb")}</small>}
-        </div>
+        {/* Once a plan is saved, the big numbers are the plan; what's spare goes underneath (Lucas, 11/2/26). */}
+        {sp ? (
+          <>
+            <div>
+              <span>Shoulders in your plan</span>
+              <b>{sp.shoulders}</b>
+              <small>
+                of {spare.shoulders} spare · {leftWords(spare.shoulders - sp.shoulders)}
+              </small>
+            </div>
+            <div>
+              <span>Half legs in your plan</span>
+              <b>{sp.halfLegs}</b>
+              <small>
+                of {spare.halfLegs} spare ({spare.legs} legs) · {leftWords(spare.halfLegs - sp.halfLegs)}
+              </small>
+            </div>
+            <div>
+              <span>Trim in your plan</span>
+              <b>{fmt(Math.round(sp.trimLb))} lb</b>
+              <small>
+                of {fmt(Math.round(trimSpare))} lb spare ({hasActual ? "kill sheet" : "estimated"}) · {leftWords(Math.round(trimSpare - sp.trimLb), " lb")}
+              </small>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <span>Extra shoulders</span>
+              <b>{spare.shoulders}</b>
+              <small>after all other orders</small>
+            </div>
+            <div>
+              <span>Extra legs</span>
+              <b>{spare.legs}</b>
+              <small>up to {spare.halfLegs} half legs</small>
+            </div>
+            <div>
+              <span>Extra trim</span>
+              <b>{fmt(Math.round(trimSpare))} lb</b>
+              <small className={hasActual ? "" : "lt-est"}>{hasActual ? "From the kill sheet" : "Estimated"}</small>
+            </div>
+          </>
+        )}
       </div>
 
       <section className={`note mt-4 ${short || (sp && spDiff < 0) ? "warn" : ""}`} aria-live="polite">
