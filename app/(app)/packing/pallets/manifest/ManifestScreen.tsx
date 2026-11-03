@@ -21,8 +21,10 @@ import {
   ManifestSheets,
   manifestsTable,
   palletManifests,
+  paperworkWarnings,
   pickPallets,
 } from "../Manifest";
+import { PrintWarnings, usePrintGuard } from "@/components/PrintGuard";
 
 export default function ManifestScreen() {
   const params = useSearchParams();
@@ -46,13 +48,18 @@ export default function ManifestScreen() {
   const ids = picked ? [...picked.groups.flatMap((g) => g.pallets.map((r) => r.pallet.id)), ...picked.blocked.map((b) => b.pallet.id)] : [];
   const list = bundle.data && picked ? palletManifests(bundle.data).filter((m) => ids.includes(m.pallet.id)) : null;
 
-  // ?print=1: the print dialog opens once, when the manifest is drawn.
+  // Warnings show here only, never on the printed pages; printing asks first while there are any.
+  const warnings = bundle.data && picked ? paperworkWarnings(bundle.data, { palletId, date }, { loose: !palletId && !date, asOf: { at: bundle.savedAt, fromPhone: bundle.fromPhone } }) : [];
+  const guard = usePrintGuard(warnings);
+  // ?print=1: printing starts once, when the manifest is drawn.
   const printed = useRef(false);
   useEffect(() => {
     if (params.get("print") !== "1" || printed.current || !list?.length) return;
     printed.current = true;
-    const t = setTimeout(() => window.print(), 400);
+    const t = setTimeout(() => guard.print(), 400);
     return () => clearTimeout(t);
+    // guard changes every render; this runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, list]);
 
   if (bundle.error)
@@ -65,7 +72,6 @@ export default function ManifestScreen() {
       </>
     );
 
-  const missing = list.reduce((n, m) => n + m.manifest.missing, 0);
   const title = palletId
     ? `Manifest for pallet ${list[0]?.pallet.tag ?? ""}`
     : date
@@ -85,7 +91,7 @@ export default function ManifestScreen() {
             type="button"
             className="btn"
             disabled={!list.length}
-            onClick={() => window.print()}
+            onClick={() => guard.print()}
           >
             Print
           </button>
@@ -93,12 +99,7 @@ export default function ManifestScreen() {
             type="button"
             className="btn ghost"
             disabled={!list.length}
-            onClick={() => {
-              toast(
-                'In the print window, choose "Save as PDF" as the printer.',
-              );
-              setTimeout(() => window.print(), 600);
-            }}
+            onClick={() => guard.print(() => toast('In the print window, choose "Save as PDF" as the printer.'))}
           >
             Save as PDF
           </button>
@@ -125,14 +126,6 @@ export default function ManifestScreen() {
               : "No pallets this week yet."}
           </div>
         )}
-        {missing > 0 && (
-          <p className="note bad mt-2" role="alert">
-            <b>
-              {missing} box{missing === 1 ? " has" : "es have"} no weight.
-            </b>{" "}
-            They show as MISSING. Weigh them before printing.
-          </p>
-        )}
         {waiting > 0 && (
           <p className="note warn mt-2">
             {waiting} {waiting === 1 ? "thing is" : "things are"} still waiting
@@ -142,13 +135,10 @@ export default function ManifestScreen() {
         )}
       </div>
       {/* A cover page per pallet, then each customer on its own Letter page. Cross dock sheets print from their own option. */}
+      <PrintWarnings warnings={warnings} />
+      {guard.dialog}
       <style>{`@media print { @page { size: letter portrait; margin: 0.4in; } }`}</style>
-      <ManifestSheets
-        data={bundle.data}
-        pick={{ palletId, date }}
-        asOf={{ at: bundle.savedAt, fromPhone: bundle.fromPhone }}
-        showLoose={!palletId && !date}
-      />
+      <ManifestSheets data={bundle.data} pick={{ palletId, date }} showLoose={!palletId && !date} />
     </>
   );
 }

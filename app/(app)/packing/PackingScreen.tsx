@@ -33,6 +33,8 @@ import { orderSheet, packLines, sheetLabels, sheetRowId, type LineMark, type Pac
 import { isLocal } from "@/lib/offline/outbox";
 import { blankWords, nextBlank, type SheetRow } from "@/lib/calc/packSheet";
 import { PackNotes } from "./PackSheet";
+import { PrintWarnings } from "@/components/PrintGuard";
+import { paperworkWarnings } from "./pallets/Manifest";
 import WeighPrint from "./sheets/WeighPrint";
 import { weighLayout, weighSections } from "@/lib/packSheets";
 import { useLabelNumbers } from "./useLabelNumbers";
@@ -111,6 +113,8 @@ export default function PackingScreen() {
       <div className="screen-only">
         <WeekBar inv={data.invNumber} />
         <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
+        {/* Box IDs used twice, boxes with no weight: fix before the paperwork prints (11/2/26). */}
+        <PrintWarnings warnings={bundle.data ? paperworkWarnings(bundle.data) : []} />
 
         {/* Packing is only for packing (change request 10/21/26): scan, progress, filter, then the customers. */}
         <h2 className="sr-only">Packing</h2>

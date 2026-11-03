@@ -13,7 +13,8 @@ import { useToast } from "@/components/Toast";
 import { WeekBar } from "@/components/Week";
 import { longDate } from "@/lib/dates";
 import { setPalletShipDate } from "@/lib/db/scanning";
-import { paperworkContext, pickPallets, weekDuplicates } from "../Manifest";
+import { PrintWarnings, usePrintGuard } from "@/components/PrintGuard";
+import { paperworkContext, paperworkWarnings, pickPallets } from "../Manifest";
 import { CrossDockSheet } from "../Paperwork";
 import { dateWords, usePaperworkWeek, usePrintOnce } from "../usePaperworkWeek";
 
@@ -25,7 +26,9 @@ export default function CrossDockScreen() {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const picked = bundle.data && onWeek ? pickPallets(bundle.data, { date }) : null;
-  usePrintOnce(print, !!picked?.groups.length);
+  const warnings = bundle.data && picked ? paperworkWarnings(bundle.data, { date }, { asOf: { at: bundle.savedAt, fromPhone: bundle.fromPhone } }) : [];
+  const guard = usePrintGuard(warnings);
+  usePrintOnce(print, !!picked?.groups.length, () => guard.print());
 
   if (bundle.error) return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
   if (!bundle.data || !picked)
@@ -37,7 +40,6 @@ export default function CrossDockScreen() {
     );
 
   const ctx = paperworkContext(bundle.data);
-  const dups = weekDuplicates(bundle.data);
   async function setDate(ids: string[], d: string) {
     setBusy(true);
     const err = await setPalletShipDate(getDb(), ids, d || null);
@@ -56,7 +58,7 @@ export default function CrossDockScreen() {
           <Link href="/packing/pallets" className="btn ghost">
             &larr; Pallets
           </Link>
-          <button type="button" className="btn" disabled={!picked.groups.length} onClick={() => window.print()}>
+          <button type="button" className="btn" disabled={!picked.groups.length} onClick={() => guard.print()}>
             Print
           </button>
         </div>
@@ -91,15 +93,12 @@ export default function CrossDockScreen() {
             </div>
           ))}
       </div>
+      <PrintWarnings warnings={warnings} />
+      {guard.dialog}
       <style>{`@media print { @page { size: letter portrait; margin: 0.4in; } }`}</style>
       <div className="pkmanifest">
         {picked.groups.map((g) => (
-          <CrossDockSheet
-            key={`${g.point.id}|${g.shipDate ?? ""}`}
-            group={g}
-            ctx={ctx}
-            dups={dups.filter((d) => d.where.some((w) => g.pallets.some((r) => w.endsWith(` · ${r.pallet.tag}`))))}
-          />
+          <CrossDockSheet key={`${g.point.id}|${g.shipDate ?? ""}`} group={g} ctx={ctx} />
         ))}
       </div>
     </>

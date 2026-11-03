@@ -155,28 +155,42 @@ export function paperworkContext(data: PackingBundle): PaperworkContext {
   return { company: p.company, inv: p.invNumber, week: p.week, shipFrom: p.shipFrom, contacts: p.contacts ?? [] };
 }
 
-/** Duplicate box IDs that touch a customer ("PCC #13 Edmonds · ...") or any of these pallet tags ("... · P2"). */
-const dupsForCustomer = (dups: DuplicateBox[], customer: string) => dups.filter((d) => d.where.some((w) => w.startsWith(`${customer} · `)));
+/**
+ * Warnings for the paperwork (Lucas, 11/2/26), on screen only: in a banner
+ * above the preview, on Packing, and in the "Print anyway?" check. Never on a
+ * printed page. A box ID used twice in the week, boxes with no weight on
+ * these pallets, boxes on no pallet (when printing them all), and the copy
+ * saved on this phone.
+ */
+export function paperworkWarnings(data: PackingBundle, pick: PalletPick = {}, opts: { loose?: boolean; asOf?: ManifestAsOf } = {}): string[] {
+  const out: string[] = [];
+  const { groups, blocked } = pickPallets(data, pick);
+  const pallets = [...groups.flatMap((g) => g.pallets.map((r) => r.pallet)), ...blocked.map((b) => b.pallet)];
+  const tags = pallets.map((p) => p.tag);
+  const whole = !pick.palletId && !pick.date;
+  for (const d of weekDuplicates(data))
+    if (whole || d.where.some((w) => tags.some((t) => w.endsWith(` · ${t}`))))
+      out.push(`Box ID ${d.boxId} is used more than once this week: ${d.where.join(" and ")}. Check the labels.`);
+  for (const p of pallets)
+    for (const b of p.boxes.filter((x) => x.lb == null))
+      out.push(`A ${b.product} box for ${b.customer} on ${p.tag}${b.boxId ? ` (${b.boxId})` : ""} has no weight. Weigh it before it ships.`);
+  if (opts.loose) {
+    const loose = weekBoxes(data).filter((b) => !b.palletId).length;
+    if (loose) out.push(`${loose} box${loose === 1 ? " this week is" : "es this week are"} on no pallet, so not on any manifest. Put ${loose === 1 ? "it" : "them"} on a pallet.`);
+  }
+  if (opts.asOf?.fromPhone)
+    out.push("No signal: this is the copy saved on this phone. Boxes scanned on other phones since then aren't on it. Print again with signal.");
+  return out;
+}
 
 /**
  * The manifests (Lucas, 11/2/26): only customer pages (cross dock sheets
  * print from their own option). Pallets in number order (P1, P2, ...), each
  * with a short cover page, then its customers by name. Boxes on no pallet
- * last (when `showLoose`).
+ * last (when `showLoose`). No warnings on the pages: see paperworkWarnings.
  */
-export function ManifestSheets({
-  data,
-  pick,
-  asOf,
-  showLoose = false,
-}: {
-  data: PackingBundle;
-  pick: PalletPick;
-  asOf: ManifestAsOf;
-  showLoose?: boolean;
-}) {
+export function ManifestSheets({ data, pick, showLoose = false }: { data: PackingBundle; pick: PalletPick; showLoose?: boolean }) {
   const ctx = paperworkContext(data);
-  const dups = weekDuplicates(data);
   const { groups, blocked } = pickPallets(data, pick);
   // Every pallet with its distributor and "Plymouth 1 of 3" (none for a pallet with no distributor), by pallet number.
   const pallets = [
@@ -184,23 +198,6 @@ export function ManifestSheets({
     ...blocked.map((b) => ({ pallet: b.pallet, point: null, name: "" })),
   ].sort((a, b) => a.pallet.tag.localeCompare(b.pallet.tag, undefined, { numeric: true, sensitivity: "base" }));
   const loose = weekBoxes(data).filter((b) => !b.palletId);
-  const asOfText = asOf.at
-    ? new Date(asOf.at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
-    : "";
-  // On every customer page, when it's the copy saved on this phone.
-  const phone = asOf.fromPhone ? (
-    <p className="mf-warn">
-      ⚠ No signal: this is the copy saved on this phone{asOfText ? ` at ${asOfText}` : ""}. Boxes scanned on other phones since then aren&apos;t on it. Print
-      again with signal before the pallet ships.
-    </p>
-  ) : null;
-  const looseNote =
-    loose.length > 0 ? (
-      <p className="mf-warn">
-        ⚠ {loose.length} box{loose.length === 1 ? " this week is" : "es this week are"} on no pallet, so not on any manifest. Put{" "}
-        {loose.length === 1 ? "it" : "them"} on a pallet before shipping.
-      </p>
-    ) : null;
 
   return (
     <div className="pkmanifest">
@@ -220,9 +217,6 @@ export function ManifestSheets({
                 storeOf={customers.length}
                 shipDate={pallet.shipDate}
                 ctx={ctx}
-                dups={dupsForCustomer(dups, cm.customer)}
-                extraWarnings={phone ? 1 : 0}
-                notices={phone}
               />
             ))}
           </div>
@@ -240,9 +234,6 @@ export function ManifestSheets({
             storeOf={all.length}
             shipDate={null}
             ctx={ctx}
-            dups={dupsForCustomer(dups, cm.customer)}
-            extraWarnings={1}
-            notices={looseNote}
           />
         ))}
     </div>

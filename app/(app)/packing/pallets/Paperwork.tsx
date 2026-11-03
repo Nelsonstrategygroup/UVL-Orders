@@ -10,10 +10,12 @@
 //   product, a shaded subtotal under any product with 2 or more boxes, the
 //   customer's total, Received by / Date. A long customer carries on to a
 //   second page with the header repeated ("page 2 of 2").
-// Counts and weights all come from the scanned box records.
+// Counts and weights all come from the scanned box records. Warnings (a box
+// ID used twice, a box with no weight) never print: they're on screen only,
+// above the preview, and asked about before printing (components/PrintGuard).
+// A box with no weight prints a blank weight.
 
 import type { CSSProperties } from "react";
-import type { DuplicateBox } from "@/lib/calc/manifest";
 import { lbWords, manifestPages, type CrossDockGroup, type CrossDockPallet, type CustomerManifest, type PwDistributor } from "@/lib/calc/paperwork";
 import type { Contact } from "@/lib/db/packing";
 import { longDate, shipDay, weekName } from "@/lib/dates";
@@ -31,37 +33,11 @@ const contactLine = (c: Contact) => [c.name, c.phone, c.email].filter(Boolean).j
 /** "Monday, Nov 2", or a line to write the date on. */
 const colorVars = (color: string) => ({ "--pw-color": color }) as CSSProperties;
 
-/** Box ID warnings that touch these customers or pallets. */
-function DupWarning({ dups }: { dups: DuplicateBox[] }) {
-  if (!dups.length) return null;
-  return (
-    <p className="mf-warn">
-      ⚠ Box ID{dups.length === 1 ? "" : "s"} used more than once this week:{" "}
-      {dups.map((d, i) => (
-        <span key={d.boxId}>
-          {i > 0 && "; "}
-          {d.boxId} ({d.where.join(" and ")})
-        </span>
-      ))}
-      . Check the labels before this ships.
-    </p>
-  );
-}
-
-function MissingWarning({ n }: { n: number }) {
-  if (!n) return null;
-  return (
-    <p className="mf-warn">
-      ⚠ {n} box{n === 1 ? " has" : "es have"} no weight (MISSING). Weigh {n === 1 ? "it" : "them"} before this ships.
-    </p>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Cross dock sheet
 // ---------------------------------------------------------------------------
 
-export function CrossDockSheet({ group, ctx, dups }: { group: CrossDockGroup; ctx: PaperworkContext; dups: DuplicateBox[] }) {
+export function CrossDockSheet({ group, ctx }: { group: CrossDockGroup; ctx: PaperworkContext }) {
   const p = group.point;
   return (
     <section className="pw-page cd" style={colorVars(p.color)}>
@@ -93,8 +69,6 @@ export function CrossDockSheet({ group, ctx, dups }: { group: CrossDockGroup; ct
         ))}
         <span> · Packing {weekName(ctx.week)}</span>
       </div>
-      <MissingWarning n={group.missing} />
-      <DupWarning dups={dups} />
       <table className="cd-table">
         <thead>
           <tr>
@@ -116,7 +90,6 @@ export function CrossDockSheet({ group, ctx, dups }: { group: CrossDockGroup; ct
               <td className="num">{r.cases}</td>
               <td className="num">
                 {lbWords(r.lb).replace(" lb", "")}
-                {r.missing > 0 && <div className="cd-custs">+ {r.missing} MISSING</div>}
               </td>
               <td className="cd-notes">
                 <span className="pw-line wide" />
@@ -191,7 +164,6 @@ export function PalletLabel({ row, group, ctx }: { row: CrossDockPallet; group: 
       <div className="plab-foot">
         <span>
           {row.pallet.tag} · {lbWords(row.lb)}
-          {row.missing > 0 ? ` + ${row.missing} MISSING` : ""}
         </span>
         {contact && <span>{[contact.name, contact.phone].filter(Boolean).join(" · ")}</span>}
       </div>
@@ -204,7 +176,7 @@ export function PalletLabel({ row, group, ctx }: { row: CrossDockPallet; group: 
 // ---------------------------------------------------------------------------
 
 /** Rows on a customer page: fixed heights (in), so a long customer splits into pages the app can number. */
-export const CM = { rowH: 0.24, pageH: 10.2, head: 2.3, colHead: 0.3, pageOf: 0.25, foot: 1.35, warn: 0.5 } as const;
+export const CM = { rowH: 0.24, pageH: 10.2, head: 2.3, colHead: 0.3, pageOf: 0.25, foot: 1.35 } as const;
 
 /**
  * A pallet's cover page, before its customers (Lucas, 11/2/26): the pallet
@@ -229,7 +201,6 @@ export function PalletCover({
 }) {
   const boxes = customers.reduce((s, c) => s + c.boxes, 0);
   const lb = Math.round(customers.reduce((s, c) => s + c.lb, 0) * 100) / 100;
-  const missing = customers.reduce((s, c) => s + c.missing, 0);
   return (
     <section className="pw-page cmc" style={colorVars(point?.color ?? "#333333")}>
       <div className="cd-band">
@@ -256,7 +227,6 @@ export function PalletCover({
         </div>
         <div className="cd-inv">{invLabel(ctx.inv)}</div>
       </div>
-      <MissingWarning n={missing} />
       <table className="cmc-table">
         <thead>
           <tr>
@@ -270,10 +240,7 @@ export function PalletCover({
             <tr key={c.customer}>
               <td>{c.customer}</td>
               <td className="num">{c.boxes}</td>
-              <td className="num">
-                {lbWords(c.lb)}
-                {c.missing ? ` + ${c.missing} MISSING` : ""}
-              </td>
+              <td className="num">{lbWords(c.lb)}</td>
             </tr>
           ))}
         </tbody>
@@ -298,9 +265,6 @@ export function CustomerPages({
   storeOf,
   shipDate,
   ctx,
-  dups,
-  extraWarnings = 0,
-  notices,
 }: {
   cm: CustomerManifest;
   point: PwDistributor | null;
@@ -312,13 +276,8 @@ export function CustomerPages({
   storeOf: number;
   shipDate: string | null;
   ctx: PaperworkContext;
-  dups: DuplicateBox[];
-  /** Notices drawn above the table on the first page (no signal, boxes on no pallet): counted for the page size. */
-  extraWarnings?: number;
-  notices?: React.ReactNode;
 }) {
-  const warns = (cm.missing ? 1 : 0) + (dups.length ? 1 : 0) + extraWarnings;
-  const room = CM.pageH - CM.head - (ctx.shipFrom ? 0.6 : 0) - CM.colHead - CM.pageOf - warns * CM.warn;
+  const room = CM.pageH - CM.head - (ctx.shipFrom ? 0.6 : 0) - CM.colHead - CM.pageOf;
   const pages = manifestPages(cm.rows, Math.floor(room / CM.rowH), Math.floor((room - CM.foot) / CM.rowH));
   return (
     <>
@@ -375,13 +334,6 @@ export function CustomerPages({
                 </div>
               )}
             </div>
-            {i === 0 && (
-              <>
-                <MissingWarning n={cm.missing} />
-                <DupWarning dups={dups} />
-                {notices}
-              </>
-            )}
             {pages.length > 1 && (
               <p className="cm-pageof">
                 {cm.customer}, page {i + 1} of {pages.length}
@@ -403,7 +355,7 @@ export function CustomerPages({
                       <td>{r.box.boxId}</td>
                       {lotCol && <td>{r.box.lot}</td>}
                       <td>{r.box.product}</td>
-                      <td className="num">{r.box.lb == null ? <b>MISSING</b> : lbWords(r.box.lb)}</td>
+                      <td className="num">{r.box.lb == null ? "" : lbWords(r.box.lb)}</td>
                     </tr>
                   ) : (
                     // The product's subtotal: gray and small, lined up under its boxes; a thin rule above only.
@@ -412,10 +364,7 @@ export function CustomerPages({
                       <td>
                         {r.product} · {r.boxes} boxes
                       </td>
-                      <td className="num">
-                        {lbWords(r.lb)}
-                        {r.missing ? ` + ${r.missing} MISSING` : ""}
-                      </td>
+                      <td className="num">{lbWords(r.lb)}</td>
                     </tr>
                   ),
                 )}
@@ -427,10 +376,7 @@ export function CustomerPages({
                   <span>
                     {cm.customer}: {cm.boxes} box{cm.boxes === 1 ? "" : "es"}
                   </span>
-                  <span>
-                    {lbWords(cm.lb)}
-                    {cm.missing ? ` + ${cm.missing} MISSING` : ""}
-                  </span>
+                  <span>{lbWords(cm.lb)}</span>
                 </div>
                 <div className="mf-sign">
                   <span>

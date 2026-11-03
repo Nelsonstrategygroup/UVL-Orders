@@ -9,7 +9,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { WeekBar } from "@/components/Week";
 import { longDate } from "@/lib/dates";
-import { paperworkContext, pickPallets } from "../Manifest";
+import { PrintWarnings, usePrintGuard } from "@/components/PrintGuard";
+import { paperworkContext, paperworkWarnings, pickPallets } from "../Manifest";
 import { PalletLabel } from "../Paperwork";
 import { dateWords, usePaperworkWeek, usePrintOnce } from "../usePaperworkWeek";
 
@@ -18,7 +19,9 @@ export default function PalletLabelsScreen() {
   const [copies, setCopies] = useState(2);
   const picked = bundle.data && onWeek ? pickPallets(bundle.data, { palletId, date }) : null;
   const rows = picked ? picked.groups.flatMap((g) => g.pallets.map((r) => ({ g, r }))) : [];
-  usePrintOnce(print, rows.length > 0);
+  const warnings = bundle.data && picked ? paperworkWarnings(bundle.data, { palletId, date }, { asOf: { at: bundle.savedAt, fromPhone: bundle.fromPhone } }) : [];
+  const guard = usePrintGuard(warnings);
+  usePrintOnce(print, rows.length > 0, () => guard.print());
 
   if (bundle.error) return <p className="note bad">Couldn&apos;t load: {bundle.error}</p>;
   if (!bundle.data || !picked)
@@ -52,7 +55,7 @@ export default function PalletLabelsScreen() {
               ))}
             </select>
           </label>
-          <button type="button" className="btn" disabled={!rows.length} onClick={() => window.print()}>
+          <button type="button" className="btn" disabled={!rows.length} onClick={() => guard.print()}>
             Print
           </button>
         </div>
@@ -67,6 +70,8 @@ export default function PalletLabelsScreen() {
         ))}
         {!rows.length && !picked.blocked.length && <div className="empty">No pallets {date ? "for this date" : "this week"} yet.</div>}
       </div>
+      <PrintWarnings warnings={warnings} />
+      {guard.dialog}
       <style>{`@media print { @page { size: letter landscape; margin: 0.4in; } }`}</style>
       <div className="pkmanifest">
         {rows.flatMap(({ g, r }) =>

@@ -1,7 +1,8 @@
 // The printed invoice (SPEC 15): one location, Letter, portrait. DRAFT across
 // it until it's finalized, VOID once voided; payments and the balance once
-// paid; "Price needed" and "Count needed" where a line
-// can't be worked out yet. Shorted lines show at $0 so the customer sees
+// paid; "Price needed" and "Count needed" where a line can't be worked out
+// yet, on screen only: warnings and "not ready" messages never print
+// (Lucas, 11/2/26). Shorted lines show at $0 so the customer sees
 // what didn't ship. With box detail on for the location, a second page lists
 // every box. Shown as a sheet on screen, printed as is.
 
@@ -70,7 +71,7 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
               <tbody>
                 <tr>
                   <th>Invoice</th>
-                  <td>{inv.number ?? "Number needed"}</td>
+                  <td>{inv.number ?? <span className="screen-only">Number needed</span>}</td>
                 </tr>
                 <tr>
                   <th>Date</th>
@@ -131,7 +132,7 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                     {l.kind === "shorted" ? (
                       "Not shipped"
                     ) : l.countNeeded ? (
-                      <b>Count needed</b>
+                      <b className="screen-only">Count needed</b>
                     ) : l.kind === "manual" ? (
                       Number(l.quantity)
                     ) : many ? (
@@ -152,7 +153,7 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                     )}
                   </td>
                   <td className="num">
-                    {l.kind === "shorted" ? "" : l.price != null ? `${priceText(l.price)}${l.price_unit ? PER[l.price_unit] : ""}` : <b>Price needed</b>}
+                    {l.kind === "shorted" ? "" : l.price != null ? `${priceText(l.price)}${l.price_unit ? PER[l.price_unit] : ""}` : <b className="screen-only">Price needed</b>}
                   </td>
                   <td className="num">{l.grossCents != null ? centsText(l.grossCents) : ""}</td>
                 </tr>
@@ -181,7 +182,7 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
           </span>
         </div>
         {!t.complete && (
-          <p className="inv-warn">
+          <p className="inv-warn screen-only">
             Not complete:{" "}
             {[
               t.priceNeeded ? `${t.priceNeeded} price${t.priceNeeded === 1 ? "" : "s"} needed` : "",
@@ -240,7 +241,7 @@ function BoxDetail({
           {inv.status === "void" ? "VOID" : "DRAFT"}
         </div>
       )}
-      <div className="inv-co">Box detail · {inv.number ?? "Number needed"}</div>
+      <div className="inv-co">Box detail{inv.number ? ` · ${inv.number}` : ""}</div>
       <div className="mb-2">
         {customerName} · {weekName(inv.week_id)}
       </div>

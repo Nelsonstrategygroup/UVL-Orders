@@ -2797,12 +2797,6 @@ tr.zebra td,
   font-size: 14pt;
   font-weight: 700;
 }
-.mf-warn {
-  font-weight: 700;
-  border: 2pt solid #000;
-  padding: 4pt 5pt;
-  margin: 5pt 0;
-}
 .mf-total {
   display: flex;
   justify-content: space-between;
@@ -3861,4 +3855,26 @@ td.cb-neg {
 }
 .inv-table td:first-child {
   overflow-wrap: anywhere;
+}
+
+/* Print with warnings? (11/2/26): "Go back and fix" or "Print anyway". */
+.pg-back {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.pg-box {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 1.2rem;
+  max-width: 34rem;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }

@@ -23,14 +23,16 @@ export function usePaperworkWeek() {
   return { week, onWeek, bundle, palletId: params.get("pallet"), date: params.get("date"), print: params.get("print") === "1" };
 }
 
-/** Open the print dialog once, when `ready`. */
-export function usePrintOnce(print: boolean, ready: boolean) {
+/** Print once, when `ready` (?print=1), through `doPrint`: it asks first when there are warnings. */
+export function usePrintOnce(print: boolean, ready: boolean, doPrint: () => void) {
   const done = useRef(false);
   useEffect(() => {
     if (!print || done.current || !ready) return;
     done.current = true;
-    const t = setTimeout(() => window.print(), 400);
+    const t = setTimeout(doPrint, 400);
     return () => clearTimeout(t);
+    // doPrint changes every render; this runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [print, ready]);
 }
 
