@@ -41,7 +41,8 @@ function Card({ when, children }: { when: string; children: React.ReactNode }) {
   if (!items.length) return null;
   return (
     <section className="panel mt-3">
-      <h3 className="mb-1">{when}</h3>
+      {/* A little bolder than a plain heading, so each job stands out (Lucas, 11/6/26). */}
+      <h3 className="mb-1 border-b-2 border-forest pb-1.5 text-[1.3rem] text-forest">{when}</h3>
       {items}
     </section>
   );
