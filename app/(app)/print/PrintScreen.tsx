@@ -25,6 +25,8 @@ import { buildReport, REPORTS, reportHref, type ReportKind } from "./reports";
 
 /** The green section heading (Lucas, 11/6/26): a little bolder than a plain heading, so each one stands out. */
 const HEAD = "mb-1 border-b-2 border-forest pb-1.5 text-[1.3rem] text-forest";
+/** A This week section heading (Orders, Processing ...): a step larger than the item titles under it (Lucas, 11/6/26). */
+const SECTION_HEAD = "mb-1 border-b-2 border-forest pb-1.5 text-[1.5rem] text-forest";
 /** An item's title under a section heading (This week): the same green heading type and size, without the rule (Lucas, 11/6/26). */
 const ITEM_HEAD = "m-0 text-[1.3rem] font-[650] leading-tight text-forest [font-family:var(--display)]";
 
@@ -57,7 +59,7 @@ function Card({ when, children }: { when: string; children: React.ReactNode }) {
   if (!items.length) return null;
   return (
     <section className="panel mt-3">
-      <h3 className={HEAD}>{when}</h3>
+      <h3 className={SECTION_HEAD}>{when}</h3>
       {items}
     </section>
   );
