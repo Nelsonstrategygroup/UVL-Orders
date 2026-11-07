@@ -57,3 +57,15 @@ describe("order units", () => {
     expect(unitWord("pack", 3)).toBe("packs");
   });
 });
+
+describe("whole pieces from pounds (Lucas, 11/7/26)", () => {
+  const sh = { unit: "each", lb_per_unit: 4.5 };
+  it("rounds to the nearest piece, at least 1", () => {
+    expect(toProductUnit(20, "lb", sh)).toBe(4);
+    expect(toProductUnit(120, "lb", sh)).toBe(27);
+    expect(toProductUnit(1, "lb", sh)).toBe(1);
+    expect(toProductUnit(0, "lb", sh)).toBe(0);
+    // Pieces into pounds stay exact.
+    expect(toProductUnit(3, "each", { unit: "lb", lb_per_unit: 4.5 })).toBe(13.5);
+  });
+});

@@ -71,6 +71,8 @@ export type PrintLabel = {
   qty: string;
   unit: string;
   product: string;
+  /** A piece product taken in pounds: "120 lb ordered", small under the product on box 1 (Lucas, 11/7/26). */
+  ordered?: string;
   boxNo: number;
   boxCount: number;
   /** "MVM", "White", or "?" when the box size isn't worked out. */
@@ -115,7 +117,7 @@ export type LabelLayout = {
   /** Green band with the product name, one or two lines; none on a write-in label. */
   band: Rect | null;
   productLines: TextLine[];
-  /** Write-in label: on the green band, each organ's name in white, a white box under it to write the count in, what was ordered under that. */
+  /** Write-in label: on the green band, each organ's name in white, a white box under it to write the count in, what was ordered under that. Also "(120 lb ordered)" under the product on a pounds order. */
   writeBoxes: Rect[];
   writeText: TextLine[];
   orderedText: TextLine[];
@@ -259,10 +261,16 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   // Product: the green band to the right edge, up to two lines, centered.
   const bandX = qtyBox.x + qtyBox.w + LAYOUT.bandGap;
   const band = { x: bandX, y: itemTop, w: W - PAD - bandX, h: LAYOUT.itemH };
-  const p = fitLines(plain(l.product), LAYOUT.productMax, LAYOUT.productMin, band.w - 12, band.h - 8, 2, m.bold);
-  const pBlock = (p.lines.length - 1) * p.size * 1.05 + p.size * ASCENT;
+  // Taken in pounds: "(120 lb ordered)" smaller under the product (Lucas, 11/7/26).
+  const note = l.ordered ? plain(`(${l.ordered})`) : "";
+  const noteSize = 8;
+  const noteH = note ? 3 + noteSize * ASCENT : 0;
+  const p = fitLines(plain(l.product), LAYOUT.productMax, LAYOUT.productMin, band.w - 12, band.h - 8 - noteH, 2, m.bold);
+  const pBlock = (p.lines.length - 1) * p.size * 1.05 + p.size * ASCENT + noteH;
   const pFirst = band.y + (band.h - pBlock) / 2 + p.size * ASCENT;
   const productLines = p.lines.map((text, i) => ({ text, x: band.x + 6, y: pFirst + i * p.size * 1.05, size: p.size }));
+  const lastBase = pFirst + (p.lines.length - 1) * p.size * 1.05;
+  const orderedText: TextLine[] = note ? [{ text: note, x: band.x + 6, y: lastBase + 3 + noteSize * ASCENT, size: noteSize }] : [];
 
   // Bottom left: the box count, in a red tag only when the order takes more than one box.
   let boxTag: Rect | null = null;
@@ -282,7 +290,7 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const typeText = typeTag ? { text: type, x: typeTag.x + 6, y: midTag(9), size: 9 } : null;
 
   // Middle: the label number, for the office only (worked out above).
-  return { dest, ruleY, qtyBox, qtyLines, band, productLines, writeBoxes: [], writeText: [], orderedText: [], blanks: [], boxTag, boxText, boxMore: [], labelNo, inv, pallet, typeTag, typeText };
+  return { dest, ruleY, qtyBox, qtyLines, band, productLines, writeBoxes: [], writeText: [], orderedText, blanks: [], boxTag, boxText, boxMore: [], labelNo, inv, pallet, typeTag, typeText };
 }
 
 /**

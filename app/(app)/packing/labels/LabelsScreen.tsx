@@ -86,6 +86,7 @@ export default function LabelsScreen() {
           qty: l.qty,
           unit: l.unit,
           product: l.product,
+          ordered: l.ordered,
           boxNo: l.boxNo,
           boxCount: l.boxCount,
           boxType: l.boxType,
@@ -273,6 +274,11 @@ export default function LabelsScreen() {
                             </span>
                           ))}
                         </span>
+                      ) : r.ordered ? (
+                        // Taken in pounds: the count, then the pounds ordered, smaller (Lucas, 11/7/26).
+                        <>
+                          {r.line2.slice(0, -(r.ordered.length + 3))} <span className="small muted">({r.ordered})</span>
+                        </>
                       ) : (
                         r.line2
                       )}

@@ -202,3 +202,28 @@ describe("the store's planned pallet on its labels (11/6/26)", () => {
     expect(hash("P1")).toBe(hash("P3"));
   });
 });
+
+describe("pieces ordered in pounds (Lucas, 11/7/26)", () => {
+  const shoulder = new Map<string, LabelProduct>([
+    ["sh", { id: "sh", name: "BNLS Shoulder", unit: "each", lb_per_unit: 4.5, group_name: "Shoulders", sort: 520 }],
+  ]);
+  const setup = { types: TYPES, capLb: 45, limits: new Map<string, BoxLimit[]>([["sh", [ok("mvm", 10), ok("roll-stock", 8), ok("jerky", 6), ok("white", 4), no("baby")]]]) };
+  const rows = (lines: Record<string, number>) =>
+    labelList([{ customer: "C", sortKey: "0", lines, units: { sh: "lb" } }], shoulder, setup).tables[0].rows;
+
+  it("turns the order into whole pieces once, then splits them into boxes", () => {
+    // Key City: 20 lb is 4.44 shoulders: 4, one label.
+    expect(rows({ sh: 20 }).map((r) => [r.qty, r.line2, r.ofN])).toEqual([["4", "4 BNLS Shoulder (20 lb ordered)", ""]]);
+    // Newport Ave: 120 lb is 26.67: 27, split 10, 10, 7; the pounds on box 1 only.
+    expect(rows({ sh: 120 }).map((r) => [r.qty, r.line2, r.ofN, r.ordered ?? null])).toEqual([
+      ["10", "10 BNLS Shoulder (120 lb ordered)", "1 of 3", "120 lb ordered"],
+      ["10", "10 BNLS Shoulder", "2 of 3", null],
+      ["7", "7 BNLS Shoulder", "3 of 3", null],
+    ]);
+  });
+
+  it("is never less than one piece, and never a decimal", () => {
+    expect(rows({ sh: 1 }).map((r) => r.qty)).toEqual(["1"]);
+    for (let lb = 1; lb <= 200; lb += 0.75) for (const r of rows({ sh: lb })) expect(r.qty).toMatch(/^\d+$/);
+  });
+});

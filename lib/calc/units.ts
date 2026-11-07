@@ -50,11 +50,17 @@ export function lineUnit(productId: string, product: Pick<Product, "unit"> | und
  * cases) with lb_per_unit, and back. Without a piece weight a line taken in
  * the other unit can't be converted and counts as 0 (Setup flags it).
  * The database does the same in qty_in_product_unit.
+ *
+ * Pieces are whole (Lucas, 11/7/26): a line taken in pounds becomes whole
+ * pieces once, to the nearest piece, and never less than 1 (20 lb of 4.5 lb
+ * shoulders is 4; 120 lb is 27). Labels, the Weigh and Pallet Sheets,
+ * Packing, the lamb count and the totals all use that count. Open question
+ * for Kathy: nearest, or always up?
  */
 export function toProductUnit(qty: number, unit: string | undefined, product: Pick<Product, "unit" | "lb_per_unit">): number {
   if (!unit || unit === product.unit) return qty;
   const w = product.lb_per_unit ?? 0;
-  if (unit === "lb") return w > 0 ? qty / w : 0;
+  if (unit === "lb") return w > 0 && qty > 0 ? Math.max(1, Math.round(qty / w)) : 0;
   if (product.unit === "lb") return qty * w;
   return qty;
 }

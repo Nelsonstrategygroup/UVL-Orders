@@ -46,6 +46,8 @@ export type LabelRow = {
   qty: string;
   unit: string;
   product: string;
+  /** A piece product taken in pounds: what was ordered, after the count and smaller, on box 1 only ("120 lb ordered"; Lucas, 11/7/26). */
+  ordered?: string;
   boxType: string;
   /** The box type id (box_types.id); null when no box size is worked out. */
   boxTypeId: string | null;
@@ -189,13 +191,17 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
         const name = o.name ?? o.customer;
         const location = o.location ?? "";
         const ofN = boxCount > 1 ? `${boxNo} of ${boxCount}` : "";
-        const line2 = amountText(n, unit, label);
+        // Taken in pounds, counted in pieces: the pounds ordered, on box 1 only.
+        const taken = o.units?.[p.id];
+        const ordered = boxNo === 1 && taken === "lb" && p.unit !== "lb" ? `${fmt(num(o.lines[p.id]))} lb ordered` : undefined;
+        const line2 = amountText(n, unit, label) + (ordered ? ` (${ordered})` : "");
         return {
           customer: o.customer,
           line2,
           qty: fmt(n),
           unit: unit === "each" ? "" : unitWord(unit, n),
           product: label,
+          ...(ordered ? { ordered } : {}),
           boxType,
           boxTypeId,
           ofN,
