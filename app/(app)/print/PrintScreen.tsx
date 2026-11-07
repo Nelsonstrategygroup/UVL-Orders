@@ -23,15 +23,29 @@ import PackSheetButtons from "./PackSheetButtons";
 import PalletManifestPicker from "./PalletManifestPicker";
 import { buildReport, REPORTS, reportHref, type ReportKind } from "./reports";
 
-function Item({ title, children, action }: { title: string; children: React.ReactNode; action: React.ReactNode }) {
-  return (
+/** The green section heading (Lucas, 11/6/26): a little bolder than a plain heading, so each one stands out. */
+const HEAD = "mb-1 border-b-2 border-forest pb-1.5 text-[1.3rem] text-forest";
+
+/**
+ * One printout or report. As a `heading` (the Reports tab), it's a card of
+ * its own with its title as the green section heading.
+ */
+function Item({ title, children, action, heading = false }: { title: string; children: React.ReactNode; action: React.ReactNode; heading?: boolean }) {
+  const row = (
     <div className="flex flex-wrap items-center gap-3 border-t border-line py-3 first:border-t-0">
       <div className="min-w-[200px] flex-1">
-        <b>{title}</b>
+        {!heading && <b>{title}</b>}
         <div className="small muted">{children}</div>
       </div>
       {action}
     </div>
+  );
+  if (!heading) return row;
+  return (
+    <section className="panel mt-3">
+      <h3 className={HEAD}>{title}</h3>
+      {row}
+    </section>
   );
 }
 
@@ -41,8 +55,7 @@ function Card({ when, children }: { when: string; children: React.ReactNode }) {
   if (!items.length) return null;
   return (
     <section className="panel mt-3">
-      {/* A little bolder than a plain heading, so each job stands out (Lucas, 11/6/26). */}
-      <h3 className="mb-1 border-b-2 border-forest pb-1.5 text-[1.3rem] text-forest">{when}</h3>
+      <h3 className={HEAD}>{when}</h3>
       {items}
     </section>
   );
@@ -304,14 +317,14 @@ export default function PrintScreen() {
       )}
 
       {tab === "reports" && (
-        <section className="panel mt-3" role="tabpanel" aria-label="Reports">
+        <div role="tabpanel" aria-label="Reports">
           {seeInvoices && (
-            <Item title="Open invoices" action={both("open-invoices")}>
+            <Item heading title="Open invoices" action={both("open-invoices")}>
               Finalized invoices with money still owed, and days overdue.
             </Item>
           )}
           {seeInvoices && (
-            <Item title="Invoice lines for QuickBooks" action={both("invoice-lines", qbOk, { from: qbFrom, to: qbTo })}>
+            <Item heading title="Invoice lines for QuickBooks" action={both("invoice-lines", qbOk, { from: qbFrom, to: qbTo })}>
               One row per line of finalized invoices dated From to To, for QuickBooks.
               <DateRange
                 id="qb"
@@ -324,7 +337,7 @@ export default function PrintScreen() {
               />
             </Item>
           )}
-          <Item title="Sales over a date range" action={both("sales", rangeOk, { from, to })}>
+          <Item heading title="Sales over a date range" action={both("sales", rangeOk, { from, to })}>
             How much each customer ordered of each product. No prices.
             <DateRange
               id="dl"
@@ -336,7 +349,7 @@ export default function PrintScreen() {
               note={`Packing Mondays ${niceDate(packingMonday(from))} through ${niceDate(packingMonday(to))}.`}
             />
           </Item>
-          <Item title="One customer's order history" action={both("history", !!customers.byId.get(customerId), { customerId })}>
+          <Item heading title="One customer's order history" action={both("history", !!customers.byId.get(customerId), { customerId })}>
             <label htmlFor="dl-customer" className="sr-only">
               Customer
             </label>
@@ -362,13 +375,13 @@ export default function PrintScreen() {
               Show inactive
             </label>
           </Item>
-          <Item title="Freezer on hand" action={both("freezer")}>
+          <Item heading title="Freezer on hand" action={both("freezer")}>
             What&apos;s in the freezer, what orders are counting on, and what&apos;s free.
           </Item>
-          <Item title="Customer list" action={both("customers")}>
+          <Item heading title="Customer list" action={both("customers")}>
             Every customer and contact, with call days, chains and standing notes.
           </Item>
-        </section>
+        </div>
       )}
 
       {tab === "setup" && (
