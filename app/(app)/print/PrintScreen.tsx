@@ -27,7 +27,7 @@ import { buildReport, REPORTS, reportHref, type ReportKind } from "./reports";
 const HEAD = "mb-1 border-b-2 border-forest pb-1.5 text-[1.3rem] text-forest";
 
 /**
- * One printout or report. As a `heading` (the Reports tab), it's a card of
+ * One printout or report. As a `heading` (Reports and Setup checks), it's a card of
  * its own with its title as the green section heading.
  */
 function Item({ title, children, action, heading = false }: { title: string; children: React.ReactNode; action: React.ReactNode; heading?: boolean }) {
@@ -385,13 +385,14 @@ export default function PrintScreen() {
       )}
 
       {tab === "setup" && (
-        <section className="panel mt-3" role="tabpanel" aria-label="Setup checks">
+        <div role="tabpanel" aria-label="Setup checks">
           {seeInvoices && (
-            <Item title="Invoice codes" action={both("invoice-codes")}>
+            <Item heading title="Invoice codes" action={both("invoice-codes")}>
               Each location&apos;s invoice code, with room to write corrections.
             </Item>
           )}
           <Item
+            heading
             title="Box sizes"
             action={
               <div className="flex shrink-0 flex-wrap gap-2">
@@ -409,7 +410,7 @@ export default function PrintScreen() {
           >
             How much of each product fits in each box, with room for notes.
           </Item>
-        </section>
+        </div>
       )}
 
       <p className="small muted mt-4">
