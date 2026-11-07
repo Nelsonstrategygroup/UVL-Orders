@@ -78,6 +78,7 @@ export function palletManifests(
             lot: w.lot ?? "",
             lb: netWeight(w.weight),
           })),
+        p.orders.map((o) => o.labelCustomer),
       ),
     };
   });
@@ -108,6 +109,7 @@ export function looseBoxes(data: PackingBundle): Manifest {
         lot: w.lot ?? "",
         lb: netWeight(w.weight),
       })),
+    p.orders.map((o) => o.labelCustomer),
   );
 }
 
@@ -198,11 +200,13 @@ export function ManifestSheets({ data, pick, showLoose = false }: { data: Packin
     ...blocked.map((b) => ({ pallet: b.pallet, point: null, name: "" })),
   ].sort((a, b) => a.pallet.tag.localeCompare(b.pallet.tag, undefined, { numeric: true, sensitivity: "base" }));
   const loose = weekBoxes(data).filter((b) => !b.palletId);
+  // Customers in the week's packing order: customers with locations first (Lucas, 11/6/26).
+  const order = data.packing.orders.map((o) => o.labelCustomer);
 
   return (
     <div className="pkmanifest">
       {pallets.map(({ pallet, point, name }) => {
-        const customers = customerManifests(pallet.boxes);
+        const customers = customerManifests(pallet.boxes, order);
         return (
           <div key={pallet.id}>
             <PalletCover tag={pallet.tag} palletName={name} point={point} customers={customers} shipDate={pallet.shipDate} ctx={ctx} />
@@ -223,7 +227,7 @@ export function ManifestSheets({ data, pick, showLoose = false }: { data: Packin
         );
       })}
       {showLoose &&
-        customerManifests(loose).map((cm, i, all) => (
+        customerManifests(loose, order).map((cm, i, all) => (
           <CustomerPages
             key={`loose|${cm.customer}`}
             cm={cm}

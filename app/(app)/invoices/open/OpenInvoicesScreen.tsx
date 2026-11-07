@@ -9,7 +9,7 @@ import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useStaffData } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
-import { displayName } from "@/lib/calc/customers";
+import { compareCustomerIds, displayName } from "@/lib/calc/customers";
 import { daysOverdue } from "@/lib/calc/invoice";
 import { centsText } from "@/lib/calc/prices";
 import { niceDate, todayISO } from "@/lib/dates";
@@ -41,13 +41,14 @@ export default function OpenInvoicesScreen() {
     const c = customers.byId.get(id);
     return c ? displayName(c, customers.byId) : "Unknown customer";
   };
+  const byCustomer = compareCustomerIds(customers.byId);
   const rows = data
     .map((inv) => ({ inv, x: toIssued(inv, productName, customerName) }))
     .filter(({ x }) => x.totalCents - x.paidCents !== BigInt(0))
     .sort((a, b) => {
       const byNumber = a.x.number.localeCompare(b.x.number, undefined, { numeric: true });
       if (sort === "due") return a.x.dueDate.localeCompare(b.x.dueDate) || byNumber;
-      if (sort === "location") return a.x.customer.localeCompare(b.x.customer, undefined, { numeric: true }) || byNumber;
+      if (sort === "location") return byCustomer(a.inv.customer_id, b.inv.customer_id) || byNumber;
       return byNumber;
     });
   const sum = (f: (r: (typeof rows)[number]) => bigint) => rows.reduce((s, r) => s + f(r), BigInt(0));

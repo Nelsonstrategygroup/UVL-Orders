@@ -55,6 +55,8 @@ export default function PalletsScreen() {
     );
 
   const p = data.packing;
+  const orderIdx = new Map(p.orders.map((o, i) => [o.customerId, i]));
+  const orderAt = (cid: string | null) => (cid ? orderIdx.get(cid) : undefined) ?? 1e9;
   const all: Box[] = [
     ...p.orders.flatMap((o) =>
       o.weights.map((w) => ({
@@ -167,16 +169,14 @@ export default function PalletsScreen() {
                   <tbody>
                     {[...t.byCustomer.entries()]
                       .map(([cid, v]) => ({
+                        cid,
                         who:
                           boxes.find((b) => b.customerId === cid)?.customer ??
                           "Unassigned",
                         ...v,
                       }))
-                      .sort((a, b) =>
-                        a.who.localeCompare(b.who, undefined, {
-                          numeric: true,
-                        }),
-                      )
+                      // The week's packing order: customers with locations first (Lucas, 11/6/26).
+                      .sort((a, b) => orderAt(a.cid) - orderAt(b.cid))
                       .map((r) => (
                         <tr key={r.who}>
                           <td>{r.who}</td>

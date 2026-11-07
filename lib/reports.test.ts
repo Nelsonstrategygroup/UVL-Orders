@@ -80,18 +80,19 @@ describe("week's orders download", () => {
     expect(r[0].slice(0, 4)).toEqual(["Week of", "Customer", "Chain", "Type"]);
     const col = (row: string[], name: string) => row[r[0].indexOf(name)];
     expect(r.length).toBe(3);
-    expect(col(r[1], "Customer")).toBe("Abe's Deli");
-    expect(col(r[1], "Answer")).toBe("Not called");
-    expect(col(r[2], "Customer")).toBe("Fremont #11");
-    expect(col(r[2], "Chain")).toBe("PCC");
-    expect(col(r[2], "Contact")).toBe("Phil");
-    expect(col(r[2], "Phone")).toBe("206-632-6811");
-    expect(col(r[2], "Email")).toBe("phil@pcc.test");
-    expect(col(r[2], "Bill to")).toBe("PCC");
-    expect(col(r[2], "Product")).toBe("legs Bone In to VAC");
-    expect(col(r[2], "Quantity")).toBe("6");
-    expect(col(r[2], "Packed (lb)")).toBe("5");
-    expect(col(r[2], "Standing notes")).toBe("Dock in back");
+    // Customers with locations first (the shared customer order, 11/6/26).
+    expect(col(r[2], "Customer")).toBe("Abe's Deli");
+    expect(col(r[2], "Answer")).toBe("Not called");
+    expect(col(r[1], "Customer")).toBe("Fremont #11");
+    expect(col(r[1], "Chain")).toBe("PCC");
+    expect(col(r[1], "Contact")).toBe("Phil");
+    expect(col(r[1], "Phone")).toBe("206-632-6811");
+    expect(col(r[1], "Email")).toBe("phil@pcc.test");
+    expect(col(r[1], "Bill to")).toBe("PCC");
+    expect(col(r[1], "Product")).toBe("legs Bone In to VAC");
+    expect(col(r[1], "Quantity")).toBe("6");
+    expect(col(r[1], "Packed (lb)")).toBe("5");
+    expect(col(r[1], "Standing notes")).toBe("Dock in back");
   });
 });
 
@@ -129,16 +130,16 @@ describe("customer list", () => {
   it("has a row per contact with roles, and a row for customers without contacts", () => {
     const r = rows(customerListCsv([chain, store, deli], all));
     expect(r.slice(1).map((x) => [x[0], x[r[0].indexOf("Contact")]])).toEqual([
-      ["Abe's Deli", ""],
       ["PCC", ""],
       ["Fremont #11", "Phil"],
       ["Fremont #11", "Ana"],
+      ["Abe's Deli", ""],
     ]);
-    expect(col(r, 1, "Active")).toBe("No");
-    expect(col(r, 2, "Bills for all locations")).toBe("Yes");
-    expect(col(r, 3, "Handles")).toBe("Orders, Receiving");
-    expect(col(r, 3, "Bill to")).toBe("PCC");
-    expect(col(r, 4, "Email")).toBe("ap@pcc.test");
+    expect(col(r, 4, "Active")).toBe("No");
+    expect(col(r, 1, "Bills for all locations")).toBe("Yes");
+    expect(col(r, 2, "Handles")).toBe("Orders, Receiving");
+    expect(col(r, 2, "Bill to")).toBe("PCC");
+    expect(col(r, 3, "Email")).toBe("ap@pcc.test");
   });
 });
 
@@ -158,9 +159,9 @@ describe("sales over a date range", () => {
       ),
     );
     expect(r.slice(1).map((x) => [x[2], x[4], x[6], x[7], x[8], x[9]])).toEqual([
-      ["Abe's Deli", "legs Bone In to VAC", "1", "1", "2026-10-12", "2026-10-12"],
       ["Fremont #11", "legs Bone In to VAC", "10", "2", "2026-10-05", "2026-10-19"],
       ["Fremont #11", "French Rack to Vac", "2", "1", "2026-10-19", "2026-10-19"],
+      ["Abe's Deli", "legs Bone In to VAC", "1", "1", "2026-10-12", "2026-10-12"],
     ]);
   });
 });

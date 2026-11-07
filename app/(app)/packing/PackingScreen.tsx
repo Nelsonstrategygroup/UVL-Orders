@@ -95,7 +95,15 @@ export default function PackingScreen() {
   // Everything is saved on the phone first and uploads when there's signal.
   const save = (p: Promise<void>) => p.catch(() => toast("Couldn't save on this phone. Try again."));
 
-  const withLines = data.orders.map((o) => ({ o, lines: packLines(o, data.products) }));
+  // Each distributor's customers together under its heading, placed where
+  // the first of them falls in the week's order (customers with locations
+  // first, then everyone else by name; Lucas, 11/6/26).
+  const firstAt = new Map<string, number>();
+  data.orders.forEach((o, i) => o.group && !firstAt.has(o.group) && firstAt.set(o.group, i));
+  const at = (o: (typeof data.orders)[number], i: number) => (o.group ? (firstAt.get(o.group) ?? i) : i);
+  const withLines = data.orders
+    .map((o, i) => ({ o, i, lines: packLines(o, data.products) }))
+    .sort((a, b) => at(a.o, a.i) - at(b.o, b.i) || a.i - b.i);
   const stats = packStats(withLines.map((x) => ({ lines: x.lines.map(([, l]) => l) })));
   const shown = withLines.filter(({ o, lines }) => showOrder(lines.map(([, l]) => l), filter) || !!keepIds?.has(o.id));
   // Boxes for a whole pallet group, from every order in it.

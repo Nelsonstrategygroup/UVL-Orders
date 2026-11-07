@@ -16,7 +16,7 @@ import { useCan, useMe } from "@/components/CurrentUser";
 import { useToast } from "@/components/Toast";
 import { useWeek } from "@/components/Week";
 import { billedThrough, deleteBlockers, rolesLabel, type DeleteCheck } from "@/lib/calc/contacts";
-import { displayName, orderingCustomers } from "@/lib/calc/customers";
+import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { niceDate, weekName } from "@/lib/dates";
 import { downloadTable } from "@/components/download";
 import { loadCustomerHistory, loadCustomerOrders, type HistoryEntry } from "@/lib/db/load";
@@ -79,7 +79,7 @@ export default function CustomerPage({ id }: { id: string }) {
     );
 
   const parent = c.parent_customer_id ? customers.byId.get(c.parent_customer_id) : undefined;
-  const kids = customers.list.filter((k) => k.parent_customer_id === c.id);
+  const kids = sortByDisplayName(customers.list.filter((k) => k.parent_customer_id === c.id), customers.byId);
   const orders = orderingCustomers(customers.list).some((k) => k.id === c.id);
   const billing = billedThrough(c, customers.byId);
   const delivery = deliveryDayOf(c, customers.byId);

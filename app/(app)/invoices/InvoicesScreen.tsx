@@ -11,7 +11,7 @@ import { useCan } from "@/components/CurrentUser";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { displayName } from "@/lib/calc/customers";
+import { compareCustomerIds, displayName } from "@/lib/calc/customers";
 import { invoiceState, lbText, paidCents, STATE_LABEL } from "@/lib/calc/invoice";
 import { centsText, toFixedInt } from "@/lib/calc/prices";
 import { makeDrafts, updateDraft } from "@/lib/db/invoices";
@@ -40,6 +40,8 @@ export default function InvoicesScreen() {
     const c = customers.byId.get(id);
     return c ? displayName(c, customers.byId) : "Unknown customer";
   };
+  // The shared customer order: customers with locations first (Lucas, 11/6/26).
+  const byCustomer = compareCustomerIds(customers.byId);
   const live = data.invoices.filter((i) => i.status !== "void");
   const voided = data.invoices.filter((i) => i.status === "void");
   const rows = live
@@ -49,7 +51,7 @@ export default function InvoicesScreen() {
       const lb = data.boxes.filter((b) => b.customer_id === inv.customer_id).reduce((s, b) => s + toFixedInt(b.weight, 3), BigInt(0));
       return { inv, sheet, t: totalsOf(sheet), lb };
     })
-    .sort((a, b) => a.sheet.customerName.localeCompare(b.sheet.customerName, undefined, { numeric: true }));
+    .sort((a, b) => byCustomer(a.inv.customer_id, b.inv.customer_id));
   const invoiced = new Set(live.map((i) => i.customer_id));
   const packedNoInvoice = data.packing.orders.filter((o) => o.boxes > 0 && !invoiced.has(o.customer_id));
   const orderedNothingPacked = data.packing.orders.filter((o) => o.status === "ordered" && o.lines > 0 && o.boxes === 0 && !invoiced.has(o.customer_id));
@@ -62,7 +64,7 @@ export default function InvoicesScreen() {
   const weekLb = data.boxes.reduce((s, b) => s + toFixedInt(b.weight, 3), BigInt(0));
   // Before packing starts, the notes about numbers and orders are just noise.
   const anyPacked = data.packing.orders.some((o) => o.boxes > 0) || rows.length > 0;
-  const names = (ids: string[]) => ids.map(name).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(", ");
+  const names = (ids: string[]) => [...ids].sort(byCustomer).map(name).join(", ");
   const anyPriceNeeded = rows.some((r) => r.t.priceNeeded > 0);
 
   const make = async () => {

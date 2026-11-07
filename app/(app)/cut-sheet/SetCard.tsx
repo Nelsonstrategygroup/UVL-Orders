@@ -6,7 +6,7 @@
 import { useState } from "react";
 
 import { chipText, hasCountedLines, lineType, setBalance, USE_GROUPS, USES, type CutSpecLite } from "@/lib/calc/cutsheet";
-import { displayName } from "@/lib/calc/customers";
+import { compareCustomerIds, displayName } from "@/lib/calc/customers";
 import { fmt, num } from "@/lib/calc/num";
 import type { SheetLine, SheetSet } from "@/lib/db/cutsheet";
 import type { CatalogProduct, CustomersData, CutSpec, Qty, SizeClass, Units } from "@/lib/db/types";
@@ -180,7 +180,7 @@ export default function SetCard({
 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[.95rem]">
           <span>For:</span>
-          {set.customers.map((cid) => {
+          {[...set.customers].sort(compareCustomerIds(customers.byId)).map((cid) => {
             const c = customers.byId.get(cid);
             const name = c ? displayName(c, customers.byId) : "A customer";
             return (

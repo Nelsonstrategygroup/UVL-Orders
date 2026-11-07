@@ -3,7 +3,7 @@
 // Excel opens it with the right characters.
 
 import { billedThrough, mainContact, rolesLabel } from "./calc/contacts";
-import { displayName } from "./calc/customers";
+import { compareCustomerIds, displayName, sortByDisplayName } from "./calc/customers";
 import { STATUS_LABEL } from "./orders";
 import type { Customer, Order, OrderStatus, Qty, Units } from "./db/types";
 import { lineUnit, toProductUnit, unitWord } from "./calc/units";
@@ -116,9 +116,7 @@ export function weekOrdersTable(
   products: ProductLite[],
 ): Table {
   const rows: Cell[][] = [];
-  const list = [...customers].sort((a, b) =>
-    displayName(a, byId).localeCompare(displayName(b, byId), undefined, { sensitivity: "base" }),
-  );
+  const list = sortByDisplayName(customers, byId);
   for (const c of list) {
     const o = orders.get(c.id);
     const who = mainContact(c.contacts);
@@ -208,9 +206,7 @@ export const CUSTOMER_LIST_COLUMNS = [
 
 export function customerListTable(customers: Customer[], byId: Map<string, Customer>): Table {
   const rows: Cell[][] = [];
-  const list = [...customers].sort((a, b) =>
-    displayName(a, byId).localeCompare(displayName(b, byId), undefined, { sensitivity: "base" }),
-  );
+  const list = sortByDisplayName(customers, byId);
   for (const c of list) {
     const parent = c.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;
     const info: Cell[] = [
@@ -271,12 +267,13 @@ export function salesTable(
     const p = prodById.get(pid);
     const parent = c?.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;
     return {
-      sortName: c ? displayName(c, byId) : cid,
+      cid,
       sortProduct: p?.sort ?? 1e9,
       row: [from, to, c?.name ?? "(deleted customer)", parent?.name ?? "", p?.name ?? pid, p?.unit ?? "", a.total, a.weeks.size, a.first, a.last, invSpan(invOf(invs, a.first), invOf(invs, a.last))] as Cell[],
     };
   });
-  rows.sort((x, y) => x.sortName.localeCompare(y.sortName, undefined, { sensitivity: "base" }) || x.sortProduct - y.sortProduct);
+  const byCustomer = compareCustomerIds(byId);
+  rows.sort((x, y) => byCustomer(x.cid, y.cid) || x.sortProduct - y.sortProduct);
   return table(SALES_COLUMNS, rows.map((r) => r.row));
 }
 
@@ -324,13 +321,10 @@ export function packingRecordTable(
   formatTime: (iso: string) => string,
 ): Table {
   const rows: Cell[][] = [];
-  const name = (id: string) => {
-    const c = byId.get(id);
-    return c ? displayName(c, byId) : "(deleted customer)";
-  };
+  const byCustomer = compareCustomerIds(byId);
   const list = records
     .filter((r) => r.status === "ordered" && Object.values(r.lines).some(Boolean))
-    .sort((a, b) => name(a.customer_id).localeCompare(name(b.customer_id), undefined, { sensitivity: "base" }));
+    .sort((a, b) => byCustomer(a.customer_id, b.customer_id));
   for (const r of list) {
     const c = byId.get(r.customer_id);
     const parent = c?.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;

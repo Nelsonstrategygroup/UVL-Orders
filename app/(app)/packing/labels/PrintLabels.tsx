@@ -31,6 +31,7 @@ export type PrintRow = PrintLabel & { key: string; print: string; productId: str
 export default function PrintLabels({
   rows,
   products,
+  customerOrder,
   selected,
   setSelected,
   changedKeys,
@@ -41,6 +42,8 @@ export default function PrintLabels({
   rows: PrintRow[];
   /** The report's products, in order: [id, name]. */
   products: [string, string][];
+  /** Customers in the week's packing order (the shared customer order), for the picker. */
+  customerOrder: string[];
   selected: Set<string>;
   setSelected: (s: Set<string>) => void;
   /** Rows changed since they were printed. */
@@ -54,7 +57,8 @@ export default function PrintLabels({
   const [start, setStart] = useState(1);
   const [range, setRange] = useState("");
   const [busy, setBusy] = useState(false);
-  const customers = [...new Set(rows.map((r) => r.customer))].sort((a, b) => a.localeCompare(b));
+  const onReport = new Set(rows.map((r) => r.customer));
+  const customers = [...new Set(customerOrder)].filter((c) => onReport.has(c));
   const chosen = rows.filter((r) => selected.has(r.key));
 
   async function print(list: PrintRow[], all: boolean) {

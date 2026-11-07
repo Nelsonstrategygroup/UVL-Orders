@@ -6,7 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { groupLead, packedWith } from "../calc/packTogether";
 import { qtyText } from "../orders";
-import { displayName, sortByDisplayName } from "../calc/customers";
+import { customerRank, displayName } from "../calc/customers";
 import { labelCustomer, labelList, reportLabels, type LabelList } from "../calc/labels";
 import { sheetRows, type SheetLabel, type SheetRow } from "../calc/packSheet";
 import type { BoxSetup } from "../calc/boxes";
@@ -248,8 +248,6 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
   const pointList = (must(groups) ?? []) as (Partial<Distributor> & { id: string; name: string })[];
   const pointName = new Map(pointList.map((g) => [g.id, g.name]));
   const distributors = new Map(pointList.map((g) => [g.id, toDistributor(g)]));
-  // Distributors in name order, for sorting.
-  const pointRank = new Map([...pointList].sort((a, b) => a.name.localeCompare(b.name)).map((g, i) => [g.id, i]));
   const names = new Map((must(people) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
   const toWeight = (w: WeightRow): PackWeight => ({
     id: w.id,
@@ -294,7 +292,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       | null;
   };
 
-  const list: (PackOrder & { rank: [number, number, string] })[] = [];
+  const list: PackOrder[] = [];
   for (const o of must(orders) as Row[]) {
     const lines: Qty = {};
     const units: Record<string, string> = {};
@@ -333,7 +331,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
 
     const cust = byId.get(o.customer_id);
     const pointId = cust?.ships_to_point_id ?? null;
-    const group = pointId ? { name: pointName.get(pointId) ?? "Distributor", rank: pointRank.get(pointId) ?? 0 } : undefined;
+    const group = pointId ? { name: pointName.get(pointId) ?? "Distributor" } : undefined;
     const name = cust ? displayName(cust, byId) : "Unknown customer";
     const parent = cust?.parent_customer_id ? byId.get(cust.parent_customer_id) : undefined;
     const labelName = cust ? labelCustomer(cust.name, parent?.name) : name;
@@ -344,7 +342,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       labelCustomer: labelName,
       labelName: parent ? parent.name.trim() : (cust?.name ?? name).trim(),
       labelLocation: parent && cust ? cust.name.trim() : "",
-      sortKey: group ? `0|${String(group.rank).padStart(6, "0")}|${name}` : `1|${name}`,
+      sortKey: "",
       standingNotes: (cust?.notes ?? "").trim(),
       orderNotes: (o.notes ?? "").trim(),
       group: group?.name ?? null,
@@ -358,19 +356,16 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
       pallet: po?.pallet ?? "",
       lastBy: lastBy ? (names.get(lastBy) ?? "Someone") : null,
       lastAt,
-      // Customers shipping through a distributor first, by distributor; then everyone else by name.
-      rank: group ? [0, group.rank, name] : [1, 0, name],
     });
   }
 
-  // Ungrouped customers: alphabetical, locations under their chain.
-  const custOrder = new Map(sortByDisplayName(custList, byId).map((c, i) => [displayName(c, byId), i]));
-  list.sort(
-    (a, b) =>
-      a.rank[0] - b.rank[0] ||
-      a.rank[1] - b.rank[1] ||
-      (custOrder.get(a.rank[2]) ?? 1e9) - (custOrder.get(b.rank[2]) ?? 1e9),
-  );
+  // The shared customer order (Lucas, 11/6/26): customers with locations
+  // first, then everyone else by name. Screens that show distributor
+  // headings (Packing, Plan pallets) keep each distributor's customers
+  // together themselves.
+  const rank = customerRank(byId);
+  list.sort((a, b) => (rank.get(a.customerId) ?? 1e9) - (rank.get(b.customerId) ?? 1e9));
+  list.forEach((o, i) => (o.sortKey = String(i).padStart(6, "0")));
 
   const prods = ((must(products) as PackProduct[]) ?? []).map((x) => ({
     ...x,
@@ -410,11 +405,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     shipFrom: set?.ship_from_address?.trim() ?? "",
     labelNumbers: new Map((must(labels) as { number: number; key: string }[]).map((l) => [l.key, l.number])),
     blanks: { unknown: set?.pack_unknown_blanks ?? 3, spare: set?.pack_spare_blanks ?? 1 },
-    orders: list.map((o) => {
-      const { rank, ...rest } = o;
-      void rank;
-      return rest;
-    }),
+    orders: list,
   };
 }
 

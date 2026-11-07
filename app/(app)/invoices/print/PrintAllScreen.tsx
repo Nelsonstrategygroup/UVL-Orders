@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { useStaffData } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
+import { compareCustomerIds } from "@/lib/calc/customers";
 import { isISODate } from "@/lib/dates";
 import InvoiceSheet from "../InvoiceSheet";
 import { sheetFor } from "../sheet";
@@ -37,8 +38,8 @@ export default function PrintAllScreen() {
     );
   const sheets = data.invoices
     .filter((i) => i.status !== "void")
-    .map((inv) => sheetFor(data, inv, customers, catalog))
-    .sort((a, b) => a.customerName.localeCompare(b.customerName, undefined, { numeric: true }));
+    .sort((a, b) => compareCustomerIds(customers.byId)(a.customer_id, b.customer_id))
+    .map((inv) => sheetFor(data, inv, customers, catalog));
   const out = data.invoices.filter((i) => data.outOfDate.has(i.id)).length;
 
   return (

@@ -148,6 +148,7 @@ export default function LabelsScreen() {
           <PrintLabels
             rows={rows}
             products={list.tables.map((t) => [t.product.id, t.product.name] as [string, string])}
+            customerOrder={data.orders.map((o) => o.labelCustomer)}
             selected={selected}
             setSelected={setSelected}
             changedKeys={changedKeys}

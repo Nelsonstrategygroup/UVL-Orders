@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   callQueue,
+  compareCustomerIds,
   countable,
   displayName,
   groupForList,
   matchesSearch,
   orderingCustomers,
+  sortByDisplayName,
   type CustomerLite,
 } from "./customers";
 import type { OrderStatus } from "./types";
@@ -94,8 +96,8 @@ describe("customers list", () => {
   const names = (g: ReturnType<typeof groupForList<CustomerLite>>) =>
     g.map((x) => [x.top.name, ...x.locations.map((l) => "  " + l.name)]).flat();
 
-  it("puts locations under their parent, by name", () => {
-    expect(names(groupForList(all, () => true))).toEqual(["Abe's", "PCC", "  Ballard", "  Fremont", "Xavier's Deli"]);
+  it("puts customers with locations first, locations under their parent by name", () => {
+    expect(names(groupForList(all, () => true))).toEqual(["PCC", "  Ballard", "  Fremont", "Abe's", "Xavier's Deli"]);
   });
 
   it("shows a parent for its kept locations even when the parent isn't kept", () => {
@@ -109,5 +111,49 @@ describe("customers list", () => {
     expect(countable(all).map((x) => x.id)).toEqual(["x", "f", "b", "a"]);
     // A parent with no locations is an ordinary customer.
     expect(countable([pcc]).map((x) => x.id)).toEqual(["p"]);
+  });
+});
+
+describe("shared customer order (Lucas, 11/6/26)", () => {
+  const all = [
+    c("a", "Abe's"),
+    c("p", "PCC"),
+    c("p10", "#10 Issaquah", { parent_customer_id: "p" }),
+    c("p05", "#05 View Ridge", { parent_customer_id: "p" }),
+    c("p24", "#24 Central District", { parent_customer_id: "p" }),
+    c("z", "Zed Foods"),
+    c("z1", "Zed North", { parent_customer_id: "z" }),
+    c("e", "Emerson"),
+    c("k", "Key City"),
+  ];
+  const byId = new Map(all.map((x) => [x.id, x]));
+
+  it("puts customers with locations first, chains by name, each with its stores by name, then everyone else", () => {
+    expect(sortByDisplayName(all, byId).map((x) => x.id)).toEqual(["p", "p05", "p10", "p24", "z", "z1", "a", "e", "k"]);
+  });
+
+  it("goes by having locations, not by the name", () => {
+    const plain = [c("p", "PCC"), c("a", "Abe's")];
+    expect(sortByDisplayName(plain, new Map(plain.map((x) => [x.id, x]))).map((x) => x.id)).toEqual(["a", "p"]);
+  });
+
+  it("keeps the order for part of the list, and by id", () => {
+    const some = [all[7], all[2], all[0], all[3]];
+    expect(sortByDisplayName(some, byId).map((x) => x.id)).toEqual(["p05", "p10", "a", "e"]);
+    expect(["k", "p24", "missing", "z1"].sort(compareCustomerIds(byId))).toEqual(["p24", "z1", "k", "missing"]);
+  });
+});
+
+describe("shared customer order: closed locations", () => {
+  it("doesn't count a chain whose locations are all inactive", () => {
+    const list = [
+      c("k", "Key City"),
+      c("cg", "Corfini Gourmet", { active: false }),
+      c("cg1", "SEA", { parent_customer_id: "cg", active: false }),
+      c("p", "PCC"),
+      c("p1", "#05 View Ridge", { parent_customer_id: "p" }),
+    ];
+    const byId = new Map(list.map((x) => [x.id, x]));
+    expect(sortByDisplayName(list, byId).map((x) => x.id)).toEqual(["p", "p1", "cg", "cg1", "k"]);
   });
 });

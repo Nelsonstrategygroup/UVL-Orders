@@ -37,12 +37,24 @@ export function boxIdOf(b: { serial: string | null; label_no: number | null; cas
 const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Group a pallet's boxes by customer, rows by product, with totals. */
-export function buildManifest(boxes: ManifestBox[]): Manifest {
+/**
+ * Customers in the week's order (the shared customer order: customers with
+ * locations first; Lucas, 11/6/26), given as the names in that order. Names
+ * not in the list ("Unassigned") go last, by name.
+ */
+export function byCustomerOrder(order: string[] = []): (a: string, b: string) => number {
+  const at = new Map<string, number>();
+  order.forEach((n, i) => at.has(n) || at.set(n, i));
+  return (a, b) => (at.get(a) ?? 1e9) - (at.get(b) ?? 1e9) || byName(a, b);
+}
+
+/** Group a pallet's boxes by customer (in `order`, the week's customer order), rows by product, with totals. */
+export function buildManifest(boxes: ManifestBox[], order?: string[]): Manifest {
+  const byCustomer = byCustomerOrder(order);
   const by = new Map<string, ManifestBox[]>();
   for (const b of boxes) by.set(b.customer, [...(by.get(b.customer) ?? []), b]);
   const groups = [...by.entries()]
-    .sort(([a], [b]) => byName(a, b))
+    .sort(([a], [b]) => byCustomer(a, b))
     .map(([customer, list]) => {
       const rows = [...list].sort((a, b) => byName(a.product, b.product) || byName(a.boxId, b.boxId));
       return { customer, rows, boxes: rows.length, lb: round2(rows.reduce((s, r) => s + (r.lb ?? 0), 0)) };

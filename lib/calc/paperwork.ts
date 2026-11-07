@@ -5,6 +5,8 @@
 // distributor its customers ship through (Setup > Ships to); pallets are
 // numbered within their distributor and ship date ("Plymouth 1 of 3").
 
+import { byCustomerOrder } from "./manifest";
+
 /** One box on a pallet, as the paperwork needs it. */
 export type PwBox = {
   id: string;
@@ -184,12 +186,17 @@ export type CustomerManifest = {
   missing: number;
 };
 
-/** A pallet's boxes, one customer each: a row per box by product then box ID, a subtotal under any product with 2 or more boxes. */
-export function customerManifests(boxes: PwBox[]): CustomerManifest[] {
+/**
+ * A pallet's boxes, one customer each (in `order`, the week's customer
+ * order), a row per box by product then box ID, a subtotal under any product
+ * with 2 or more boxes.
+ */
+export function customerManifests(boxes: PwBox[], order?: string[]): CustomerManifest[] {
+  const byCustomer = byCustomerOrder(order);
   const by = new Map<string, PwBox[]>();
   for (const b of boxes) by.set(b.customer, [...(by.get(b.customer) ?? []), b]);
   return [...by.entries()]
-    .sort(([a], [b]) => byName(a, b))
+    .sort(([a], [b]) => byCustomer(a, b))
     .map(([customer, list]) => {
       const sorted = [...list].sort((a, b) => byName(a.product, b.product) || byName(a.boxId, b.boxId));
       const rows: ManifestRow[] = [];
