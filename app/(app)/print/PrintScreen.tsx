@@ -25,8 +25,8 @@ import { buildReport, REPORTS, reportHref, type ReportKind } from "./reports";
 
 /** The green section heading (Lucas, 11/6/26): a little bolder than a plain heading, so each one stands out. */
 const HEAD = "mb-1 border-b-2 border-forest pb-1.5 text-[1.3rem] text-forest";
-/** An item's title under a section heading (This week): the same green heading type, a step smaller and without the rule. */
-const ITEM_HEAD = "m-0 text-[1.15rem] font-[650] leading-tight text-forest [font-family:var(--display)]";
+/** An item's title under a section heading (This week): the same green heading type and size, without the rule (Lucas, 11/6/26). */
+const ITEM_HEAD = "m-0 text-[1.3rem] font-[650] leading-tight text-forest [font-family:var(--display)]";
 
 /**
  * One printout or report. As a `heading` (Reports and Setup checks), it's a card of
