@@ -79,6 +79,8 @@ export type PrintLabel = {
   writeIn?: { name: string; ordered: string }[];
   /** The week's invoice number ("3001"), top right on every label; a blank to write in when the week has none. */
   inv?: string | null;
+  /** The store's planned pallet (Pallets > Plan pallets), top left: "P3"; blank prints "P___" to write in. */
+  pallet?: string | null;
 };
 
 // The standard PDF fonts only have Western characters: swap the common
@@ -127,6 +129,8 @@ export type LabelLayout = {
   labelNo: TextLine & { w: number };
   /** "INV# 3001" (or "INV# ______" to write in), bold, on its own in the top right corner (Lucas, 10/31/26). */
   inv: TextLine & { w: number };
+  /** The store's planned pallet ("P3", or "P___" to write in), bold, top left, the same size (Lucas, 11/6/26). */
+  pallet: TextLine & { w: number };
   /** The box type in an outlined tag on the right; left off when the box type isn't known ("?"). */
   typeTag: Rect | null;
   typeText: TextLine | null;
@@ -206,6 +210,10 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const invW = m.bold(invText, invSize);
   const inv = { text: invText, x: W - PAD - invW, y: PAD + invSize * ASCENT, size: invSize, w: invW };
   const invBottom = inv.y + DESCENT * invSize;
+  // Top left, mirroring it: the store's planned pallet ("P3"), or "P___" to write in (Lucas, 11/6/26).
+  const palletText = plain(l.pallet?.trim() || "P___");
+  const palletW = m.bold(palletText, invSize);
+  const pallet = { text: palletText, x: PAD, y: inv.y, size: invSize, w: palletW };
 
   // Destination: "PCC #10 Issaquah", wrapped to two lines before shrinking, sitting just above the rule.
   const destText = plain([l.name, l.location].filter((x) => x.trim()).join(" "));
@@ -216,15 +224,20 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
     return d.lines.map((text, i) => ({ text, x: PAD, y: lastBase - (d.lines.length - 1 - i) * d.size * 1.05, size: d.size }));
   };
   let dest = place(inner);
-  // A line that reaches up beside the INV# and runs under it: fit the name in the room to its left instead.
-  const clash = dest.some((t) => t.y - t.size * ASCENT < invBottom + 2 && PAD + m.bold(t.text, t.size) > inv.x - 6);
-  if (clash) dest = place(inv.x - 6 - PAD);
+  // The pallet sits top left, where the name starts: a name reaching up into the top line fits below it instead.
+  const clash = dest.some((t) => t.y - t.size * ASCENT < invBottom + 2);
+  if (clash) {
+    const room = ruleY - 3 - (invBottom + 2);
+    const d = fitLines(destText, LAYOUT.destMax, LAYOUT.destMin, inner, room, 2, m.bold);
+    const lastBase = ruleY - 3 - DESCENT * d.size;
+    dest = d.lines.map((text, i) => ({ text, x: PAD, y: lastBase - (d.lines.length - 1 - i) * d.size * 1.05, size: d.size }));
+  }
 
   const no = `label ${l.number}`;
   const noW = m.regular(no, 6.5);
   const labelNo = { text: no, x: (W - noW) / 2, y: midTag(6.5), size: 6.5, w: noW };
 
-  if (l.writeIn?.length) return { dest, ruleY, labelNo, inv, ...writeInLayout(l.writeIn, itemTop, midTag, inner, m) };
+  if (l.writeIn?.length) return { dest, ruleY, labelNo, inv, pallet, ...writeInLayout(l.writeIn, itemTop, midTag, inner, m) };
 
   // Quantity: a big white number, its unit smaller underneath.
   const qtyBox = { x: PAD, y: itemTop, w: LAYOUT.qtyW, h: LAYOUT.itemH };
@@ -269,7 +282,7 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
   const typeText = typeTag ? { text: type, x: typeTag.x + 6, y: midTag(9), size: 9 } : null;
 
   // Middle: the label number, for the office only (worked out above).
-  return { dest, ruleY, qtyBox, qtyLines, band, productLines, writeBoxes: [], writeText: [], orderedText: [], blanks: [], boxTag, boxText, boxMore: [], labelNo, inv, typeTag, typeText };
+  return { dest, ruleY, qtyBox, qtyLines, band, productLines, writeBoxes: [], writeText: [], orderedText: [], blanks: [], boxTag, boxText, boxMore: [], labelNo, inv, pallet, typeTag, typeText };
 }
 
 /**
@@ -388,6 +401,7 @@ function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel
   } else text(L.boxText, f.regular);
   text(L.labelNo, f.regular, rgb(0.45, 0.45, 0.45));
   text(L.inv, f.bold);
+  text(L.pallet, f.bold);
   if (L.typeTag && L.typeText) {
     rounded(L.typeTag, LAYOUT.tagRadius, { borderColor: black, borderWidth: 0.75 });
     text(L.typeText, f.bold);

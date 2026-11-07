@@ -188,3 +188,17 @@ describe("products packed together (Organs)", () => {
     expect(withOther.tables.at(-1)!.together).toBe(true);
   });
 });
+
+describe("the store's planned pallet on its labels (11/6/26)", () => {
+  const order = (pallet?: string | null) => ({ customer: "PCC #19 West Seattle", customerId: "c19", sortKey: "0", lines: { rack: 2 }, pallet });
+  const one = (pallet?: string | null) => labelList([order(pallet)], products, boxes).tables.flatMap((t) => t.rows)[0];
+
+  it("each label carries it; moving the store to another pallet marks its labels changed, the week's orders check doesn't", () => {
+    expect(one("P1").pallet).toBe("P1");
+    expect(one(null).pallet).toBeNull();
+    expect(one("P1").print).not.toBe(one("P3").print);
+    expect(one("P1").key).toBe(one("P3").key);
+    const hash = (p: string | null) => labelList([order(p)], products, boxes).hash;
+    expect(hash("P1")).toBe(hash("P3"));
+  });
+});

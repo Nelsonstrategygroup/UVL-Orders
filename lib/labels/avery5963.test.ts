@@ -97,7 +97,7 @@ describe("the label layout (10/24/26)", async () => {
   it("a long destination wraps to two lines (before shrinking) without overlapping the rule", () => {
     const l = L({ name: "Preservation Meat Collective", location: "Portland" });
     expect(l.dest.length).toBe(2);
-    expect(l.dest[0].size).toBeGreaterThanOrEqual(20); // its first line reaches up beside the INV#, so it fits to the left of it
+    expect(l.dest[0].size).toBeGreaterThanOrEqual(14); // two lines would reach the top line (the pallet and INV#): it fits below them
     for (const d of l.dest) expect(m.bold(d.text, d.size)).toBeLessThanOrEqual(inner);
     const last = l.dest[l.dest.length - 1];
     expect(last.y + last.size * 0.207).toBeLessThan(l.ruleY); // descenders stay above the rule
@@ -152,7 +152,8 @@ describe("the label layout (10/24/26)", async () => {
     }
     for (const t of l.writeText) expect(t.x + m.bold(t.text, t.size)).toBeLessThanOrEqual(l.band!.x + l.band!.w);
     // The customer still fits above the rule.
-    expect(L({ name: "PCC", location: "#10 Issaquah", writeIn, inv: "3001" }).dest[0].size).toBe(22);
+    // Under the pallet number and INV#, above the taller green band.
+    expect(L({ name: "PCC", location: "#10 Issaquah", writeIn, inv: "3001" }).dest[0].size).toBeGreaterThanOrEqual(14);
     expect(l.boxText.text).toBe("Box");
     expect(l.boxMore.map((t) => t.text)).toEqual(["of"]);
     expect(l.blanks).toHaveLength(2);
@@ -205,6 +206,30 @@ describe("the label layout (10/24/26)", async () => {
           expect(bottom).toBeLessThan(l.ruleY);
         }
       });
+
+  for (const [name, location] of names)
+    for (const kind of ["box", "organs"] as const)
+      it(`the pallet number never touches the customer: ${name} ${location} (${kind} label)`, () => {
+        const l = L({ name, location, inv: "3002", pallet: "P12", ...(kind === "organs" ? { writeIn } : {}) });
+        const tag = { right: l.pallet.x + l.pallet.w, bottom: l.pallet.y + l.pallet.size * 0.207 };
+        for (const d of l.dest) {
+          const top = d.y - d.size * 0.718;
+          // Below the pallet number (the name starts at the same left edge).
+          expect(top).toBeGreaterThan(tag.bottom);
+          expect(d.y + d.size * 0.207).toBeLessThan(l.ruleY);
+        }
+        expect(tag.right).toBeLessThan(l.inv.x - 20);
+      });
+
+  it("the planned pallet sits top left, bold, the INV#'s size, inside the padding; none planned prints P___", () => {
+    const l = L({ pallet: "P3", inv: "3002" });
+    expect(l.pallet.text).toBe("P3");
+    expect(l.pallet.x).toBeCloseTo(0.18 * 72);
+    expect(l.pallet.y).toBe(l.inv.y);
+    expect(l.pallet.size).toBe(l.inv.size);
+    expect(L({ pallet: null }).pallet.text).toBe("P___");
+    expect(L({ pallet: "  " }).pallet.text).toBe("P___");
+  });
 
   it("a name that fits on one line keeps its size and place", () => {
     const l = L({ name: "PCC", location: "#24 Central District", inv: "3001" });

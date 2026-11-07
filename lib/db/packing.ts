@@ -467,10 +467,11 @@ export async function savePallet(db: SupabaseClient, orderId: string, pallet: st
   return error ? error.message : null;
 }
 
-/** The box label list for a week's packing data (SPEC 12.5). */
-export function packingLabels(data: PackingData, boxes: BoxSetup): LabelList {
+/** The box label list for a week's packing data (SPEC 12.5). With `palletOf` (customer -> planned pallet tag), each label carries its store's pallet. */
+export function packingLabels(data: PackingData, boxes: BoxSetup, palletOf?: Map<string, string>): LabelList {
   return labelList(
     data.orders.map((o) => ({
+      ...(palletOf ? { pallet: palletOf.get(o.customerId) ?? null } : {}),
       customer: o.labelCustomer,
       customerId: o.customerId,
       name: o.labelName,

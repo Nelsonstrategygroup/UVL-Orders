@@ -37,7 +37,12 @@ export default function LabelsScreen() {
   const [reload, setReload] = useState(0);
 
   const data = bundle.data?.packing ?? null;
-  const list = useMemo(() => (bundle.data ? packingLabels(bundle.data.packing, bundle.data.boxes) : null), [bundle.data]);
+  // Each store's planned pallet (Pallets > Plan pallets), printed top left on its labels.
+  const list = useMemo(() => {
+    if (!bundle.data) return null;
+    const palletOf = new Map(bundle.data.pallets.flatMap((p) => p.customers.map((c) => [c, p.tag] as [string, string])));
+    return packingLabels(bundle.data.packing, bundle.data.boxes, palletOf);
+  }, [bundle.data]);
   const labels = useMemo(() => (list ? reportLabels(list) : []), [list]);
   const keys = labels.map((l) => l.key);
   const sig = `${week}|${reload}|${keys.join(",")}`;
@@ -86,6 +91,7 @@ export default function LabelsScreen() {
           boxType: l.boxType,
           writeIn: l.writeIn,
           inv: data.invNumber,
+          pallet: l.pallet,
         }))
     : [];
   const changedKeys = labels.filter((l) => labelState(l, nums?.get(l.key)).changed).map((l) => l.key);

@@ -34,6 +34,8 @@ export type LabelOrder = {
   sortKey: string;
   lines: Qty;
   units?: Record<string, string>;
+  /** The store's planned pallet ("P3"; Pallets > Plan pallets), printed on its labels; null: none planned. Left out where the labels aren't printed (This week's check). */
+  pallet?: string | null;
 };
 
 export type LabelRow = {
@@ -59,8 +61,10 @@ export type LabelRow = {
   /** The printed label's customer name and location ("PCC" / "#02 Kirkland"). */
   name: string;
   location: string;
-  /** Fingerprint of what the label says, to tell when it changed after printing. */
+  /** Fingerprint of what the label says, to tell when it changed after printing (its pallet included: a store moved to another pallet needs its labels again). */
   print: string;
+  /** The planned pallet printed top left ("P3"), or null for "P___". */
+  pallet: string | null;
   /**
    * Packed together (Hearts, Livers, Kidneys): the label has a blank for each
    * one ordered, counts written in by hand at Mohawk, with what was ordered
@@ -162,7 +166,8 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
             key: `${o.customerId ?? o.customer}|${lead}|1`,
             name,
             location,
-            print: hash([name, location, line2, "", 1, 1].join("|")),
+            print: hash([name, location, line2, "", 1, 1, o.pallet ?? ""].join("|")),
+            pallet: o.pallet ?? null,
             writeIn,
           });
         }
@@ -200,7 +205,8 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
           key: `${o.customerId ?? o.customer}|${p.id}|${boxNo}`,
           name,
           location,
-          print: hash([name, location, line2, boxType, boxNo, boxCount].join("|")),
+          print: hash([name, location, line2, boxType, boxNo, boxCount, o.pallet ?? ""].join("|")),
+          pallet: o.pallet ?? null,
         };
       };
       // A line no box can be worked out for still gets one label, with box "?" (Lucas, 10/21/26).
