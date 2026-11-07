@@ -1,14 +1,16 @@
 "use client";
 
-// Print and download (change request 10/21/26, stage 2): everything to print
-// or download, grouped by when in the week it's used. Every report opens as a
+// Print and download (change request 10/21/26, stage 2; by job, Lucas
+// 11/6/26): three tabs. This week (with the week picker): orders,
+// processing, packing, shipping, invoices. Reports: not about one week.
+// Setup checks: lists to check setup against. Every report opens as a
 // readable page (Open) and downloads as a spreadsheet (Download); both build
 // the same table (./reports). Print items open their own pages, and show only
 // to people who can open them. The full backup for moving the data is
 // "Export all data" in Setup.
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCan } from "@/components/CurrentUser";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useWeekData } from "@/components/data/useWeekData";
@@ -33,7 +35,7 @@ function Item({ title, children, action }: { title: string; children: React.Reac
   );
 }
 
-/** One card per stage of the week. Cards with nothing in them aren't shown. */
+/** One card per job. Cards with nothing in them aren't shown. */
 function Card({ when, children }: { when: string; children: React.ReactNode }) {
   const items = (Array.isArray(children) ? children : [children]).filter(Boolean);
   if (!items.length) return null;
@@ -51,6 +53,67 @@ const open = (href: string, label = "Open") => (
   </Link>
 );
 
+type Tab = "week" | "reports" | "setup";
+const TABS: [Tab, string][] = [
+  ["week", "This week"],
+  ["reports", "Reports"],
+  ["setup", "Setup checks"],
+];
+const TAB_KEY = "uvl:printTab";
+
+/** The last tab used on this device; "This week" until one is picked. */
+function useTab(): [Tab, (t: Tab) => void] {
+  const [tab, setTab] = useState<Tab>("week");
+  useEffect(() => {
+    // Read once after the page loads (there's no storage on the server).
+    try {
+      const t = localStorage.getItem(TAB_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (t === "reports" || t === "setup") setTab(t);
+    } catch {
+      // Not remembered; "This week".
+    }
+  }, []);
+  const set = (t: Tab) => {
+    setTab(t);
+    try {
+      localStorage.setItem(TAB_KEY, t);
+    } catch {
+      // Not remembered; fine.
+    }
+  };
+  return [tab, set];
+}
+
+/** The last four packing weeks: the four latest packing Mondays on or before today. */
+function lastFourWeeks(): { first: string; last: string } {
+  const now = currentWeek();
+  const last = now <= todayISO() ? now : addDays(now, -7);
+  return { first: addDays(last, -21), last };
+}
+
+function DateRange({ id, from, to, setFrom, setTo, ok, note }: { id: string; from: string; to: string; setFrom: (d: string) => void; setTo: (d: string) => void; ok: boolean; note: string }) {
+  return (
+    <>
+      <span className="mt-1 flex flex-wrap items-end gap-3">
+        <span>
+          <label className="lbl" htmlFor={`${id}-from`}>
+            From
+          </label>
+          <input id={`${id}-from`} type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </span>
+        <span>
+          <label className="lbl" htmlFor={`${id}-to`}>
+            To
+          </label>
+          <input id={`${id}-to`} type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} />
+        </span>
+      </span>
+      <span className="block">{ok ? note : "Pick a From date on or before the To date."}</span>
+    </>
+  );
+}
+
 export default function PrintScreen() {
   const { catalog, customers, error: loadError } = useStaffData();
   const { week } = useWeek();
@@ -60,25 +123,40 @@ export default function PrintScreen() {
   const seeCutSheet = useCan("cutsheet").view;
   const seePacking = useCan("packing").view;
   const seeInvoices = useCan("invoices").view;
+  const [tab, setTab] = useTab();
   const [busy, setBusy] = useState<string | null>(null);
   const [fileType, setFileType] = useFileType();
   const [customerId, setCustomerId] = useState("");
-  const [from, setFrom] = useState(() => addDays(currentWeek(), -7 * 12));
-  const [to, setTo] = useState(() => todayISO());
+  const [showInactive, setShowInactive] = useState(false);
+  // Sales: packing weeks. QuickBooks lines: invoice dates, through today.
+  const [from, setFrom] = useState(() => lastFourWeeks().first);
+  const [to, setTo] = useState(() => lastFourWeeks().last);
+  const [qbFrom, setQbFrom] = useState(() => lastFourWeeks().first);
+  const [qbTo, setQbTo] = useState(() => todayISO());
+
+  const tabs = (
+    <div className="seg mb-2" role="tablist" aria-label="Print and download">
+      {TABS.map(([t, label]) => (
+        <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load: {loadError ?? error}</p>;
   if (!catalog || !customers || !data)
     return (
       <>
-        <WeekBar />
+        {tab === "week" && <WeekBar />}
         <div className="empty">Loading...</div>
       </>
     );
 
-  const download = async (kind: ReportKind) => {
+  const download = async (kind: ReportKind, range?: { from: string; to: string }) => {
     setBusy(kind);
     try {
-      const r = await buildReport(kind, { db: getDb(), week, catalog, customers, data, customerId, from, to });
+      const r = await buildReport(kind, { db: getDb(), week, catalog, customers, data, customerId, from: range?.from ?? from, to: range?.to ?? to });
       if (!r) return;
       if (kind === "history" && !r.table.rows.length) toast("No orders yet to download.");
       else await downloadTable(r.file, r.table, r.sheet, REPORTS[kind].xlsxOnly ? "xlsx" : fileType);
@@ -100,204 +178,228 @@ export default function PrintScreen() {
           Open
         </button>
       )}
-      <button type="button" className="btn ghost" disabled={!!busy || !ready} onClick={() => void download(kind)}>
+      <button
+        type="button"
+        className="btn ghost"
+        disabled={!!busy || !ready}
+        onClick={() => void download(kind, filters.from && filters.to ? { from: filters.from, to: filters.to } : undefined)}
+      >
         {busy === kind ? "Getting it ready..." : "Download"}
       </button>
     </div>
   );
 
-  const sorted = sortByDisplayName(customers.list, customers.byId);
+  // The shared customer order (customers with locations first); active only unless asked.
+  const pickable = sortByDisplayName(
+    customers.list.filter((c) => showInactive || c.active || c.id === customerId),
+    customers.byId,
+  );
   const rangeOk = !!from && !!to && from <= to;
+  const qbOk = !!qbFrom && !!qbTo && qbFrom <= qbTo;
+  // Every tab has a Download button today; the choice shows only where one does.
+  const hasDownload = true;
 
   return (
     <div className="max-w-[760px]">
-      <WeekBar />
+      {tab === "week" && <WeekBar />}
       <h2 className="mb-1">Print and download</h2>
-      <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="small">Spreadsheets as</span>
-        <div className="seg" role="group" aria-label="File type">
-          {(["csv", "xlsx"] as FileType[]).map((t) => (
-            <button key={t} type="button" aria-pressed={fileType === t} onClick={() => setFileType(t)}>
-              {FILE_TYPE_LABEL[t]}
-            </button>
-          ))}
-        </div>
-      </div>
-      <p className="small muted mt-0">
-        {fileType === "xlsx" ? "Excel workbook (.xlsx)." : "CSV opens anywhere, including Google Sheets."} Remembered on this device.
-        Open shows a report as a page to read or print.
-      </p>
-
-      <Card when="Thursday, orders">
-        {seeOrders && (
-          <Item key="sheets" title="Order sheets" action={open("/orders/sheet")}>
-            Every product in its group with room to write the amount, one sheet per customer, or a blank one.
-          </Item>
-        )}
-        <Item key="week" title="This week's orders" action={both("week-orders")}>
-          Every customer with contact, phone, email, and who to bill, and what they ordered.
-        </Item>
-        <Item key="grid" title="Order grid" action={both("order-grid")}>
-          Customers down the side, products across the top, like the grid on Orders. Downloads as Excel.
-        </Item>
-      </Card>
-
-      <Card when="Weekend, cut sheet">
-        {seeCutSheet && (
-          <Item key="cut" title="Cut sheet for Mohawk" action={open("/cut-sheet")}>
-            Open the sheet to check it, then print it or email it.
-          </Item>
-        )}
-        <Item key="balance" title="Carcass balance" action={both("carcass-balance")}>
-          Part by part: what the week&apos;s lambs give, where every piece goes (each product, Le Trim, racks and short loins), and
-          what&apos;s left over or short. For building the cut sheet.
-        </Item>
-        <Item key="totals" title="Product totals" action={both("product-totals")}>
-          Each product added up across customers, plus half and whole lambs, with packed and short. A pick list, and a check
-          against what Mohawk cut.
-        </Item>
-      </Card>
-
-      <Card when="Before packing day">
-        {seePacking && (
-          <Item key="labels" title="Box Label Report" action={open("/packing/labels")}>
-            One row for every box, to make the customer labels before packing day.
-          </Item>
-        )}
-      </Card>
-
-      <Card when="Monday, packing">
-        {seePacking && (
-          <Item key="weigh" title="Weigh Sheet" action={<PackSheetButtons week={week} kind="weigh" fileType={fileType} />}>
-            For writing each box&apos;s weight: by product A to Z, as on the box labels, then each store, with a box for each
-            box&apos;s weight and the total. Print it before packing day.
-          </Item>
-        )}
-        {seePacking && (
-          <Item key="pallet-sheet" title="Pallet Sheet" action={<PackSheetButtons week={week} kind="pallet" fileType={fileType} />}>
-            For building pallets: by store, a box to check for each product, what was ordered and how many boxes, Pallet and
-            Initials.
-          </Item>
-        )}
-        {seePacking && (
-          <Item key="pallets" title="Pallets" action={open("/packing/pallets")}>
-            Plan which stores go on which pallet, and see what&apos;s on each.
-          </Item>
-        )}
-        {seePacking && (
-          <Item key="crossdock" title="Cross dock sheets" action={<PalletManifestPicker week={week} kind="crossdock" />}>
-            One page per distributor and ship date: each pallet with its cases and weight, the totals, Received by.
-          </Item>
-        )}
-        {seePacking && (
-          <Item key="pallet-labels" title="Pallet labels" action={<PalletManifestPicker week={week} kind="labels" />}>
-            One label per pallet for the outside, two copies each: the carrier and distributor, the stores, pallet 1 of 3 and
-            the cases.
-          </Item>
-        )}
-        {seePacking && (
-          <Item key="manifest" title="Pallet manifests" action={<PalletManifestPicker week={week} kind="manifests" />}>
-            Every box by customer, one customer per page, with lot and net weight, to ship with the pallet. Each distributor&apos;s
-            cross dock sheet comes first. Also a CSV of the boxes for invoicing.
-          </Item>
-        )}
-        {seePacking && (
-          <Item key="paper-in" title="Type in from paper" action={open("/packing/paper")}>
-            After weighing on the Weigh Sheet, type the weights in. Laid out just like the sheet.
-          </Item>
-        )}
-        <Item key="record" title="Packing record" action={both("packing-record")}>
-          Ordered against packed, short or over, each box&apos;s weight and label number, who packed each line and when, and pallet.
-        </Item>
-      </Card>
-
-      {seeInvoices && (
-        <Card when="Tuesday, invoices">
-          <Item key="inv-week" title="This week's invoices" action={open(`/invoices/print?week=${week}`)}>
-            Every location&apos;s invoice for the week, to print or save as a PDF. Make and finalize them on Invoices.
-          </Item>
-          <Item key="inv-open" title="Open invoices" action={both("open-invoices")}>
-            Every finalized invoice with money still owed: total, paid, balance and days overdue.
-          </Item>
-          <Item key="inv-lines" title="Invoice lines for QuickBooks" action={both("invoice-lines", rangeOk, { from, to })}>
-            One row per invoice line, finalized invoices dated From to To (the dates under Sales below), in the columns
-            QuickBooks Online imports. Customer and product names have to match QuickBooks.
-          </Item>
-        </Card>
+      {tabs}
+      {hasDownload && (
+        <>
+          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="small">Spreadsheets as</span>
+            <div className="seg" role="group" aria-label="File type">
+              {(["csv", "xlsx"] as FileType[]).map((t) => (
+                <button key={t} type="button" aria-pressed={fileType === t} onClick={() => setFileType(t)}>
+                  {FILE_TYPE_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="small muted mt-0">
+            {fileType === "xlsx" ? "Excel workbook (.xlsx)." : "CSV opens anywhere, including Google Sheets."} Remembered on this
+            device. Open shows a report as a page to read or print.
+          </p>
+        </>
       )}
 
+      {tab === "week" && (
+        <div role="tabpanel" aria-label="This week">
+          <Card when="Orders">
+            {seeOrders && (
+              <Item key="sheets" title="Order sheets" action={open("/orders/sheet")}>
+                One sheet per customer to write amounts on, or a blank one.
+              </Item>
+            )}
+            <Item key="week" title="This week's orders" action={both("week-orders")}>
+              Every customer, their contact and who to bill, and what they ordered.
+            </Item>
+            <Item key="grid" title="Order grid" action={both("order-grid")}>
+              Customers down the side, products across, like Orders. Downloads as Excel.
+            </Item>
+          </Card>
 
-      <section className="panel mt-3">
-        <h3 className="mb-1">Anytime</h3>
-        <Item title="Customer list" action={both("customers")}>
-          Every customer and contact, with what each person handles, call days, chains, and standing notes.
-        </Item>
-        <Item title="One customer's order history" action={both("history", !!customers.byId.get(customerId), { customerId })}>
-          <label htmlFor="dl-customer" className="sr-only">
-            Customer
-          </label>
-          <select id="dl-customer" className="field mt-1" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">Pick a customer</option>
-            {sorted.map((c) => (
-              <option key={c.id} value={c.id}>
-                {displayName(c, customers.byId)}
-              </option>
-            ))}
-          </select>
-        </Item>
-        <Item title="Sales over a date range" action={both("sales", rangeOk, { from, to })}>
-          How much each customer ordered of each product. Quantities only, no prices.
-          <span className="mt-1 flex flex-wrap items-end gap-3">
-            <span>
-              <label className="lbl" htmlFor="dl-from">
-                From
-              </label>
-              <input id="dl-from" type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} />
-            </span>
-            <span>
-              <label className="lbl" htmlFor="dl-to">
-                To
-              </label>
-              <input id="dl-to" type="date" className="field" value={to} onChange={(e) => setTo(e.target.value)} />
-            </span>
-          </span>
-          <span className="block">
-            {rangeOk
-              ? `Packing Mondays ${niceDate(packingMonday(from))} through ${niceDate(packingMonday(to))}.`
-              : "Pick a From date on or before the To date."}
-          </span>
-        </Item>
-        <Item title="Freezer on hand" action={both("freezer")}>
-          What&apos;s in the freezer now, what half and whole orders are counting on, and what&apos;s free.
-        </Item>
-        {seeInvoices && (
-          <Item title="Invoice codes" action={both("invoice-codes")}>
-            Each location&apos;s invoice code (Setup &gt; Invoicing), with a column to write corrections on. For Kathy to check.
+          <Card when="Processing">
+            {seeCutSheet && (
+              <Item key="cut" title="Cut sheet" action={open("/cut-sheet")}>
+                Check the cut sheet, then print it or email it.
+              </Item>
+            )}
+            <Item key="balance" title="Carcass balance" action={both("carcass-balance")}>
+              Each part: what the lambs give, where it goes, and what&apos;s left or short.
+            </Item>
+            <Item key="totals" title="Product totals" action={both("product-totals")}>
+              Each product added up across customers, with packed and short.
+            </Item>
+          </Card>
+
+          <Card when="Packing">
+            {seePacking && (
+              <Item key="labels" title="Box Label Report" action={open("/packing/labels")}>
+                One row for every box, to make the labels before packing day.
+              </Item>
+            )}
+            {seePacking && (
+              <Item key="weigh" title="Weigh Sheet" action={<PackSheetButtons week={week} kind="weigh" fileType={fileType} />}>
+                Each store&apos;s boxes by product, with room to write each weight.
+              </Item>
+            )}
+            {seePacking && (
+              <Item key="pallet-sheet" title="Pallet Sheet" action={<PackSheetButtons week={week} kind="pallet" fileType={fileType} />}>
+                Each store&apos;s products to check off, with Pallet and Initials.
+              </Item>
+            )}
+            <Item key="record" title="Packing record" action={both("packing-record")}>
+              Ordered against packed, each box&apos;s weight, who packed it and when.
+            </Item>
+          </Card>
+
+          <Card when="Shipping">
+            {seePacking && (
+              <Item key="crossdock" title="Cross dock sheets" action={<PalletManifestPicker week={week} kind="crossdock" />}>
+                One page per distributor and ship date, with cases and weight.
+              </Item>
+            )}
+            {seePacking && (
+              <Item key="pallet-labels" title="Pallet labels" action={<PalletManifestPicker week={week} kind="labels" />}>
+                One label per pallet for the outside, two copies each.
+              </Item>
+            )}
+            {seePacking && (
+              <Item key="manifest" title="Pallet manifests" action={<PalletManifestPicker week={week} kind="manifests" />}>
+                Every box by customer, with lot and net weight, to ship with the pallet.
+              </Item>
+            )}
+          </Card>
+
+          {seeInvoices && (
+            <Card when="Invoices">
+              <Item key="inv-week" title="This week's invoices" action={open(`/invoices/print?week=${week}`)}>
+                Every invoice for the week, to print or save as a PDF.
+              </Item>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {tab === "reports" && (
+        <section className="panel mt-3" role="tabpanel" aria-label="Reports">
+          {seeInvoices && (
+            <Item title="Open invoices" action={both("open-invoices")}>
+              Finalized invoices with money still owed, and days overdue.
+            </Item>
+          )}
+          {seeInvoices && (
+            <Item title="Invoice lines for QuickBooks" action={both("invoice-lines", qbOk, { from: qbFrom, to: qbTo })}>
+              One row per line of finalized invoices dated From to To, for QuickBooks.
+              <DateRange
+                id="qb"
+                from={qbFrom}
+                to={qbTo}
+                setFrom={setQbFrom}
+                setTo={setQbTo}
+                ok={qbOk}
+                note={`Invoices dated ${niceDate(qbFrom)} through ${niceDate(qbTo)}.`}
+              />
+            </Item>
+          )}
+          <Item title="Sales over a date range" action={both("sales", rangeOk, { from, to })}>
+            How much each customer ordered of each product. No prices.
+            <DateRange
+              id="dl"
+              from={from}
+              to={to}
+              setFrom={setFrom}
+              setTo={setTo}
+              ok={rangeOk}
+              note={`Packing Mondays ${niceDate(packingMonday(from))} through ${niceDate(packingMonday(to))}.`}
+            />
           </Item>
-        )}
-        <Item
-          title="Box sizes"
-          action={
-            <div className="flex shrink-0 flex-wrap gap-2">
-              <Link href={reportHref("box-sizes")} className="btn">
-                Open
-              </Link>
-              <Link href={`${reportHref("box-sizes")}?print=1`} className="btn ghost">
-                Print
-              </Link>
-              <button type="button" className="btn ghost" disabled={!!busy} onClick={() => void download("box-sizes")}>
-                {busy === "box-sizes" ? "Getting it ready..." : "Download"}
-              </button>
-            </div>
-          }
-        >
-          How much of each product fits in each box, as in Setup &gt; Boxes, with a blank Notes column to write corrections on.
-        </Item>
-      </section>
+          <Item title="One customer's order history" action={both("history", !!customers.byId.get(customerId), { customerId })}>
+            <label htmlFor="dl-customer" className="sr-only">
+              Customer
+            </label>
+            <select id="dl-customer" className="field mt-1" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+              <option value="">Pick a customer</option>
+              {pickable.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {displayName(c, customers.byId)}
+                  {c.active ? "" : " (inactive)"}
+                </option>
+              ))}
+            </select>
+            <label className="mt-1 flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => {
+                  setShowInactive(e.target.checked);
+                  const picked = customers.byId.get(customerId);
+                  if (!e.target.checked && picked && !picked.active) setCustomerId("");
+                }}
+              />
+              Show inactive
+            </label>
+          </Item>
+          <Item title="Freezer on hand" action={both("freezer")}>
+            What&apos;s in the freezer, what orders are counting on, and what&apos;s free.
+          </Item>
+          <Item title="Customer list" action={both("customers")}>
+            Every customer and contact, with call days, chains and standing notes.
+          </Item>
+        </section>
+      )}
+
+      {tab === "setup" && (
+        <section className="panel mt-3" role="tabpanel" aria-label="Setup checks">
+          {seeInvoices && (
+            <Item title="Invoice codes" action={both("invoice-codes")}>
+              Each location&apos;s invoice code, with room to write corrections.
+            </Item>
+          )}
+          <Item
+            title="Box sizes"
+            action={
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Link href={reportHref("box-sizes")} className="btn">
+                  Open
+                </Link>
+                <Link href={`${reportHref("box-sizes")}?print=1`} className="btn ghost">
+                  Print
+                </Link>
+                <button type="button" className="btn ghost" disabled={!!busy} onClick={() => void download("box-sizes")}>
+                  {busy === "box-sizes" ? "Getting it ready..." : "Download"}
+                </button>
+              </div>
+            }
+          >
+            How much of each product fits in each box, with room for notes.
+          </Item>
+        </section>
+      )}
 
       <p className="small muted mt-4">
-        For a full copy of everything in the app, to keep or to move to new accounts, an admin can use Export all data in
-        Setup.
+        For a full copy of everything in the app, to keep or to move to new accounts, an admin can use Export all data in Setup.
       </p>
     </div>
   );

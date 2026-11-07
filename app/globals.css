@@ -676,7 +676,8 @@
     padding: 0.45rem 0.8rem;
     min-height: 44px;
   }
-  .seg button[aria-pressed="true"] {
+  .seg button[aria-pressed="true"],
+  .seg button[aria-selected="true"] {
     background: var(--forest);
     color: var(--on-forest);
   }
