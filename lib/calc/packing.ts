@@ -3,6 +3,7 @@
 // filled (the X on the paper sheet) or flag it with a note.
 
 import { EPS, fmt } from "./num";
+import { unitWord } from "./units";
 
 export type PackLine = {
   /** How much was ordered, in the line's unit. */
@@ -18,7 +19,21 @@ export type PackLine = {
   flagNote: string;
   /** Packed in one box with these ("Liver, Kidney"): the weight is that box's. */
   together?: string;
+  /** A piece product taken in pounds: the whole pieces it comes to, and their unit (Lucas, 11/7/26). */
+  pieces?: number;
+  pieceUnit?: string;
 };
+
+/**
+ * What was ordered, in words: "6", "8 packs", "45 lb". A piece product taken
+ * in pounds shows its whole pieces, then the pounds: "27 (120 lb ordered)"
+ * (Lucas, 11/7/26), the same count as its box labels.
+ */
+export function orderedWords(l: Pick<PackLine, "ordered" | "unit" | "pieces" | "pieceUnit">): string {
+  const words = (q: number, unit: string) => (unit === "each" ? fmt(q) : `${fmt(q)} ${unitWord(unit, q)}`);
+  if (l.pieces != null) return `${words(l.pieces, l.pieceUnit ?? "each")} (${fmt(l.ordered)} lb ordered)`;
+  return words(l.ordered, l.unit);
+}
 
 /** Done once it has a weight, or it's marked not filled. */
 export function lineDone(l: PackLine): boolean {

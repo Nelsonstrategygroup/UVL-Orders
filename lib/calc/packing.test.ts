@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxes, lineDone, lineLook, lineWords, nextBox, orderPacked, packStats, showOrder, type PackLine } from "./packing";
+import { boxes, lineDone, lineLook, lineWords, nextBox, orderedWords, orderPacked, packStats, showOrder, type PackLine } from "./packing";
 
 const line = (extra: Partial<PackLine>): PackLine => ({
   ordered: 20,
@@ -77,5 +77,14 @@ describe("boxes", () => {
     ]);
     expect(nextBox(w)).toBe(5);
     expect(nextBox([])).toBe(1);
+  });
+});
+
+describe("what was ordered, in words (Lucas, 11/7/26)", () => {
+  it("shows pieces taken in pounds as whole pieces, then the pounds", () => {
+    expect(orderedWords({ ordered: 120, unit: "lb", pieces: 27, pieceUnit: "each" })).toBe("27 (120 lb ordered)");
+    expect(orderedWords({ ordered: 8, unit: "pack" })).toBe("8 packs");
+    expect(orderedWords({ ordered: 45, unit: "lb" })).toBe("45 lb");
+    expect(orderedWords({ ordered: 6, unit: "each" })).toBe("6");
   });
 });

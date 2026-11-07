@@ -19,6 +19,7 @@ import { fmt, num } from "@/lib/calc/num";
 import {
   lineLook,
   lineWords,
+  orderedWords,
   orderPacked,
   packStats,
   showOrder,
@@ -342,7 +343,7 @@ function CustomerCard({
               <br />
               <span className="small">{lineWords(l)}</span>
             </span>
-            <span className="qty num">{qtyText(l.ordered, l.unit)}</span>
+            <span className="qty num">{orderedWords(l)}</span>
           </button>
         );
       })}
@@ -480,7 +481,7 @@ function WeighSheet({
         </p>
       ) : (
         <p className="mt-0 text-[1.05rem]">
-          Ordered <b>{qtyText(line.ordered, line.unit)}</b>. {lineWords(line)}.
+          Ordered <b>{orderedWords(line)}</b>. {lineWords(line)}.
         </p>
       )}
 
@@ -545,7 +546,7 @@ function WeighSheet({
                         if (e.key === "Enter") e.currentTarget.blur();
                       }}
                     />
-                    <span className="small muted">ordered {qtyText(l.ordered, l.unit)}</span>
+                    <span className="small muted">ordered {orderedWords(l)}</span>
                   </label>
                 );
               })}

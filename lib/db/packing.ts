@@ -11,6 +11,7 @@ import { labelCustomer, labelList, reportLabels, type LabelList } from "../calc/
 import { sheetRows, type SheetLabel, type SheetRow } from "../calc/packSheet";
 import type { BoxSetup } from "../calc/boxes";
 import { num } from "../calc/num";
+import { toProductUnit } from "../calc/units";
 import type { PackLine, Weight } from "../calc/packing";
 import type { Qty } from "../calc/types";
 
@@ -171,11 +172,16 @@ export function packLines(o: PackOrder, products: Map<string, PackProduct>): [st
       const group = packedWith(pid, products);
       const weight = o.weights.filter((w) => group.includes(w.product_id)).reduce((s, w) => s + w.weight, 0);
       const others = group.filter((id) => id !== pid).map((id) => products.get(id)?.name ?? id);
+      // A piece product taken in pounds: the whole pieces it comes to (Lucas, 11/7/26).
+      const prod = products.get(pid);
+      const unit = o.units[pid] ?? prod?.unit ?? "each";
+      const pieces = prod && unit === "lb" && prod.unit !== "lb" && (prod.lb_per_unit ?? 0) > 0 ? toProductUnit(q, unit, prod) : undefined;
       return [
         pid,
         {
           ordered: q,
-          unit: o.units[pid] ?? products.get(pid)?.unit ?? "each",
+          unit,
+          ...(pieces != null ? { pieces, pieceUnit: prod!.unit } : {}),
           weight,
           count: m?.count ?? null,
           shorted: m?.shorted ?? false,

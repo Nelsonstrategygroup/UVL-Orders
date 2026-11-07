@@ -70,6 +70,7 @@ import {
   type ScanStep,
 } from "@/lib/scan/flow";
 import type { Gs1Box } from "@/lib/scan/gs1";
+import { orderedWords } from "@/lib/calc/packing";
 import { qtyText } from "@/lib/orders";
 import { useLabelNumbers } from "../useLabelNumbers";
 
@@ -1162,6 +1163,9 @@ function orderedText(
 ): string {
   const q = o.lines[productId];
   if (!q) return "none of this";
+  // A piece product taken in pounds: its whole pieces, then the pounds (Lucas, 11/7/26).
+  const line = packLines(o, data.packing.products).find(([pid]) => pid === productId)?.[1];
+  if (line) return orderedWords(line);
   return qtyText(
     q,
     o.units[productId] ?? data.packing.products.get(productId)?.unit ?? "each",

@@ -84,7 +84,18 @@ export default function WeighPrint({ layout, inv, week, preview = false }: { lay
                           >
                             <div className="ws-cust">{r.customer}</div>
                             <div className="ws-ord">
-                              {r.ordered}
+                              {/* Taken in pounds: the whole pieces, the pounds small underneath (Lucas, 11/7/26). */}
+                              {(() => {
+                                const m = r.ordered.match(/^(.*) \((.* ordered)\)$/);
+                                return m ? (
+                                  <>
+                                    {m[1]}
+                                    <small>{m[2]}</small>
+                                  </>
+                                ) : (
+                                  r.ordered
+                                );
+                              })()}
                               {!r.row.known && <small>box count unknown</small>}
                             </div>
                             <div className="ws-cells">

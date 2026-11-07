@@ -16,7 +16,7 @@
 import { paginate, type Block, type Page } from "./calc/printPages";
 import type { SheetLabel, SheetRow } from "./calc/packSheet";
 import { orderSheet, packLines, sheetRowText, type PackingData, type PackOrder } from "./db/packing";
-import { qtyText } from "./orders";
+import { orderedWords } from "./calc/packing";
 import type { Cell, Table } from "./reports";
 import { weekName } from "./dates";
 import { invLabel } from "./weekInv";
@@ -105,7 +105,7 @@ export function weighSections(data: PackingData, labels: SheetLabel[], extra: Re
       const p = data.products.get(row.productId);
       const name = t.members.length > 1 ? t.name : (p?.label_name ?? "").trim() || t.name;
       const line = lines.get(row.productId);
-      const ordered = t.ordered ? shortGroup(t.ordered) : line ? qtyText(line.ordered, line.unit) : "not ordered";
+      const ordered = t.ordered ? shortGroup(t.ordered) : line ? orderedWords(line) : "not ordered";
       let s = byProduct.get(row.productId);
       if (!s) byProduct.set(row.productId, (s = { productId: row.productId, name, rows: [] }));
       s.rows.push({ order: o, row, customer: o.labelCustomer, ordered });
@@ -161,7 +161,7 @@ export function palletCustomers(data: PackingData, labels: SheetLabel[]): Pallet
       out.push({
         productId: row.productId,
         name: t.members.length > 1 ? t.name : (p?.label_name ?? "").trim() || t.name,
-        ordered: t.ordered ?? (line ? qtyText(line.ordered, line.unit) : ""),
+        ordered: t.ordered ?? (line ? orderedWords(line) : ""),
         boxes: row.known ? String(row.boxCount) : "?",
       });
     }
