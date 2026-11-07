@@ -3879,3 +3879,154 @@ td.cb-neg {
   overflow: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
+
+/* ---------------------------------------------------------------------------
+   Lamb count check (Lucas, 11/7/26): two Letter pages, large plain type, a
+   tick box by every number to check. Page 2 starts on its own sheet.
+   --------------------------------------------------------------------------- */
+.lc {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+.lc-page {
+  margin-top: 1rem;
+}
+.lc h3 {
+  font-family: inherit;
+  font-size: 1.15rem;
+  margin: 0.9rem 0 0.25rem;
+  border-bottom: 1.5px solid currentColor;
+  padding-bottom: 0.1rem;
+}
+.lc p {
+  margin: 0.15rem 0;
+}
+.lc-lead {
+  font-size: 1.1rem;
+}
+.lc-warn {
+  font-weight: 600;
+}
+.lc-tick {
+  font-size: 1.15em;
+  line-height: 1;
+  margin-right: 0.2em;
+}
+.lc-products {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 1.5rem;
+}
+@media (max-width: 600px) {
+  .lc-products {
+    grid-template-columns: 1fr;
+  }
+}
+.lc-prod {
+  border-bottom: 1px solid var(--line);
+  padding: 0.08rem 0;
+}
+/* A product with lines under it takes the full width. */
+.lc-prod.lc-wide {
+  grid-column: 1 / -1;
+}
+.lc-prodRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.lc-prodRow > span:first-child {
+  flex: 1;
+}
+.lc-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lc-sub {
+  font-size: 0.85em;
+  padding-left: 1rem;
+}
+.lc-math {
+  padding-left: 0.1rem;
+}
+.lc-note {
+  font-size: 0.9em;
+}
+.lc-total {
+  font-size: 1.1rem;
+  margin-top: 0.3rem !important;
+}
+.lc-sets {
+  font-weight: 700;
+}
+.lc-setsTag {
+  margin-left: 0.6rem;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.lc-balance {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.3rem;
+}
+.lc-balance th,
+.lc-balance td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.18rem 0.4rem 0.18rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.lc-balance th {
+  font-size: 0.9em;
+}
+.lc-short {
+  font-weight: 700;
+}
+.lc-check {
+  font-size: 1.1rem;
+  margin-top: 0.6rem !important;
+}
+@media print {
+  .lc {
+    font-size: 11.5pt;
+    max-width: none;
+    color: #000;
+  }
+  .lc-page + .lc-page {
+    break-before: page;
+  }
+  .lc h3 {
+    font-size: 12.5pt;
+    margin: 6pt 0 2pt;
+  }
+  .lc-prod,
+  .lc-balance th,
+  .lc-balance td {
+    border-color: #999;
+  }
+  /* Page 1's groups in two columns; inside each, one product per line. */
+  .lc-groups {
+    column-count: 2;
+    column-gap: 0.35in;
+  }
+  .lc-products {
+    grid-template-columns: 1fr;
+  }
+  .lc-group h3:first-child {
+    margin-top: 0;
+  }
+  .lc-group {
+    margin-bottom: 6pt;
+  }
+  .lc p {
+    margin: 1pt 0;
+  }
+  .lc-group,
+  .lc-balance tr {
+    break-inside: avoid;
+  }
+}

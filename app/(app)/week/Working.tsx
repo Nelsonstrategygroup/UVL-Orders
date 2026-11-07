@@ -45,7 +45,13 @@ export default function Working({
 
   return (
     <details className="working mt-2">
-      <summary className="copy">How {c.final} was worked out</summary>
+      <summary className="copy">
+        How {c.final} was worked out
+        {/* The same numbers written out on two pages, to check by hand (Lucas, 11/7/26). */}
+        <Link href="/print/lamb-check" className="copy ml-3 font-normal" onClick={(e) => e.stopPropagation()}>
+          Print the check
+        </Link>
+      </summary>
       <ol>
         <li>
           <b>What the orders need of each part, and the lambs for it.</b> Need ÷ what one average-size lamb gives, rounded up.

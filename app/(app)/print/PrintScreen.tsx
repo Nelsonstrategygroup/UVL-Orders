@@ -258,6 +258,9 @@ export default function PrintScreen() {
           </Card>
 
           <Card when="Processing">
+            <Item key="lamb-check" title="Lamb count check" action={open("/print/lamb-check")}>
+              Two pages to check this week&apos;s lamb count by hand against the orders.
+            </Item>
             {seeCutSheet && (
               <Item key="cut" title="Cut sheet" action={open("/cut-sheet")}>
                 Check the cut sheet, then print it or email it.
