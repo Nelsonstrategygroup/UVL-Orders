@@ -64,6 +64,15 @@ describe("only if extra lines", () => {
     const a = line("shanks", 54);
     const r = run({ legs: 100, shanks: 43 }, [a]);
     expect(r.fills.get(a.key)?.fill).toBe(7);
+    // Nothing left of front shanks for This week's extras list.
+    expect(r.left.get("fshank")).toBe(0);
+  });
+
+  it("one line short on its own isn't competing: it gets what's there", () => {
+    const a = line("shanks", 54);
+    const r = run({ legs: 100, shanks: 43 }, [a]);
+    expect(r.fills.get(a.key)).toMatchObject({ fill: 7, contested: false, toDecide: false });
+    expect(r.contests).toEqual([]);
   });
 
   it("all or none when partial fills are off", () => {

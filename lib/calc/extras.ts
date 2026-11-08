@@ -70,7 +70,12 @@ export type ExtraContest = {
   decided: boolean;
 };
 
-export type ExtrasResult = { fills: Map<string, ExtraFill>; contests: ExtraContest[] };
+export type ExtrasResult = {
+  fills: Map<string, ExtraFill>;
+  contests: ExtraContest[];
+  /** What's still spare of each part after these lines (This week's "Extra cuts to plan for"). */
+  left: Map<string, number>;
+};
 
 type Prod = Pick<Product, "id" | "uses" | "carcass" | "sort">;
 
@@ -161,8 +166,9 @@ export function fillExtras(input: {
     if (!fromLamb(p) || p?.carcass) continue;
     for (const u of usesOf(p)) demand.set(u.part_id, (demand.get(u.part_id) ?? 0) + Math.max(0, l.asked) * num(u.qty));
   }
-  const contestedParts = [...demand.entries()].filter(([id, d]) => d > get(id) + EPS).map(([id]) => id);
   const linesOn = (partId: string) => open.filter((l) => usesOf(input.products.get(l.productId)).some((u) => u.part_id === partId));
+  // Competing takes two lines or more: one line alone simply gets what's there.
+  const contestedParts = [...demand.entries()].filter(([id, d]) => d > get(id) + EPS && linesOn(id).length > 1).map(([id]) => id);
   const contests: ExtraContest[] = contestedParts
     .map((partId) => {
       const ls = linesOn(partId);
@@ -189,7 +195,7 @@ export function fillExtras(input: {
     fills.set(l.key, base(l, n, { contested, toDecide: contested && !decided }));
   }
 
-  return { fills, contests };
+  return { fills, contests, left: new Map([...avail.entries()].map(([k, v]) => [k, Math.max(0, v)])) };
 }
 
 /** "Wants 54 packs Front Shanks, 7 available" style words for a line. */

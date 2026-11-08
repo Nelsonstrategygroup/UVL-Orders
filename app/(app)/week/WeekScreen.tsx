@@ -72,7 +72,8 @@ export default function WeekScreen() {
     { title: "Main cuts", sub: "You plan for these.", rows: c.rows.filter((r) => r.planned) },
     { title: "Comes with every lamb", sub: "No need to plan.", rows: c.rows.filter((r) => !r.planned) },
   ];
-  const extras = plannedExtras(c.rows);
+  // What's still spare after "Only if extra" lines take theirs (11/8/26).
+  const extras = plannedExtras(extraLines.length ? c.rows.map((r) => (fills.left.has(r.part.id) ? { ...r, left: fills.left.get(r.part.id)! } : r)) : c.rows);
   // Le Trim by weight (10/29/26): from what's spare, and about how many extra average-size lambs if that's short.
   const leTrim = lt.ordered;
   const leTrimPlanned = data.leTrim != null;

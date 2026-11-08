@@ -100,6 +100,10 @@ function Share({
   const toast = useToast();
   const [shares, setShares] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  // Spare in the lines' own terms when they all want the same product ("50 packs Front Shanks").
+  const one = lines.length && lines.every((l) => l.productId === lines[0].productId) ? catalog?.productById.get(lines[0].productId) : undefined;
+  const per = one?.uses.find((u) => u.part_id === contest.partId)?.qty ?? 0;
+  const spareText = one && per > 0 ? amountText(Math.floor(contest.available / per + 1e-9), one) : String(Math.round(contest.available * 100) / 100);
   const value = (l: ExtraLine) => shares[l.key] ?? String(l.chosen ?? result.fills.get(l.key)?.fill ?? 0);
 
   const save = async () => {
@@ -120,7 +124,7 @@ function Share({
   return (
     <section className={`panel mt-2 ${highlight ? "border-2 border-amber-500" : ""}`}>
       <p className="m-0">
-        <b>Extras to share: {contest.partName}</b> · {Math.round(contest.available * 100) / 100} spare
+        <b>Extras to share: {contest.partName}</b> · {spareText} spare
         {contest.decided ? <span className="small muted"> · split by you</span> : <span className="tag extra ml-1">Kathy to decide</span>}
       </p>
       <p className="small muted mt-1 mb-1">

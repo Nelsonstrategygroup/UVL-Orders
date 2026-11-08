@@ -345,6 +345,8 @@ export default function OrderEditor(props: OrderEditorProps) {
             <button type="button" className="copy movenext" onClick={() => void moveToNextWeek(p)}>
               Move to next week
             </button>
+            {/* Le Trim is always a firm order (11/8/26). */}
+            {(!(p.fill_note ?? "").trim() || extraOf(p.id)) && (
             <button
               type="button"
               className="copy movenext"
@@ -353,6 +355,7 @@ export default function OrderEditor(props: OrderEditorProps) {
             >
               {extraOf(p.id) ? "☑" : "☐"} Only if extra
             </button>
+            )}
           </div>
         )}
         {/* Not in the product's steps (Le Trim, 10 lb): a gentle note once typing stops, never a change to what was typed. */}
