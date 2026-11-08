@@ -3,7 +3,7 @@
 // sizes, so browser scaling can't shift it (print at Actual size / 100%).
 // Positions are numbered 1 to 10, left to right, top to bottom.
 
-import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
+import { cmyk, PDFDocument, rgb, StandardFonts, type Color, type PDFFont, type PDFPage } from "pdf-lib";
 import { invLabel } from "@/lib/weekInv";
 
 const IN = 72; // points per inch
@@ -373,8 +373,10 @@ function roundRect(w: number, h: number, r: number): string {
   ].join(" ");
 }
 
-const FOREST = rgb(0x3b / 255, 0x5e / 255, 0x27 / 255);
-const PALE = rgb(0xe4 / 255, 0xee / 255, 0xdc / 255);
+// The green band and its pale text in CMYK, so four-toner printers use these
+// toner amounts (#3b5e27, #e4eedc) instead of converting RGB themselves (11/8/26).
+const FOREST = cmyk(0.37, 0, 0.59, 0.63);
+const PALE = cmyk(0.04, 0, 0.08, 0.07);
 const BARN = rgb(0x7a / 255, 0x33 / 255, 0x27 / 255);
 
 function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel, f: { regular: PDFFont; bold: PDFFont }) {
@@ -385,8 +387,8 @@ function drawLabel(page: PDFPage, box: ReturnType<typeof slotBox>, l: PrintLabel
   const Y = (y: number) => box.y + box.h - y;
   const black = rgb(0, 0, 0);
   const white = rgb(1, 1, 1);
-  const text = (t: TextLine, font: PDFFont, color = black) => page.drawText(t.text, { x: X(t.x), y: Y(t.y), size: t.size, font, color });
-  const rounded = (r: Rect, radius: number, opts: { color?: ReturnType<typeof rgb>; borderColor?: ReturnType<typeof rgb>; borderWidth?: number }) =>
+  const text = (t: TextLine, font: PDFFont, color: Color = black) => page.drawText(t.text, { x: X(t.x), y: Y(t.y), size: t.size, font, color });
+  const rounded = (r: Rect, radius: number, opts: { color?: Color; borderColor?: Color; borderWidth?: number }) =>
     page.drawSvgPath(roundRect(r.w, r.h, radius), { x: X(r.x), y: Y(r.y), ...opts });
 
   for (const t of L.dest) text(t, f.bold);
