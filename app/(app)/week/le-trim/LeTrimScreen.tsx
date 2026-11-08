@@ -35,17 +35,19 @@ import { deleteLeTrimPlan, saveLeTrimPlan } from "@/lib/db/save";
 import type { LeTrimPlanRow } from "@/lib/db/types";
 import { cleanQtyInput } from "@/lib/orders";
 import { weekCalc } from "@/lib/weekCalc";
+import { customerRank, displayName } from "@/lib/calc/customers";
+import { amountText, LE_TRIM_PARTS } from "@/lib/calc/extras";
 
 export default function LeTrimScreen() {
   const { week } = useWeek();
-  const { catalog, error: loadError } = useStaffData();
+  const { catalog, customers, error: loadError } = useStaffData();
   const { data, error, refresh } = useWeekData(week);
   const canWeek = useCan("week").change;
   const canCutSheet = useCan("cutsheet").change;
   const canChange = canWeek || canCutSheet;
 
   if (loadError || error) return <p className="note bad">Couldn&apos;t load: {loadError ?? error}</p>;
-  if (!catalog || !data)
+  if (!catalog || !customers || !data)
     return (
       <>
         <WeekBar />
@@ -54,7 +56,25 @@ export default function LeTrimScreen() {
     );
 
   // What's spare before Le Trim (the saved plan left out, so it isn't counted against itself), and Le Trim by weight.
-  const { leTrim } = weekCalc(data, catalog);
+  const rank = customerRank(customers.byId);
+  const { leTrim } = weekCalc(data, catalog, { rank });
+  // "Only if extra" lines on shoulders, legs or trim, and what each gets with a plan (the one being typed, live).
+  const waiting = (p: { shoulders: number; legs: number; trimLb: number } | null): Waiting[] => {
+    const { extras, extraLines } = weekCalc(data, catalog, { rank, plan: p });
+    return extraLines
+      .filter((l) => catalog.productById.get(l.productId)?.uses.some((u) => LE_TRIM_PARTS.has(u.part_id)))
+      .sort((a, b) => a.rank - b.rank)
+      .map((l) => {
+        const c = customers.byId.get(l.customerId);
+        const f = extras.fills.get(l.key);
+        return {
+          key: l.key,
+          text: `${c ? displayName(c, customers.byId) : "Unknown customer"}: wants ${amountText(l.asked, catalog.productById.get(l.productId))}, gets ${fmt(f?.fill ?? 0)}`,
+          estimated: !!f?.estimated,
+          locked: !!f?.locked,
+        };
+      });
+  };
   const { ordered, need, weights } = leTrim;
   // The estimate, before any kill sheet figure typed below.
   const spare = { ...leTrim.spare, trimLb: data.leTrim?.trim_actual_lb != null ? (data.leTrim.trim_estimated_lb ?? leTrim.spare.trimLb) : leTrim.spare.trimLb };
@@ -82,6 +102,7 @@ export default function LeTrimScreen() {
           weights={weights}
           canChange={canChange}
           onSaved={refresh}
+          waiting={waiting}
         />
       )}
     </div>
@@ -97,7 +118,9 @@ function Plan({
   weights,
   canChange,
   onSaved,
+  waiting,
 }: {
+  waiting: (plan: { shoulders: number; legs: number; trimLb: number } | null) => Waiting[];
   week: string;
   saved: LeTrimPlanRow | null;
   ordered: { lb: number; packs: number };
@@ -115,6 +138,9 @@ function Plan({
   const [busy, setBusy] = useState(false);
 
   const plan = { shoulders: Math.round(num(shoulders)), halfLegs: Math.round(num(halfLegs)), trimLb: num(trim) };
+  // Numbers typed and not saved yet: the waiting lines show what they'd get with them (live).
+  const anyTyped = (shoulders + halfLegs + trim).trim() !== "";
+  const typedPlan = anyTyped && (!saved || dirty(saved, plan)) ? { shoulders: plan.shoulders, legs: legsFor(plan.halfLegs), trimLb: plan.trimLb } : null;
   const hasActual = actual.trim() !== "";
   const trimSpare = hasActual ? num(actual) : spare.trimLb;
   const checks = leTrimChecks(plan, spare, ordered.lb, { lb: trimSpare, actual: hasActual }, weights);
@@ -315,7 +341,29 @@ function Plan({
           </p>
         )}
       </section>
+      <WaitingLines list={waiting(typedPlan)} typed={!!typedPlan} />
     </>
+  );
+}
+
+type Waiting = { key: string; text: string; estimated: boolean; locked: boolean };
+
+/** "Only if extra" lines waiting on shoulders, legs or trim: what each gets under the plan as typed (11/8/26). */
+function WaitingLines({ list, typed }: { list: Waiting[]; typed: boolean }) {
+  if (!list.length) return null;
+  return (
+    <section className="note mt-4" aria-live="polite">
+      <b>Only if extra lines waiting on Le Trim:</b> they get what&apos;s left after it{typed ? ", with the numbers above" : ""}.
+      <ul className="m-0 mt-1 grid list-none gap-1 p-0">
+        {list.map((w) => (
+          <li key={w.key}>
+            {w.text}
+            {w.estimated && <span className="tag ml-1">estimated</span>}
+            {w.locked && <span className="tag ml-1">packing started</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -532,6 +532,21 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
               </label>
             ))}
           </div>
+          <h3 className="mt-4 mb-1">Only if extra lines</h3>
+          <p className="small muted mt-0">
+            Lines filled only from extras get what&apos;s left after every other order and Le Trim. When there&apos;s less than
+            they asked for:
+          </p>
+          <label className="flex min-h-[44px] items-center gap-3">
+            <input
+              type="checkbox"
+              className="h-6 w-6 accent-forest"
+              checked={settings?.extra_fill_partial !== false}
+              disabled={!canEdit}
+              onChange={(e) => void updateSettings(db, { extra_fill_partial: e.target.checked }).then(done)}
+            />
+            They get what&apos;s there (off: all or nothing)
+          </label>
         </section>,
       );
 

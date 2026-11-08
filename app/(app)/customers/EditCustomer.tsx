@@ -29,6 +29,7 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
   const [parentId, setParentId] = useState(customer?.parent_customer_id ?? "");
   const [active, setActive] = useState(customer?.active ?? true);
   const [billsAll, setBillsAll] = useState(customer?.bills_for_locations ?? false);
+  const [onlyExtra, setOnlyExtra] = useState(customer?.lines_only_if_extra ?? false);
   const [contacts, setContacts] = useState<ContactDraft[]>(() => {
     const list = (customer?.contacts ?? []).map((k) => ({ id: k.id, name: k.name, roles: k.roles, phone: k.phone, email: k.email }));
     return list.length ? list : [blank()];
@@ -70,6 +71,7 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
       active,
       // Only a parent bills for its locations.
       bills_for_locations: hasKids && billsAll,
+      lines_only_if_extra: onlyExtra,
       contacts: contacts.map((k) => ({ ...k, name: k.name.trim(), phone: k.phone.trim(), email: k.email.trim() })),
     });
     setBusy(false);
@@ -195,6 +197,14 @@ export default function EditCustomer({ customer, onClose }: { customer: Customer
           Bills for all locations
         </label>
       )}
+
+      <label className="mt-4 flex min-h-[44px] items-center gap-3">
+        <input type="checkbox" className="h-6 w-6 accent-forest" checked={onlyExtra} onChange={(e) => setOnlyExtra(e.target.checked)} />
+        <span>
+          Lines default to only if extra
+          <span className="small muted block">New lines are filled only from extras. You can change any line.</span>
+        </span>
+      </label>
 
       <label className="mt-4 flex min-h-[44px] items-center gap-3">
         <input type="checkbox" className="h-6 w-6 accent-forest" checked={active} onChange={(e) => setActive(e.target.checked)} />

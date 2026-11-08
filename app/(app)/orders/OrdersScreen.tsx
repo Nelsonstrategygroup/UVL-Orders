@@ -17,6 +17,8 @@ import { toProductUnit, unitWord } from "@/lib/calc/units";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
 import { orderBoxes, orderBoxesText } from "@/lib/calc/boxes";
+import { amountText } from "@/lib/calc/extras";
+import { willGetLines } from "@/lib/weekCalc";
 import { fmt, num } from "@/lib/calc/num";
 import { todayName } from "@/lib/dates";
 import { setOrder } from "@/lib/db/save";
@@ -149,8 +151,19 @@ function OrderCards({ list, data, onOpen }: { list: Customer[]; data: WeekData; 
         {list.map((c) => {
           const o = data.orders.get(c.id);
           const st: OrderStatus = o?.status ?? "todo";
-          const sum = o ? orderSummary(o.lines, catalog!.products, o.units) : "";
-          const bx = o ? orderBoxesText(orderBoxes(o.lines, o.units, catalog!.productById, catalog!.boxes)) : "";
+          const sum = o ? orderSummary(o.lines, catalog!.products, o.units, o.extra) : "";
+          // Boxes for what goes out ("Only if extra" lines: what they'll get).
+          const out = o ? willGetLines(o) : null;
+          const bx = out ? orderBoxesText(orderBoxes(out.lines, out.units, catalog!.productById, catalog!.boxes)) : "";
+          // "Wants 54 packs Front Shanks, 7 available" (11/8/26).
+          const wants = Object.entries(o?.extra ?? {})
+            .filter(([pid]) => (o!.lines[pid] ?? 0) > 0)
+            .map(([pid, x]) => {
+              const p = catalog!.productById.get(pid);
+              const asked = p ? toProductUnit(o!.lines[pid], o!.units[pid], p) : o!.lines[pid];
+              if (x.fill == null) return `${amountText(asked, p)}: filled from extras`;
+              return x.fill >= asked ? `${amountText(asked, p)}: all available` : `Wants ${amountText(asked, p)}, ${x.fill} available`;
+            });
           return (
             <button key={c.id} type="button" className="ccard" onClick={() => onOpen(c.id)}>
               <span className="min-w-0">
@@ -159,6 +172,7 @@ function OrderCards({ list, data, onOpen }: { list: Customer[]; data: WeekData; 
                 <br />
                 <span className="sum">{sum || o?.notes || "Nothing yet"}</span>
                 {bx && <span className="small muted"> · {bx}</span>}
+                {wants.length > 0 && <span className="small block">{wants.join(". ")}.</span>}
                 {(data.requests.get(c.id)?.length ?? 0) > 0 && (
                   <span className="small text-barn"> · {data.requests.get(c.id)!.length} requested to confirm</span>
                 )}
@@ -362,8 +376,15 @@ function OrderGrid({
           const key = `${c.id}:${p.id}`;
           // A line taken in another unit than the column's (pounds of a piece product).
           const other = data.orders.get(c.id)?.units?.[p.id];
+          // "Only if extra" (11/8/26): marked, with what it will get.
+          const ex = (lines[p.id] ?? 0) > 0 ? data.orders.get(c.id)?.extra?.[p.id] : undefined;
           return (
-            <td key={p.id} className={other ? "relative" : undefined}>
+            <td key={p.id} className={other || ex ? "relative" : undefined} title={ex ? `Only if extra${ex.fill != null ? `: gets ${fmt(ex.fill)}` : ""}` : undefined}>
+              {ex && (
+                <small className="pointer-events-none absolute top-0 left-1 text-[.6rem] font-semibold text-barn">
+                  if extra{ex.fill != null ? ` · ${fmt(ex.fill)}` : ""}
+                </small>
+              )}
               {other && (
                 <small className="pointer-events-none absolute right-1 bottom-0.5 text-[.65rem] text-ink-soft">
                   {unitWord(other)}

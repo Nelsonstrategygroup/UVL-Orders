@@ -21,7 +21,7 @@ import {
 import { partPackSizes } from "@/lib/calc/packs";
 import { lambCheck } from "@/lib/calc/lambCheck";
 import { niceDate } from "@/lib/dates";
-import { weekCalc } from "@/lib/weekCalc";
+import { firmLines, weekCalc } from "@/lib/weekCalc";
 
 /** A box to tick, printed. */
 const Tick = () => (
@@ -84,7 +84,8 @@ export default function LambCheckScreen({
       )
       .map((o) => ({
         customer: name(o.customer_id),
-        lines: o.lines,
+        // Firm lines: "Only if extra" lines don't count toward the lambs (11/8/26).
+        lines: firmLines(o),
         units: o.units,
       })),
     packSizes: partPackSizes(catalog.products),

@@ -73,7 +73,7 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
       )
       .eq("week_id", week)
       .order("sort"),
-    db.from("orders").select("customer_id, order_lines(product_id, qty, unit)").eq("week_id", week),
+    db.from("orders").select("customer_id, order_lines(product_id, qty, unit, only_if_extra, fill_qty)").eq("week_id", week),
     db.from("cut_sheets").select("week_id").lt("week_id", week).order("week_id", { ascending: false }).limit(1),
     loadLeTrimPlan(db, week),
   ]);
@@ -106,11 +106,17 @@ export async function loadCutSheet(db: SupabaseClient, week: string): Promise<Cu
   const orderMap = new Map<string, { lines: Qty; units: Units }>();
   for (const o of (must(orders) ?? []) as {
     customer_id: string;
-    order_lines: { product_id: string; qty: number; unit: Units[string] | null }[];
+    order_lines: { product_id: string; qty: number; unit: Units[string] | null; only_if_extra?: boolean; fill_qty?: number | string | null }[];
   }[]) {
     const lines: Qty = {};
     const units: Units = {};
     for (const l of o.order_lines ?? []) {
+      // "Only if extra" (11/8/26): cut as what it will get (the product's own unit).
+      if (l.only_if_extra) {
+        const fill = num(l.fill_qty ?? 0);
+        if (fill > 0) lines[l.product_id] = fill;
+        continue;
+      }
       lines[l.product_id] = num(l.qty);
       if (l.unit) units[l.product_id] = l.unit;
     }

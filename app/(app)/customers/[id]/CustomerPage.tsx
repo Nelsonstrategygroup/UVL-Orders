@@ -449,7 +449,7 @@ function ThisWeekOrder({ customer }: { customer: Customer }) {
   if (!data || !customers || !catalog) return null;
   const o = data.orders.get(customer.id);
   const st = o?.status ?? "todo";
-  const sum = o ? orderSummary(o.lines, catalog.products, o.units) : "";
+  const sum = o ? orderSummary(o.lines, catalog.products, o.units, o.extra) : "";
   return (
     <section className="panel mt-4">
       <div className="flex flex-wrap items-center gap-3">

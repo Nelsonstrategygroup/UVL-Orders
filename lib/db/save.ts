@@ -26,6 +26,25 @@ export async function setOrder(
   return msg(error);
 }
 
+/** Turn a line's "Only if extra" on or off (11/8/26). Its fill and Kathy's share start over. */
+export async function setLineOnlyIfExtra(db: SupabaseClient, orderId: string, productId: string, on: boolean): Promise<string | null> {
+  const { error } = await db.from("order_lines").update({ only_if_extra: on }).eq("order_id", orderId).eq("product_id", productId);
+  return msg(error);
+}
+
+/** What each "Only if extra" line will get, as worked out now. Writes only real changes; lines packing started on are kept. */
+export async function saveExtraFills(db: SupabaseClient, week: string, fills: { order_id: string; product_id: string; qty: number }[]): Promise<string | null> {
+  if (!fills.length) return null;
+  const { error } = await db.rpc("set_extra_fills", { p_week: week, p_fills: fills });
+  return msg(error);
+}
+
+/** Kathy's split of extras that lines compete for (qty null clears a share). */
+export async function saveExtraChoices(db: SupabaseClient, week: string, choices: { order_id: string; product_id: string; qty: number | null }[]): Promise<string | null> {
+  const { error } = await db.rpc("set_extra_choices", { p_week: week, p_choices: choices });
+  return msg(error);
+}
+
 export async function saveWeek(
   db: SupabaseClient,
   week: string,
@@ -58,6 +77,8 @@ export type CustomerInput = {
   parent_customer_id: string | null;
   active: boolean;
   bills_for_locations: boolean;
+  /** New order lines start as "Only if extra" (11/8/26). Left out: unchanged. */
+  lines_only_if_extra?: boolean;
   notes?: string;
   contacts: { id?: string; name: string; roles: ContactRole[]; phone: string; email: string }[];
 };
@@ -75,6 +96,7 @@ export async function saveCustomer(
     parent_customer_id: c.parent_customer_id,
     active: c.active,
     bills_for_locations: c.bills_for_locations,
+    ...(c.lines_only_if_extra !== undefined ? { lines_only_if_extra: c.lines_only_if_extra } : {}),
     ...(c.notes !== undefined ? { notes: c.notes } : {}),
   };
   let id = c.id;
@@ -145,7 +167,7 @@ export async function updateRow(
 
 export async function updateSettings(
   db: SupabaseClient,
-  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; le_trim_shoulder_lb: number; le_trim_leg_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number; ship_from_address: string } & Record<`contact${1 | 2}_${"name" | "phone" | "email"}`, string>>,
+  patch: Partial<{ processor_name: string; processor_email: string; standing_instructions: string; le_trim_shoulder_trim_lb: number; le_trim_half_leg_trim_lb: number; le_trim_shoulder_lb: number; le_trim_leg_lb: number; pack_unknown_blanks: number; pack_spare_blanks: number; ship_from_address: string; extra_fill_partial: boolean } & Record<`contact${1 | 2}_${"name" | "phone" | "email"}`, string>>,
 ): Promise<string | null> {
   const { error } = await db.from("app_settings").update(patch).eq("id", true);
   return msg(error);

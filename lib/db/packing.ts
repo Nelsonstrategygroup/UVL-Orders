@@ -221,7 +221,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty, unit), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, box_type_id, off_order, extra_ok_by, extra_ok_at, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
+        "id, customer_id, notes, order_lines(product_id, qty, unit, only_if_extra, fill_qty), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, box_type_id, off_order, extra_ok_by, extra_ok_at, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, ships_to_point_id"),
@@ -281,7 +281,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     id: string;
     customer_id: string;
     notes: string;
-    order_lines: { product_id: string; qty: number; unit: string | null }[];
+    order_lines: { product_id: string; qty: number; unit: string | null; only_if_extra?: boolean; fill_qty?: number | string | null }[];
     packing_lines: {
       product_id: string;
       packed_qty: number | null;
@@ -304,6 +304,12 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     const units: Record<string, string> = {};
     for (const l of o.order_lines ?? []) {
       if (num(l.qty) <= 0) continue;
+      // "Only if extra" (11/8/26): packed as what it will get, in the product's own unit; nothing: not on Packing.
+      if (l.only_if_extra) {
+        const fill = num(l.fill_qty ?? 0);
+        if (fill > 0) lines[l.product_id] = fill;
+        continue;
+      }
       lines[l.product_id] = num(l.qty);
       if (l.unit) units[l.product_id] = l.unit;
     }

@@ -41,6 +41,29 @@ questions doc.
 
 ## Decisions
 
+### Only if extra order lines (11/8/26)
+Any order line can be "Only if extra" (a toggle under the line on the order
+form, next to Move to next week; a tag on the line; "if available" on the
+read-back). A customer can default its new lines to it (customer form:
+"Lines default to only if extra"; for Emerson). These lines don't count
+toward the lamb count, the carcass balance or Le Trim. After every firm line
+and Le Trim (its saved plan, or the app's mix marked "estimated" until it's
+saved; the kill sheet's trim once typed), they fill from what's left, up to
+what was asked. Lucas decided: partial fills (Setup > Le Trim has the switch
+for all or none); half and whole shortfalls stay firm, before these lines;
+Freezer gets what's left after them. When lines compete for the same part,
+This week shows "Extras to share" and Kathy splits it; until she does, they
+fill in the shared customer order, marked "Kathy to decide" (highlighted once
+everyone has answered). What each line will get is worked out by the app
+(lib/calc/extras.ts) and saved on the line (order_lines.fill_qty) whenever
+the week is open on a screen that can see orders; packing, box labels, the
+packing sheets, manifests, the cut sheet and invoices use it. Once packing
+starts on a line (a box, a count or Not filled), its amount stays. Whole
+loins: a spare whole loin is also a spare rack and short loin. Shown on the
+order form, Orders ("Wants 54 packs Front Shanks, 7 available"), This week
+(with Freezer and Grind) and the Le Trim page (live as the plan is typed).
+Migration 20261109000100.
+
 ### Live invoice drafts (11/8/26)
 A draft is no longer a copy made once. Until it's finalized, an invoice
 follows packing and the price list: every time the week's invoices are

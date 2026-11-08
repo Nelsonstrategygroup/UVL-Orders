@@ -24,6 +24,8 @@ export type AppSettings = {
   /** Le Trim by weight (Setup > Le Trim): average boneless shoulder and boneless leg, lb. OPEN: 5 lb shoulder not confirmed. */
   le_trim_shoulder_lb?: number;
   le_trim_leg_lb?: number;
+  /** "Only if extra" lines can get part of what they asked (11/8/26). Off: all or none. */
+  extra_fill_partial?: boolean;
   /** Weight blanks on the paper packing copy: when the box count isn't known, and spares after known boxes (10/26/26). */
   pack_unknown_blanks?: number;
   pack_spare_blanks?: number;
@@ -129,6 +131,8 @@ export type Customer = {
   active: boolean;
   parent_customer_id: string | null;
   bills_for_locations: boolean;
+  /** New order lines start as "Only if extra" (Emerson; 11/8/26). */
+  lines_only_if_extra?: boolean;
   /** Ships to: a distributor (consolidation_points), or null for Direct (change request 10/26/26). */
   ships_to_point_id: string | null;
   contacts: Contact[];
@@ -167,7 +171,16 @@ export type Order = {
   lines: Qty;
   /** Lines taken in a unit other than the product's own. */
   units: Units;
+  /**
+   * "Only if extra" lines (11/8/26), by product: filled only from extras, not
+   * counted. lines[product] is what was asked; fill is what it will get (the
+   * product's own unit), kept current by the app (lib/calc/extras.ts).
+   */
+  extra?: Record<string, LineExtra>;
 };
+
+/** An "Only if extra" line: what it will get, Kathy's share, and whether packing started. */
+export type LineExtra = { fill: number | null; chosen: number | null; locked: boolean };
 
 /**
  * A line a customer asked for in a later week, not confirmed yet (change

@@ -151,7 +151,7 @@ export default function CallsScreen() {
                 ? "Saved. Read this back to them:"
                 : "Saved."}
         </p>
-        {status === "ordered" && <ReadBack lines={order?.lines ?? {}} products={catalog.products} />}
+        {status === "ordered" && <ReadBack lines={order?.lines ?? {}} units={order?.units} products={catalog.products} extra={order?.extra} />}
         {status === "ordered" && canAnswer && (
           <button type="button" className="bigbtn alt" onClick={() => setEditingId(current.id)}>
             Fix something
@@ -184,7 +184,7 @@ export default function CallsScreen() {
         {status === "ordered" ? (
           <>
             <p className="mt-3 mb-0">Already ordered this week:</p>
-            <ReadBack lines={order?.lines ?? {}} products={catalog.products} />
+            <ReadBack lines={order?.lines ?? {}} units={order?.units} products={catalog.products} extra={order?.extra} />
           </>
         ) : hasPrev ? (
           <>

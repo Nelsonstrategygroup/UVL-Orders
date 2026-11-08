@@ -15,6 +15,7 @@ import type {
   Customer,
   CustomersData,
   LastContact,
+  LineExtra,
   LeTrimPlanRow,
   Order,
   OrderRequest,
@@ -103,7 +104,7 @@ export async function loadCustomers(db: SupabaseClient): Promise<CustomersData> 
     fetchAll<Omit<Customer, "contacts">>((a, b) =>
       db
         .from("customers")
-        .select("id, name, type, call_day, delivery_day, notes, active, parent_customer_id, bills_for_locations, ships_to_point_id")
+        .select("id, name, type, call_day, delivery_day, notes, active, parent_customer_id, bills_for_locations, lines_only_if_extra, ships_to_point_id")
         .order("name")
         .range(a, b),
     ),
@@ -153,17 +154,34 @@ type OrderRow = {
   order_lines: LineRow[];
 };
 
-type LineRow = { product_id: string; qty: number; unit?: OrderUnit | null };
+type LineRow = {
+  product_id: string;
+  qty: number;
+  unit?: OrderUnit | null;
+  only_if_extra?: boolean;
+  fill_qty?: number | string | null;
+  fill_chosen?: number | string | null;
+  fill_locked?: boolean;
+};
 
-/** Lines and the units of lines taken in another unit. */
-function linesOf(rows: LineRow[] | null | undefined): { lines: Qty; units: Units } {
+/** Lines, the units of lines taken in another unit, and the "Only if extra" lines. */
+function linesOf(rows: LineRow[] | null | undefined): { lines: Qty; units: Units; extra?: Record<string, LineExtra> } {
   const lines: Qty = {};
   const units: Units = {};
+  let extra: Record<string, LineExtra> | undefined;
   for (const l of rows ?? []) {
     lines[l.product_id] = num(l.qty);
     if (l.unit) units[l.product_id] = l.unit;
+    if (l.only_if_extra) {
+      extra ??= {};
+      extra[l.product_id] = {
+        fill: l.fill_qty == null ? null : num(l.fill_qty),
+        chosen: l.fill_chosen == null ? null : num(l.fill_chosen),
+        locked: !!l.fill_locked,
+      };
+    }
   }
-  return { lines, units };
+  return extra ? { lines, units, extra } : { lines, units };
 }
 
 function toOrders(rows: OrderRow[]): Map<string, Order> {
@@ -174,7 +192,7 @@ function toOrders(rows: OrderRow[]): Map<string, Order> {
   return m;
 }
 
-const ORDER_SELECT = "id, customer_id, status, notes, order_lines(product_id, qty, unit)";
+const ORDER_SELECT = "id, customer_id, status, notes, order_lines(product_id, qty, unit, only_if_extra, fill_qty, fill_chosen, fill_locked)";
 
 type RequestRow = Omit<OrderRequest, "requested_by_name" | "qty"> & { qty: number | string; profiles: { display_name: string } | null };
 

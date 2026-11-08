@@ -14,7 +14,7 @@ import { useLive } from "@/components/data/useLive";
 import { useWeekData } from "@/components/data/useWeekData";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
-import { displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
+import { customerRank, displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate, todayISO } from "@/lib/dates";
 import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
 import { packStats } from "@/lib/calc/packing";
@@ -23,7 +23,8 @@ import { fmt, num } from "@/lib/calc/num";
 import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
 import { plannedExtras, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
-import { weekCalc } from "@/lib/weekCalc";
+import { firmLines, weekCalc, willGetLines } from "@/lib/weekCalc";
+import ExtrasPanel from "./ExtrasPanel";
 import { qtyWords } from "@/lib/calc/carcassReport";
 import Working from "./Working";
 import { leTrimCutLines, leTrimShortText } from "@/lib/calc/leTrim";
@@ -64,7 +65,7 @@ export default function WeekScreen() {
   // number, else the cut sheet total, else the count from orders. Every lamb
   // number on this screen comes from `n` (see lib/calc/oneLambCount.test.ts).
   // Requested lines count too; the saved Le Trim plan takes from the extras.
-  const { c, cs, short, requested, leTrim: lt } = weekCalc(data, catalog);
+  const { c, cs, short, requested, leTrim: lt, extras: fills, extraLines } = weekCalc(data, catalog, { rank: customerRank(customers.byId) });
   const n = weekNumbers(c, cs, w?.process_date ?? null);
   const message = n.message;
   const balanceGroups = [
@@ -84,7 +85,8 @@ export default function WeekScreen() {
       const cu = customers.byId.get(o.customer_id);
       const parent = cu?.parent_customer_id ? customers.byId.get(cu.parent_customer_id) : undefined;
       const name = cu ? labelCustomer(cu.name, parent?.name) : "";
-      return { customer: name, sortKey: name, lines: o.lines, units: o.units };
+      // What it goes out as ("Only if extra" lines: what they'll get), as Packing prints it.
+      return { customer: name, sortKey: name, ...willGetLines(o) };
     }),
     catalog.productById,
     catalog.boxes,
@@ -92,18 +94,18 @@ export default function WeekScreen() {
   const noBoxCount = labels.noBoxProducts.length;
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
   // Lines in pounds for a product with no weight per piece count as nothing.
-  const uncounted = [...data.orders.values()].flatMap((o) => cantConvert(o.lines, o.units, catalog.productById));
+  const uncounted = [...data.orders.values()].flatMap((o) => cantConvert(firmLines(o), o.units, catalog.productById));
 
   const ordering = orderingCustomers(customers.list);
   const answered = ordering.filter((cu) => isDone(data.orders.get(cu.id)?.status)).length;
   // A line is packed once it has a weight or is marked not filled.
   const { done: linesPacked, total: linesTotal } = packStats(
-    [...data.orders.values()].map((o) => ({
-      lines: Object.entries(o.lines)
+    [...data.orders.values()].map((o) => ({ o, ...willGetLines(o) })).map(({ o, lines, units }) => ({
+      lines: Object.entries(lines)
         .filter(([, q]) => q > 0)
         .map(([pid, q]) => ({
           ordered: q,
-          unit: o.units[pid] ?? catalog.productById.get(pid)?.unit ?? "each",
+          unit: units[pid] ?? catalog.productById.get(pid)?.unit ?? "each",
           // Packed together (Organs): a box of any of them counts for each.
           weight: packedWith(pid, catalog.products).reduce((sum, id) => sum + (data.packed.get(o.id)?.[id] ?? 0), 0),
           count: null,
@@ -430,6 +432,15 @@ export default function WeekScreen() {
               </div>
             )}
           </div>
+        )}
+        {extraLines.length > 0 && (
+          <ExtrasPanel
+            week={week}
+            lines={extraLines}
+            result={fills}
+            everyoneAnswered={answered === ordering.length}
+            onSaved={refresh}
+          />
         )}
         {shortCount > 0 && (
           <p className="mt-3 mb-0">{fmt(shortCount)} cuts added to this week for half and whole orders the freezer can&apos;t cover.</p>

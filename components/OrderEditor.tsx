@@ -14,7 +14,9 @@ import { orderBoxes, orderBoxesText } from "@/lib/calc/boxes";
 import type { CatalogProduct, Customer, Order, OrderStatus, OrderUnit, Qty, Units } from "@/lib/db/types";
 import type { LastOrder } from "@/lib/calc/lastOrder";
 import type { OrderRequest } from "@/lib/db/types";
-import { moveLineToNextWeek, requestLine, undoMoveLine } from "@/lib/db/save";
+import { moveLineToNextWeek, requestLine, setLineOnlyIfExtra, undoMoveLine } from "@/lib/db/save";
+import { amountText } from "@/lib/calc/extras";
+import { toProductUnit } from "@/lib/calc/units";
 import RequestedLines, { requestText } from "./RequestedLines";
 import {
   cleanLines,
@@ -112,6 +114,8 @@ export default function OrderEditor(props: OrderEditorProps) {
       status: statusAfterLines(cur?.status ?? "todo", toSave.lines),
       lines: toSave.lines,
       units: toSave.units,
+      // Keeps the "Only if extra" lines marked while the save lands.
+      ...(cur?.extra ? { extra: cur.extra } : {}),
     };
     patchOrder(customer.id, next);
     const err = await setOrder(db, { week, customerId: customer.id, lines: toSave.lines, units: toSave.units });
@@ -169,6 +173,25 @@ export default function OrderEditor(props: OrderEditorProps) {
     });
   }
 
+  /** "Only if extra" on or off for a saved line (11/8/26): filled only from extras, not counted. */
+  async function toggleExtra(p: CatalogProduct) {
+    await flush();
+    const cur = orderRef.current;
+    if (!cur?.id || !(cur.lines[p.id] > 0)) {
+      toast("Save the line first, then try again.");
+      refresh();
+      return;
+    }
+    const on = !cur.extra?.[p.id];
+    const extra = { ...(cur.extra ?? {}) };
+    if (on) extra[p.id] = { fill: null, chosen: null, locked: false };
+    else delete extra[p.id];
+    patchOrder(customer.id, { ...cur, extra });
+    const err = await setLineOnlyIfExtra(db, cur.id, p.id, on);
+    refresh();
+    toast(err ? `Couldn't change it: ${err}` : on ? `${p.name}: only if extra` : `${p.name}: a firm order again`);
+  }
+
   /** Pieces or pounds for one line. The quantity stays; Kathy types the new amount. */
   function setUnit(p: CatalogProduct, unit: OrderUnit) {
     const base = pending.current ?? { lines, units };
@@ -188,6 +211,7 @@ export default function OrderEditor(props: OrderEditorProps) {
       notes: change.notes ?? before.notes,
       lines: change.lines ?? before.lines,
       units: change.units ?? (change.lines ? {} : before.units),
+      ...(orderRef.current?.extra ? { extra: orderRef.current.extra } : {}),
     };
     patchOrder(customer.id, next);
     const err = await setOrder(db, { week, customerId: customer.id, ...change });
@@ -234,6 +258,7 @@ export default function OrderEditor(props: OrderEditorProps) {
   const last = customers?.lastContact.get(customer.id);
   const lastWeekHasLines = hasLines(lastWeek?.lines);
 
+  const extraOf = (id: string) => order?.extra?.[id];
   const row = (p: CatalogProduct) => {
     const shown = typing[p.id] ?? (lines[p.id] ? fmt(lines[p.id]) : "");
     const unit = lineUnit(p.id, p, units);
@@ -243,6 +268,7 @@ export default function OrderEditor(props: OrderEditorProps) {
         <div className="step">
           <div className="min-w-0">
             {p.name}{" "}
+            {extraOf(p.id) && <span className="tag extra">only if extra</span>}{" "}
             {p.alt_unit ? (
               <span className="unitswitch" role="group" aria-label={`${p.name}: pieces or pounds`}>
                 {[p.unit, p.alt_unit].map((u) => (
@@ -304,10 +330,30 @@ export default function OrderEditor(props: OrderEditorProps) {
           </div>
         </div>
         {info === p.id && <p className="note small mt-1 mb-2">{p.note}</p>}
+        {extraOf(p.id) && (lines[p.id] ?? 0) > 0 && (
+          <p className="small mt-0 mb-1">
+            {(() => {
+              const x = extraOf(p.id)!;
+              const asked = toProductUnit(lines[p.id], units[p.id], p);
+              if (x.fill == null) return "Filled from extras after the firm orders.";
+              return x.fill >= asked ? `Gets ${amountText(x.fill, p)} from extras.` : `Wants ${amountText(asked, p)}, ${x.fill} available.`;
+            })()}
+          </p>
+        )}
         {canChange && (lines[p.id] ?? 0) > 0 && (
-          <button type="button" className="copy movenext" onClick={() => void moveToNextWeek(p)}>
-            Move to next week
-          </button>
+          <div className="flex flex-wrap items-center gap-x-4">
+            <button type="button" className="copy movenext" onClick={() => void moveToNextWeek(p)}>
+              Move to next week
+            </button>
+            <button
+              type="button"
+              className="copy movenext"
+              aria-pressed={!!extraOf(p.id)}
+              onClick={() => void toggleExtra(p)}
+            >
+              {extraOf(p.id) ? "☑" : "☐"} Only if extra
+            </button>
+          </div>
         )}
         {/* Not in the product's steps (Le Trim, 10 lb): a gentle note once typing stops, never a change to what was typed. */}
         {typing[p.id] === undefined && stepNote(p.name, lines[p.id] ?? 0, step, unit) && (
@@ -481,7 +527,7 @@ export default function OrderEditor(props: OrderEditorProps) {
       {canChange && <RequestLater week={week} customerId={customer.id} products={products} onDone={refresh} />}
 
       <p className="small muted mt-4 mb-0">Read back to the customer</p>
-      <ReadBack lines={lines} units={units} products={products} />
+      <ReadBack lines={lines} units={units} products={products} extra={order?.extra} />
       {(movedOut?.length ?? 0) > 0 && (
         <p className="small muted mt-1 mb-0">Moved to next week: {movedOut!.map((r) => requestText(r, productById)).join(", ")}.</p>
       )}
