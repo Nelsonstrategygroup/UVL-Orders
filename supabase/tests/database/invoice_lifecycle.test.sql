@@ -46,7 +46,7 @@ insert into public.prices (product_id, price, effective_from) values ('lf-sticks
 update public.packing_weights set weight = 17.2 where product_id = 'lf-chops' and weight = 17.1;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000f4a1","role":"authenticated"}';
-select throws_ok($$ select public.finalize_invoice((select id from ids)) $$, '22023', null, 'out of date blocks finalizing');
+select is(public.sync_invoice_drafts('2099-11-02')::text, '0', 'opening the week brings the draft up to date (live drafts, 11/8/26)');
 select lives_ok($$ select public.update_invoice_draft((select id from ids)) $$, 'update from packing');
 select lives_ok($$ update public.invoice_lines set discount_kind = 'amount', discount = 5, note = 'Short date'
   where invoice_id = (select id from ids) and product_id = 'lf-chops' $$, 'a $5 discount');

@@ -1,7 +1,8 @@
 "use client";
 
 // Everything the invoice screens need for one week, kept current: the
-// invoices and their lines, whether each is out of date, prices, codes and
+// invoices and their lines (drafts brought up to date with packing first, so
+// a draft always bills what's packed now), prices, codes and
 // terms, the business details, the week's invoice number, and the box
 // records (for the box detail page and the warnings).
 
@@ -9,9 +10,11 @@ import { useCallback } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useLive } from "@/components/data/useLive";
 import { loadCustomerBilling, loadInvoiceSettings, loadPrices } from "@/lib/db/invoicing";
-import { loadFingerprints, loadWeekBoxes, loadWeekInvoices, loadWeekPacking } from "@/lib/db/invoices";
+import { loadFingerprints, loadWeekBoxes, loadWeekInvoices, loadWeekPacking, syncDrafts } from "@/lib/db/invoices";
 
 async function loadWeek(db: SupabaseClient, week: string) {
+  // Live drafts: every packed location gets one, each following packing.
+  await syncDrafts(db, week);
   const [invoices, fingerprints, prices, billing, settings, weekRow, boxes, packing] = await Promise.all([
     loadWeekInvoices(db, week),
     loadFingerprints(db, week),
@@ -25,8 +28,6 @@ async function loadWeek(db: SupabaseClient, week: string) {
   if (weekRow.error) throw new Error(weekRow.error.message);
   return {
     invoices,
-    /** Draft ids whose box records changed since they were made. */
-    outOfDate: new Set(invoices.filter((i) => i.status === "draft" && fingerprints.get(i.id) !== i.fingerprint).map((i) => i.id)),
     /** Finalized or sent ids whose box records changed since: a void and reissue may be needed. */
     changedSince: new Set(
       invoices.filter((i) => (i.status === "finalized" || i.status === "sent") && fingerprints.get(i.id) !== i.fingerprint).map((i) => i.id),

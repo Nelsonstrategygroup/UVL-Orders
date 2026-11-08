@@ -41,6 +41,22 @@ questions doc.
 
 ## Decisions
 
+### Live invoice drafts (11/8/26)
+A draft is no longer a copy made once. Until it's finalized, an invoice
+follows packing and the price list: every time the week's invoices are
+opened or printed, each packed location gets a draft, each draft's lines are
+brought up to date with the box records (lines added by hand and discounts
+kept), and its number follows the week's number and the location code
+(unless typed by hand; clearing it goes back to automatic). A draft whose
+location has nothing packed any more goes away, unless it has added lines or
+a note. Make drafts and Update from packing are gone; Finalize all locks
+every draft that's ready (number, prices, counts) and lists the rest.
+Finalize brings the draft up to date first. An admin can Reopen a finalized
+or sent invoice with no payments: it becomes a live draft again (prices from
+the price list, kept boxes cleared), with who and when shown on it and in
+the audit log. The stored drafts for 10/26 and 11/2 had no hand edits, so
+they became live as they were. Migration 20261108000100.
+
 ### Heart, Liver and Kidney pack counts on Packing (11/2/26)
 The organs share one box, and Mohawk only knows the counts after cutting.
 Tapping Heart, Liver or Kidney on a store's card now opens one panel for the

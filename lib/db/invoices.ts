@@ -1,7 +1,7 @@
 // Invoices (SPEC 15, stages 2 and 3): a week's invoices with their lines,
-// making and updating drafts from the box records (database functions, so the
-// weights are summed exactly), changes to a draft, finalize, sent, void and
-// reissue, and payments. Money goes to the database as decimal strings, never
+// kept live from the box records until finalized (database functions, so the
+// weights are summed exactly), changes to a draft, finalize, reopen, sent,
+// void and reissue, and payments. Money goes to the database as decimal strings, never
 // floats.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -20,6 +20,11 @@ export type InvoiceRow = {
   fingerprint: string;
   created_at: string;
   replaces_id: string | null;
+  /** The number was typed on the invoice; otherwise a draft's number follows the week's. */
+  number_by_hand: boolean;
+  /** The last time an admin reopened it after finalizing, and who. */
+  reopened_at: string | null;
+  reopened_by_name: string;
   /** Set when finalized. */
   terms_days: number | null;
   due_date: string | null;
@@ -75,7 +80,7 @@ export type IssuedBox = {
 
 const COLS =
   "id, week_id, customer_id, number, reissue, status, invoice_date, memo, fingerprint, created_at, " +
-  "replaces_id, terms_days, due_date, total, issued, finalized_at, sent_at, voided_at, void_reason, " +
+  "replaces_id, number_by_hand, reopened_at, reopened_by_name, terms_days, due_date, total, issued, finalized_at, sent_at, voided_at, void_reason, " +
   "payments (id, invoice_id, paid_on, amount, method, reference, note, created_at), " +
   "invoice_boxes (box_id, product_id, weight, lot, pack_date, serial, label_no, case_no, source), " +
   "invoice_lines (id, invoice_id, kind, product_id, description, ordered_qty, ordered_unit, boxes, quantity, price_unit, unit_price, discount_kind, discount, not_on_order, note, sort, detail)";
@@ -89,7 +94,7 @@ function plain(e: { message: string; code?: string } | null): string | null {
   if (e.code === "23514" && /discount_note/.test(e.message)) return "A discount needs a note.";
   if (e.code === "23514" && /invoice_lines_percent/.test(e.message)) return "A percent discount can't be over 100%.";
   if (e.code === "23514" && /payments_amount/.test(e.message)) return "A payment is more than $0.";
-  if (e.code === "42501" && /finalized|Payments go|Use Finalize/.test(e.message)) return e.message;
+  if (e.code === "42501" && /finalized|Payments go|Use Finalize|Only an admin/.test(e.message)) return e.message;
   if (e.code === "42501") return "You can't change this.";
   return e.message;
 }
@@ -113,16 +118,15 @@ export async function loadFingerprints(db: SupabaseClient, week: string): Promis
   return new Map(((data ?? []) as { invoice_id: string; fingerprint: string }[]).map((r) => [r.invoice_id, r.fingerprint]));
 }
 
-/** Make a draft for every location packed this week without one. The number made, or an error. */
-export async function makeDrafts(db: SupabaseClient, week: string): Promise<{ made: number; error: string | null }> {
-  const { data, error } = await db.rpc("make_invoice_drafts", { p_week: week });
-  return { made: Number(data ?? 0), error: plain(error) };
-}
-
-/** Rebuild a draft's packing lines from the box records (manual lines and discounts kept). */
-export async function updateDraft(db: SupabaseClient, id: string): Promise<string | null> {
-  const { error } = await db.rpc("update_invoice_draft", { p_invoice: id });
-  return plain(error);
+/**
+ * Live drafts (Lucas, 11/8/26): a draft for every location packed this week,
+ * each brought up to date with the box records (lines added by hand and
+ * discounts kept) and its number with the week's. Run every time the week's
+ * invoices are opened or printed; writes nothing when they're up to date.
+ */
+export async function syncDrafts(db: SupabaseClient, week: string): Promise<void> {
+  const { error } = await db.rpc("sync_invoice_drafts", { p_week: week });
+  if (error) throw new Error(plain(error) ?? error.message);
 }
 
 export async function deleteDraft(db: SupabaseClient, id: string): Promise<string | null> {
@@ -226,6 +230,12 @@ export async function loadWeekPacking(db: SupabaseClient, week: string): Promise
 /** Finalize a draft: checks prices, counts and packing, then copies the prices, boxes and details onto it. */
 export async function finalizeInvoice(db: SupabaseClient, id: string): Promise<string | null> {
   const { error } = await db.rpc("finalize_invoice", { p_invoice: id });
+  return plain(error);
+}
+
+/** Admins only: a finalized invoice with no payments becomes a live draft again (who and when kept). */
+export async function reopenInvoice(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await db.rpc("reopen_invoice", { p_invoice: id });
   return plain(error);
 }
 

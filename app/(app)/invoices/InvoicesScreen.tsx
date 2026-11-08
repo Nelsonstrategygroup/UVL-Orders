@@ -1,9 +1,10 @@
 "use client";
 
-// Invoices (SPEC 15, stage 2): the week's invoices, one per location, made
-// from the box records with Make drafts. Each shows its number, boxes,
-// weight and total, and whether prices or counts are still needed or the
-// packing changed since it was made (Out of date).
+// Invoices (SPEC 15): the week's invoices, one per location. Every packed
+// location has a draft that follows packing and the price list until it's
+// finalized (Lucas, 11/8/26: no more Make drafts or Update from packing).
+// Each shows its number, boxes, weight and total, and whether prices or
+// counts are still needed. Finalize all locks every draft that's ready.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -14,7 +15,7 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { compareCustomerIds, displayName } from "@/lib/calc/customers";
 import { invoiceState, lbText, paidCents, STATE_LABEL } from "@/lib/calc/invoice";
 import { centsText, toFixedInt } from "@/lib/calc/prices";
-import { makeDrafts, updateDraft } from "@/lib/db/invoices";
+import { finalizeInvoice } from "@/lib/db/invoices";
 import { sheetFor, totalsOf } from "./sheet";
 import { useInvoiceWeek } from "./useInvoiceWeek";
 
@@ -53,9 +54,14 @@ export default function InvoicesScreen() {
     })
     .sort((a, b) => byCustomer(a.inv.customer_id, b.inv.customer_id));
   const invoiced = new Set(live.map((i) => i.customer_id));
+  // Packed with no live invoice: only when its invoice was voided (Reissue makes the next one).
   const packedNoInvoice = data.packing.orders.filter((o) => o.boxes > 0 && !invoiced.has(o.customer_id));
   const orderedNothingPacked = data.packing.orders.filter((o) => o.status === "ordered" && o.lines > 0 && o.boxes === 0 && !invoiced.has(o.customer_id));
-  const outOfDate = rows.filter((r) => data.outOfDate.has(r.inv.id));
+  const drafts = rows.filter((r) => r.inv.status === "draft");
+  const ready = drafts.filter((r) => r.inv.number && r.t.priceNeeded === 0 && r.t.countNeeded === 0);
+  const notReady = drafts.filter((r) => !ready.includes(r));
+  const why = (r: (typeof rows)[number]) =>
+    [!r.inv.number ? "number needed" : "", r.t.priceNeeded ? "price needed" : "", r.t.countNeeded ? "count needed" : ""].filter(Boolean).join(", ");
   const sum = rows.reduce(
     (s, r) => ({ boxes: s.boxes + r.t.boxes, lb: s.lb + r.lb, cents: s.cents + r.t.totalCents, complete: s.complete && r.t.complete }),
     { boxes: 0, lb: BigInt(0), cents: BigInt(0), complete: true },
@@ -67,19 +73,26 @@ export default function InvoicesScreen() {
   const names = (ids: string[]) => [...ids].sort(byCustomer).map(name).join(", ");
   const anyPriceNeeded = rows.some((r) => r.t.priceNeeded > 0);
 
-  const make = async () => {
+  const finalizeAll = async () => {
+    const cents = ready.reduce((s, r) => s + r.t.totalCents, BigInt(0));
+    const skip = notReady.length ? `
+
+Not ready, left as drafts: ${notReady.map((r) => `${r.sheet.customerName} (${why(r)})`).join("; ")}.` : "";
+    if (
+      !confirm(
+        `Finalize ${ready.length} invoice${ready.length === 1 ? "" : "s"} for ${centsText(cents)}? After this their lines, totals and numbers are locked. An admin can reopen one if it's wrong.${skip}`,
+      )
+    )
+      return;
     setBusy(true);
-    const { made, error: err } = await makeDrafts(db, week);
+    const failed: string[] = [];
+    for (const r of ready) {
+      const err = await finalizeInvoice(db, r.inv.id);
+      if (err) failed.push(`${r.sheet.customerName}: ${err}`);
+    }
     setBusy(false);
-    toast(err ? `Couldn't make drafts: ${err}` : made ? `Made ${made} draft${made === 1 ? "" : "s"}` : "Every location packed this week already has an invoice.");
-    refresh();
-  };
-  const updateAll = async () => {
-    setBusy(true);
-    let failed = 0;
-    for (const r of outOfDate) if (await updateDraft(db, r.inv.id)) failed++;
-    setBusy(false);
-    toast(failed ? `${failed} couldn't be updated. Try again.` : "Drafts updated");
+    const done = ready.length - failed.length;
+    toast(failed.length ? `Finalized ${done}. Not finalized: ${failed.join(" ")}` : `Finalized ${done} invoice${done === 1 ? "" : "s"}`);
     refresh();
   };
 
@@ -88,14 +101,9 @@ export default function InvoicesScreen() {
       <WeekBar inv={data.weekNumber == null ? null : String(data.weekNumber)} />
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="mr-auto">Invoices</h2>
-        {canEdit && (
-          <button type="button" className="btn" disabled={busy} onClick={() => void make()}>
-            Make drafts
-          </button>
-        )}
-        {canEdit && outOfDate.length > 0 && (
-          <button type="button" className="btn ghost" disabled={busy} onClick={() => void updateAll()}>
-            Update {outOfDate.length} out of date
+        {canEdit && drafts.length > 0 && (
+          <button type="button" className="btn" disabled={busy || ready.length === 0} onClick={() => void finalizeAll()}>
+            Finalize all{ready.length > 0 && ready.length < drafts.length ? ` ${ready.length} ready` : ""}
           </button>
         )}
         {rows.length > 0 && (
@@ -111,19 +119,21 @@ export default function InvoicesScreen() {
       {data.weekNumber == null && anyPacked && (
         <p className="note warn mt-2">
           This week has no invoice number yet, so its invoices have no number. Set it in{" "}
-          <Link href="/setup/invoicing">Setup &gt; Invoicing</Link>, then Update the drafts.
+          <Link href="/setup/invoicing">Setup &gt; Invoicing</Link>. The drafts pick it up by themselves.
         </p>
       )}
       {packedNoInvoice.length > 0 && (
         <p className="note mt-2">
           {packedNoInvoice.length === 1 ? "1 location has" : `${packedNoInvoice.length} locations have`} boxes and no invoice yet:{" "}
-          {names(packedNoInvoice.map((o) => o.customer_id))}. {canEdit ? "Tap Make drafts." : ""}
+          {names(packedNoInvoice.map((o) => o.customer_id))}. {packedNoInvoice.length === 1 ? "Its invoice was" : "Their invoices were"} voided:
+          open the void invoice below and tap Reissue.
         </p>
       )}
-      {outOfDate.length > 0 && (
-        <p className="note warn mt-2">
-          Packing changed after {outOfDate.length === 1 ? "1 draft was" : `${outOfDate.length} drafts were`} made (a box moved, added or
-          reweighed): {outOfDate.map((r) => r.sheet.customerName).join(", ")}. Update them to bill what&apos;s packed now.
+      {drafts.length > 0 && (
+        <p className="small muted mt-2 mb-0">
+          Drafts follow packing and prices until they&apos;re finalized. Change a box on Packing and its invoice shows it the next time
+          it&apos;s opened.
+          {canEdit && notReady.length > 0 && ` Not ready to finalize: ${notReady.map((r) => `${r.sheet.customerName} (${why(r)})`).join("; ")}.`}
         </p>
       )}
       {data.packing.unassigned > 0 && (
@@ -169,7 +179,6 @@ export default function InvoicesScreen() {
                   <td>{inv.number ?? <span className="tag extra">Number needed</span>}</td>
                   <td>
                     {STATE_LABEL[invoiceState(inv.status, t.totalCents, paidCents(inv.payments))]}
-                    {data.outOfDate.has(inv.id) && <span className="tag extra ml-1">Out of date</span>}
                     {data.changedSince.has(inv.id) && <span className="tag extra ml-1">Packing changed</span>}
                   </td>
                   <td className="num">{t.boxes}</td>

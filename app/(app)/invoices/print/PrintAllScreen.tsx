@@ -40,7 +40,6 @@ export default function PrintAllScreen() {
     .filter((i) => i.status !== "void")
     .sort((a, b) => compareCustomerIds(customers.byId)(a.customer_id, b.customer_id))
     .map((inv) => sheetFor(data, inv, customers, catalog));
-  const out = data.invoices.filter((i) => data.outOfDate.has(i.id)).length;
 
   return (
     <>
@@ -66,11 +65,6 @@ export default function PrintAllScreen() {
             Save as PDF
           </button>
         </div>
-        {out > 0 && (
-          <p className="note warn mt-2">
-            {out} draft{out === 1 ? " is" : "s are"} out of date. Update {out === 1 ? "it" : "them"} on Invoices before printing.
-          </p>
-        )}
         {!sheets.length && <div className="empty">No invoices this week.</div>}
       </div>
       {sheets.map((s) => (
