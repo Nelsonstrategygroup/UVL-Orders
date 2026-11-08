@@ -62,6 +62,17 @@ export default function InvoicesScreen() {
   const notReady = drafts.filter((r) => !ready.includes(r));
   const why = (r: (typeof rows)[number]) =>
     [!r.inv.number ? "number needed" : "", r.t.priceNeeded ? "price needed" : "", r.t.countNeeded ? "count needed" : ""].filter(Boolean).join(", ");
+  // A few by name; more as counts, so the note stays short ("18 need prices").
+  const notReadyText = (() => {
+    if (notReady.length <= 3) return notReady.map((r) => `${r.sheet.customerName} (${why(r)})`).join("; ");
+    const n = (f: (r: (typeof rows)[number]) => boolean, word: string) => {
+      const k = notReady.filter(f).length;
+      return k ? `${k} need${k === 1 ? "s" : ""} ${word}` : "";
+    };
+    return [n((r) => !r.inv.number, "a number"), n((r) => r.t.priceNeeded > 0, "prices"), n((r) => r.t.countNeeded > 0, "counts")]
+      .filter(Boolean)
+      .join(", ");
+  })();
   const sum = rows.reduce(
     (s, r) => ({ boxes: s.boxes + r.t.boxes, lb: s.lb + r.lb, cents: s.cents + r.t.totalCents, complete: s.complete && r.t.complete }),
     { boxes: 0, lb: BigInt(0), cents: BigInt(0), complete: true },
@@ -133,7 +144,7 @@ Not ready, left as drafts: ${notReady.map((r) => `${r.sheet.customerName} (${why
         <p className="small muted mt-2 mb-0">
           Drafts follow packing and prices until they&apos;re finalized. Change a box on Packing and its invoice shows it the next time
           it&apos;s opened.
-          {canEdit && notReady.length > 0 && ` Not ready to finalize: ${notReady.map((r) => `${r.sheet.customerName} (${why(r)})`).join("; ")}.`}
+          {canEdit && notReady.length > 0 && ` Not ready to finalize: ${notReadyText}.`}
         </p>
       )}
       {data.packing.unassigned > 0 && (

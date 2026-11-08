@@ -45,6 +45,8 @@ export type InvoiceWeek = Awaited<ReturnType<typeof loadWeek>>;
 
 export function useInvoiceWeek(week: string) {
   const load = useCallback((db: SupabaseClient) => loadWeek(db, week), [week]);
+  // Only tables the database sends live changes for: one that isn't (products)
+  // makes the whole subscription fail, and the page never updated (found 11/8/26).
   return useLive(`invoice-week-${week}`, load, [
     "invoices",
     "invoice_lines",
@@ -55,7 +57,6 @@ export function useInvoiceWeek(week: string) {
     "packing_weights",
     "packing_lines",
     "order_lines",
-    "products",
     "payments",
   ]);
 }
