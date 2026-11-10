@@ -16,7 +16,7 @@ import { usePackingBundle } from "@/components/offline/usePackingBundle";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { fmt } from "@/lib/calc/num";
-import { palletTotals } from "@/lib/calc/routing";
+import { palletTotals, typedBoxPallet } from "@/lib/calc/routing";
 import { assignBox, type PackWeight } from "@/lib/db/packing";
 import type { PalletRow } from "@/lib/db/scanning";
 import Link from "next/link";
@@ -90,6 +90,22 @@ export default function PalletsScreen() {
     void enqueue({ type: "pallet-delete", id: pl.id, tag: pl.tag })
       .then(() => toast(`${pl.tag} deleted`))
       .catch(() => toast("Couldn't save on this phone. Try again."));
+  };
+  /** Put a box that's on no pallet (typed in) on a pallet; a planned pallet opens (11/9/26). */
+  const putOn = async (b: Box, palletId: string) => {
+    const pl = data.pallets.find((x) => x.id === palletId);
+    try {
+      if (pl?.status === "planned") await enqueue({ type: "pallet-status", id: palletId, status: "open" });
+      await enqueue({
+        type: "weight-pallet",
+        order_id: p.orders.find((o) => o.customerId === b.customerId)?.id ?? null,
+        ...(b.id.startsWith("local:") ? { client_id: b.client_id ?? "" } : { weight_id: b.id }),
+        pallet_id: palletId,
+      });
+      toast(`Put on ${pl?.tag ?? "the pallet"}`);
+    } catch {
+      toast("Couldn't save on this phone. Try again.");
+    }
   };
   const setStatus = (pl: PalletRow, status: PalletRow["status"]) =>
     void enqueue({ type: "pallet-status", id: pl.id, status }).catch(() =>
@@ -291,10 +307,49 @@ export default function PalletsScreen() {
         )}
 
         {noPallet.length > 0 && (
-          <p className="small muted mt-3">
-            {noPallet.length} box{noPallet.length === 1 ? " was" : "es were"}{" "}
-            weighed or typed in without a pallet.
-          </p>
+          <section className="panel mt-4">
+            <h3>Boxes on no pallet</h3>
+            <p className="small muted mt-1">
+              Typed in, and not on any pallet&apos;s manifest. Choose the pallet each one is on.
+            </p>
+            <ul className="m-0 mt-2 list-none p-0">
+              {noPallet
+                .slice()
+                .sort((a, b) => orderAt(a.customerId) - orderAt(b.customerId) || a.at.localeCompare(b.at))
+                .map((b) => {
+                  const theirs = b.customerId ? typedBoxPallet(b.customerId, data.pallets) : null;
+                  const choices = data.pallets
+                    .filter((x) => x.status !== "shipped")
+                    .sort((x, y) => (x.id === theirs?.id ? -1 : y.id === theirs?.id ? 1 : x.tag.localeCompare(y.tag, undefined, { numeric: true })));
+                  return (
+                    <li key={b.id} className="flex flex-wrap items-center gap-2 border-b border-line py-2">
+                      <span className="flex-1">
+                        <b>{b.customer}</b> · {b.label_no != null ? <>Label {b.label_no} · </> : null}
+                        {name(b.product_id)} · {fmt(b.weight)} lb
+                      </span>
+                      {canPack && choices.length > 0 ? (
+                        <select
+                          className="field w-auto!"
+                          value=""
+                          aria-label={`Put ${b.customer}'s ${name(b.product_id)} box on a pallet`}
+                          onChange={(e) => e.target.value && void putOn(b, e.target.value)}
+                        >
+                          <option value="">Put on pallet...</option>
+                          {choices.map((x) => (
+                            <option key={x.id} value={x.id}>
+                              {x.tag}
+                              {x.id === theirs?.id ? ` (${b.customer}'s pallet)` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        !choices.length && <span className="small muted">No pallets yet</span>
+                      )}
+                    </li>
+                  );
+                })}
+            </ul>
+          </section>
         )}
       </div>
     </>

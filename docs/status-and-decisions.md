@@ -41,6 +41,19 @@ questions doc.
 
 ## Decisions
 
+### Typed-in boxes and pallets (11/9/26)
+- Found on INV# 3003: Redmond's Front Shanks box (label #38) was typed in on
+  the weigh panel, so it had no pallet and wasn't on P2's manifest. Put on P2
+  by hand (Lucas's go-ahead).
+- A weight typed on the weigh panel or Type in from paper now goes on the
+  store's pallet for the week, when the store is on exactly one planned or
+  open pallet (a planned one opens). Otherwise it has no pallet.
+- Pallets lists "Boxes on no pallet" with a pallet choice for each (the
+  store's own pallet first). On Scan boxes, a store's box list includes typed
+  boxes, with Move.
+- A manifest for one pallet (or one date) warns when a box for one of its
+  stores is on no pallet.
+
 ### Only if extra order lines (11/8/26)
 Any order line can be "Only if extra" (a toggle under the line on the order
 form, next to Move to next week; a tag on the line; "if available" on the

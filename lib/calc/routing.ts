@@ -139,6 +139,18 @@ export function shipmentPallets(o: Pick<RouteOrder, "shipKey">, pallets: RoutePa
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+/**
+ * The pallet a typed-in box goes on (weigh panel, Type in from paper;
+ * 11/9/26): the store's pallet for the week (Plan pallets), when it's on
+ * exactly one that's planned or open. Otherwise none, and the box is listed
+ * under "Boxes on no pallet" on the Pallets page to put on one by hand. A
+ * planned pallet opens when its first box goes on, as with a scanned box.
+ */
+export function typedBoxPallet<P extends { id: string; status: string; customers?: string[] }>(customerId: string, pallets: P[]): P | null {
+  const on = pallets.filter((p) => (p.status === "planned" || p.status === "open") && p.customers?.includes(customerId));
+  return on.length === 1 ? on[0] : null;
+}
+
 /** A tag to offer for a new pallet: one more than the highest "P" number this week ("P4"). */
 export function nextTag(pallets: { tag: string }[]): string {
   const n = Math.max(0, ...pallets.map((p) => Number(/^P(\d+)$/i.exec(p.tag.trim())?.[1] ?? 0)));

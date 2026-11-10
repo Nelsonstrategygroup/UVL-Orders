@@ -23,6 +23,7 @@ import { groupLead } from "@/lib/calc/packTogether";
 import { nextBlank, type SheetBlank } from "@/lib/calc/packSheet";
 import { packLines, sheetLabels, type LineMark, type PackOrder } from "@/lib/db/packing";
 import { isLocal, type Action } from "@/lib/offline/outbox";
+import { typedBoxPallet } from "@/lib/calc/routing";
 import { WEIGH, weighSections, type WeighRow } from "@/lib/packSheets";
 
 const NO_MARK: LineMark = { count: null, shorted: false, flagged: false, flagNote: "" };
@@ -53,7 +54,17 @@ export default function PaperEntryScreen() {
       </>
     );
 
-  const save = (a: Action) => void enqueue(a).catch(() => toast("Couldn't save on this phone. Try again."));
+  const store = (a: Action) => enqueue(a).catch(() => toast("Couldn't save on this phone. Try again."));
+  const save = (a: Action) => {
+    if (a.type !== "weight-add") return void store(a);
+    // A typed box goes on the store's pallet for the week, when it's on exactly one (11/9/26).
+    const customerId = data.orders.find((o) => o.id === a.order_id)?.customerId;
+    const pallet = customerId ? typedBoxPallet(customerId, bundle.data?.pallets ?? []) : null;
+    void (async () => {
+      if (pallet?.status === "planned") await store({ type: "pallet-status", id: pallet.id, status: "open" });
+      await store({ ...a, pallet_id: pallet?.id ?? null });
+    })();
+  };
   const storeTotals = data.orders
     .map((o) => ({ o, lb: r2(o.weights.reduce((s, w) => s + num(w.weight), 0)) }))
     .filter((x) => x.lb > 0);

@@ -39,6 +39,7 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
             box_no: a.box_no,
             slot: a.slot ?? null,
             label_no: a.label_no ?? null,
+            pallet_id: a.pallet_id ?? null,
           },
           { onConflict: "client_id", ignoreDuplicates: true },
         ),

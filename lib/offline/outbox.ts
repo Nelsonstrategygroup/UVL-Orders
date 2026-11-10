@@ -22,6 +22,8 @@ export type Action =
       /** Which box of the product (its blank on the packing sheet) and its label number (10/26/26). Missing on older phones. */
       slot?: number | null;
       label_no?: number | null;
+      /** The store's pallet, when it's on exactly one (11/9/26). Missing on older phones: no pallet. */
+      pallet_id?: string | null;
     }
   /** A box typed in from the Weigh Sheet's blank rows for a store not ordering this week: no store yet (unassigned), for Kathy to put on a pallet (11/1/26). */
   | { type: "weight-unassigned"; client_id: string; week_id: string; product_id: string; weight: number; at: string }
@@ -177,6 +179,7 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
           box_no: a.box_no,
           slot: a.slot ?? null,
           label_no: a.label_no ?? null,
+          pallet_id: a.pallet_id ?? null,
           by: who,
           at: a.at,
         }),

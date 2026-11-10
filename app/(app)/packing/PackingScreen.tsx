@@ -39,6 +39,7 @@ import { paperworkWarnings } from "./pallets/Manifest";
 import WeighPrint from "./sheets/WeighPrint";
 import { weighLayout, weighSections } from "@/lib/packSheets";
 import { useLabelNumbers } from "./useLabelNumbers";
+import { typedBoxPallet } from "@/lib/calc/routing";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
   ["done", "Done"],
@@ -238,6 +239,9 @@ export default function PackingScreen() {
             const clientId = crypto.randomUUID();
             const orderId = wOrder.id;
             const at = nextBlank(wRow);
+            // On the store's pallet for the week, when it's on exactly one (11/9/26).
+            const pallet = typedBoxPallet(wOrder.customerId, bundle.data?.pallets ?? []);
+            if (pallet?.status === "planned") await save(enqueue({ type: "pallet-status", id: pallet.id, status: "open" }));
             await save(
               enqueue({
                 type: "weight-add",
@@ -248,6 +252,7 @@ export default function PackingScreen() {
                 box_no: null,
                 at: new Date().toISOString(),
                 ...at,
+                pallet_id: pallet?.id ?? null,
               }),
             );
             // No Undo: a weight can be removed right here in the list (Lucas, 10/22/26).

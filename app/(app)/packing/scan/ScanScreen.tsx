@@ -1804,10 +1804,8 @@ function RecentBoxes({
   onMove: (w: PackWeight) => void;
 }) {
   const toast = useToast();
-  const list = boxes
-    .filter((w) => w.source !== "weigh")
-    .slice()
-    .sort((a, b) => b.at.localeCompare(a.at));
+  // A store's boxes include ones typed in (weigh panel, Type in from paper), so they can be moved to a pallet (11/9/26).
+  const list = boxes.slice().sort((a, b) => b.at.localeCompare(a.at));
   if (!list.length) return null;
   const tag = (id: string | null) =>
     id ? pallets.find((p) => p.id === id)?.tag : undefined;
@@ -1825,7 +1823,8 @@ function RecentBoxes({
               {w.who && <>{w.who} · </>}
               {w.label_no != null ? <>Label {w.label_no} · </> : null}
               {products.get(w.product_id)?.name ?? w.product_id} ·{" "}
-              {fmt(w.weight)} lb · Lot {w.lot}
+              {fmt(w.weight)} lb{w.source === "weigh" ? " · typed in" : <> · Lot {w.lot}</>}
+              {!w.pallet_id && <b> · no pallet</b>}
               {w.case_no && (
                 <span className="small muted"> · case {w.case_no}</span>
               )}
@@ -1843,7 +1842,7 @@ function RecentBoxes({
                 Move
               </button>
             )}
-            {isAdmin && !isLocal(w) && (
+            {isAdmin && !isLocal(w) && w.source !== "weigh" && (
               <button
                 type="button"
                 className="copy text-[.9rem]"

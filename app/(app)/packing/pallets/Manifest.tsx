@@ -178,7 +178,14 @@ export function paperworkWarnings(data: PackingBundle, pick: PalletPick = {}, op
       out.push(`A ${b.product} box for ${b.customer} on ${p.tag}${b.boxId ? ` (${b.boxId})` : ""} has no weight. Weigh it before it ships.`);
   if (opts.loose) {
     const loose = weekBoxes(data).filter((b) => !b.palletId).length;
-    if (loose) out.push(`${loose} box${loose === 1 ? " this week is" : "es this week are"} on no pallet, so not on any manifest. Put ${loose === 1 ? "it" : "them"} on a pallet.`);
+    if (loose) out.push(`${loose} box${loose === 1 ? " this week is" : "es this week are"} on no pallet, so not on any manifest. Put ${loose === 1 ? "it" : "them"} on a pallet on the Pallets page.`);
+  } else {
+    // One pallet or one date: a box for a store on these pallets that's on no pallet isn't on this manifest (11/9/26).
+    const onThese = new Map<string, string>();
+    for (const x of data.pallets) if (tags.includes(x.tag)) for (const c of x.customers ?? []) onThese.set(c, x.tag);
+    for (const b of weekBoxes(data))
+      if (!b.palletId && b.customerId && onThese.has(b.customerId))
+        out.push(`${b.customer}'s ${b.product} box${b.boxId && b.boxId !== "typed in" ? ` (${b.boxId})` : ""} is on no pallet, so it isn't on this manifest. If it's on ${onThese.get(b.customerId)}, put it there on the Pallets page.`);
   }
   if (opts.asOf?.fromPhone)
     out.push("No signal: this is the copy saved on this phone. Boxes scanned on other phones since then aren't on it. Print again with signal.");

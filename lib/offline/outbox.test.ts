@@ -71,6 +71,14 @@ describe("what the packer sees while things wait on the phone", () => {
     expect(isLocal(w)).toBe(true);
   });
 
+  it("a typed weight shows on the store's pallet straight away (11/9/26)", () => {
+    const d = applyQueue(data(), [q({ type: "weight-add", client_id: "a", order_id: "o1", product_id: "rack", weight: 10.15, box_no: null, at: "t", slot: 1, label_no: 38, pallet_id: "p2" })]);
+    expect(d.orders[0].weights[0]).toMatchObject({ pallet_id: "p2", label_no: 38 });
+    // An older phone's weight (no pallet given) stays on no pallet.
+    const old = applyQueue(data(), [q({ type: "weight-add", client_id: "b", order_id: "o1", product_id: "rack", weight: 9, box_no: null, at: "t" })]);
+    expect(old.orders[0].weights[0].pallet_id).toBeNull();
+  });
+
   it("once uploaded (the server has its client_id), it isn't shown twice", () => {
     const server = order({
       weights: [{ id: "w9", product_id: "rack", weight: 22.15, box_no: 1, by: "Chris", at: "t", source: "weigh", gtin: null, serial: null, lot: null, case_no: null, pallet_id: null, client_id: "a", slot: null, label_no: null }],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byStoreNumber, candidates, overOrder, needFor, needWords, nextTag, palletFor, palletTotals, shipmentPallets, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
+import { byStoreNumber, candidates, overOrder, needFor, needWords, nextTag, palletFor, palletTotals, shipmentPallets, typedBoxPallet, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
 import type { SheetRow } from "./packSheet";
 
 const row = (known: boolean, boxCount: number, filled: number, blanks = boxCount + 2): SheetRow => ({
@@ -168,5 +168,19 @@ describe("over the order (10/26/26)", () => {
   it("stores sort by PCC number", () => {
     const names = ["PCC #20 Bellevue", "Key City", "PCC #05 View Ridge", "PCC #12 Redmond"].map((name) => ({ name }));
     expect(names.sort(byStoreNumber).map((x) => x.name)).toEqual(["Key City", "PCC #05 View Ridge", "PCC #12 Redmond", "PCC #20 Bellevue"]);
+  });
+});
+
+describe("a typed-in box's pallet (11/9/26)", () => {
+  const p = (id: string, status: string, customers: string[]) => ({ id, status, customers });
+  it("the store's pallet when it's on exactly one planned or open pallet", () => {
+    expect(typedBoxPallet("redmond", [p("p1", "open", ["kirkland"]), p("p2", "open", ["burien", "redmond"])])?.id).toBe("p2");
+    expect(typedBoxPallet("redmond", [p("p2", "planned", ["redmond"])])?.id).toBe("p2");
+  });
+  it("none when the store is on no pallet, on more than one, or only on a full or shipped one", () => {
+    expect(typedBoxPallet("redmond", [p("p1", "open", ["kirkland"])])).toBeNull();
+    expect(typedBoxPallet("redmond", [p("p1", "open", ["redmond"]), p("p2", "open", ["redmond"])])).toBeNull();
+    expect(typedBoxPallet("redmond", [p("p1", "full", ["redmond"]), p("p2", "shipped", ["redmond"])])).toBeNull();
+    expect(typedBoxPallet("redmond", [])).toBeNull();
   });
 });
