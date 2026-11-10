@@ -186,3 +186,18 @@ export function overOrder(need: Need | null, weightLb: number): boolean {
 /** Sort customers so PCC stores go by number ("PCC #05", "PCC #12"), then everyone else by name. */
 export const byStoreNumber = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+
+/**
+ * The stores on Chris's screen when he tapped one, in the order shown and as
+ * the buttons name them ("#12 Redmond, #17 Burien, Emerson"), kept with the
+ * box so a box at the wrong store can be explained (11/10/26).
+ */
+export function offeredText(list: Pick<RouteOrder, "orderId" | "name">[], orders: { id: string; labelLocation?: string; labelCustomer: string }[]): string {
+  return [...list]
+    .sort(byStoreNumber)
+    .map((r) => {
+      const o = orders.find((x) => x.id === r.orderId);
+      return (o?.labelLocation || o?.labelCustomer || r.name).trim();
+    })
+    .join(", ");
+}

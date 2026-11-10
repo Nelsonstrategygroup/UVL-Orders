@@ -117,10 +117,13 @@ export type BoxUpload = {
   /** Which box of the customer's product this is, and its label number (10/26/26). */
   slot?: number | null;
   label_no?: number | null;
-  /** Scan-to-pallet routing (10/26/26): the box type, how the customer was chosen, what was suggested, and the boxes planned (to flag over-packing). */
+  /** Scan-to-pallet routing (10/26/26): the box type, how the customer was chosen, and the boxes planned (to flag over-packing). */
   box_type_id?: string | null;
   route?: "suggested" | "other" | "picked" | "locked" | "unassigned" | null;
+  /** Before 11/10/26: the app's hidden first choice. No longer sent; see `offered`. */
   suggested_order_id?: string | null;
+  /** The stores on Chris's screen when he tapped one, as shown ("#12 Redmond, #17 Burien, Emerson"; 11/10/26). */
+  offered?: string | null;
   planned_boxes?: number | null;
 };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byStoreNumber, candidates, overOrder, needFor, needWords, nextTag, palletFor, palletTotals, shipmentPallets, typedBoxPallet, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
+import { byStoreNumber, candidates, overOrder, needFor, needWords, nextTag, palletFor, palletTotals, shipmentPallets, typedBoxPallet, offeredText, stillNeeds, type RouteOrder, type RoutePallet } from "./routing";
 import type { SheetRow } from "./packSheet";
 
 const row = (known: boolean, boxCount: number, filled: number, blanks = boxCount + 2): SheetRow => ({
@@ -182,5 +182,21 @@ describe("a typed-in box's pallet (11/9/26)", () => {
     expect(typedBoxPallet("redmond", [p("p1", "open", ["redmond"]), p("p2", "open", ["redmond"])])).toBeNull();
     expect(typedBoxPallet("redmond", [p("p1", "full", ["redmond"]), p("p2", "shipped", ["redmond"])])).toBeNull();
     expect(typedBoxPallet("redmond", [])).toBeNull();
+  });
+});
+
+describe("the stores Chris saw (11/10/26)", () => {
+  it("as the buttons name them, in the order shown", () => {
+    const list = [
+      { orderId: "e", name: "Emerson" },
+      { orderId: "b", name: "PCC #17 Burien" },
+      { orderId: "r", name: "PCC #12 Redmond" },
+    ];
+    const orders = [
+      { id: "e", labelLocation: "", labelCustomer: "Emerson" },
+      { id: "b", labelLocation: "#17 Burien", labelCustomer: "PCC #17 Burien" },
+      { id: "r", labelLocation: "#12 Redmond", labelCustomer: "PCC #12 Redmond" },
+    ];
+    expect(offeredText(list, orders)).toBe("Emerson, #12 Redmond, #17 Burien");
   });
 });

@@ -45,6 +45,7 @@ import {
 import { blankWords, type SheetLabel } from "@/lib/calc/packSheet";
 import {
   byStoreNumber,
+  offeredText,
   overOrder,
   stillNeeds,
   type Need,
@@ -102,6 +103,7 @@ type Base = {
     | "pallet_id"
     | "route"
     | "suggested_order_id"
+    | "offered"
     | "slot"
     | "label_no"
     | "box_type_id"
@@ -303,11 +305,11 @@ export default function ScanScreen() {
         order_id: order.id,
         pallet_id: pallet.id,
         route: p.route,
-        // What the app would have chosen (furthest behind), when Chris chose another.
-        suggested_order_id:
-          (p.route === "other" || p.route === "picked") &&
-          p.list[0]?.orderId !== order.id
-            ? (p.list[0]?.orderId ?? null)
+        // The stores on Chris's screen when he chose, as shown (11/10/26):
+        // with the box's store, this says how a box got where it is.
+        offered:
+          (p.route === "other" || p.route === "picked") && p.list.length
+            ? offeredText(p.list, data.packing.orders)
             : null,
         slot: box.slot,
         label_no: box.label_no,

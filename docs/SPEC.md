@@ -563,7 +563,7 @@ Boxes come off Mohawk's roller grouped by size, not by customer. Chris scans eac
 - **Pallets**: per week, a tag Chris writes on it ("P3"), a status (planned, open, full, shipped), and blank size limits (length, width, max height, max weight). `pallet_shipments` links them, so a shipment can have several pallets and the planner could combine shipments. "Pallet X of Y" is now only printed on the manifest (counted).
 - **`pallet_plan_lines`** (pallet, customer, product, box type, planned boxes): empty until the planner. Scanned boxes stay in `packing_weights`; plan lines are never overwritten with actuals.
 - **Box types** get blank length, width, height and max weight; the 45 lb cap stays.
-- **Each scanned box** records its customer (through its order), pallet, box type, and how it was routed: the suggestion, another customer from the list, picked by hand, locked, or unassigned, with what was suggested.
+- **Each scanned box** records its customer (through its order), pallet, box type, and how it was routed (`route`): suggested (only one store needed it), other (tapped from several stores), picked (by hand from the full list), locked (store picked first), or unassigned. Since 11/10/26 a tapped box also keeps `offered`, the stores on Chris's screen as shown ("#12 Redmond, #17 Burien, Emerson"). `suggested_order_id` (before 11/10/26) was the app's hidden first choice, never shown to Chris; it no longer explains anything and isn't sent.
 - **Unassigned boxes**: no open order needed them. Saved with the week and no order; Kathy gives each to a customer on Pallets (Lucas, 10/26/26: what extras become is open).
 
 ### 14.2 Scan flow
@@ -577,7 +577,7 @@ Boxes come off Mohawk's roller grouped by size, not by customer. Chris scans eac
 7. Saved as before (lot, audit trail, offline queue), plus customer, pallet, box type, box number and label number. Straight back to scanning.
 8. "Different pallet" on the card lists the shipment's other open pallets with the stores on each, and New pallet. "Move to..." on a scanned box moves it to another pallet (it works offline).
 9. "Pallet full" on any open pallet (Scan boxes and Pallets): the next box for that shipment asks for a new tag.
-9. Never assigned without a tap. Anything but the suggestion is logged (`route`, `suggested_order_id`).
+9. Never assigned without a tap. How the store was chosen is kept with the box (`route`, and `offered` for a tapped box; 11/10/26).
 10. **Lock to a customer**: scans go straight to that customer and its shipment's open pallet, with no card (a card only to start a pallet), until unlocked. Products not on their order ask first, as before.
 
 ### 14.3 Pallets view (`/packing/pallets`)
