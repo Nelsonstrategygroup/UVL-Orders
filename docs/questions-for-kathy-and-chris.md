@@ -131,6 +131,14 @@ reconciliation against Chris's sheet): settled questions are at the end.
     became 20 packs, which was right). Should the app warn before a unit
     change when the product is on open orders? [No warning.]
 
+27. **For Kathy and Chris: a box not on the order.** When Chris packs a box
+    of something the store didn't order (Issaquah's Jalapeno Honey Pepper
+    Sticks on 11/9) and it's checked "Correct, ship it", the box goes on its
+    pallet, the manifest and the invoice (as "not on order"), but the order
+    itself isn't changed. Should "Correct, ship it" also add the product to
+    the order, so the order matches what shipped? [Order left as it was;
+    the invoice bills it.]
+
 ## Box limits to confirm (from Kathy's box sheet)
 
 These are the cells marked "needs checking" in Setup > Boxes. Until they're

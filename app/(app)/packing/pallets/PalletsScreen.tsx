@@ -101,6 +101,7 @@ export default function PalletsScreen() {
         order_id: p.orders.find((o) => o.customerId === b.customerId)?.id ?? null,
         ...(b.id.startsWith("local:") ? { client_id: b.client_id ?? "" } : { weight_id: b.id }),
         pallet_id: palletId,
+        via: "put on pallet (Pallets)",
       });
       toast(`Put on ${pl?.tag ?? "the pallet"}`);
     } catch {

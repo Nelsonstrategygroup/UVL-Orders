@@ -114,6 +114,7 @@ Seed all of the above from `reference/seed-data.json`. When a user adds a new cu
 ### 4.7 Audit
 
 - `audit_log`: `table_name`, `row_id text`, `action` (`insert`, `update`, `delete`), `old_data jsonb`, `new_data jsonb`, `user_id uuid`, `at timestamptz`. Populate with a trigger on every business table. Readable by admins only. This is the company's record of who changed what; the owners care about this.
+- `source` (11/10/26): which screen or action made the change, in plain words ("scan", "scan (store picked first)", "weigh panel (Packing)", "type in from paper", "moved to another pallet (Scan boxes)", "put on pallet (Pallets)", "give to (Pallets)", "weight changed", "correct, ship it (Packing)", "lot changed (admin, Scan boxes)"). The app sends it with each write as the `x-uvl-action` request header; a database function can set `uvl.source` instead. Blank before 11/10/26 and when none is given.
 
 ### 4.8 Row Level Security
 

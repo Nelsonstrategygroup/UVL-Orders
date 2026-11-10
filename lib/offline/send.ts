@@ -5,7 +5,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordBox } from "../db/scanning";
-import { isAuthError, isNetworkError, type Action, type Outcome } from "./outbox";
+import { isAuthError, isNetworkError, sourceOf, type Action, type Outcome } from "./outbox";
+import { SOURCE_HEADER } from "../db/source";
 
 type PgError = { message: string; code?: string; status?: number } | null;
 
@@ -27,6 +28,8 @@ function withTimeout<T>(p: PromiseLike<T>): Promise<T> {
 }
 
 export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome> {
+  // Which screen or action it came from, for the audit log (11/10/26).
+  const src = sourceOf(a);
   switch (a.type) {
     case "weight-add": {
       const r = await withTimeout(
@@ -42,7 +45,7 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
             pallet_id: a.pallet_id ?? null,
           },
           { onConflict: "client_id", ignoreDuplicates: true },
-        ),
+        ).setHeader(SOURCE_HEADER, src),
       );
       // The order was deleted while the phone was offline.
       if (r.error?.code === "23503") return { kind: "done", note: "A weight was for an order that no longer exists. Kathy should check it." };
@@ -54,20 +57,20 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
         db.from("packing_weights").upsert(
           { client_id: a.client_id, order_id: null, week_id: a.week_id, product_id: a.product_id, weight: a.weight, route: "unassigned" },
           { onConflict: "client_id", ignoreDuplicates: true },
-        ),
+        ).setHeader(SOURCE_HEADER, src),
       );
       return classify(r.error, r.status);
     }
     case "weight-edit": {
       let query = db.from("packing_weights").update({ weight: a.weight, label_no: a.label_no });
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
-      const r = await withTimeout(query);
+      const r = await withTimeout(query.setHeader(SOURCE_HEADER, src));
       return classify(r.error, r.status);
     }
     case "weight-extra-ok": {
       let query = db.from("packing_weights").update({ extra_ok_by: a.ok ? a.by : null, extra_ok_at: a.ok ? a.at : null });
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
-      const r = await withTimeout(query);
+      const r = await withTimeout(query.setHeader(SOURCE_HEADER, src));
       return classify(r.error, r.status);
     }
     case "weight-move": {
@@ -80,7 +83,7 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
         off_order: a.off_order,
       });
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
-      const r = await withTimeout(query);
+      const r = await withTimeout(query.setHeader(SOURCE_HEADER, src));
       // The store's order was deleted meanwhile.
       if (r.error?.code === "23503") return { kind: "done", note: "A box was moved to an order that no longer exists. Kathy should check it." };
       return classify(r.error, r.status);
@@ -88,13 +91,13 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
     case "weight-pallet": {
       let query = db.from("packing_weights").update({ pallet_id: a.pallet_id });
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
-      const r = await withTimeout(query);
+      const r = await withTimeout(query.setHeader(SOURCE_HEADER, src));
       return classify(r.error, r.status);
     }
     case "weight-remove": {
       let query = db.from("packing_weights").delete();
       query = a.weight_id ? query.eq("id", a.weight_id) : query.eq("client_id", a.client_id ?? "");
-      const r = await withTimeout(query);
+      const r = await withTimeout(query.setHeader(SOURCE_HEADER, src));
       return classify(r.error, r.status);
     }
     case "mark": {
@@ -110,25 +113,25 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
             flag_note: m.flagNote,
           },
           { onConflict: "order_id,product_id" },
-        ),
+        ).setHeader(SOURCE_HEADER, src),
       );
       if (r.error?.code === "23503") return { kind: "done", note: "A mark was for an order that no longer exists." };
       return classify(r.error, r.status);
     }
     case "pallet-text": {
-      const r = await withTimeout(db.from("packing_orders").upsert({ order_id: a.order_id, pallet: a.pallet }, { onConflict: "order_id" }));
+      const r = await withTimeout(db.from("packing_orders").upsert({ order_id: a.order_id, pallet: a.pallet }, { onConflict: "order_id" }).setHeader(SOURCE_HEADER, src));
       if (r.error?.code === "23503") return { kind: "done" };
       return classify(r.error, r.status);
     }
     case "gtin-map": {
-      const r = await withTimeout(db.from("gtin_products").upsert({ gtin: a.gtin, product_id: a.product_id }, { onConflict: "gtin" }));
+      const r = await withTimeout(db.from("gtin_products").upsert({ gtin: a.gtin, product_id: a.product_id }, { onConflict: "gtin" }).setHeader(SOURCE_HEADER, src));
       return classify(r.error, r.status);
     }
     case "pallet-add": {
       const r = await withTimeout(
         db
           .from("pallets")
-          .upsert({ id: a.id, week_id: a.week_id, ship_date: a.ship_date, number: a.number, label: a.label }, { onConflict: "id", ignoreDuplicates: true }),
+          .upsert({ id: a.id, week_id: a.week_id, ship_date: a.ship_date, number: a.number, label: a.label }, { onConflict: "id", ignoreDuplicates: true }).setHeader(SOURCE_HEADER, src),
       );
       return classify(r.error, r.status);
     }
@@ -136,7 +139,7 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       const r = await withTimeout(
         db.rpc("start_pallet", {
           p: { id: a.id, week_id: a.week_id, tag: a.tag, ship_to_customer_id: a.ship_to_customer_id, ship_to_point_id: a.ship_to_point_id, status: a.status ?? "open" },
-        }),
+        }).setHeader(SOURCE_HEADER, src),
       );
       return classify(r.error, r.status);
     }
@@ -146,11 +149,11 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       if (week.error) return classify(week.error, week.status);
       const ids = ((week.data ?? []) as { id: string }[]).map((p) => p.id);
       if (ids.length) {
-        const off = await withTimeout(db.from("pallet_customers").delete().eq("customer_id", a.customer_id).in("pallet_id", ids));
+        const off = await withTimeout(db.from("pallet_customers").delete().eq("customer_id", a.customer_id).in("pallet_id", ids).setHeader(SOURCE_HEADER, src));
         if (off.error) return classify(off.error, off.status);
       }
       if (!a.on) return { kind: "done" };
-      const r = await withTimeout(db.from("pallet_customers").upsert({ pallet_id: a.pallet_id, customer_id: a.customer_id }, { onConflict: "pallet_id,customer_id", ignoreDuplicates: true }));
+      const r = await withTimeout(db.from("pallet_customers").upsert({ pallet_id: a.pallet_id, customer_id: a.customer_id }, { onConflict: "pallet_id,customer_id", ignoreDuplicates: true }).setHeader(SOURCE_HEADER, src));
       // The pallet was deleted meanwhile.
       if (r.error?.code === "23503") return { kind: "done" };
       return classify(r.error, r.status);
@@ -160,11 +163,11 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       const used = await withTimeout(db.from("packing_weights").select("id", { count: "exact", head: true }).eq("pallet_id", a.id));
       if (used.error) return classify(used.error, used.status);
       if ((used.count ?? 0) > 0) return { kind: "done", note: `${a.tag} has boxes on it now, so it wasn't deleted.` };
-      const r = await withTimeout(db.from("pallets").delete().eq("id", a.id));
+      const r = await withTimeout(db.from("pallets").delete().eq("id", a.id).setHeader(SOURCE_HEADER, src));
       return classify(r.error, r.status);
     }
     case "pallet-status": {
-      const r = await withTimeout(db.from("pallets").update({ status: a.status }).eq("id", a.id));
+      const r = await withTimeout(db.from("pallets").update({ status: a.status }).eq("id", a.id).setHeader(SOURCE_HEADER, src));
       return classify(r.error, r.status);
     }
     case "box": {
@@ -180,7 +183,7 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
           a = { ...a, box: { ...a.box, photo_path: null }, photo: undefined };
         }
       }
-      const r = await withTimeout(recordBox(db, a.box));
+      const r = await withTimeout(recordBox(db, a.box, src));
       if (r.status === "saved" || r.status === "already") return { kind: "done" };
       if (r.status === "duplicate")
         return { kind: "done", note: `A box was already packed for ${r.customer}, so it wasn't saved twice. Kathy will see it.` };

@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { PackingData, PackOrder } from "../db/packing";
-import { applyQueue, isAuthError, isLocal, isNetworkError, statusLine, syncQueue, type Action, type Outcome, type Queued } from "./outbox";
+import { applyQueue, isAuthError, isLocal, isNetworkError, sourceOf, statusLine, syncQueue, type Action, type Outcome, type Queued } from "./outbox";
 
 const order = (over: Partial<PackOrder> = {}): PackOrder => ({
   id: "o1",
@@ -210,5 +210,23 @@ describe("a box from the Weigh Sheet's blank rows with no store (11/1/26)", () =
     expect(out.unassigned).toHaveLength(1);
     expect(out.unassigned[0]).toMatchObject({ client_id: "u1", product_id: "rack", weight: 33.3, slot: null, label_no: null, source: "weigh" });
     expect(out.orders[0].weights).toHaveLength(0);
+  });
+});
+
+describe("where an action came from, for the audit log (11/10/26)", () => {
+  const box = (extra: Record<string, unknown>) => ({ type: "box", box: { client_id: "c", order_id: "o1", product_id: "rack", weight: 20, lot: "110626", source: "scan", ...extra } }) as unknown as Action;
+  it("what the screen said, else what the action is", () => {
+    expect(sourceOf({ type: "weight-add", client_id: "a", order_id: "o1", product_id: "rack", weight: 1, box_no: null, at: "t" })).toBe("weigh panel (Packing)");
+    expect(sourceOf({ type: "weight-add", client_id: "a", order_id: "o1", product_id: "rack", weight: 1, box_no: null, at: "t", via: "type in from paper" })).toBe("type in from paper");
+    expect(sourceOf({ type: "weight-pallet", order_id: "o1", weight_id: "w", pallet_id: "p", via: "put on pallet (Pallets)" })).toBe("put on pallet (Pallets)");
+  });
+  it("a scan: store picked first, typed because the label wouldn't scan, or unassigned", () => {
+    expect(sourceOf(box({ route: "other" }))).toBe("scan");
+    expect(sourceOf(box({ route: "locked" }))).toBe("scan (store picked first)");
+    expect(sourceOf(box({ source: "manual" }))).toBe("typed on Scan boxes (label wouldn't scan)");
+    expect(sourceOf(box({ order_id: null, route: "unassigned" }))).toBe("scan, saved as unassigned");
+  });
+  it("only plain characters, so it can go in a request header", () => {
+    for (const s of ["weigh panel (Packing)", sourceOf(box({ source: "manual" }))]) expect(/^[\x20-\x7e]+$/.test(s)).toBe(true);
   });
 });

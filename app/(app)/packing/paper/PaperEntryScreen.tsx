@@ -55,7 +55,9 @@ export default function PaperEntryScreen() {
     );
 
   const store = (a: Action) => enqueue(a).catch(() => toast("Couldn't save on this phone. Try again."));
-  const save = (a: Action) => {
+  const save = (a0: Action) => {
+    // Everything here is typed in from the paper copy, for the audit log (11/10/26).
+    const a: Action = { ...a0, via: a0.via ?? "type in from paper" };
     if (a.type !== "weight-add") return void store(a);
     // A typed box goes on the store's pallet for the week, when it's on exactly one (11/9/26).
     const customerId = data.orders.find((o) => o.id === a.order_id)?.customerId;
@@ -278,12 +280,12 @@ function SpareRows({
     if (!r.product || !r.customer || !(lb > 0)) return;
     const at = new Date().toISOString();
     if (r.customer === NOT_ORDERING) {
-      save({ type: "weight-unassigned", client_id: crypto.randomUUID(), week_id: week, product_id: r.product, weight: lb, at });
+      save({ type: "weight-unassigned", client_id: crypto.randomUUID(), week_id: week, product_id: r.product, weight: lb, at, via: "type in from paper, blank row (no store)" });
       toast("Saved with no store. Put it on a pallet on the Pallets page.");
     } else {
       const sheetRow = sections.find((s) => s.productId === r.product)?.rows.find((x) => x.order.id === r.customer)?.row;
       const slot = sheetRow ? nextBlank(sheetRow).slot : 1;
-      save({ type: "weight-add", client_id: crypto.randomUUID(), order_id: r.customer, product_id: r.product, weight: lb, box_no: null, at, slot, label_no: null });
+      save({ type: "weight-add", client_id: crypto.randomUUID(), order_id: r.customer, product_id: r.product, weight: lb, box_no: null, at, slot, label_no: null, via: "type in from paper, blank row" });
       toast("Saved. It's on that store's row above.");
     }
     setRows((rs) => rs.map((x, k) => (k === i ? { key: Date.now() + k, product: "", customer: "", weight: "" } : x)));

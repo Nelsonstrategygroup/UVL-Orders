@@ -9,7 +9,12 @@
 import type { LineMark, PackingData, PackWeight } from "../db/packing";
 import type { BoxUpload } from "../db/scanning";
 
-export type Action =
+export type Action = ActionBody & {
+  /** Which screen or action it came from, for the audit log (11/10/26). Missing: worked out from the action (sourceOf). */
+  via?: string;
+};
+
+type ActionBody =
   /** The weigh panel: one weight (a box or case, or the whole line). */
   | {
       type: "weight-add";
@@ -78,6 +83,52 @@ export type Action =
   | { type: "pallet-delete"; id: string; tag: string }
   /** A pallet is full (or open again, or shipped). */
   | { type: "pallet-status"; id: string; status: "planned" | "open" | "full" | "shipped" };
+
+/**
+ * Where an action came from, in plain words, for the audit log's source
+ * (11/10/26): what the screen said (via), else what the action is.
+ */
+export function sourceOf(a: Action): string {
+  if (a.via) return a.via;
+  switch (a.type) {
+    case "weight-add":
+      return "weigh panel (Packing)";
+    case "weight-unassigned":
+      return "type in from paper, blank row (no store)";
+    case "weight-edit":
+      return "weight changed";
+    case "weight-remove":
+      return "box removed";
+    case "weight-extra-ok":
+      return a.ok ? "correct, ship it (Packing)" : "undo correct, ship it (Packing)";
+    case "weight-move":
+      return a.order_id ? "moved to another store" : "taken off its store (unassigned)";
+    case "weight-pallet":
+      return "moved to another pallet";
+    case "mark":
+      return "line marked (Packing)";
+    case "pallet-text":
+      return "pallet note (Packing)";
+    case "gtin-map":
+      return "barcode taught (Scan boxes)";
+    case "box": {
+      const b = a.box;
+      if (b.source === "manual") return "typed on Scan boxes (label wouldn't scan)";
+      if (b.route === "locked") return "scan (store picked first)";
+      if (b.route === "unassigned" || !b.order_id) return "scan, saved as unassigned";
+      return "scan";
+    }
+    case "pallet-add":
+    case "pallet-start":
+      return "pallet started";
+    case "pallet-customer":
+      return a.on ? "store put on pallet (Pallets)" : "store taken off pallet (Pallets)";
+    case "pallet-delete":
+      return "pallet deleted";
+    case "pallet-status":
+      return `pallet marked ${a.status}`;
+  }
+}
 
 export type Queued = {
   /** Order on this phone; uploads go oldest first. */

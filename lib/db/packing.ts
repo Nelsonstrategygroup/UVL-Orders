@@ -14,6 +14,7 @@ import { num } from "../calc/num";
 import { toProductUnit } from "../calc/units";
 import type { PackLine, Weight } from "../calc/packing";
 import type { Qty } from "../calc/types";
+import { withSource } from "./source";
 
 export type PackProduct = {
   id: string;
@@ -530,6 +531,9 @@ export function sheetRowText(o: PackOrder, data: PackingData, pid: string): { na
 
 /** Give an unassigned box to a customer's order (Pallets, by Kathy). */
 export async function assignBox(db: SupabaseClient, weightId: string, orderId: string): Promise<string | null> {
-  const { error } = await db.from("packing_weights").update({ order_id: orderId, week_id: null, route: "picked" }).eq("id", weightId);
+  const { error } = await withSource(
+    db.from("packing_weights").update({ order_id: orderId, week_id: null, route: "picked" }).eq("id", weightId),
+    "give to (Pallets)",
+  );
   return error ? error.message : null;
 }

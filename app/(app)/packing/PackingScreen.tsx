@@ -263,8 +263,8 @@ export default function PackingScreen() {
             void save(
               enqueue(
                 w && isLocal(w)
-                  ? { type: "weight-remove", order_id: wOrder.id, client_id: w.client_id ?? "" }
-                  : { type: "weight-remove", order_id: wOrder.id, weight_id: id },
+                  ? { type: "weight-remove", order_id: wOrder.id, client_id: w.client_id ?? "", via: "removed on weigh panel (Packing)" }
+                  : { type: "weight-remove", order_id: wOrder.id, weight_id: id, via: "removed on weigh panel (Packing)" },
               ),
             );
           }}

@@ -474,6 +474,7 @@ export default function ScanScreen() {
         slot: slot.slot ?? null,
         label_no: slot.label_no ?? null,
         off_order: !!order && !onOrderAs(w.product_id, order.lines, data.packing.products),
+        via: !order ? "taken off its store (Scan boxes)" : sameStore ? "moved to another pallet (Scan boxes)" : "moved to another store (Scan boxes)",
       });
     } catch {
       return toast("Couldn't save on this phone. Try again.");

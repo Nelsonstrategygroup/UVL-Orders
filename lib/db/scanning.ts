@@ -2,6 +2,7 @@
 // remembered per GTIN + pack date. Packing's scan screen and Setup use these.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { withSource } from "./source";
 
 export type GtinRow = { gtin: string; product_id: string; note: string; created_at: string };
 export type LotRow = { gtin: string; pack_date: string; lot: string };
@@ -130,15 +131,16 @@ export type BoxResult =
   | { status: "gone" }
   | { status: "error"; message: string };
 
-export async function recordBox(db: SupabaseClient, box: BoxUpload): Promise<BoxResult> {
-  const { data, error } = await db.rpc("record_box", { p: box });
+/** Save a scanned or typed box; `source` says where it came from, for the audit log. */
+export async function recordBox(db: SupabaseClient, box: BoxUpload, source = "scan"): Promise<BoxResult> {
+  const { data, error } = await withSource(db.rpc("record_box", { p: box }), source);
   if (error) return { status: "error", message: error.message };
   return data as BoxResult;
 }
 
 /** Only an admin can change a box's lot (the database enforces it and logs the old one). */
 export async function setBoxLot(db: SupabaseClient, weightId: string, lot: string) {
-  const { error } = await db.from("packing_weights").update({ lot }).eq("id", weightId);
+  const { error } = await withSource(db.from("packing_weights").update({ lot }).eq("id", weightId), "lot changed (admin, Scan boxes)");
   return err(error);
 }
 
