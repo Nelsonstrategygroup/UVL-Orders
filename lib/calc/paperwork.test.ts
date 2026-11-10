@@ -5,6 +5,8 @@ import {
   customerManifests,
   customersLine,
   lbWords,
+  looseBoxWarnings,
+  palletCountWarnings,
   manifestPages,
   palletPoint,
   palletPointProblem,
@@ -136,5 +138,50 @@ describe("box weights on invoices (11/2/26)", () => {
   it("no weights for a per-case line or a line that didn't ship", () => {
     expect(w.has("l2")).toBe(false);
     expect(w.has("l3")).toBe(false);
+  });
+});
+
+describe("warnings before pallet paperwork prints (11/10/26)", () => {
+  const bx = (customerId: string | null, customer: string, product: string, boxId: string, palletId: string | null) => ({ customerId, customer, product, boxId, palletId });
+  const week = [
+    bx("burien", "PCC #17 Burien", "Front Shanks", "2631310042", "p2"),
+    bx("redmond", "PCC #12 Redmond", "Front Shanks", "Label 38", null),
+    bx("redmond", "PCC #12 Redmond", "Racks", "2631310050", "p2"),
+    bx("kirkland", "PCC #23 Kirkland", "Racks", "2631310060", "p1"),
+  ];
+  const pallets = [
+    { id: "p1", tag: "P1", customers: ["kirkland"] },
+    { id: "p2", tag: "P2", customers: ["burien", "redmond"] },
+  ];
+
+  it("every box on no pallet, by customer and product", () => {
+    expect(looseBoxWarnings(week)).toEqual([
+      "1 box is on no pallet, so not on any manifest: PCC #12 Redmond, Front Shanks (Label 38). Put it on a pallet on the Pallets page.",
+    ]);
+    expect(looseBoxWarnings(week.filter((b) => b.palletId))).toEqual([]);
+  });
+
+  it("names six, then counts the rest", () => {
+    const many = Array.from({ length: 8 }, (_, i) => bx("x", "Emerson", "Racks", `S${i}`, null));
+    expect(looseBoxWarnings(many)[0]).toContain("Emerson, Racks (S5); and 2 more.");
+  });
+
+  it("a pallet's boxes against the stores planned onto it, saying where the difference is", () => {
+    expect(palletCountWarnings(week, pallets)).toEqual([
+      "P2: 3 boxes packed for its stores, 2 on its manifest. Not on P2: PCC #12 Redmond, Front Shanks (Label 38), on no pallet.",
+    ]);
+  });
+
+  it("a box on another pallet, and a box from a store not planned onto it", () => {
+    const moved = [bx("kirkland", "PCC #23 Kirkland", "Racks", "2631310060", "p2"), bx("burien", "PCC #17 Burien", "Racks", "1", "p2")];
+    expect(palletCountWarnings(moved, pallets)).toEqual([
+      "P1: 1 box packed for its stores, 0 on its manifest. Not on P1: PCC #23 Kirkland, Racks (2631310060), on P2.",
+      "P2: 1 box packed for its stores, 2 on its manifest. On P2 but not one of its stores: PCC #23 Kirkland, Racks (2631310060).",
+    ]);
+  });
+
+  it("matching pallets, and pallets with no stores planned, say nothing", () => {
+    expect(palletCountWarnings(week.filter((b) => b.palletId), pallets)).toEqual([]);
+    expect(palletCountWarnings(week, [{ id: "p5", tag: "P5", customers: [] }])).toEqual([]);
   });
 });

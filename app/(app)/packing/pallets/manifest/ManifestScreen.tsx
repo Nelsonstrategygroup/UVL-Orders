@@ -49,7 +49,7 @@ export default function ManifestScreen() {
   const list = bundle.data && picked ? palletManifests(bundle.data).filter((m) => ids.includes(m.pallet.id)) : null;
 
   // Warnings show here only, never on the printed pages; printing asks first while there are any.
-  const warnings = bundle.data && picked ? paperworkWarnings(bundle.data, { palletId, date }, { loose: !palletId && !date, asOf: { at: bundle.savedAt, fromPhone: bundle.fromPhone } }) : [];
+  const warnings = bundle.data && picked ? paperworkWarnings(bundle.data, { palletId, date }, { asOf: { at: bundle.savedAt, fromPhone: bundle.fromPhone } }) : [];
   const guard = usePrintGuard(warnings);
   // ?print=1: printing starts once, when the manifest is drawn.
   const printed = useRef(false);

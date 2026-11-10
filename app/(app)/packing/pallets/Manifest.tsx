@@ -18,7 +18,7 @@ import {
   type DuplicateBox,
   type Manifest,
 } from "@/lib/calc/manifest";
-import { crossDockGroups, customerManifests } from "@/lib/calc/paperwork";
+import { crossDockGroups, customerManifests, looseBoxWarnings, palletCountWarnings } from "@/lib/calc/paperwork";
 import { weekBoxes, weekPallets, weekPoints } from "@/lib/paperworkData";
 import { CustomerPages, PalletCover, type PaperworkContext } from "./Paperwork";
 import { invFileName, invLabel } from "@/lib/weekInv";
@@ -161,10 +161,11 @@ export function paperworkContext(data: PackingBundle): PaperworkContext {
  * Warnings for the paperwork (Lucas, 11/2/26), on screen only: in a banner
  * above the preview, on Packing, and in the "Print anyway?" check. Never on a
  * printed page. A box ID used twice in the week, boxes with no weight on
- * these pallets, boxes on no pallet (when printing them all), and the copy
- * saved on this phone.
+ * these pallets, every box of the week on no pallet by customer and product,
+ * each pallet's boxes against the stores planned onto it (11/10/26), and the
+ * copy saved on this phone.
  */
-export function paperworkWarnings(data: PackingBundle, pick: PalletPick = {}, opts: { loose?: boolean; asOf?: ManifestAsOf } = {}): string[] {
+export function paperworkWarnings(data: PackingBundle, pick: PalletPick = {}, opts: { asOf?: ManifestAsOf } = {}): string[] {
   const out: string[] = [];
   const { groups, blocked } = pickPallets(data, pick);
   const pallets = [...groups.flatMap((g) => g.pallets.map((r) => r.pallet)), ...blocked.map((b) => b.pallet)];
@@ -176,17 +177,17 @@ export function paperworkWarnings(data: PackingBundle, pick: PalletPick = {}, op
   for (const p of pallets)
     for (const b of p.boxes.filter((x) => x.lb == null))
       out.push(`A ${b.product} box for ${b.customer} on ${p.tag}${b.boxId ? ` (${b.boxId})` : ""} has no weight. Weigh it before it ships.`);
-  if (opts.loose) {
-    const loose = weekBoxes(data).filter((b) => !b.palletId).length;
-    if (loose) out.push(`${loose} box${loose === 1 ? " this week is" : "es this week are"} on no pallet, so not on any manifest. Put ${loose === 1 ? "it" : "them"} on a pallet on the Pallets page.`);
-  } else {
-    // One pallet or one date: a box for a store on these pallets that's on no pallet isn't on this manifest (11/9/26).
-    const onThese = new Map<string, string>();
-    for (const x of data.pallets) if (tags.includes(x.tag)) for (const c of x.customers ?? []) onThese.set(c, x.tag);
-    for (const b of weekBoxes(data))
-      if (!b.palletId && b.customerId && onThese.has(b.customerId))
-        out.push(`${b.customer}'s ${b.product} box${b.boxId && b.boxId !== "typed in" ? ` (${b.boxId})` : ""} is on no pallet, so it isn't on this manifest. If it's on ${onThese.get(b.customerId)}, put it there on the Pallets page.`);
-  }
+  // Every box of the week on no pallet, and each of these pallets against its stores (11/10/26).
+  const boxes = weekBoxes(data);
+  out.push(...looseBoxWarnings(boxes));
+  const ids = new Set(pallets.map((p) => p.id));
+  out.push(
+    ...palletCountWarnings(
+      boxes,
+      data.pallets.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, tag: p.tag, customers: p.customers ?? [] })),
+      data.pallets,
+    ),
+  );
   if (opts.asOf?.fromPhone)
     out.push("No signal: this is the copy saved on this phone. Boxes scanned on other phones since then aren't on it. Print again with signal.");
   return out;

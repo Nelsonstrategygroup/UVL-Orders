@@ -233,3 +233,62 @@ export function manifestPages(rows: ManifestRow[], perPage: number, lastPage: nu
   pages.push(rows.slice(i));
   return pages;
 }
+
+/** A box as the warnings name it: "PCC #12 Redmond, Front Shanks (Label 38)". */
+function boxRef(b: Pick<PwBox, "customer" | "product" | "boxId">): string {
+  return `${b.customer}, ${b.product}${b.boxId && b.boxId !== "typed in" ? ` (${b.boxId})` : ""}`;
+}
+
+/** At most this many boxes are named in one warning; the rest are counted. */
+const NAMED = 6;
+
+function named(list: string[]): string {
+  return list.length > NAMED ? `${list.slice(0, NAMED).join("; ")}; and ${list.length - NAMED} more` : list.join("; ");
+}
+
+/**
+ * Before any pallet paperwork prints (Lucas, 11/10/26): every box of the
+ * week on no pallet, by customer and product, since it isn't on any
+ * manifest.
+ */
+export function looseBoxWarnings(boxes: (Pick<PwBox, "customer" | "product" | "boxId"> & { palletId: string | null })[]): string[] {
+  const loose = boxes.filter((b) => !b.palletId);
+  if (!loose.length) return [];
+  const n = loose.length;
+  return [
+    `${n} box${n === 1 ? " is" : "es are"} on no pallet, so not on any manifest: ${named(loose.map(boxRef))}. Put ${n === 1 ? "it" : "them"} on a pallet on the Pallets page.`,
+  ];
+}
+
+/** A pallet as the count check needs it: the stores planned onto it (Plan pallets). */
+export type PalletStores = { id: string; tag: string; customers: string[] };
+
+/**
+ * Each pallet's boxes against its stores (Lucas, 11/10/26): the boxes packed
+ * for the stores planned onto it, and the boxes on its manifest. When they
+ * differ, says which boxes and where they are. A pallet with no stores
+ * planned onto it isn't checked.
+ */
+export function palletCountWarnings(
+  boxes: (Pick<PwBox, "customerId" | "customer" | "product" | "boxId"> & { palletId: string | null })[],
+  pallets: PalletStores[],
+  allPallets: { id: string; tag: string }[] = pallets,
+): string[] {
+  const tagOf = new Map(allPallets.map((p) => [p.id, p.tag]));
+  const out: string[] = [];
+  for (const p of pallets) {
+    if (!p.customers.length) continue;
+    const stores = new Set(p.customers);
+    const forStores = boxes.filter((b) => b.customerId && stores.has(b.customerId));
+    const onIt = boxes.filter((b) => b.palletId === p.id);
+    const elsewhere = forStores.filter((b) => b.palletId !== p.id);
+    const others = onIt.filter((b) => !(b.customerId && stores.has(b.customerId)));
+    if (!elsewhere.length && !others.length) continue;
+    const parts = [`${p.tag}: ${forStores.length} box${forStores.length === 1 ? "" : "es"} packed for its stores, ${onIt.length} on its manifest.`];
+    if (elsewhere.length)
+      parts.push(`Not on ${p.tag}: ${named(elsewhere.map((b) => `${boxRef(b)}, ${b.palletId ? `on ${tagOf.get(b.palletId) ?? "another pallet"}` : "on no pallet"}`))}.`);
+    if (others.length) parts.push(`On ${p.tag} but not one of its stores: ${named(others.map(boxRef))}.`);
+    out.push(parts.join(" "));
+  }
+  return out;
+}
