@@ -146,62 +146,62 @@ filled in, the app doesn't use those boxes when it splits an order, so
 filling one in can change how orders are boxed, labelled and laid out on the
 paper copy.
 
-27. **Baby box:** most products have no Baby box limit yet. Which products go
+28. **Baby box:** most products have no Baby box limit yet. Which products go
     in a Baby box, and how many?
-28. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy
+29. **BNLS Shoulder in an MVM box:** the sheet says 8 to 10 (45 lb); Kathy
     also said 8 would weigh 55 to 60 lb, and a box of 9 weighed 45.15 lb on
     10/12. What's the one number?
-29. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the
+30. **Short Loin in a White box:** 6 (the sheet) or 4 (said in the
     recording)?
-30. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
+31. **Labeled Hind Shanks in an MVM box:** 15, or 16 like unlabeled? (Kathy
     said labels don't change the count.)
-31. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
+32. **Trim 6 lb in an MVM box:** 8 packs is 48 lb, over the 45 lb cap, so the
     app plans 7. Is 7 right?
-32. **Denver Ribs:** which boxes, and how much in each?
-33. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
+33. **Denver Ribs:** which boxes, and how much in each?
+34. **Thick Chops and Chop Ready Rack:** still sold? (Kathy called them not
     relevant.)
-34. **Pet Mix and Organ Grind:** are they the same product or two different
+35. **Pet Mix and Organ Grind:** are they the same product or two different
     ones?
-35. **Box and pallet sizes (for later).** For the app to plan pallets one
+36. **Box and pallet sizes (for later).** For the app to plan pallets one
     day, it will need each box's length, width and height and the most it
     holds, and a pallet's footprint and how high and heavy it can go. Can
     Mohawk give these? [Blank; nothing uses them yet.]
 
 ## For Kathy
 
-36. Should the app build the cut sheet from the week's orders for you? Today
+37. Should the app build the cut sheet from the week's orders for you? Today
     you set up the sets (name, size, how many lambs, which instructions), and
     the app checks that each set adds up and totals the lambs. To build the
     whole sheet on its own, the app would need your rules: which customers'
     orders go together in a set, how you pick each set's size, and where
     extra lambs go. [You build the sheet; copy last week's to start.]
-37. Which day do you call each customer? No customer has a call day yet, so
+38. Which day do you call each customer? No customer has a call day yet, so
     Calls lists everyone alphabetically instead of putting today's calls
     first. [Blank. Set it on each customer's page, under Edit details.]
-38. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
+39. Does PCC Community Markets, or Corfini Gourmet, pay for all its stores?
     If so, tick "Bills for all locations" on the chain. [Off for both.]
-39. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
+40. Mohawk's email address for cut sheets isn't in Setup yet. Who should get
     them? [Blank, so "Email to Mohawk" opens a draft with no address.]
-40. What does "Lambs Pulled From Inventory" track, and where does the INV#
+41. What does "Lambs Pulled From Inventory" track, and where does the INV#
     come from? It's also the "Invoice batch" on the order sheets and the
     "Inv" in the week header. [Typed in by hand on the cut sheet.]
-41. Are these duplicates: French Rack and Frenched Rack; the two netted
+42. Are these duplicates: French Rack and Frenched Rack; the two netted
     boneless shoulder wordings; the two bone-in shoulder wordings? [Kept
     separate.]
-42. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
+43. Should customer-specific instructions (Nancy's grind tubs, Dish Dash
     racks, Behman carcasses) be hidden for other customers? [Shown for
     everyone.]
-43. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
+44. Does a bone-in or AO leg keep its hind shank on the cut sheet? [Per line,
     with the "shank on" checkbox on plain leg lines.]
-44. The size block at the top right of the printed cut sheet counts lambs in
+45. The size block at the top right of the printed cut sheet counts lambs in
     sets that have a whole-carcass line, for XL, Large, Medium and Small (XS
     isn't listed). Is that what it should count, and should XS be listed?
     [As in the prototype; see spec 6.5.]
-45. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
+46. A half lamb has half a neck. The half-lamb form gives a half lamb a neck
     choice anyway, so two halves from one lamb would both get a neck. Is
     that right, or should only whole lambs get the neck? [A half gets a
     neck.]
-46. Pending half and whole lambs add their cuts to the totals of every week
+47. Pending half and whole lambs add their cuts to the totals of every week
     you look at, until they're marked filled. Should they only count in the
     week they're needed? [Every week, until filled.]
 
