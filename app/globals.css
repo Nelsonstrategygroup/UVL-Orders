@@ -1237,6 +1237,16 @@
     background: var(--field);
     font-size: 1.1rem;
   }
+  /* Boxes expected against boxes packed, under the store's name (11/10/26). */
+  .pcount {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.6rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 1rem;
+    border-bottom: 1px solid var(--line);
+  }
   .prow {
     display: flex;
     align-items: center;

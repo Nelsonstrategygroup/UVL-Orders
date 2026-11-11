@@ -184,3 +184,113 @@ export function packRows(lines: [string, PackLine][], group: (pid: string) => st
   }
   return rows;
 }
+
+/** One product row of a store's order, as the box count needs it (a sheet row and its line). */
+export type BoxCountRow = {
+  name: string;
+  /** On the order (false: boxes for a product the store didn't order). */
+  onOrder: boolean;
+  /** Boxes planned from the box labels; null when the product has no box size. */
+  planned: number | null;
+  /** Boxes with a weight so far, scanned or typed. */
+  packed: number;
+  /** Ordered by weight (Le Trim): the planned boxes are only an estimate. Pounds ordered and packed. */
+  byWeight?: { ordered: number; packed: number };
+  /** Marked Not filled. */
+  shorted: boolean;
+  /** A piece count was typed for it on Packing. */
+  counted: boolean;
+};
+
+export type BoxCount = {
+  /** Boxes expected for the products whose count is settled. */
+  expected: number;
+  /** Boxes packed for those products. */
+  packed: number;
+  /** Products whose box count isn't known until they're packed. */
+  waiting: { name: string; about: number | null; packed: number; lb?: { ordered: number; packed: number } }[];
+  /** Boxes for products not on the order. */
+  offOrder: number;
+  /**
+   * "ok": every count settled and each product matches. "extra": boxes over
+   * what a product expected, with the products. "short": boxes still missing,
+   * with the products (only once every line is done). null: still packing.
+   */
+  state: { kind: "ok" } | { kind: "short" | "extra"; n: number; products: string[] } | null;
+};
+
+/** Pounds within half a pound of the order count as all of it (as on Scan boxes). */
+const LB_SLACK = 0.5;
+
+/**
+ * A store's boxes expected against boxes packed (Lucas, 11/10/26, replacing
+ * "at least 7 boxes", "9/9" and "8 boxes weighed", which counted three
+ * different things). Expected comes from the box labels. A product ordered by
+ * weight (Le Trim) or with no box size has no sure count: it's named and
+ * kept apart ("count when packed", with the estimate by weight) until it's
+ * packed, and then the boxes actually packed are its count. More boxes than
+ * expected is flagged at once; fewer only when every line is done
+ * (`orderDone`), since until then the order is just still being packed.
+ */
+export function boxCount(rows: BoxCountRow[], orderDone: boolean): BoxCount {
+  let expected = 0;
+  let packed = 0;
+  let offOrder = 0;
+  // Product by product, so an extra box of one never hides a missing box of another.
+  const over: { name: string; n: number }[] = [];
+  const under: { name: string; n: number }[] = [];
+  const waiting: BoxCount["waiting"] = [];
+  for (const r of rows) {
+    if (!r.onOrder) {
+      offOrder += r.packed;
+      continue;
+    }
+    if (r.shorted) {
+      packed += r.packed;
+      continue;
+    }
+    // By weight: once its pounds are packed, or it has as many boxes as the
+    // estimate (Bothell's 80 lb of Le Trim weighed 79.45 in its 2 boxes).
+    // No box size: once it has a box (or a count typed), since nothing says
+    // how many more there could be.
+    const allPacked = r.byWeight
+      ? r.byWeight.packed >= r.byWeight.ordered - LB_SLACK || (r.planned != null && r.packed >= r.planned)
+      : r.planned == null && (r.packed > 0 || r.counted);
+    if (r.byWeight || r.planned == null) {
+      if (allPacked) {
+        // Packed: its count is the boxes it took.
+        expected += r.packed;
+        packed += r.packed;
+      } else waiting.push({ name: r.name, about: r.planned, packed: r.packed, lb: r.byWeight });
+      continue;
+    }
+    expected += r.planned;
+    packed += r.packed;
+    if (r.packed > r.planned) over.push({ name: r.name, n: r.packed - r.planned });
+    if (r.packed < r.planned) under.push({ name: r.name, n: r.planned - r.packed });
+  }
+  const total = (l: { n: number }[]) => l.reduce((n, x) => n + x.n, 0);
+  let state: BoxCount["state"] = null;
+  if (over.length) state = { kind: "extra", n: total(over), products: over.map((x) => x.name) };
+  else if (waiting.length) state = null;
+  else if (!under.length) state = { kind: "ok" };
+  else if (orderDone) state = { kind: "short", n: total(under), products: under.map((x) => x.name) };
+  return { expected, packed, waiting, offOrder, state };
+}
+
+/**
+ * "Boxes: 7 expected · 6 packed", then each product still to count: "plus Le
+ * Trim (about 3 boxes by weight; 2 so far, 82 of 120 lb)", or "plus Necks
+ * (count when packed)" for a product with no box size.
+ */
+export function boxCountWords(c: BoxCount): string {
+  const parts = [`Boxes: ${c.expected} expected · ${c.packed} packed`];
+  for (const w of c.waiting)
+    parts.push(
+      w.lb
+        ? `plus ${w.name} (${w.about ? `about ${w.about} box${w.about === 1 ? "" : "es"} by weight` : "count when packed"}; ${w.packed} so far, ${fmt(w.lb.packed)} of ${fmt(w.lb.ordered)} lb)`
+        : `plus ${w.name} (count when packed)`,
+    );
+  if (c.offOrder) parts.push(`${c.offOrder} not on the order`);
+  return parts.join(", ");
+}

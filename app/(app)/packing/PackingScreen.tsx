@@ -21,6 +21,7 @@ import {
   lineWords,
   orderedWords,
   orderPacked,
+  boxCountWords,
   packRows,
   packStats,
   showOrder,
@@ -30,10 +31,9 @@ import {
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
 import { boxName, onOrderAs, packedWith } from "@/lib/calc/packTogether";
-import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
-import { orderSheet, packLines, sheetLabels, sheetRowId, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
+import { orderBoxCount, orderSheet, packLines, sheetLabels, sheetRowId, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
-import { blankWords, nextBlank, type SheetRow } from "@/lib/calc/packSheet";
+import { blankWords, nextBlank, type SheetLabel, type SheetRow } from "@/lib/calc/packSheet";
 import { PackNotes } from "./PackSheet";
 import { PrintWarnings } from "@/components/PrintGuard";
 import { paperworkWarnings } from "./pallets/Manifest";
@@ -112,15 +112,18 @@ export default function PackingScreen() {
     packRows(lines, (pid) => packedWith(pid, data.products), (pid) => data.products.get(pid)?.name ?? pid);
   const stats = packStats(withLines.map((x) => ({ lines: rowsOf(x.lines).map((r) => r.line) })));
   const shown = withLines.filter(({ o, lines }) => showOrder(lines.map(([, l]) => l), filter) || !!keepIds?.has(o.id));
-  // Boxes for a whole pallet group, from every order in it.
+  // The week's box labels, worked out once: each store's expected boxes come from them.
+  const labels = sheetLabels(data, boxSetup);
+  // A shipment's boxes, from every store in it: expected against packed, as on each store's card (11/10/26).
   const groupBoxes = (g: string) => {
-    const all = data.orders.filter((x) => x.group === g).map((x) => orderBoxes(x.lines, x.units, data.products, boxSetup));
-    const t = orderBoxesText({ boxes: all.reduce((s, b) => s + b.boxes, 0), problems: all.flatMap((b) => b.problems) });
-    return t ? `${t} for this shipment` : "";
+    const all = data.orders.filter((x) => x.group === g).map((x) => orderBoxCount(x, data, labels));
+    const sum = (k: "expected" | "packed") => all.reduce((n, c) => n + c[k], 0);
+    const waiting = all.reduce((n, c) => n + c.waiting.length, 0);
+    return `${sum("expected")} boxes expected · ${sum("packed")} packed${waiting ? `, plus ${waiting} to count when packed` : ""}`;
   };
   const wOrder = weighing && data.orders.find((o) => o.id === weighing.orderId);
   // The product's boxes as on the paper copy: each weight goes in the next empty one.
-  const wRow = wOrder ? orderSheet(wOrder, data, sheetLabels(data, boxSetup)).find((r) => r.productId === sheetRowId(weighing!.productId, data)) : undefined;
+  const wRow = wOrder ? orderSheet(wOrder, data, labels).find((r) => r.productId === sheetRowId(weighing!.productId, data)) : undefined;
 
   return (
     <>
@@ -192,7 +195,7 @@ export default function PackingScreen() {
                 order={o}
                 lines={lines}
                 data={data}
-                boxSetup={boxSetup}
+                labels={labels}
                 onOpen={(pid) => setWeighing({ orderId: o.id, productId: pid })}
                 pallets={bundle.data?.pallets ?? []}
                 canPack={canPack}
@@ -228,7 +231,7 @@ export default function PackingScreen() {
           </Link>
         </div>
       )}
-      {data.orders.length > 0 && <WeighPrint layout={weighLayout(weighSections(data, sheetLabels(data, boxSetup)))} inv={data.invNumber} week={data.week} />}
+      {data.orders.length > 0 && <WeighPrint layout={weighLayout(weighSections(data, labels))} inv={data.invNumber} week={data.week} />}
 
       {weighing && wOrder && wRow && (
         <WeighSheet
@@ -286,7 +289,7 @@ function CustomerCard({
   order: o,
   lines,
   data,
-  boxSetup,
+  labels,
   onOpen,
   pallets,
   canPack,
@@ -295,7 +298,7 @@ function CustomerCard({
   order: PackOrder;
   lines: [string, PackLine][];
   data: PackingData;
-  boxSetup: BoxSetup;
+  labels: SheetLabel[];
   onOpen: (productId: string) => void;
   /** The week's pallets, for the tags this customer's boxes are on. */
   pallets: { id: string; tag: string }[];
@@ -305,7 +308,8 @@ function CustomerCard({
 }) {
   // One row per line; products packed in one box (Heart, Liver, Kidney) are one row (11/10/26).
   const rows = packRows(lines, (pid) => packedWith(pid, data.products), (pid) => data.products.get(pid)?.name ?? pid);
-  const done = rows.filter((r) => lineLook(r.line) !== "todo").length;
+  // Boxes expected (from the box labels) against boxes packed (11/10/26).
+  const count = orderBoxCount(o, data, labels);
   const weighed = o.weights.reduce((sum, w) => sum + w.weight, 0);
   // The pallets this customer's boxes are on (each box records its own pallet since 10/26/26).
   const tags = [...new Set(o.weights.map((w) => w.pallet_id).filter((x): x is string => !!x))]
@@ -315,8 +319,6 @@ function CustomerCard({
   // A box packed together with something ordered (the HLK box, whichever product its barcode is) is on the order.
   const extras = o.weights.filter((w) => !onOrderAs(w.product_id, o.lines, data.products));
   const toCheck = extras.filter((w) => !w.extra_ok_at).length;
-  // Boxes this order should fill, from each product's box size.
-  const expect = orderBoxesText(orderBoxes(o.lines, o.units, data.products, boxSetup));
 
   return (
     <section className="pcust" aria-label={o.customerName}>
@@ -324,15 +326,25 @@ function CustomerCard({
         <b>{o.customerName}</b>
         {o.spot && <span className="tag even">{o.spot}</span>}
         <span className="flex-1" />
-        {expect && <span className="small muted">{expect}</span>}
         {toCheck > 0 && (
           <span className="tag short">
             {toCheck} extra{toCheck === 1 ? "" : "s"} to check
           </span>
         )}
-        <span className="small num">
-          {done}/{rows.length}
-        </span>
+      </div>
+      <div className="pcount">
+        <span>{boxCountWords(count)}</span>
+        {count.state?.kind === "ok" && <span className="tag even">✓ all boxes packed</span>}
+        {count.state?.kind === "short" && (
+          <span className="tag short">
+            {count.state.n} box{count.state.n === 1 ? "" : "es"} short: {count.state.products.join(", ")}
+          </span>
+        )}
+        {count.state?.kind === "extra" && (
+          <span className="tag short">
+            {count.state.n} more than expected: {count.state.products.join(", ")}
+          </span>
+        )}
       </div>
       <PackNotes o={o} />
 
@@ -405,7 +417,7 @@ function CustomerCard({
         <span className="small">
           {o.weights.length === 0
             ? "No boxes yet."
-            : `${o.weights.length} box${o.weights.length === 1 ? "" : "es"} weighed, ${fmt(Math.round(weighed * 100) / 100)} lb`}
+            : `${o.weights.length} box${o.weights.length === 1 ? "" : "es"} packed, ${fmt(Math.round(weighed * 100) / 100)} lb`}
         </span>
         {tags.length > 0 && <span className="small">On {tags.join(", ")}</span>}
         <span className="flex-1" />

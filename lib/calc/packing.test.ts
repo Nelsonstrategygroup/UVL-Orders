@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxes, packRows, lineDone, lineLook, lineWords, nextBox, orderedWords, orderPacked, packStats, showOrder, type PackLine } from "./packing";
+import { boxes, boxCount, boxCountWords, packRows, lineDone, type BoxCountRow, lineLook, lineWords, nextBox, orderedWords, orderPacked, packStats, showOrder, type PackLine } from "./packing";
 
 const line = (extra: Partial<PackLine>): PackLine => ({
   ordered: 20,
@@ -123,5 +123,60 @@ describe("rows on a store's packing card (11/10/26)", () => {
   it("other lines are unchanged", () => {
     const l = line({ ordered: 20, unit: "lb", weight: 18 });
     expect(packRows([["trim", l]], group, name)[0]).toMatchObject({ pid: "trim", line: l, ordered: orderedWords(l), words: lineWords(l) });
+  });
+});
+
+describe("boxes expected against boxes packed (11/10/26)", () => {
+  const row = (extra: Partial<BoxCountRow>): BoxCountRow => ({ name: "Racks", onOrder: true, planned: 1, packed: 0, shorted: false, counted: false, ...extra });
+  const trim = (packedLb: number, packed: number) => row({ name: "Le Trim", planned: 3, packed, byWeight: { ordered: 120, packed: packedLb } });
+
+  it("counts from the box labels; nothing is flagged while packing", () => {
+    const c = boxCount([row({ planned: 2, packed: 1 }), row({ planned: 5, packed: 5 })], false);
+    expect(c).toMatchObject({ expected: 7, packed: 6, waiting: [], state: null });
+    expect(boxCountWords(c)).toBe("Boxes: 7 expected · 6 packed");
+  });
+
+  it("all packed: a match", () => {
+    expect(boxCount([row({ planned: 2, packed: 2 }), row({ planned: 5, packed: 5 })], true).state).toEqual({ kind: "ok" });
+  });
+
+  it("fewer than expected is flagged only once every line is done; more is flagged at once", () => {
+    expect(boxCount([row({ planned: 2, packed: 1 })], true).state).toEqual({ kind: "short", n: 1, products: ["Racks"] });
+    expect(boxCount([row({ planned: 2, packed: 1 })], false).state).toBeNull();
+    // An extra box of one product isn't hidden by a missing box of another.
+    expect(boxCount([row({ planned: 2, packed: 3 }), row({ name: "Legs", planned: 1, packed: 0 })], false).state).toEqual({ kind: "extra", n: 1, products: ["Racks"] });
+  });
+
+  it("Le Trim, ordered by weight: named and kept apart until its pounds are packed", () => {
+    const c = boxCount([row({ planned: 7, packed: 6 }), trim(82, 2)], false);
+    expect(c).toMatchObject({ expected: 7, packed: 6, waiting: [{ name: "Le Trim", about: 3, packed: 2 }], state: null });
+    expect(boxCountWords(c)).toBe("Boxes: 7 expected · 6 packed, plus Le Trim (about 3 boxes by weight; 2 so far, 82 of 120 lb)");
+    // Still short of its pounds when everything else is done: no tick, the pounds say why.
+    expect(boxCount([row({ planned: 7, packed: 7 }), trim(82, 2)], true).state).toBeNull();
+  });
+
+  it("once Le Trim is packed, the boxes it took are its count, not the estimate", () => {
+    // 120 lb went in 4 boxes, not the 3 estimated.
+    const c = boxCount([row({ planned: 7, packed: 7 }), trim(119.6, 4)], true);
+    expect(c).toMatchObject({ expected: 11, packed: 11, waiting: [], state: { kind: "ok" } });
+    expect(boxCountWords(c)).toBe("Boxes: 11 expected · 11 packed");
+  });
+
+  it("as many boxes as the estimate also settles it, a little under its pounds", () => {
+    const c = boxCount([row({ name: "Le Trim", planned: 2, packed: 2, byWeight: { ordered: 80, packed: 79.45 } })], true);
+    expect(c).toMatchObject({ expected: 2, packed: 2, waiting: [], state: { kind: "ok" } });
+  });
+
+  it("no box size: counted when packed, with no estimate", () => {
+    const necks = row({ name: "Necks", planned: null, packed: 0 });
+    expect(boxCountWords(boxCount([necks], false))).toBe("Boxes: 0 expected · 0 packed, plus Necks (count when packed)");
+    // Once it has a box, the boxes packed are its count.
+    expect(boxCount([{ ...necks, packed: 2 }], true)).toMatchObject({ expected: 2, packed: 2, waiting: [], state: { kind: "ok" } });
+  });
+
+  it("not filled expects nothing; boxes not on the order are counted apart", () => {
+    const c = boxCount([row({ planned: 2, packed: 0, shorted: true }), row({ planned: 1, packed: 1 }), row({ name: "Pepper Sticks", onOrder: false, planned: null, packed: 1 })], true);
+    expect(c).toMatchObject({ expected: 1, packed: 1, offOrder: 1, state: { kind: "ok" } });
+    expect(boxCountWords(c)).toBe("Boxes: 1 expected · 1 packed, 1 not on the order");
   });
 });

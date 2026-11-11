@@ -4,7 +4,7 @@
 // counts), packing_weights, and packing_orders (pallet). Nothing else.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { groupLead, packedWith } from "../calc/packTogether";
+import { boxName, groupLead, packedWith } from "../calc/packTogether";
 import { qtyText } from "../orders";
 import { customerRank, displayName } from "../calc/customers";
 import { labelCustomer, labelList, reportLabels, type LabelList } from "../calc/labels";
@@ -12,7 +12,7 @@ import { sheetRows, type SheetLabel, type SheetRow } from "../calc/packSheet";
 import type { BoxSetup } from "../calc/boxes";
 import { num } from "../calc/num";
 import { toProductUnit } from "../calc/units";
-import type { PackLine, Weight } from "../calc/packing";
+import { boxCount, orderPacked, type BoxCount, type BoxCountRow, type PackLine, type Weight } from "../calc/packing";
 import type { Qty } from "../calc/types";
 import { withSource } from "./source";
 
@@ -536,4 +536,30 @@ export async function assignBox(db: SupabaseClient, weightId: string, orderId: s
     "give to (Pallets)",
   );
   return error ? error.message : null;
+}
+
+/**
+ * A store's boxes expected (from its box labels) against boxes packed, for
+ * its Packing card (11/10/26). One row per product; Heart, Liver and Kidney
+ * are one row and one box.
+ */
+export function orderBoxCount(o: PackOrder, data: PackingData, labels: SheetLabel[]): BoxCount {
+  const lines = new Map(packLines(o, data.products));
+  const rows: BoxCountRow[] = orderSheet(o, data, labels).map((r) => {
+    const group = packedWith(r.productId, data.products);
+    const mine = group.filter((id) => lines.has(id));
+    const line = mine.length ? lines.get(mine[0])! : undefined;
+    const together = group.length > 1;
+    return {
+      name: boxName(r.productId, data.products, o.lines),
+      onOrder: !!line,
+      // Packed in one box: one box for the store, whatever its barcode.
+      planned: together ? 1 : r.known ? r.boxCount : null,
+      packed: r.blanks.filter((b) => b.weight).length,
+      byWeight: !together && line?.unit === "lb" ? { ordered: line.ordered, packed: line.weight } : undefined,
+      shorted: mine.length > 0 && mine.every((id) => lines.get(id)!.shorted),
+      counted: mine.some((id) => lines.get(id)!.count != null),
+    };
+  });
+  return boxCount(rows, orderPacked([...lines.values()]));
 }

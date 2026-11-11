@@ -193,6 +193,13 @@ Port the prototype's Packing screen. Grouped by customer (and location), one lar
 
 Packing is only for packing (change request 10/21/26, stage 1). At the top, in order: "Scan boxes" (large), then "3 of 152 lines packed" with the progress bar, then the To pack / Done / All filter, so the first customer shows without scrolling on a phone. The Box Label Report and "Print a paper copy" links are not on Packing; both pages still work at their own addresses, and This week links to the Box Label Report.
 
+**Box counts on each store's card (Lucas, 11/10/26).** One line under the store's name, in place of "at least 7 boxes", "9/9" and "8 boxes weighed", which counted three different things: "Boxes: 8 expected · 8 packed". "Packed" is every box with a weight, scanned or typed. Expected comes from the store's box labels (`orderBoxCount`, `lib/calc/packing.ts` `boxCount`).
+- A product ordered by weight (Le Trim, or a piece product taken in pounds) only has an estimate, so it's named and kept out of the two numbers until it's packed: "plus Le Trim (about 3 boxes by weight; 2 so far, 82 of 120 lb)". It's packed once its pounds are in (within half a pound) or it has as many boxes as the estimate; from then on its count is the boxes it actually took.
+- A product with no box size: "plus Necks (count when packed)" until it has a box; then the boxes packed are its count.
+- Heart, Liver and Kidney are one box. A line marked Not filled expects none. Boxes for a product not on the order are counted apart ("1 not on the order").
+- Compared product by product. More boxes than a product expected is flagged in red at once ("1 more than expected: Racks"). Fewer is flagged only once every line has a weight or is marked Not filled ("2 boxes short: BNLS Loins, Front Shanks"); until then the store is just still being packed. A green "all boxes packed" tick shows only when every product's count is settled and matches.
+- The shipment heading adds its stores up the same way.
+
 ### 5.7 Half and whole
 
 Port from the prototype: list of orders, "New order," guided form with half or whole, one dropdown per slot for each balance part, freezer availability per slot ("In freezer" or "Cut fresh"), automatic ground lamb from trim, need-by date, status, notes, "Mark filled." Shortfalls feed the weekly totals (6.2).
