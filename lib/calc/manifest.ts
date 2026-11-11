@@ -34,6 +34,17 @@ export function boxIdOf(b: { serial: string | null; label_no: number | null; cas
   return "";
 }
 
+/**
+ * What the paperwork prints when a box has no ID at all: typed in with no
+ * label number (Type in from paper). Said plainly so the column isn't blank
+ * and the box doesn't look left out; how the box was entered is the app's
+ * business, not the receiver's (Lucas, 11/10/26).
+ */
+export const NO_BOX_ID = "No label number";
+
+/** A box's ID as printed: its serial, else its label number, else "No label number". */
+export const boxIdShown = (b: Parameters<typeof boxIdOf>[0]): string => boxIdOf(b) || NO_BOX_ID;
+
 const byName = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 const round2 = (n: number) => Math.round(n * 100) / 100;
 

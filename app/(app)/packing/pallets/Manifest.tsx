@@ -11,6 +11,7 @@
 import type { PackingBundle } from "@/components/offline/usePackingBundle";
 import {
   boxIdOf,
+  boxIdShown,
   buildManifest,
   duplicateBoxIds,
   manifestTable,
@@ -74,7 +75,7 @@ export function palletManifests(
             id: w.id,
             customer,
             product: name(w.product_id),
-            boxId: boxIdOf(w),
+            boxId: boxIdShown(w),
             lot: w.lot ?? "",
             lb: netWeight(w.weight),
           })),
@@ -105,7 +106,7 @@ export function looseBoxes(data: PackingBundle): Manifest {
         id: w.id,
         customer,
         product: name(w.product_id),
-        boxId: boxIdOf(w) || (w.source === "weigh" ? "typed in" : ""),
+        boxId: boxIdShown(w),
         lot: w.lot ?? "",
         lb: netWeight(w.weight),
       })),

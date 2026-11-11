@@ -5,7 +5,7 @@
 // always agree (Lucas, 11/2/26).
 
 import type { PackingBundle } from "@/components/offline/usePackingBundle";
-import { boxIdOf, netWeight } from "./calc/manifest";
+import { boxIdShown, netWeight } from "./calc/manifest";
 import type { PwBox, PwDistributor, PwPallet } from "./calc/paperwork";
 
 /** Every box of the week with its store and distributor; pallet_id says which pallet it's on. */
@@ -23,7 +23,7 @@ export function weekBoxes(b: PackingBundle): (PwBox & { palletId: string | null 
         labelLocation: o.labelLocation,
         pointId: o.shipsToPointId,
         product: name(w.product_id),
-        boxId: boxIdOf(w) || (w.source === "weigh" ? "typed in" : ""),
+        boxId: boxIdShown(w),
         lot: w.lot ?? "",
         lb: netWeight(w.weight),
         at: w.at,
@@ -38,7 +38,7 @@ export function weekBoxes(b: PackingBundle): (PwBox & { palletId: string | null 
       labelLocation: "",
       pointId: null,
       product: name(w.product_id),
-      boxId: boxIdOf(w) || "typed in",
+      boxId: boxIdShown(w),
       lot: w.lot ?? "",
       lb: netWeight(w.weight),
       at: w.at,

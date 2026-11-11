@@ -5,7 +5,7 @@
 // distributor its customers ship through (Setup > Ships to); pallets are
 // numbered within their distributor and ship date ("Plymouth 1 of 3").
 
-import { byCustomerOrder } from "./manifest";
+import { byCustomerOrder, NO_BOX_ID } from "./manifest";
 
 /** One box on a pallet, as the paperwork needs it. */
 export type PwBox = {
@@ -236,7 +236,7 @@ export function manifestPages(rows: ManifestRow[], perPage: number, lastPage: nu
 
 /** A box as the warnings name it: "PCC #12 Redmond, Front Shanks (Label 38)". */
 function boxRef(b: Pick<PwBox, "customer" | "product" | "boxId">): string {
-  return `${b.customer}, ${b.product}${b.boxId && b.boxId !== "typed in" ? ` (${b.boxId})` : ""}`;
+  return `${b.customer}, ${b.product}${b.boxId && b.boxId !== NO_BOX_ID ? ` (${b.boxId})` : ""}`;
 }
 
 /** At most this many boxes are named in one warning; the rest are counted. */

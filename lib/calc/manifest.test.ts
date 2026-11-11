@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxIdOf, buildManifest, duplicateBoxIds, lbText, manifestTable, netWeight, type ManifestBox } from "./manifest";
+import { boxIdOf, boxIdShown, buildManifest, duplicateBoxIds, lbText, manifestTable, netWeight, type ManifestBox } from "./manifest";
 
 const box = (customer: string, product: string, lb: number | null, boxId = `${customer}-${product}-${lb}`): ManifestBox => ({
   id: boxId,
@@ -37,6 +37,9 @@ describe("the pallet manifest", () => {
     expect(boxIdOf({ serial: "2628710066", label_no: 14 })).toBe("2628710066");
     expect(boxIdOf({ serial: null, label_no: 14 })).toBe("Label 14");
     expect(boxIdOf({ serial: null, label_no: null })).toBe("");
+    // On paper a box with no ID at all says so, so it doesn't look left out (11/10/26).
+    expect(boxIdShown({ serial: null, label_no: null })).toBe("No label number");
+    expect(boxIdShown({ serial: null, label_no: 38 })).toBe("Label 38");
   });
 
   it("the CSV has one row per box, the recorded weight, blank when missing", () => {

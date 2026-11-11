@@ -10,7 +10,7 @@ import { Fragment } from "react";
 import { invoiceTotals, lbText, paidCents, quantityText, type PricedLine } from "@/lib/calc/invoice";
 import type { PriceUnit } from "@/lib/db/types";
 import { centsText, priceText, toFixedInt } from "@/lib/calc/prices";
-import { boxIdOf } from "@/lib/calc/manifest";
+import { boxIdOf, boxIdShown } from "@/lib/calc/manifest";
 import { niceDate, weekName } from "@/lib/dates";
 import type { InvoiceSettings } from "@/lib/db/invoicing";
 import type { InvoiceBox, InvoiceRow } from "@/lib/db/invoices";
@@ -264,7 +264,7 @@ function BoxDetail({
                 .sort((a, b) => boxIdOf(a).localeCompare(boxIdOf(b), undefined, { numeric: true }))
                 .map((b) => (
                   <tr key={b.id}>
-                    <td>{boxIdOf(b) || (b.source === "weigh" ? "Typed in" : "")}</td>
+                    <td>{boxIdShown(b)}</td>
                     <td>{b.lot ?? ""}</td>
                     <td>{b.pack_date ? fullDate(b.pack_date) : ""}</td>
                     <td className="num">{lbText(toFixedInt(b.weight, 3))} lb</td>
