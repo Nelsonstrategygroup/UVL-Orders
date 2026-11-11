@@ -11,9 +11,10 @@ import { csvCell } from "./import/csv";
 import { boxCellText, type BoxLimit, type BoxType } from "./calc/boxes";
 import { fmt } from "./calc/num";
 import type { CarcassReport } from "./calc/carcassReport";
+import { packedWith } from "./calc/packTogether";
 
 export type Cell = string | number | null | undefined;
-type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null };
+type ProductLite = { id: string; name: string; unit: string; sort: number; lb_per_unit?: number | null; packed_with?: string | null };
 
 /** A download: column names and rows, saved as CSV or Excel. */
 export type Table = {
@@ -330,7 +331,12 @@ export function packingRecordTable(
     const parent = c?.parent_customer_id ? byId.get(c.parent_customer_id) : undefined;
     for (const l of orderedLines(r.lines, products)) {
       const unit = lineUnit(l.id, l.product ?? undefined, r.units);
-      const ws = r.weights.filter((w) => w.product_id === l.id);
+      // Packed in one box (Heart, Liver, Kidney): the box is on the first of them
+      // on the order, whichever product its barcode is; the others point to it (11/10/26).
+      const group = packedWith(l.id, products).filter((id) => (r.lines[id] ?? 0) > 0);
+      const boxWith = group.length > 1 && group[0] !== l.id ? (products.find((p) => p.id === group[0])?.name ?? group[0]) : null;
+      const inBox = group.length > 1 ? packedWith(l.id, products) : [l.id];
+      const ws = boxWith ? [] : r.weights.filter((w) => inBox.includes(w.product_id));
       const lb = ws.reduce((s, w) => s + w.weight, 0);
       const m = r.marks[l.id];
       const packed = unit === "lb" ? (ws.length ? lb : null) : (m?.count ?? null);
@@ -354,7 +360,7 @@ export function packingRecordTable(
         diff > 0 ? diff : "",
         m?.shorted ? "Yes" : "",
         m?.flagged ? m.flagNote || "Yes" : "",
-        boxWeights,
+        boxWith ? `In one box with ${boxWith}` : boxWeights,
         last?.by ?? "",
         last ? formatTime(last.at) : "",
         r.pallet,

@@ -25,6 +25,7 @@ import { CustomerPages, PalletCover, type PaperworkContext } from "./Paperwork";
 import { invFileName, invLabel } from "@/lib/weekInv";
 import { weekName } from "@/lib/dates";
 import type { PalletRow } from "@/lib/db/scanning";
+import { boxName } from "@/lib/calc/packTogether";
 
 export type PalletManifest = {
   pallet: PalletRow;
@@ -49,12 +50,11 @@ export function palletManifests(
   palletIds?: string[],
 ): PalletManifest[] {
   const p = data.packing;
-  const name = (pid: string) => p.products.get(pid)?.name ?? pid;
   const boxes = [
     ...p.orders.flatMap((o) =>
-      o.weights.map((w) => ({ w, customer: o.labelCustomer })),
+      o.weights.map((w) => ({ w, customer: o.labelCustomer, lines: o.lines as Record<string, number> | null })),
     ),
-    ...p.unassigned.map((w) => ({ w, customer: "Unassigned" })),
+    ...p.unassigned.map((w) => ({ w, customer: "Unassigned", lines: null as Record<string, number> | null })),
   ];
   const pallets = palletIds?.length
     ? data.pallets.filter((x) => palletIds.includes(x.id))
@@ -71,10 +71,10 @@ export function palletManifests(
       manifest: buildManifest(
         boxes
           .filter(({ w }) => w.pallet_id === pallet.id)
-          .map(({ w, customer }) => ({
+          .map(({ w, customer, lines }) => ({
             id: w.id,
             customer,
-            product: name(w.product_id),
+            product: boxName(w.product_id, p.products, lines),
             boxId: boxIdShown(w),
             lot: w.lot ?? "",
             lb: netWeight(w.weight),
@@ -92,20 +92,19 @@ export function palletManifests(
  */
 export function looseBoxes(data: PackingBundle): Manifest {
   const p = data.packing;
-  const name = (pid: string) => p.products.get(pid)?.name ?? pid;
   const boxes = [
     ...p.orders.flatMap((o) =>
-      o.weights.map((w) => ({ w, customer: o.labelCustomer })),
+      o.weights.map((w) => ({ w, customer: o.labelCustomer, lines: o.lines as Record<string, number> | null })),
     ),
-    ...p.unassigned.map((w) => ({ w, customer: "Unassigned" })),
+    ...p.unassigned.map((w) => ({ w, customer: "Unassigned", lines: null as Record<string, number> | null })),
   ];
   return buildManifest(
     boxes
       .filter(({ w }) => !w.pallet_id)
-      .map(({ w, customer }) => ({
+      .map(({ w, customer, lines }) => ({
         id: w.id,
         customer,
-        product: name(w.product_id),
+        product: boxName(w.product_id, p.products, lines),
         boxId: boxIdShown(w),
         lot: w.lot ?? "",
         lb: netWeight(w.weight),
@@ -117,11 +116,10 @@ export function looseBoxes(data: PackingBundle): Manifest {
 /** Box IDs used more than once in the week, and where: "PCC #13 Edmonds · Racks · P2". */
 export function weekDuplicates(data: PackingBundle): DuplicateBox[] {
   const p = data.packing;
-  const name = (pid: string) => p.products.get(pid)?.name ?? pid;
   const tag = (id: string | null) => (id ? (data.pallets.find((x) => x.id === id)?.tag ?? "a pallet") : "no pallet");
   return duplicateBoxIds([
-    ...p.orders.flatMap((o) => o.weights.map((w) => ({ boxId: boxIdOf(w), where: `${o.labelCustomer} · ${name(w.product_id)} · ${tag(w.pallet_id)}` }))),
-    ...p.unassigned.map((w) => ({ boxId: boxIdOf(w), where: `Unassigned · ${name(w.product_id)} · ${tag(w.pallet_id)}` })),
+    ...p.orders.flatMap((o) => o.weights.map((w) => ({ boxId: boxIdOf(w), where: `${o.labelCustomer} · ${boxName(w.product_id, p.products, o.lines)} · ${tag(w.pallet_id)}` }))),
+    ...p.unassigned.map((w) => ({ boxId: boxIdOf(w), where: `Unassigned · ${boxName(w.product_id, p.products)} · ${tag(w.pallet_id)}` })),
   ]);
 }
 

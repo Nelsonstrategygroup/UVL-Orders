@@ -209,6 +209,37 @@ describe("packing record", () => {
   });
 });
 
+describe("packing record: packed in one box (11/10/26)", () => {
+  it("the HLK box is on the first of them on the order, whichever product its barcode is", () => {
+    const hlk = [
+      { id: "heart", name: "Heart", unit: "pack", sort: 1, packed_with: "HLK" },
+      { id: "liver", name: "Liver", unit: "pack", sort: 2, packed_with: "HLK" },
+      { id: "kidney", name: "Kidney", unit: "pack", sort: 3, packed_with: "HLK" },
+    ];
+    const r = rows(
+      packingRecordCsv(
+        "2026-11-09",
+        [
+          {
+            customer_id: "f",
+            status: "ordered",
+            lines: { liver: 12, kidney: 8 },
+            weights: [{ product_id: "kidney", weight: 10.95, box_no: 1, slot: 1, label_no: 40, by: "Chris", at: "2026-11-09T22:00:00Z" }],
+            marks: {},
+            pallet: "",
+          },
+        ],
+        all,
+        hlk,
+        (iso) => iso.slice(11, 16),
+      ),
+    );
+    const c = (name: string, col: string) => r.find((x) => x[r[0].indexOf("Product")] === name)![r[0].indexOf(col)];
+    expect([c("Liver", "Packed (lb)"), c("Liver", "Box weights")]).toEqual(["10.95", "#40 10.95"]);
+    expect([c("Kidney", "Packed (lb)"), c("Kidney", "Box weights")]).toEqual(["", "In one box with Liver"]);
+  });
+});
+
 describe("freezer on hand", () => {
   it("lists on hand, held, and free with the counting unit", () => {
     const r = rows(

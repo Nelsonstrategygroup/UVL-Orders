@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxes, lineDone, lineLook, lineWords, nextBox, orderedWords, orderPacked, packStats, showOrder, type PackLine } from "./packing";
+import { boxes, packRows, lineDone, lineLook, lineWords, nextBox, orderedWords, orderPacked, packStats, showOrder, type PackLine } from "./packing";
 
 const line = (extra: Partial<PackLine>): PackLine => ({
   ordered: 20,
@@ -86,5 +86,42 @@ describe("what was ordered, in words (Lucas, 11/7/26)", () => {
     expect(orderedWords({ ordered: 8, unit: "pack" })).toBe("8 packs");
     expect(orderedWords({ ordered: 45, unit: "lb" })).toBe("45 lb");
     expect(orderedWords({ ordered: 6, unit: "each" })).toBe("6");
+  });
+});
+
+describe("rows on a store's packing card (11/10/26)", () => {
+  const group = (pid: string) => (["heart", "liver", "kidney"].includes(pid) ? ["heart", "liver", "kidney"] : [pid]);
+  const name = (pid: string) => ({ heart: "Heart", liver: "Liver", kidney: "Kidney", rack: "Racks" })[pid] ?? pid;
+  const pk = (extra: Partial<PackLine>): PackLine => line({ ordered: 3, unit: "pack", ...extra });
+
+  it("Heart, Liver and Kidney are one row and one line: Burien's 9 lines are 8 boxes", () => {
+    const lines: [string, PackLine][] = [
+      ["rack", line({ ordered: 6, unit: "each", weight: 22 })],
+      ["heart", pk({ weight: 10.95 })],
+      ["liver", pk({ weight: 10.95 })],
+      ["kidney", pk({ weight: 10.95 })],
+    ];
+    const rows = packRows(lines, group, name);
+    expect(rows.map((r) => r.name)).toEqual(["Racks", "Heart / Liver / Kidney"]);
+    expect(rows[1]).toMatchObject({ pid: "heart", members: ["heart", "liver", "kidney"], ordered: "1 box", words: "Packed 10.95 lb in one box", orderedEach: "Ordered: 3 Heart, 3 Liver, 3 Kidney" });
+    expect(packStats([{ lines: rows.map((r) => r.line) }])).toEqual({ done: 2, total: 2 });
+  });
+
+  it("named for what the store ordered; counts typed at Mohawk show", () => {
+    const rows = packRows([["liver", pk({ ordered: 12, weight: 9, count: 12 })], ["kidney", pk({ ordered: 8, weight: 9 })]], group, name);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ name: "Liver / Kidney", words: "Packed 9 lb in one box, 12 Liver", orderedEach: "Ordered: 12 Liver, 8 Kidney" });
+  });
+
+  it("not weighed yet, not filled only when none of them are, and a flag shows", () => {
+    expect(packRows([["heart", pk({})], ["liver", pk({})]], group, name)[0].words).toBe("Tap to weigh");
+    expect(packRows([["heart", pk({ shorted: true })], ["liver", pk({})]], group, name)[0].line.shorted).toBe(false);
+    expect(packRows([["heart", pk({ shorted: true })], ["liver", pk({ shorted: true })]], group, name)[0].words).toBe("Not filled");
+    expect(packRows([["heart", pk({ weight: 5, flagged: true, flagNote: "torn bag" })]], group, name)[0].words).toBe("Packed 5 lb in one box · Flag: torn bag");
+  });
+
+  it("other lines are unchanged", () => {
+    const l = line({ ordered: 20, unit: "lb", weight: 18 });
+    expect(packRows([["trim", l]], group, name)[0]).toMatchObject({ pid: "trim", line: l, ordered: orderedWords(l), words: lineWords(l) });
   });
 });

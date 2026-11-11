@@ -6,12 +6,12 @@
 
 import type { PackingBundle } from "@/components/offline/usePackingBundle";
 import { boxIdShown, netWeight } from "./calc/manifest";
+import { boxName } from "./calc/packTogether";
 import type { PwBox, PwDistributor, PwPallet } from "./calc/paperwork";
 
 /** Every box of the week with its store and distributor; pallet_id says which pallet it's on. */
 export function weekBoxes(b: PackingBundle): (PwBox & { palletId: string | null })[] {
   const p = b.packing;
-  const name = (pid: string) => p.products.get(pid)?.name ?? pid;
   return [
     ...p.orders.flatMap((o) =>
       o.weights.map((w) => ({
@@ -22,7 +22,8 @@ export function weekBoxes(b: PackingBundle): (PwBox & { palletId: string | null 
         labelName: o.labelName,
         labelLocation: o.labelLocation,
         pointId: o.shipsToPointId,
-        product: name(w.product_id),
+        // Packed in one box (Heart, Liver, Kidney): named for what this store ordered (11/10/26).
+        product: boxName(w.product_id, p.products, o.lines),
         boxId: boxIdShown(w),
         lot: w.lot ?? "",
         lb: netWeight(w.weight),
@@ -37,7 +38,7 @@ export function weekBoxes(b: PackingBundle): (PwBox & { palletId: string | null 
       labelName: "Unassigned",
       labelLocation: "",
       pointId: null,
-      product: name(w.product_id),
+      product: boxName(w.product_id, p.products),
       boxId: boxIdShown(w),
       lot: w.lot ?? "",
       lb: netWeight(w.weight),

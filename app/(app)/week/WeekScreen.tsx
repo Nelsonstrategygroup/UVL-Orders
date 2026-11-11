@@ -17,7 +17,7 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { customerRank, displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
 import { niceDate, todayISO } from "@/lib/dates";
 import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
-import { packStats } from "@/lib/calc/packing";
+import { packRows, packStats, type PackLine } from "@/lib/calc/packing";
 import { packedWith } from "@/lib/calc/packTogether";
 import { fmt, num } from "@/lib/calc/num";
 import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
@@ -102,18 +102,26 @@ export default function WeekScreen() {
   // A line is packed once it has a weight or is marked not filled.
   const { done: linesPacked, total: linesTotal } = packStats(
     [...data.orders.values()].map((o) => ({ o, ...willGetLines(o) })).map(({ o, lines, units }) => ({
-      lines: Object.entries(lines)
-        .filter(([, q]) => q > 0)
-        .map(([pid, q]) => ({
-          ordered: q,
-          unit: units[pid] ?? catalog.productById.get(pid)?.unit ?? "each",
-          // Packed together (Organs): a box of any of them counts for each.
-          weight: packedWith(pid, catalog.products).reduce((sum, id) => sum + (data.packed.get(o.id)?.[id] ?? 0), 0),
-          count: null,
-          shorted: !!data.shorted.get(o.id)?.has(pid),
-          flagged: false,
-          flagNote: "",
-        })),
+      // Products packed in one box (Heart, Liver, Kidney) are one line, as on Packing (11/10/26).
+      lines: packRows(
+        Object.entries(lines)
+          .filter(([, q]) => q > 0)
+          .map(([pid, q]): [string, PackLine] => [
+            pid,
+            {
+              ordered: q,
+              unit: units[pid] ?? catalog.productById.get(pid)?.unit ?? "each",
+              // A box of any of them counts for each.
+              weight: packedWith(pid, catalog.products).reduce((sum, id) => sum + (data.packed.get(o.id)?.[id] ?? 0), 0),
+              count: null,
+              shorted: !!data.shorted.get(o.id)?.has(pid),
+              flagged: false,
+              flagNote: "",
+            },
+          ]),
+        (pid) => packedWith(pid, catalog.products),
+        (pid) => catalog.productById.get(pid)?.name ?? pid,
+      ).map((r) => r.line),
     })),
   );
   const shortCount = Object.values(short).reduce((a, b) => a + b, 0);

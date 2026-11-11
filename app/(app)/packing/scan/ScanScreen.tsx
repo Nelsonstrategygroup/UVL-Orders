@@ -59,7 +59,7 @@ import {
   type RoutePallet,
 } from "@/lib/calc/routing";
 import { isLocal } from "@/lib/offline/outbox";
-import { onOrderAs } from "@/lib/calc/packTogether";
+import { boxName, onOrderAs } from "@/lib/calc/packTogether";
 import { planBoxes, type BoxSetup } from "@/lib/calc/boxes";
 import { setBoxLot, type BoxUpload } from "@/lib/db/scanning";
 import { badScan, goodScan, unlockSound } from "@/lib/scan/feedback";
@@ -219,7 +219,7 @@ export default function ScanScreen() {
   async function confirm(p: Pending) {
     if (!data) return;
     const { base } = p;
-    const name = products?.get(base.productId)?.name ?? "Box";
+    const name = products ? boxName(base.productId, products) : "Box";
     if (p.pick == null) {
       try {
         if (base.photo)
@@ -914,7 +914,7 @@ function SuggestCard({
   return (
     <div className="route-card" role="dialog" aria-label="Where this box goes">
       <p className="m-0 text-[1.1rem]">
-        <b>{product?.name ?? "Box"}</b> · {fmt(weight)} lb
+        <b>{product ? boxName(product.id, data.packing.products, order?.lines) : "Box"}</b> · {fmt(weight)} lb
       </p>
       {p.base.warnings.map((w) => (
         <div key={w} className="scanwarn">
@@ -1241,7 +1241,7 @@ function DupCard({
       <dl className="dup-facts">
         <dt>Product</dt>
         <dd>
-          {data.packing.products.get(b.w.product_id)?.name ?? b.w.product_id}
+          {boxName(b.w.product_id, data.packing.products, data.packing.orders.find((o) => o.id === b.orderId)?.lines)}
         </dd>
         <dt>Weight</dt>
         <dd>{fmt(b.w.weight)} lb</dd>
@@ -1354,7 +1354,7 @@ function MoveSheet({
     !!target && orderId !== b.orderId && overOrder(ro!.need, w.weight);
   const changed =
     (orderId || null) !== b.orderId || pallet !== (w.pallet_id ?? null);
-  const name = data.packing.products.get(w.product_id)?.name ?? w.product_id;
+  const name = boxName(w.product_id, data.packing.products, data.packing.orders.find((o) => o.id === b.orderId)?.lines);
 
   return (
     <Sheet title={`Move ${name}, ${fmt(w.weight)} lb`} onClose={onClose}>
@@ -1825,7 +1825,7 @@ function RecentBoxes({
               {tag(w.pallet_id) && <b>{tag(w.pallet_id)} · </b>}
               {w.who && <>{w.who} · </>}
               {w.label_no != null ? <>Label {w.label_no} · </> : null}
-              {products.get(w.product_id)?.name ?? w.product_id} ·{" "}
+              {boxName(w.product_id, products)} ·{" "}
               {fmt(w.weight)} lb{w.source === "weigh" ? " · typed in" : <> · Lot {w.lot}</>}
               {!w.pallet_id && <b> · no pallet</b>}
               {w.case_no && (

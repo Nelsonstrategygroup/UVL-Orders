@@ -33,3 +33,31 @@ export function onOrderAs<P extends TogetherProduct>(productId: string, lines: R
   if ((lines[productId] ?? 0) > 0) return productId;
   return packedWith(productId, products).find((id) => (lines[id] ?? 0) > 0) ?? null;
 }
+
+/** The group's own name from Setup ("HLK"), for places with no room for the products; "" when packed on its own. */
+export const groupShort = <P extends TogetherProduct>(productId: string, products: Map<string, P> | P[]): string => {
+  const list = Array.isArray(products) ? products : [...products.values()];
+  return groupName(list.find((p) => p.id === productId));
+};
+
+/**
+ * What a box is called wherever it's shown (Packing, Scan boxes, manifests,
+ * reports; Lucas, 11/10/26). A product packed on its own: its name. Products
+ * packed in one box (Heart, Liver, Kidney): the ones on this store's order,
+ * "Heart / Liver / Kidney", or "Liver / Kidney" for a store that ordered no
+ * hearts; all of them when the order isn't known or has none of them. The
+ * box's own product (whichever one Mohawk's barcode was taught as) doesn't
+ * matter.
+ */
+export function boxName<P extends TogetherProduct & { name: string }>(
+  productId: string,
+  products: Map<string, P> | P[],
+  lines?: Record<string, number> | null,
+): string {
+  const list = Array.isArray(products) ? products : [...products.values()];
+  const nameOf = (id: string) => list.find((p) => p.id === id)?.name ?? id;
+  const group = packedWith(productId, list);
+  if (group.length < 2) return nameOf(productId);
+  const mine = lines ? group.filter((id) => (lines[id] ?? 0) > 0) : [];
+  return (mine.length ? mine : group).map(nameOf).join(" / ");
+}

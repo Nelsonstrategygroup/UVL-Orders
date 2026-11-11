@@ -115,3 +115,72 @@ export function boxes(weights: Weight[]): Box[] {
 export function nextBox(weights: Weight[]): number {
   return weights.reduce((m, w) => Math.max(m, w.box_no ?? 0), 0) + 1;
 }
+
+/** One row of a store's packing card: a line, or the lines packed in one box as one row. */
+export type PackRow = {
+  /** The product to open the weigh panel with: the line's, or the first one in the box on this order. */
+  pid: string;
+  /** The order's products in this row (more than one: packed in one box). */
+  members: string[];
+  name: string;
+  /** The row as the packing rules see it; for one box, the box. */
+  line: PackLine;
+  /** The big text on the right: what was ordered ("8 packs"), or "1 box". */
+  ordered: string;
+  /** Under the name: "Tap to weigh", "Packed 10.95 lb, 2 Heart, 5 Liver"... */
+  words: string;
+  /** One box: what was ordered of each, under the words ("Ordered: 3 Heart, 3 Liver, 3 Kidney"). */
+  orderedEach?: string;
+};
+
+/**
+ * A store's lines as rows for Packing (Lucas, 11/10/26): products packed in
+ * one box (Heart, Liver, Kidney) are one row and count as one line, named
+ * for the ones this store ordered. Burien showed "9 of 9" lines with 8 boxes
+ * because its HLK box counted three times. `group` gives the products packed
+ * with one (packedWith), `name` a product's name.
+ */
+export function packRows(lines: [string, PackLine][], group: (pid: string) => string[], name: (pid: string) => string): PackRow[] {
+  const byId = new Map(lines);
+  const used = new Set<string>();
+  const rows: PackRow[] = [];
+  for (const [pid, l] of lines) {
+    if (used.has(pid)) continue;
+    const g = group(pid);
+    if (g.length < 2) {
+      rows.push({ pid, members: [pid], name: name(pid), line: l, ordered: orderedWords(l), words: lineWords(l) });
+      continue;
+    }
+    // In the group's own order, so the name reads the same everywhere.
+    const members = g.filter((id) => byId.has(id));
+    for (const id of members) used.add(id);
+    const ls = members.map((id) => byId.get(id)!);
+    const flagged = ls.find((x) => x.flagged);
+    const box: PackLine = {
+      ordered: 1,
+      unit: "box",
+      weight: Math.max(...ls.map((x) => x.weight)),
+      count: null,
+      shorted: ls.every((x) => x.shorted),
+      flagged: !!flagged,
+      flagNote: flagged?.flagNote ?? "",
+    };
+    const flag = box.flagged ? ` · Flag${box.flagNote ? `: ${box.flagNote}` : ""}` : "";
+    const counted = members.filter((id) => byId.get(id)!.count != null).map((id) => `${fmt(byId.get(id)!.count!)} ${name(id)}`);
+    const words = box.shorted
+      ? `Not filled${flag}`
+      : box.weight <= EPS
+        ? `Tap to weigh${flag}`
+        : `Packed ${fmt(box.weight)} lb in one box${counted.length ? `, ${counted.join(", ")}` : ""}${flag}`;
+    rows.push({
+      pid: members[0],
+      members,
+      name: members.map(name).join(" / "),
+      line: box,
+      ordered: "1 box",
+      words,
+      orderedEach: `Ordered: ${members.map((id) => `${fmt(byId.get(id)!.ordered)} ${name(id)}`).join(", ")}`,
+    });
+  }
+  return rows;
+}

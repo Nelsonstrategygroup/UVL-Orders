@@ -21,6 +21,7 @@ import {
   lineWords,
   orderedWords,
   orderPacked,
+  packRows,
   packStats,
   showOrder,
   type PackFilter,
@@ -28,7 +29,7 @@ import {
 } from "@/lib/calc/packing";
 import { formatWhen } from "@/lib/format";
 import { qtyText } from "@/lib/orders";
-import { packedWith } from "@/lib/calc/packTogether";
+import { boxName, onOrderAs, packedWith } from "@/lib/calc/packTogether";
 import { orderBoxes, orderBoxesText, type BoxSetup } from "@/lib/calc/boxes";
 import { orderSheet, packLines, sheetLabels, sheetRowId, type LineMark, type PackingData, type PackOrder, type PackWeight } from "@/lib/db/packing";
 import { isLocal } from "@/lib/offline/outbox";
@@ -106,7 +107,10 @@ export default function PackingScreen() {
   const withLines = data.orders
     .map((o, i) => ({ o, i, lines: packLines(o, data.products) }))
     .sort((a, b) => at(a.o, a.i) - at(b.o, b.i) || a.i - b.i);
-  const stats = packStats(withLines.map((x) => ({ lines: x.lines.map(([, l]) => l) })));
+  // Products packed in one box (Heart, Liver, Kidney) count as one line (11/10/26).
+  const rowsOf = (lines: [string, PackLine][]) =>
+    packRows(lines, (pid) => packedWith(pid, data.products), (pid) => data.products.get(pid)?.name ?? pid);
+  const stats = packStats(withLines.map((x) => ({ lines: rowsOf(x.lines).map((r) => r.line) })));
   const shown = withLines.filter(({ o, lines }) => showOrder(lines.map(([, l]) => l), filter) || !!keepIds?.has(o.id));
   // Boxes for a whole pallet group, from every order in it.
   const groupBoxes = (g: string) => {
@@ -299,15 +303,17 @@ function CustomerCard({
   /** Check a box not on the order as correct for the shipment, or undo that. */
   onExtraOk: (w: PackWeight, ok: boolean) => void;
 }) {
-  const done = lines.filter(([, l]) => lineLook(l) !== "todo").length;
+  // One row per line; products packed in one box (Heart, Liver, Kidney) are one row (11/10/26).
+  const rows = packRows(lines, (pid) => packedWith(pid, data.products), (pid) => data.products.get(pid)?.name ?? pid);
+  const done = rows.filter((r) => lineLook(r.line) !== "todo").length;
   const weighed = o.weights.reduce((sum, w) => sum + w.weight, 0);
-  const name = (pid: string) => data.products.get(pid)?.name ?? pid;
   // The pallets this customer's boxes are on (each box records its own pallet since 10/26/26).
   const tags = [...new Set(o.weights.map((w) => w.pallet_id).filter((x): x is string => !!x))]
     .map((id) => pallets.find((p) => p.id === id)?.tag)
     .filter(Boolean);
   // Boxes for a product the customer didn't order: shown here to check, never on the manifest (Lucas, 10/26/26).
-  const extras = o.weights.filter((w) => !(w.product_id in o.lines));
+  // A box packed together with something ordered (the HLK box, whichever product its barcode is) is on the order.
+  const extras = o.weights.filter((w) => !onOrderAs(w.product_id, o.lines, data.products));
   const toCheck = extras.filter((w) => !w.extra_ok_at).length;
   // Boxes this order should fill, from each product's box size.
   const expect = orderBoxesText(orderBoxes(o.lines, o.units, data.products, boxSetup));
@@ -325,30 +331,37 @@ function CustomerCard({
           </span>
         )}
         <span className="small num">
-          {done}/{lines.length}
+          {done}/{rows.length}
         </span>
       </div>
       <PackNotes o={o} />
 
-      {lines.map(([pid, l]) => {
+      {rows.map((r) => {
+        const l = r.line;
         const look = lineLook(l);
         return (
           <button
-            key={pid}
+            key={r.pid}
             type="button"
             className={`prow ${look === "todo" ? "" : look}`}
-            onClick={() => onOpen(pid)}
-            aria-label={`${name(pid)}. ${lineWords(l)}`}
+            onClick={() => onOpen(r.pid)}
+            aria-label={`${r.name}. ${r.words}${r.orderedEach ? `. ${r.orderedEach}` : ""}`}
           >
             <span className="box" aria-hidden="true">
               {l.shorted && !l.flagged ? "✕" : (MARK[look] ?? "")}
             </span>
             <span className="what">
-              <b>{name(pid)}</b>
+              <b>{r.name}</b>
               <br />
-              <span className="small">{lineWords(l)}</span>
+              <span className="small">{r.words}</span>
+              {r.orderedEach && (
+                <>
+                  <br />
+                  <span className="small">{r.orderedEach}</span>
+                </>
+              )}
             </span>
-            <span className="qty num">{orderedWords(l)}</span>
+            <span className="qty num">{r.ordered}</span>
           </button>
         );
       })}
@@ -361,7 +374,7 @@ function CustomerCard({
             {extras.map((w) => (
               <li key={w.id} className="flex flex-wrap items-center gap-2">
                 <span className="flex-1">
-                  {name(w.product_id)} · {fmt(w.weight)} lb
+                  {boxName(w.product_id, data.products)} · {fmt(w.weight)} lb
                   {w.serial ? <span className="small muted"> · {w.serial}</span> : null}
                 </span>
                 {w.extra_ok_at ? (

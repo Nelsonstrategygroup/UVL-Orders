@@ -17,6 +17,7 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { fmt } from "@/lib/calc/num";
 import { palletTotals, typedBoxPallet } from "@/lib/calc/routing";
+import { boxName } from "@/lib/calc/packTogether";
 import { assignBox, type PackWeight } from "@/lib/db/packing";
 import type { PalletRow } from "@/lib/db/scanning";
 import Link from "next/link";
@@ -71,7 +72,8 @@ export default function PalletsScreen() {
       customer: "Unassigned",
     })),
   ];
-  const name = (pid: string) => p.products.get(pid)?.name ?? pid;
+  // Packed in one box (Heart, Liver, Kidney): named for what the store ordered (11/10/26).
+  const boxNameOf = (b: Box) => boxName(b.product_id, p.products, p.orders.find((o) => o.customerId === b.customerId)?.lines);
   const shipName = (key: string) => shipNameOf(data, key);
   // The manifest page (one shared manifest for Pallets and Print and download).
   const manifestHref = (palletId?: string) =>
@@ -268,7 +270,7 @@ export default function PalletsScreen() {
                   className="flex flex-wrap items-center gap-2 border-b border-line py-2"
                 >
                   <span className="flex-1">
-                    {name(w.product_id)} · {fmt(w.weight)} lb · Lot{" "}
+                    {boxName(w.product_id, p.products)} · {fmt(w.weight)} lb · Lot{" "}
                     {w.lot ?? "?"}
                     {w.case_no && (
                       <span className="small muted"> · case {w.case_no}</span>
@@ -326,13 +328,13 @@ export default function PalletsScreen() {
                     <li key={b.id} className="flex flex-wrap items-center gap-2 border-b border-line py-2">
                       <span className="flex-1">
                         <b>{b.customer}</b> · {b.label_no != null ? <>Label {b.label_no} · </> : null}
-                        {name(b.product_id)} · {fmt(b.weight)} lb
+                        {boxNameOf(b)} · {fmt(b.weight)} lb
                       </span>
                       {canPack && choices.length > 0 ? (
                         <select
                           className="field w-auto!"
                           value=""
-                          aria-label={`Put ${b.customer}'s ${name(b.product_id)} box on a pallet`}
+                          aria-label={`Put ${b.customer}'s ${boxNameOf(b)} box on a pallet`}
                           onChange={(e) => e.target.value && void putOn(b, e.target.value)}
                         >
                           <option value="">Put on pallet...</option>
