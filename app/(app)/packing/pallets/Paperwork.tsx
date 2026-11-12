@@ -1,11 +1,11 @@
 // The pallet paperwork (Lucas, 11/2/26), drawn from lib/calc/paperwork.ts:
 // - CrossDockSheet: one Letter page per distributor per ship date, a band in
-//   the distributor's color with its name large in white and its short code,
+//   the distributor's color with its name large in white (never its short code alone: 11/10/26),
 //   the pallets (Plymouth 1, 2, 3) with cases and weight, big totals, and
 //   Received by / Date. Dark colors only, so it reads in black and white.
 // - PalletLabel: Letter landscape for the outside of a pallet: the carrier
 //   "to" the distributor, the stores on it, "Pallet 1 of 3" and the cases,
-//   the short code in a corner.
+//   and the pallet numbered among all the distributor's pallets that week.
 // - CustomerPages: the manifest, one customer per page: a row per box by
 //   product, a shaded subtotal under any product with 2 or more boxes, the
 //   customer's total, Received by / Date. A long customer carries on to a
@@ -42,8 +42,8 @@ export function CrossDockSheet({ group, ctx }: { group: CrossDockGroup; ctx: Pap
   return (
     <section className="pw-page cd" style={colorVars(p.color)}>
       <div className="cd-band">
+        {/* The full name; the code ("PP") isn't printed: a new employee won't know it (Lucas, 11/10/26). */}
         <span className="cd-name">{p.name}</span>
-        {p.code && <span className="cd-code">{p.code}</span>}
       </div>
       <div className="cd-meta">
         <div className="cd-meta-left">
@@ -113,7 +113,7 @@ export function CrossDockSheet({ group, ctx }: { group: CrossDockGroup; ctx: Pap
         </div>
       </div>
       <div className="cd-bottom">
-        <div className="cd-bar">{p.code || p.shortName}</div>
+        <div className="cd-bar">{p.name}</div>
         <div className="mf-sign">
           <span>
             Received by <span className="mf-line wide" />
@@ -143,7 +143,6 @@ export function PalletLabel({ row, group, ctx }: { row: CrossDockPallet; group: 
         </span>
       </div>
       <div className="plab-center">
-        {p.code && <div className="plab-code">{p.code}</div>}
         {p.carrier && <div className="plab-carrier">{p.carrier}</div>}
         {p.carrier && <div className="plab-to">to</div>}
         <div className="plab-dist">{p.name}</div>
@@ -208,7 +207,7 @@ export function PalletCover({
           {tag}
           {palletName ? ` · ${palletName}` : ""}
         </span>
-        {point?.code && <span className="cd-code">{point.code}</span>}
+        {point && <span className="cd-code cd-code-name">{point.name}</span>}
       </div>
       <div className="cd-meta">
         <div className="cd-meta-left">
@@ -293,7 +292,7 @@ export function CustomerPages({
                 <div className="cm-co">{ctx.company}</div>
                 <div className="cm-cust">{cm.customer}</div>
                 <div className="cm-pallet">
-                  {point?.code && <span className="cm-code">{point.code}</span>}
+                  {point && <span className="cm-code">{point.name}</span>}
                   <b>
                     {palletTag}
                     {palletName ? ` · ${palletName}` : ""}

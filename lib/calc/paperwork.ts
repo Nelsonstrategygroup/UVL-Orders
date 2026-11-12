@@ -3,7 +3,8 @@
 // records (packing_weights), so their counts and weights always agree;
 // nothing is recalculated, estimated or stored separately. A pallet takes the
 // distributor its customers ship through (Setup > Ships to); pallets are
-// numbered within their distributor and ship date ("Plymouth 1 of 3").
+// numbered within their distributor for the week ("Plymouth 2 of 3"),
+// whichever of them are being printed (Lucas, 11/10/26).
 
 import { byCustomerOrder, NO_BOX_ID } from "./manifest";
 
@@ -101,7 +102,7 @@ export function palletPointProblem(pp: PalletPoint, names: Map<string, string>):
 
 export type CrossDockPallet = {
   pallet: PwPallet;
-  /** 1, 2, 3 within the distributor and ship date, and how many. */
+  /** 1, 2, 3 among all the distributor's pallets that week (by tag), and how many there are. */
   n: number;
   of: number;
   /** "Plymouth 1". */
@@ -122,9 +123,13 @@ export type CrossDockGroup = {
 };
 
 /**
- * Pallets by distributor and ship date, numbered within each by their tag
- * (P1, P2, P3 -> Plymouth 1, 2, 3), and the pallets that can't go on a sheet
- * (no distributor, or mixed) with the reason.
+ * Pallets by distributor and ship date (one cross dock sheet each), and the
+ * pallets that can't go on a sheet (no distributor, or mixed) with the
+ * reason. A pallet's number counts every pallet going to that distributor
+ * that week, by tag (P1, P2, P3 -> Plymouth 1, 2, 3 of 3), so it's the same
+ * on every sheet, label and manifest, whichever pallets are printed and
+ * whatever day each ships (Lucas, 11/10/26: P2 printed alone said "1 of 1").
+ * Give every pallet of the week; choose which to print afterwards.
  */
 export function crossDockGroups(
   pallets: PwPallet[],
@@ -143,15 +148,23 @@ export function crossDockGroups(
     const key = `${pp.pointId}|${p.shipDate ?? ""}`;
     by.set(key, [...(by.get(key) ?? []), p]);
   }
+  // Each distributor's pallets for the whole week, in tag order: a pallet's place in that list is its number.
+  const week = new Map<string, PwPallet[]>();
+  for (const [key, list] of by) {
+    const pointId = key.split("|")[0];
+    week.set(pointId, [...(week.get(pointId) ?? []), ...list]);
+  }
+  for (const [pointId, list] of week) week.set(pointId, list.sort((a, b) => byName(a.tag, b.tag)));
   const groups = [...by.entries()].map(([key, list]) => {
     const [pointId, date] = key.split("|");
     const point = points.get(pointId)!;
+    const all = week.get(pointId)!;
     const sorted = [...list].sort((a, b) => byName(a.tag, b.tag));
-    const rows = sorted.map((pallet, i) => ({
+    const rows = sorted.map((pallet) => ({
       pallet,
-      n: i + 1,
-      of: sorted.length,
-      name: `${point.shortName} ${i + 1}`,
+      n: all.indexOf(pallet) + 1,
+      of: all.length,
+      name: `${point.shortName} ${all.indexOf(pallet) + 1}`,
       cases: pallet.boxes.length,
       lb: boxesLb(pallet.boxes),
       missing: pallet.boxes.filter((b) => b.lb == null).length,

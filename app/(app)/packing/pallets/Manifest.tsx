@@ -141,12 +141,17 @@ export type PalletPick = { palletId?: string | null; date?: string | null };
 
 /** The pallets the paperwork covers, grouped by distributor and ship date, and those with no distributor. */
 export function pickPallets(data: PackingBundle, pick: PalletPick) {
-  const pallets = weekPallets(data).filter((p) => !pick.palletId || p.id === pick.palletId);
-  const { groups, blocked } = crossDockGroups(pallets, weekPoints(data));
+  // Number every pallet of the week first, then keep the ones asked for, so
+  // one pallet printed alone still says "Plymouth 2 of 3" (11/10/26).
+  const { groups, blocked } = crossDockGroups(weekPallets(data), weekPoints(data));
   const onDate = (d: string | null) => !pick.date || (pick.date === "none" ? d == null : d === pick.date);
+  const wanted = (id: string) => !pick.palletId || id === pick.palletId;
   return {
-    groups: groups.filter((g) => onDate(g.shipDate)),
-    blocked: blocked.filter((b) => onDate(b.pallet.shipDate)),
+    groups: groups
+      .filter((g) => onDate(g.shipDate))
+      .map((g) => (pick.palletId ? { ...g, pallets: g.pallets.filter((r) => wanted(r.pallet.id)) } : g))
+      .filter((g) => g.pallets.length > 0),
+    blocked: blocked.filter((b) => onDate(b.pallet.shipDate) && wanted(b.pallet.id)),
   };
 }
 

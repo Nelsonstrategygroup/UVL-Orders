@@ -77,12 +77,18 @@ describe("the pallet paperwork (11/2/26)", () => {
     expect(lbWords(2770.05)).toBe("2,770.05 lb");
   });
 
-  it("separate ship dates are separate sheets", () => {
+  it("separate ship dates are separate sheets, numbered across the week (11/10/26)", () => {
     const { groups } = crossDockGroups([pallet("P1", [box("PCC #10 Issaquah", "Racks", 1)], "2026-11-04"), pallet("P2", [box("PCC #13 Edmonds", "Racks", 1)], "2026-11-05")], points);
     expect(groups.map((g) => [g.shipDate, g.pallets[0].name, g.pallets[0].of])).toEqual([
-      ["2026-11-04", "Plymouth 1", 1],
-      ["2026-11-05", "Plymouth 1", 1],
+      ["2026-11-04", "Plymouth 1", 2],
+      ["2026-11-05", "Plymouth 2", 2],
     ]);
+  });
+
+  it("three pallets to Plymouth: P2 is 2 of 3 (it printed \"1 of 1\" when printed alone)", () => {
+    const three = ["P1", "P2", "P3"].map((t) => pallet(t, [box("PCC #10 Issaquah", "Racks", 1)], "2026-11-10"));
+    const p2 = crossDockGroups(three, points).groups[0].pallets.find((r) => r.pallet.tag === "P2")!;
+    expect([p2.name, p2.n, p2.of]).toEqual(["Plymouth 2", 2, 3]);
   });
 
   it("the manifest: one customer each, a row per box by product then box ID, a subtotal under 2 or more boxes", () => {
