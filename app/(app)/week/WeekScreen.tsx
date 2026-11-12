@@ -29,7 +29,7 @@ import { qtyWords } from "@/lib/calc/carcassReport";
 import Working from "./Working";
 import { leTrimCutLines, leTrimShortText } from "@/lib/calc/leTrim";
 import { labelCustomer, labelList } from "@/lib/calc/labels";
-import { cantConvert, unitWord } from "@/lib/calc/units";
+import { cantConvert, notWholePacks, unitWord } from "@/lib/calc/units";
 import { formatDateTime } from "@/lib/format";
 import { addExtraLambs, removeExtraLambs, saveWeek, setFollowUpDone } from "@/lib/db/save";
 import { loadCutSheet } from "@/lib/db/cutsheet";
@@ -96,6 +96,11 @@ export default function WeekScreen() {
   const legs = legBreakdownText(legBreakdown(c.withShort, catalog.products));
   // Lines in pounds for a product with no weight per piece count as nothing.
   const uncounted = [...data.orders.values()].flatMap((o) => cantConvert(firmLines(o), o.units, catalog.productById));
+  // Lines in single pieces that don't make whole packs ("15 Mixed Shanks" at 2 a pack; 11/10/26).
+  const oddPacks = [...data.orders.entries()].flatMap(([cid, o]) => {
+    const c = customers.byId.get(cid);
+    return notWholePacks(o.lines, o.units, catalog.productById).map((x) => ({ ...x, customer: c ? displayName(c, customers.byId) : "A customer" }));
+  });
 
   const ordering = orderingCustomers(customers.list);
   const answered = ordering.filter((cu) => isDone(data.orders.get(cu.id)?.status)).length;
@@ -296,6 +301,12 @@ export default function WeekScreen() {
             </Link>{" "}
             <span className="small muted">where every piece goes, part by part, to print for the cut sheet</span>
           </p>
+          {oddPacks.length > 0 && (
+            <p className="note bad small mt-3">
+              Not whole packs: {oddPacks.map((x) => `${x.customer} ${fmt(x.qty)} ${x.name} (${fmt(x.per)} to a pack)`).join(", ")}. Check
+              what was ordered, and enter it in packs.
+            </p>
+          )}
           {uncounted.length > 0 && (
             <p className="note bad small mt-3">
               Not counted: {uncounted.map((u) => `${u.name} ${fmt(u.qty)} ${unitWord(u.unit, u.qty)}`).join(", ")}. Add a weight

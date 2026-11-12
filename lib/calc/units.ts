@@ -57,8 +57,19 @@ export function lineUnit(productId: string, product: Pick<Product, "unit"> | und
  * Packing, the lamb count and the totals all use that count. Open question
  * for Kathy: nearest, or always up?
  */
-export function toProductUnit(qty: number, unit: string | undefined, product: Pick<Product, "unit" | "lb_per_unit">): number {
+export function toProductUnit(
+  qty: number,
+  unit: string | undefined,
+  product: Pick<Product, "unit" | "lb_per_unit"> & { pieces_per_pack?: number | null },
+): number {
   if (!unit || unit === product.unit) return qty;
+  // Packs and pieces (shanks, 2 a pack; Lucas, 11/10/26): 8 packs of a product
+  // counted in pieces is 16, and 15 pieces of a product counted in packs is
+  // 7.5 packs (not whole packs: see notWholePacks). Before this a pack line
+  // counted as that many pieces, so Mixed Shanks labels and totals mixed the two.
+  const per = product.pieces_per_pack ?? 0;
+  if (per > 0 && unit === "pack" && product.unit === "each") return qty * per;
+  if (per > 0 && unit === "each" && product.unit === "pack") return qty / per;
   const w = product.lb_per_unit ?? 0;
   if (unit === "lb") return w > 0 && qty > 0 ? Math.max(1, Math.round(qty / w)) : 0;
   if (product.unit === "lb") return qty * w;
@@ -71,6 +82,30 @@ export function inProductUnits(lines: Qty, units: Units | undefined, productById
   for (const [id, q] of Object.entries(lines)) {
     const p = productById.get(id);
     out[id] = p ? toProductUnit(q, units?.[id], p) : q;
+  }
+  return out;
+}
+
+/**
+ * Lines counted in pieces that don't make whole packs (Lucas, 11/10/26):
+ * "15 Mixed Shanks" can't be packs of 2. A product sold in packs
+ * (pieces_per_pack) with a line in pieces, taken that way or because the
+ * product itself is counted in pieces. For This week to flag, so someone asks
+ * what was meant.
+ */
+export function notWholePacks(
+  lines: Qty,
+  units: Units | undefined,
+  productById: Map<string, Pick<Product, "name" | "unit"> & { pieces_per_pack?: number | null }>,
+): { name: string; qty: number; per: number }[] {
+  const out: { name: string; qty: number; per: number }[] = [];
+  for (const [id, q] of Object.entries(lines)) {
+    const p = productById.get(id);
+    const per = p?.pieces_per_pack ?? 0;
+    if (!p || !(per > 1) || !(q > 0)) continue;
+    if ((units?.[id] ?? p.unit) !== "each") continue;
+    const left = q % per;
+    if (left > 1e-9 && per - left > 1e-9) out.push({ name: p.name, qty: q, per });
   }
   return out;
 }

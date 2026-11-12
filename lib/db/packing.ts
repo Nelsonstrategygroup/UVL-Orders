@@ -22,6 +22,8 @@ export type PackProduct = {
   unit: string;
   sort: number;
   lb_per_unit: number | null;
+  /** Pieces in a pack (shanks: 2), so packs and pieces convert (11/10/26). Missing on a copy kept before then. */
+  pieces_per_pack?: number | null;
   /** How many fit in one box; null if not known yet. */
   per_box: number | null;
   active: boolean;
@@ -228,7 +230,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, ships_to_point_id"),
     // Everything, so the paperwork's fields (short name, code, color) can't break Packing before their migration runs.
     db.from("consolidation_points").select("*"),
-    db.from("products").select("id, name, unit, sort, lb_per_unit, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks, packed_with").order("sort"),
+    db.from("products").select("id, name, unit, sort, lb_per_unit, pieces_per_pack, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks, packed_with").order("sort"),
     db.from("profiles").select("id, display_name"),
     // The INV#: the week's invoice number (the same on the cut sheet, manifest and invoices).
     db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
@@ -383,6 +385,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
   const prods = ((must(products) as PackProduct[]) ?? []).map((x) => ({
     ...x,
     lb_per_unit: x.lb_per_unit == null ? null : num(x.lb_per_unit),
+    pieces_per_pack: x.pieces_per_pack == null ? null : num(x.pieces_per_pack),
     per_box: x.per_box == null ? null : num(x.per_box),
     box_lb_min: x.box_lb_min == null ? null : num(x.box_lb_min),
     box_lb_max: x.box_lb_max == null ? null : num(x.box_lb_max),

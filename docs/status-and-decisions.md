@@ -41,6 +41,42 @@ questions doc.
 
 ## Decisions
 
+### Fixes from packing INV# 3003 (11/10/26 to 11/11/26)
+Ten items Lucas and Chris found while packing Mon Nov 9.
+- **Audit log source.** Every box change records which screen or action made
+  it ("scan", "scan (store picked first)", "weigh panel (Packing)", "type in
+  from paper", "put on pallet (Pallets)"...), in `audit_log.source`.
+- **Scan routing record.** Burien's box was routed correctly: several stores
+  needed Front Shanks and Chris tapped Burien. The "suggested" store was the
+  app's hidden guess. A tapped box now keeps the stores Chris saw (`offered`).
+- **Warnings before pallet paperwork prints.** Every box on no pallet, by
+  customer and product; and each pallet's boxes against its stores' boxes.
+- **Manifest box ID.** A typed box with no label number prints "No label
+  number". Scanned or typed is the app's business, not the paperwork's.
+- **Heart, Liver, Kidney are one line and one box** everywhere, named for
+  what the store ordered ("Liver / Kidney" for Bellevue). Orders keep three
+  quantities. The group is labelled HLK in Setup (was "Organs").
+- **Packing box counts.** One line per store: "Boxes: 8 expected · 8 packed".
+  Le Trim and anything by weight is kept apart until packed ("about 3 boxes
+  by weight; 2 so far, 82 of 120 lb"), then the boxes it took are its count.
+  Rules chosen (Lucas agreed): by weight counts as packed within half a pound
+  or at the estimated boxes; no box size counts as packed with its first box.
+- **Pallet X of Y** counts every pallet to the same distributor that week
+  (P2 is "Plymouth 2 of 3"). "PP" is no longer printed alone: "Plymouth
+  Poultry".
+- **A box not on the order** (Issaquah's pepper sticks): warned at the scan,
+  "Correct, ship it" on Packing, on the manifest and the invoice. The order
+  isn't changed; whether it should be is question 27 for Kathy and Chris.
+- **Order grid print.** A paper layout on landscape Letter: every product
+  with an order, 14 columns a sheet.
+- **Mixed Shanks.** Always in packs (Lucas). Packs and pieces now convert by
+  the pack size; pieces that aren't whole packs are flagged on This week.
+  Lucas sets Mixed Shanks to packs in Setup; Bothell's 15 is 15 packs.
+- Standing rule (Lucas): someone who isn't Lucas or Chris should be able to
+  step in and understand every screen; a count or label that could be read
+  two ways gets flagged.
+- Tabled: a test week for training and scan testing (11/11/26).
+
 ### Typed-in boxes and pallets (11/9/26)
 - Found on INV# 3003: Redmond's Front Shanks box (label #38) was typed in on
   the weigh panel, so it had no pallet and wasn't on P2's manifest. Put on P2

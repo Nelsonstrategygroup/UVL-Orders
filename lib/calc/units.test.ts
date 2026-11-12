@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countUnit, inProductUnits, toProductUnit, unitWord } from "./units";
+import { countUnit, inProductUnits, notWholePacks, toProductUnit, unitWord } from "./units";
 
 const parts = [
   { id: "fshank", name: "Front shank" },
@@ -67,5 +67,41 @@ describe("whole pieces from pounds (Lucas, 11/7/26)", () => {
     expect(toProductUnit(0, "lb", sh)).toBe(0);
     // Pieces into pounds stay exact.
     expect(toProductUnit(3, "each", { unit: "lb", lb_per_unit: 4.5 })).toBe(13.5);
+  });
+});
+
+describe("packs and pieces (Mixed Shanks, 11/10/26)", () => {
+  const mixedPieces = { name: "Mixed Shanks", unit: "each", lb_per_unit: null, pieces_per_pack: 2 };
+  const mixedPacks = { name: "Mixed Shanks", unit: "pack", lb_per_unit: null, pieces_per_pack: 2 };
+
+  it("a pack line on a product counted in pieces is 2 pieces a pack, not 1", () => {
+    // Edmonds 8 packs, Bellevue 12, Kirkland 12, Bothell 15 pieces: 79 pieces, not 47.
+    expect(toProductUnit(8, "pack", mixedPieces)).toBe(16);
+    expect([8, 12, 12].reduce((s, q) => s + toProductUnit(q, "pack", mixedPieces), 0) + toProductUnit(15, undefined, mixedPieces)).toBe(79);
+  });
+
+  it("once the product is counted in packs, everything totals in packs", () => {
+    expect(toProductUnit(8, undefined, mixedPacks)).toBe(8);
+    expect(toProductUnit(8, "pack", mixedPacks)).toBe(8);
+    expect(toProductUnit(16, "each", mixedPacks)).toBe(8);
+    expect(toProductUnit(15, "each", mixedPacks)).toBe(7.5);
+  });
+
+  it("no pack size set: left as it was", () => {
+    expect(toProductUnit(8, "pack", { unit: "each", lb_per_unit: null })).toBe(8);
+  });
+
+  it("pieces that don't make whole packs are flagged", () => {
+    const byId = new Map<string, { name: string; unit: string; lb_per_unit: null; pieces_per_pack: number | null }>([["mixed", mixedPieces], ["front", { name: "Front Shanks", unit: "pack", lb_per_unit: null, pieces_per_pack: 2 }], ["rack", { name: "Racks", unit: "each", lb_per_unit: null, pieces_per_pack: null }]]);
+    // Bothell's 15 single shanks.
+    expect(notWholePacks({ mixed: 15 }, {}, byId)).toEqual([{ name: "Mixed Shanks", qty: 15, per: 2 }]);
+    expect(notWholePacks({ mixed: 16 }, {}, byId)).toEqual([]);
+    // In packs: nothing to flag, whatever the number.
+    expect(notWholePacks({ mixed: 15 }, { mixed: "pack" }, byId)).toEqual([]);
+    expect(notWholePacks({ front: 15 }, {}, byId)).toEqual([]);
+    // A pack product taken in single pieces.
+    expect(notWholePacks({ front: 7 }, { front: "each" }, byId)).toEqual([{ name: "Front Shanks", qty: 7, per: 2 }]);
+    // Not sold in packs.
+    expect(notWholePacks({ rack: 7 }, {}, byId)).toEqual([]);
   });
 });
