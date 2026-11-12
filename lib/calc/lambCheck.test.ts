@@ -125,3 +125,31 @@ describe("lamb count check (Lucas, 11/7/26)", () => {
     expect(r.guesses).toBe("Still starting guesses, not checked yet: hind shanks (2 per lamb).");
   });
 });
+
+describe("lamb count check: Mixed Shanks (11/12/26)", () => {
+  it("is listed with the shanks, and its shanks are in the hind and front sums", () => {
+    const mixed = prod("mx", "Mixed Shanks", {}, { unit: "pack", pieces_per_pack: 2, draws_from: ["hshank", "fshank"], counts_toward_lambs: false });
+    const all = [...products, mixed];
+    const ids = new Map(all.map((p) => [p.id, p]));
+    const os = [{ customer: "PCC #16 Bothell", lines: { bnls: 100, fs: 40, mx: 70 } as Qty }];
+    const cw = calcWeek({ parts, products: all, orders: os.map((o) => inProductUnits(o.lines, undefined, ids)) });
+    const rr = lambCheck({
+      weekName: "Nov 16",
+      c: cw,
+      parts,
+      products: all,
+      orders: os,
+      requested: [],
+      short: {},
+      extraLambs: [],
+      leTrim: null,
+      answers: { ordered: 1, total: 1, waiting: [], noOrder: [] },
+      packSizes: new Map([["fshank", 2], ["hshank", 2]]),
+    });
+    const shanks = rr.groups.find((g) => g.title === "Shanks")!;
+    expect(shanks.products.map((p) => p.name)).toContain("Mixed Shanks");
+    expect(rr.groups.find((g) => g.title.startsWith("Other lamb products"))?.products.map((p) => p.name) ?? []).not.toContain("Mixed Shanks");
+    // 50 lambs: 100 hind, all to Mixed Shanks first; 100 front, 80 to Front Shanks, the last 20 to Mixed Shanks.
+    expect(shanks.math).toEqual(["Front Shanks 40 × 2 + Mixed Shanks 10 × 2 = 100 front shanks", "Mixed Shanks 50 × 2 = 100 hind shanks"]);
+  });
+});

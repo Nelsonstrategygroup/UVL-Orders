@@ -197,7 +197,10 @@ export function lambCheck(x: CheckInput): LambCheck {
       ensure("carcass", "Carcass lambs (sent uncut)").products.push(line);
       continue;
     }
-    const keys = [...new Set(p.uses.filter((u) => num(u.qty) && partById.has(u.part_id)).map((u) => groupKey(partById.get(u.part_id)!)))];
+    // A product cut from any of several parts (Mixed Shanks: hind, then front) goes with those parts (11/12/26).
+    const from = p.uses.filter((u) => num(u.qty) && partById.has(u.part_id)).map((u) => u.part_id);
+    const ids = from.length ? from : (p.draws_from ?? []).filter((id) => partById.has(id));
+    const keys = [...new Set(ids.map((id) => groupKey(partById.get(id)!)))];
     if (!keys.length) {
       if (p.not_lamb) ensure("notlamb", "Not from the lamb").products.push(line);
       else ensure("other", "Other lamb products (they don't change the count)").products.push(line);
