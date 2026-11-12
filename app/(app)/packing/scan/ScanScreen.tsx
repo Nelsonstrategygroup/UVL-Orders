@@ -149,7 +149,20 @@ export default function ScanScreen() {
 
   // Lock to this customer: the old customer-first flow.
   const [lockId, setLockId] = useState("");
-  const [scanning, setScanning] = useState(false);
+  // How boxes are scanned, chosen once and kept until "Done scanning" (Lucas, 11/12/26): the Bluetooth
+  // scanner (the camera stays off, so it can't read a label by accident) or the phone's camera.
+  const [mode, setModeState] = useState<ScanMode>(() => readMode());
+  const setMode = (m: ScanMode) => {
+    setModeState(m);
+    try {
+      if (m) sessionStorage.setItem(MODE_KEY, m);
+      else sessionStorage.removeItem(MODE_KEY);
+    } catch {
+      // Private window or storage off: the choice lasts until the page is closed.
+    }
+  };
+  const scanning = mode !== "";
+  const scanInput = useRef<HTMLInputElement>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   // A box scanned again: shown as recorded, with That's right / Wrong store / Wrong pallet / Remove scan.
@@ -162,8 +175,6 @@ export default function ScanScreen() {
   const [shown, setShown] = useState<Shown | null>(null);
   const [lastProduct, setLastProduct] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
-  const [typed, setTyped] = useState("");
-  const [keyboard, setKeyboard] = useState(false);
   const busy = useRef(false);
   // Boxes saved this session, before the list reloads: no double scans in between.
   const savedHere = useRef(new Map<string, string>());
@@ -185,6 +196,13 @@ export default function ScanScreen() {
     );
     return () => clearTimeout(t);
   }, [scanning, pending, shown]);
+  // Bluetooth scanner: the box it types into keeps the focus whenever nothing else is open, so the next label goes in.
+  const scannerReady = mode === "bluetooth" && !pending && !dup && !moving && !question && !manual;
+  useEffect(() => {
+    if (!scannerReady) return;
+    const t = setTimeout(() => scanInput.current?.focus({ preventScroll: true }), 60);
+    return () => clearTimeout(t);
+  }, [scannerReady, shown]);
   const locked = data?.packing.orders.find((o) => o.id === lockId);
   const products = data?.packing.products;
 
@@ -640,20 +658,56 @@ export default function ScanScreen() {
           />
         )}
 
-        {!pending && !dup && (
+        {!pending && !dup && !mode && (
           <div className="mt-3 grid gap-2">
+            <p className="lbl m-0">How are you scanning?</p>
             <button
               type="button"
-              className={`scanbtn ${scanning ? "on" : ""}`}
+              className="scanbtn"
               disabled={!canPack}
               onClick={() => {
                 unlockSound();
-                setScanning((v) => !v);
+                setMode("bluetooth");
               }}
             >
-              {scanning ? "Stop scanning" : "Start scanning"}
+              Bluetooth scanner
+            </button>
+            <button
+              type="button"
+              className="scanbtn alt"
+              disabled={!canPack}
+              onClick={() => {
+                unlockSound();
+                setMode("camera");
+              }}
+            >
+              Phone camera
             </button>
           </div>
+        )}
+        {!pending && !dup && mode && (
+          <div className="scanmode mt-3">
+            <span className="flex-1">
+              <b>{mode === "bluetooth" ? "Bluetooth scanner" : "Phone camera"}</b>
+              <span className="small block">
+                {mode === "bluetooth" ? "Camera off. Scan a label." : "Hold a label in the frame."}
+              </span>
+            </span>
+            <button type="button" className="btn ghost" onClick={() => setMode(mode === "bluetooth" ? "camera" : "bluetooth")}>
+              {mode === "bluetooth" ? "Use the camera" : "Use the scanner"}
+            </button>
+            <button type="button" className="btn" onClick={() => setMode("")}>
+              Done scanning
+            </button>
+          </div>
+        )}
+        {mode === "bluetooth" && !pending && !dup && (
+          <ScannerBox
+            inputRef={scanInput}
+            label="Scanner reads into here"
+            placeholder="Ready for the scanner"
+            onRead={onRead}
+          />
         )}
         {shown && !pending && !dup && (
           <div
@@ -675,7 +729,7 @@ export default function ScanScreen() {
           </div>
         )}
         <CameraScanner
-          active={scanning && !pending && !dup && !moving}
+          active={mode === "camera" && !pending && !dup && !moving}
           onRead={onRead}
         />
       </div>
@@ -722,39 +776,9 @@ export default function ScanScreen() {
 
       {!pending && (
         <>
-          <form
-            className="mt-3 flex flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const t = typed;
-              setTyped("");
-              if (t.trim()) onRead(t);
-            }}
-          >
-            <label className="grid flex-1 gap-1">
-              <span className="lbl m-0">
-                Bluetooth scanner, or type the label
-              </span>
-              <input
-                className="field"
-                value={typed}
-                inputMode={keyboard ? "numeric" : "none"}
-                autoComplete="off"
-                placeholder="Tap here, then scan"
-                onChange={(e) => setTyped(e.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              className="btn ghost"
-              onClick={() => setKeyboard((k) => !k)}
-            >
-              {keyboard ? "Hide keys" : "Type it"}
-            </button>
-            <button type="submit" className="btn ghost">
-              Enter
-            </button>
-          </form>
+          {mode !== "bluetooth" && (
+            <ScannerBox label="Or type the label" placeholder="Tap here to type" onRead={onRead} />
+          )}
 
           <button
             type="button"
@@ -842,6 +866,66 @@ export default function ScanScreen() {
         />
       )}
     </>
+  );
+}
+
+type ScanMode = "" | "bluetooth" | "camera";
+const MODE_KEY = "uvl-scan-mode";
+function readMode(): ScanMode {
+  try {
+    const v = typeof window === "undefined" ? null : sessionStorage.getItem(MODE_KEY);
+    return v === "bluetooth" || v === "camera" ? v : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * The box a Bluetooth scanner (HID, keyboard mode) types into: it types the
+ * label and presses Enter. No on-screen keyboard unless "Type it" is tapped.
+ */
+function ScannerBox({
+  inputRef,
+  label,
+  placeholder,
+  onRead,
+}: {
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  label: string;
+  placeholder: string;
+  onRead: (text: string) => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [keyboard, setKeyboard] = useState(false);
+  return (
+    <form
+      className="mt-3 flex flex-wrap items-end gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const t = typed;
+        setTyped("");
+        if (t.trim()) onRead(t);
+      }}
+    >
+      <label className="grid flex-1 gap-1">
+        <span className="lbl m-0">{label}</span>
+        <input
+          ref={inputRef}
+          className="field"
+          value={typed}
+          inputMode={keyboard ? "numeric" : "none"}
+          autoComplete="off"
+          placeholder={placeholder}
+          onChange={(e) => setTyped(e.target.value)}
+        />
+      </label>
+      <button type="button" className="btn ghost" onClick={() => setKeyboard((k) => !k)}>
+        {keyboard ? "Hide keys" : "Type it"}
+      </button>
+      <button type="submit" className="btn ghost">
+        Enter
+      </button>
+    </form>
   );
 }
 

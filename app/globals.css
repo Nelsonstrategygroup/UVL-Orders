@@ -2112,6 +2112,25 @@
 .scanbtn.on {
   background: var(--barn);
 }
+/* The second choice, the phone camera: the backup (11/12/26). */
+.scanbtn.alt {
+  min-height: 64px;
+  background: var(--field);
+  color: var(--ink);
+  border: 2px solid var(--line);
+  font-size: 1.25rem;
+}
+/* Which way you're scanning, with Done scanning. */
+.scanmode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  background: var(--field);
+  border: 2px solid var(--forest);
+}
 .scanbtn:disabled {
   opacity: 0.5;
 }

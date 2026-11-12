@@ -121,7 +121,7 @@ export type PartBalance = {
  * product, Le Trim, cut into racks and short loins), and what's left over or
  * short. `c` is from calcWeek with the Le Trim mix in it (lib/weekCalc.ts).
  */
-export function partBalances(c: Pick<WeekCalc, "withShort" | "rows">, products: Product[]): PartBalance[] {
+export function partBalances(c: Pick<WeekCalc, "withShort" | "rows"> & Partial<Pick<WeekCalc, "shared">>, products: Product[]): PartBalance[] {
   const lines = new Map<string, WorkingLine[]>();
   for (const p of [...products].sort((a, b) => a.sort - b.sort)) {
     const q = num(c.withShort[p.id] ?? 0);
@@ -132,6 +132,15 @@ export function partBalances(c: Pick<WeekCalc, "withShort" | "rows">, products: 
       const list = lines.get(u.part_id) ?? [];
       list.push({ product: p.name, qty: round2(q), each, total: round2(q * each) });
       lines.set(u.part_id, list);
+    }
+  }
+  // Mixed Shanks (11/12/26): what it takes from each part it draws from.
+  for (const s of c.shared ?? []) {
+    for (const t of s.takes) {
+      if (!(t.n > 0)) continue;
+      const list = lines.get(t.partId) ?? [];
+      list.push({ product: s.product.name, qty: round2(t.n / s.per), each: s.per, total: t.n });
+      lines.set(t.partId, list);
     }
   }
   const byId = new Map(c.rows.map((r) => [r.part.id, r]));

@@ -99,3 +99,59 @@ export function groupProducts<P extends { name: string; group_name: string; sort
   return [...groups].map(([group, list]) => ({ group, products: list }));
 }
 
+
+/**
+ * Where a product goes in the list (Lucas, 11/12/26: products added in Setup
+ * landed at the start or the end of the order grid, whatever their group).
+ * Screens list products by `sort`, then name.
+ *
+ * `after`:
+ * - "keep": where it is now (a new product, or one moved to another group,
+ *   goes to the end of its group instead).
+ * - "group-end": after the last product turned on in its group; a group with
+ *   none goes at the end of the list.
+ * - "start": before everything.
+ * - a product id: right after that product.
+ *
+ * Returns the product's sort and, when there's no room between two products,
+ * new sorts for every product (10 apart), in `renumber`.
+ */
+export type Placement = "keep" | "group-end" | "start" | (string & {});
+
+type Placed = { id: string; name: string; sort: number; group_name: string; active: boolean };
+
+export function placeProduct(
+  products: Placed[],
+  self: { id: string | null; group_name: string },
+  after: Placement,
+): { sort: number; renumber: { id: string; sort: number }[] } {
+  const byOrder = (a: Placed, b: Placed) => a.sort - b.sort || a.name.localeCompare(b.name);
+  const me = self.id ? products.find((p) => p.id === self.id) : undefined;
+  const group = self.group_name || "Other";
+  if (after === "keep" && me && (me.group_name || "Other") === group) return { sort: me.sort, renumber: [] };
+  const others = products.filter((p) => p.id !== self.id).sort(byOrder);
+  let at: number; // index in `others` to insert before
+  if (after === "start") at = 0;
+  else if (after !== "keep" && after !== "group-end" && others.some((p) => p.id === after)) at = others.findIndex((p) => p.id === after) + 1;
+  else {
+    const inGroup = others.filter((p) => p.active && (p.group_name || "Other") === group);
+    const last = inGroup[inGroup.length - 1];
+    at = last ? others.indexOf(last) + 1 : others.length;
+  }
+  const prev = others[at - 1];
+  const next = others[at];
+  if (!prev && !next) return { sort: 0, renumber: [] };
+  if (!next) return { sort: prev.sort + 10, renumber: [] };
+  if (!prev) return { sort: next.sort - 10, renumber: [] };
+  if (next.sort - prev.sort >= 2) return { sort: prev.sort + Math.floor((next.sort - prev.sort) / 2), renumber: [] };
+  // No room: number everything again, 10 apart, with this one in its place.
+  const list: (Placed | null)[] = [...others.slice(0, at), null, ...others.slice(at)];
+  const renumber: { id: string; sort: number }[] = [];
+  let sort = 0;
+  list.forEach((p, i) => {
+    const s = (i + 1) * 10;
+    if (p === null) sort = s;
+    else if (p.sort !== s) renumber.push({ id: p.id, sort: s });
+  });
+  return { sort, renumber };
+}

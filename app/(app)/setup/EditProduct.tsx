@@ -7,7 +7,7 @@ import { useState } from "react";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import Sheet from "@/components/Sheet";
 import { fmt, num } from "@/lib/calc/num";
-import { drivesLambCount, partAmountQty, partAmountRow, type UseMode } from "@/lib/calc/products";
+import { drivesLambCount, partAmountQty, partAmountRow, type Placement, type UseMode } from "@/lib/calc/products";
 import { ORDER_UNITS, UNIT_NAME, unitWord } from "@/lib/calc/units";
 import { saveProduct } from "@/lib/db/save";
 import type { CatalogProduct, OrderUnit, PriceUnit } from "@/lib/db/types";
@@ -40,6 +40,7 @@ const blank = {
   active: true,
   note: "",
   uses: [] as { part_id: string; qty: number }[],
+  draws_from: [] as string[],
   links: [] as { cut_spec_id: string; units_per_cut: number }[],
 };
 
@@ -77,6 +78,8 @@ export default function EditProduct({
       return { part_id: u.part_id, mode: r.mode, amount: fmt(r.amount) };
     }),
     linkRows: start.links.map((l): LinkDraft => ({ cut_spec_id: l.cut_spec_id, units_per_cut: fmt(l.units_per_cut) })),
+    draws: [...(start.draws_from ?? [])],
+    after: (copy ? start.id ?? "group-end" : "keep") as Placement,
   }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +89,11 @@ export default function EditProduct({
   const specs = (catalog?.cutSpecs ?? []).filter((s) => s.active || f.linkRows.some((l) => l.cut_spec_id === s.id));
   const groups = [...new Set((catalog?.products ?? []).filter((p) => p.active).map((p) => p.group_name))].sort();
   const unusedParts = parts.filter((pt) => !f.useRows.some((u) => u.part_id === pt.id));
+  const undrawnParts = parts.filter((pt) => !f.draws.includes(pt.id));
+  // Products in list order, for "Show in lists after" (11/12/26).
+  const inOrder = [...(catalog?.products ?? [])]
+    .filter((p) => p.active && p.id !== f.id)
+    .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
   const one = unitWord(f.unit, 1);
   const twoUnits = !!f.alt_unit;
   const needsWeight = f.unit !== "lb" || twoUnits;
@@ -121,6 +129,8 @@ export default function EditProduct({
       active: f.active,
       note: f.note.trim(),
       uses,
+      draws_from: f.not_lamb ? [] : f.draws,
+      after: f.after,
       links: f.linkRows.map((l) => ({ cut_spec_id: l.cut_spec_id, units_per_cut: num(l.units_per_cut) || 1 })),
     });
     setBusy(false);
@@ -187,6 +197,31 @@ export default function EditProduct({
           </datalist>
         </div>
       </div>
+
+      <label className="lbl" htmlFor="pr-after">
+        Place on the order screen and order grid
+      </label>
+      <select id="pr-after" className="field" value={f.after} onChange={(e) => set("after", e.target.value as Placement)}>
+        {product && !copy && <option value="keep">Where it is now</option>}
+        <option value="group-end">At the end of its group{f.group_name.trim() ? ` (${f.group_name.trim()})` : ""}</option>
+        <option value="start">First, before everything</option>
+        {groups.map((g) => (
+          <optgroup key={g} label={g}>
+            {inOrder
+              .filter((p) => p.group_name === g)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  After {p.name}
+                </option>
+              ))}
+          </optgroup>
+        ))}
+      </select>
+      <p className="small muted mt-1">
+        {product && !copy
+          ? "Moved to another group, it goes at the end of that group unless you pick a place."
+          : "Pick the product it should come after, or leave it at the end of its group."}
+      </p>
 
       <div className="flex flex-wrap gap-3">
         {needsWeight && (
@@ -334,6 +369,54 @@ export default function EditProduct({
                 </option>
               ))}
             </select>
+          )}
+
+          <p className="lbl">Or can be cut from any of these</p>
+          <p className="small muted mt-0">
+            For a product made from more than one part, either one (Mixed Shanks: hind or front shanks). Each one ordered
+            takes from the first part in this list that has some left over, then the next. Use this instead of
+            &quot;Comes from&quot;. It never changes the lamb count.
+          </p>
+          {f.draws.map((id, i) => (
+            <div key={id} className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="min-w-[10rem]">
+                {i + 1}. {partName(id)}
+                {i === 0 && f.draws.length > 1 ? <span className="small muted"> (used first)</span> : null}
+              </span>
+              {i > 0 && (
+                <button
+                  type="button"
+                  className="copy min-h-[44px]"
+                  onClick={() => set("draws", [...f.draws.slice(0, i - 1), id, f.draws[i - 1], ...f.draws.slice(i + 1)])}
+                >
+                  Use first
+                </button>
+              )}
+              <button type="button" className="copy min-h-[44px]" onClick={() => set("draws", f.draws.filter((x) => x !== id))}>
+                Remove
+              </button>
+            </div>
+          ))}
+          {undrawnParts.length > 0 && (
+            <select
+              className="field"
+              aria-label="Add a part it can be cut from"
+              value=""
+              onChange={(e) => e.target.value && set("draws", [...f.draws, e.target.value])}
+            >
+              <option value="">Add a part it can be cut from...</option>
+              {undrawnParts.map((pt) => (
+                <option key={pt.id} value={pt.id}>
+                  {pt.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {f.draws.length > 0 && f.useRows.length > 0 && (
+            <p className="note warn mt-2">
+              This product has parts under both &quot;Comes from&quot; and &quot;Or can be cut from any of these&quot;, so its orders are
+              counted twice. Remove one of them.
+            </p>
           )}
 
           <label className="mt-2 flex min-h-[44px] items-center gap-3">

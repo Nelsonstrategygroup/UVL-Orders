@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { drivesLambCount, findProducts, groupProducts, needsChecking, partAmountQty, partAmountRow } from "./products";
+import { drivesLambCount, findProducts, groupProducts, needsChecking, partAmountQty, partAmountRow, placeProduct } from "./products";
 
 describe("part amounts, either way round", () => {
   it("shows small amounts per part and big ones per unit", () => {
@@ -99,3 +99,52 @@ describe("product groups on the order form", () => {
   });
 });
 
+
+describe("placeProduct (11/12/26)", () => {
+  const p = (id: string, sort: number, group_name: string, active = true) => ({ id, name: id, sort, group_name, active });
+  // As on 11/12/26: old turned-off products at 0 to 35, then the real list by hundreds.
+  const list = [
+    p("old-other", 33, "Other", false),
+    p("sirloin", 34, "Other"),
+    p("tenderloin", 35, "Other"),
+    p("whole", 100, "Whole lambs"),
+    p("hind", 400, "Shanks"),
+    p("front", 405, "Shanks"),
+    p("labeled-hind", 410, "Shanks"),
+    p("legs", 500, "Legs"),
+    p("pepper", 763, "Byproducts"),
+    p("mixed", 764, "Shanks"),
+  ];
+  it("a new product goes at the end of its own group, not after a turned-off one or at the end of the list", () => {
+    const fixed = list.filter((x) => x.id !== "mixed");
+    const r = placeProduct(fixed, { id: null, group_name: "Shanks" }, "group-end");
+    expect(r.sort).toBeGreaterThan(410);
+    expect(r.sort).toBeLessThan(500);
+    expect(r.renumber).toEqual([]);
+    // "keep" means the same for a new product.
+    expect(placeProduct(fixed, { id: null, group_name: "Shanks" }, "keep").sort).toBe(r.sort);
+  });
+  it("Mixed Shanks: after Front Shanks", () => {
+    const r = placeProduct(list, { id: "mixed", group_name: "Shanks" }, "front");
+    expect(r.sort).toBeGreaterThan(405);
+    expect(r.sort).toBeLessThan(410);
+  });
+  it("keep: stays put; moved to another group: the end of that group", () => {
+    expect(placeProduct(list, { id: "mixed", group_name: "Shanks" }, "keep").sort).toBe(764);
+    const r = placeProduct(list, { id: "sirloin", group_name: "Legs" }, "keep");
+    expect(r.sort).toBeGreaterThan(500);
+    expect(r.sort).toBeLessThan(763);
+  });
+  it("a group with nothing else turned on goes at the end; start goes first", () => {
+    expect(placeProduct(list, { id: null, group_name: "New group" }, "group-end").sort).toBe(774);
+    expect(placeProduct(list, { id: "mixed", group_name: "Shanks" }, "start").sort).toBe(23);
+  });
+  it("no room between two: everything is numbered again 10 apart, in the same order", () => {
+    const r = placeProduct(list, { id: "mixed", group_name: "Shanks" }, "sirloin");
+    const sorts = new Map(list.map((x) => [x.id, x.sort]));
+    for (const x of r.renumber) sorts.set(x.id, x.sort);
+    sorts.set("mixed", r.sort);
+    const order = [...sorts].sort((a, b) => a[1] - b[1]).map(([id]) => id);
+    expect(order).toEqual(["old-other", "sirloin", "mixed", "tenderloin", "whole", "hind", "front", "labeled-hind", "legs", "pepper"]);
+  });
+});

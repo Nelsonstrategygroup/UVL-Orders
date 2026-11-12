@@ -140,11 +140,10 @@ reconciliation against Chris's sheet): settled questions are at the end.
     the invoice bills it.]
 
 28. **For Kathy: Mixed Shanks.** Mixed Shanks can be front or hind shanks.
-    Which should the app take first when it works out the balance: front,
-    hind, or whichever has more left? And should Mixed Shanks get a line of
-    their own on the cut sheet, or go on the Front and Hind Shanks lines?
-    [Not taken from either: This week shows Mixed Shanks on their own row
-    against what front and hind have left between them.]
+    The app uses hind shanks first, then front (Lucas, 11/12/26, to start
+    with). Is that right? And should Mixed Shanks get a line of their own on
+    the cut sheet, or go on the Front and Hind Shanks lines? [Changed in
+    Setup > Products, "Or can be cut from any of these".]
 
 ## Box limits to confirm (from Kathy's box sheet)
 

@@ -22,7 +22,7 @@ import { packedWith } from "@/lib/calc/packTogether";
 import { fmt, num } from "@/lib/calc/num";
 import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
-import { plannedExtras, sharedNote, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
+import { plannedExtras, sharedNote, sharedTakes, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
 import { firmLines, weekCalc, willGetLines } from "@/lib/weekCalc";
 import ExtrasPanel from "./ExtrasPanel";
 import { qtyWords } from "@/lib/calc/carcassReport";
@@ -306,6 +306,11 @@ export default function WeekScreen() {
                               <b>{r.part.name}</b>
                             )}{" "}
                             <span className="small muted">{pack > 1 ? "packs" : r.part.unit === "lb" ? "lb" : ""}</span>
+                            {r.sharedOut?.map((s) => (
+                              <span key={s.product} className="small block">
+                                Need includes {fmt(s.n / pack)} for {s.product}
+                              </span>
+                            ))}
                           </td>
                           <td className="num">{fmt(wholeNeed(r) / pack)}</td>
                           <td className="num">{fmt(r.supply / pack)}</td>
@@ -328,7 +333,7 @@ export default function WeekScreen() {
               <tbody>
                 <tr className="bal-group">
                   <th colSpan={5} scope="rowgroup">
-                    From more than one part <span className="font-normal">not taken out of the rows above</span>
+                    From more than one part <span className="font-normal">takes what&apos;s left in the rows above</span>
                   </th>
                 </tr>
                 {c.shared.map((r) => (
@@ -336,7 +341,10 @@ export default function WeekScreen() {
                     <td>
                       <b>{r.product.name}</b> <span className="small muted">{r.per > 1 ? "packs" : ""}</span>
                       <br />
-                      <span className="small">{sharedNote(r)}</span>
+                      <span className="small">
+                        {sharedNote(r)}
+                        {sharedTakes(r) ? ` This week: ${sharedTakes(r)}.` : ""}
+                      </span>
                     </td>
                     <td className="num">{fmt(r.need / r.per)}</td>
                     <td className="num">{fmt(Math.floor(r.available / r.per + 1e-9))}</td>
@@ -362,7 +370,8 @@ export default function WeekScreen() {
           {c.shared.length > 0 && (
             <p className="small muted mt-2 mb-0">
               &quot;Get&quot; for {c.shared.map((r) => r.product.name).join(", ")} is what the parts it draws from have left over after their
-              own orders, added together. A customer who wants only front shanks is entered as Front Shanks.
+              own orders, added together. What it takes is in those parts&apos; Need above. A customer who wants only front shanks is
+              entered as Front Shanks.
             </p>
           )}
           {packIncludes.map((t) => (

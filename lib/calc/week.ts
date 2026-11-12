@@ -57,14 +57,18 @@ export type PartRow = {
   parent: string | null;
   /** Shown as available rather than extra (hind shanks: they come off the legs). */
   availableOnly: boolean;
+  /** Pieces in `need` that go to a product drawn from more than one part (Mixed Shanks), by product name. */
+  sharedOut?: { product: string; n: number }[];
 };
 
 /**
  * A product that may be cut from more than one part (Mixed Shanks: front or
  * hind shanks; Chris, 11/11/26: its orders weren't counted against the shanks
- * and the week came up short). Which part it takes first isn't decided, so
- * it takes from neither row: it's shown on its own against what those parts
- * have left over between them.
+ * and the week came up short). It takes what those parts have left over
+ * after their own orders, in the order of `draws_from`: Mixed Shanks use
+ * hind shanks first, then front (Lucas, 11/12/26, to start with). What it
+ * takes is added to those parts' rows (need and left over); what they can't
+ * give is its own shortfall, on its own row. It never sets the lamb count.
  */
 export type SharedRow = {
   product: Product;
@@ -74,9 +78,11 @@ export type SharedRow = {
   per: number;
   /** Ordered, in pieces. */
   need: number;
-  /** The parts it draws from, as named in Setup. */
+  /** The parts it draws from, as named in Setup, in the order they're used. */
   parts: string[];
-  /** Whole pieces those parts have left after their own orders (never below 0 for a part that's short). */
+  /** Whole pieces taken from each part, in that order (0 when that part had none left). */
+  takes: { partId: string; part: string; n: number }[];
+  /** Whole pieces those parts had left after their own orders, before this product (never below 0 for a part that's short). */
   available: number;
   /** available - need. Negative: short. */
   left: number;
@@ -120,17 +126,30 @@ export type WeekCalc = {
 };
 
 /**
- * The note on a shared row, in Kathy's words for Mixed Shanks: "Draws from
- * front and hind, order to be confirmed with Kathy." Part names lose a
- * repeated last word ("Front shank", "Hind shank" -> "front and hind").
+ * The note on a shared row: "Uses hind first, then front." (Lucas, 11/12/26;
+ * before that "Draws from front and hind, order to be confirmed with Kathy").
+ * Part names lose a repeated last word ("Hind shank", "Front shank" -> "hind",
+ * "front").
  */
 export function sharedNote(r: Pick<SharedRow, "parts">): string {
   const words = r.parts.map((p) => p.trim().split(/\s+/));
   const last = words[0]?.[words[0].length - 1]?.toLowerCase();
   const same = words.length > 1 && words.every((w) => w.length > 1 && w[w.length - 1].toLowerCase() === last);
   const names = words.map((w) => (same ? w.slice(0, -1) : w).join(" ").toLowerCase());
-  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : (names[0] ?? "");
-  return `Draws from ${list}, order to be confirmed with Kathy.`;
+  if (names.length < 2) return names[0] ? `Cut from ${names[0]}.` : "";
+  return `Uses ${names[0]} first, then ${names.slice(1).join(", then ")}.`;
+}
+
+/** "79 hind, 5 front" in the product's units (packs), for a shared row; parts it took none from are left out. */
+export function sharedTakes(r: Pick<SharedRow, "takes" | "per" | "parts">): string {
+  const words = r.parts.map((p) => p.trim().split(/\s+/));
+  const last = words[0]?.[words[0].length - 1]?.toLowerCase();
+  const same = words.length > 1 && words.every((w) => w.length > 1 && w[w.length - 1].toLowerCase() === last);
+  return r.takes
+    .map((t, i) => ({ n: t.n / r.per, name: (same ? words[i].slice(0, -1) : words[i]).join(" ").toLowerCase() }))
+    .filter((t) => t.n > EPS)
+    .map((t) => `${Number.isInteger(t.n) ? t.n : Math.round(t.n * 100) / 100} ${t.name}`)
+    .join(", ");
 }
 
 /**
@@ -296,19 +315,35 @@ export function calcWeek(input: {
     for (const k of base) if (parentOf(k.part) === r.part.id) rows.push(toRow(k));
   }
 
-  // Products drawn from more than one part (Mixed Shanks): their own rows,
-  // against what's left of those parts. They never set the lamb count.
+  // Products drawn from more than one part (Mixed Shanks): they take what
+  // those parts have left over, in draws_from order (hind first, then front),
+  // and that's added to those rows. What's left uncovered is their own
+  // shortfall, on their own row. They never set the lamb count.
   const shared: SharedRow[] = [];
-  for (const p of input.products) {
+  for (const p of [...input.products].sort((a, b) => a.sort - b.sort)) {
     const from = (p.draws_from ?? []).filter((id) => byId.has(id));
     const qty = withShort[p.id] ?? 0;
     if (!from.length || !(qty > 0)) continue;
     const per = p.unit === "pack" && num(p.pieces_per_pack) > 0 ? num(p.pieces_per_pack) : 1;
     const need = qty * per;
-    const available = from.reduce((s, id) => {
+    let still = need;
+    let available = 0;
+    const takes: SharedRow["takes"] = [];
+    for (const id of from) {
       const r = rows.find((x) => x.part.id === id);
-      return s + (r ? Math.max(0, Math.floor(r.left + EPS)) : 0);
-    }, 0);
+      const spare = r ? Math.max(0, Math.floor(r.left + EPS)) : 0;
+      available += spare;
+      const n = Math.min(spare, Math.max(0, Math.ceil(still - EPS)));
+      takes.push({ partId: id, part: byId.get(id)!.name, n });
+      still -= n;
+      if (r && n > 0) {
+        r.need += n;
+        r.left -= n;
+        const shown = r.part.unit === "lb" ? r.left : Math.floor(r.left + EPS);
+        if (r.status === "extra" || r.status === "even") r.status = Math.abs(shown) < EPS ? "even" : "extra";
+        r.sharedOut = [...(r.sharedOut ?? []), { product: p.name, n }];
+      }
+    }
     const left = available - need;
     shared.push({
       product: p,
@@ -316,6 +351,7 @@ export function calcWeek(input: {
       per,
       need,
       parts: from.map((id) => byId.get(id)!.name),
+      takes,
       available,
       left,
       status: left < -EPS ? "short" : Math.abs(left) < EPS ? "even" : "extra",

@@ -126,7 +126,12 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
                     .join(" · ")}
                 </span>
               </td>
-              <td className="small">{p.uses.map((u) => partUseText(p, u)).join(" + ") || "none"}</td>
+              <td className="small">
+                {p.uses.map((u) => partUseText(p, u)).join(" + ") ||
+                  ((p.draws_from ?? []).length
+                    ? `any of: ${(p.draws_from ?? []).map((id) => partName(id).toLowerCase()).join(", then ")}`
+                    : "none")}
+              </td>
               <td className="small">{p.links.map((l) => specText(l.cut_spec_id)).join("; ") || "none"}</td>
               <td className="whitespace-nowrap text-right">
                 {canEdit && (

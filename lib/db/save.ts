@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContactRole, DeleteCheck } from "../calc/contacts";
+import { placeProduct, type Placement } from "../calc/products";
 import type { ExtraLambReason, OrderStatus, PriceUnit, Qty, Units, WeekRow } from "./types";
 
 function msg(error: { message: string } | null): string | null {
@@ -198,6 +199,13 @@ export type ProductInput = {
   active: boolean;
   note: string;
   uses: { part_id: string; qty: number }[];
+  /**
+   * Parts it may be cut from, any of them, in the order they're used (Mixed
+   * Shanks: hind shanks first, then front; 11/12/26). Undefined leaves it as is.
+   */
+  draws_from?: string[];
+  /** Where it goes in the list (placeProduct). Undefined: "keep". */
+  after?: Placement;
   /** Mohawk lines: units_per_cut of this product's unit per line. */
   links: { cut_spec_id: string; units_per_cut: number }[];
 };
@@ -225,7 +233,7 @@ async function replaceChildren(
 
 /**
  * Add or save a product, its part uses, and its Mohawk lines. A new product
- * goes at the end of the list.
+ * goes at the end of its group unless another place is chosen.
  */
 /** Weight blanks for a product on the paper packing copy when its box count isn't known; null: the setting. */
 export async function saveProductPackBlanks(db: SupabaseClient, productId: string, blanks: number | null): Promise<string | null> {
@@ -256,24 +264,22 @@ export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<
     fresh_only: p.fresh_only,
     active: p.active,
     note: p.note,
+    ...(p.draws_from ? { draws_from: p.draws_from } : {}),
   };
+  // Its place in the list: kept, or at the end of its group, or after the product chosen (11/12/26).
+  const { data: all, error: listErr } = await db.from("products").select("id, name, sort, group_name, active");
+  if (listErr) return listErr.message;
+  const place = placeProduct((all ?? []) as Parameters<typeof placeProduct>[0], { id: p.id, group_name: p.group_name }, p.after ?? "keep");
+  for (const r of place.renumber) {
+    const { error } = await db.from("products").update({ sort: r.sort }).eq("id", r.id);
+    if (error) return error.message;
+  }
   let id = p.id;
   if (id) {
-    const { error } = await db.from("products").update(row).eq("id", id);
+    const { error } = await db.from("products").update({ ...row, sort: place.sort }).eq("id", id);
     if (error) return error.message;
   } else {
-    // At the end of its own group, so the order form doesn't show the group twice.
-    const { data: inGroup } = await db
-      .from("products")
-      .select("sort")
-      .eq("group_name", p.group_name)
-      .order("sort", { ascending: false })
-      .limit(1);
-    const { data: last } = inGroup?.length
-      ? { data: inGroup }
-      : await db.from("products").select("sort").order("sort", { ascending: false }).limit(1);
-    const sort = ((last?.[0]?.sort as number | undefined) ?? -1) + 1;
-    const { data, error } = await db.from("products").insert({ ...row, sort }).select("id").single();
+    const { data, error } = await db.from("products").insert({ ...row, sort: place.sort }).select("id").single();
     if (error) return error.message;
     id = data.id as string;
   }

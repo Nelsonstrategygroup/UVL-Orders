@@ -44,11 +44,12 @@ questions doc.
 ### Follow-ups from Kathy and Chris (11/11/26 to 11/12/26)
 - **Mixed Shanks in the balance.** They weren't counted against the shanks at
   all (the product was linked to no part), so the week came up short. Now
-  they have their own row on This week against what front and hind shanks
-  have left between them, with "Draws from front and hind, order to be
-  confirmed with Kathy." Front and hind rows are unchanged. The cut sheet
-  screen says how many are ordered. Only-front customers are entered as Front
-  Shanks.
+  they take hind shanks first, then front (Lucas, 11/12/26, to start with),
+  from what's left after Hind and Front Shanks orders. The hind and front rows
+  say "Need includes 64 for Mixed Shanks"; Mixed Shanks has its own row with
+  what it's short or has left. Set in Setup > Products, "Or can be cut from
+  any of these". The cut sheet screen says how many are ordered. Only-front
+  customers are entered as Front Shanks.
 - **HLK box label.** A line each for Heart, Liver and Kidney (ordered or
   not): what was ordered and "Sent: ____" for Kathy to write what she sends.
 - **HLK fill status.** A scan gives weight, not packs: Packing says "Box
@@ -59,12 +60,20 @@ questions doc.
   nobody; This week leaves out its steps. It can be turned back on.
 - **Scanning.** The Bluetooth scanner (HID mode, paired to Chris's phone,
   kept at Mohawk) is the primary way to scan; the phone camera is the backup.
-- **Test order.** Chris's scanner test order (#05 View Ridge, 3 Hind Shanks,
-  filed under the week of Mon Feb 16, 2026, entered 11/11/26) is to be
-  deleted once Lucas confirms. It created no boxes, lots or barcode mappings.
-- Still open: which shanks Mixed Shanks use first (Kathy); whether Mixed
-  Shanks need a cut sheet line of their own; Mixed Shanks still set to single
-  shanks in Setup (Lucas to change to packs).
+  Scan boxes asks "Bluetooth scanner" or "Phone camera" once and keeps it
+  until "Done scanning". With the scanner the camera stays off.
+- **Product order.** Products added in Setup landed first or last on the
+  order grid whatever their group (Boneless Sirloin and Tenderloin first,
+  Mixed Shanks last). A new product now goes at the end of its group, and
+  Setup has "Place on the order screen and order grid" to put any product
+  after another. Moved: Mixed Shanks after Front Shanks; Boneless Sirloin and
+  Tenderloin (group "Other") to the end.
+- **Test order deleted** (11/12/26): Chris's scanner test order (#05 View
+  Ridge, 3 Hind Shanks, filed under the week of Mon Feb 16, 2026), its line,
+  its label number and the empty week. It had no boxes, lots or barcode
+  mappings. The audit log keeps the record.
+- Still open: whether Mixed Shanks need a cut sheet line of their own
+  (Kathy); where Boneless Sirloin and Tenderloin belong (Lucas).
 
 ### Fixes from packing INV# 3003 (11/10/26 to 11/11/26)
 Ten items Lucas and Chris found while packing Mon Nov 9.
