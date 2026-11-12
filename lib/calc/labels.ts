@@ -68,14 +68,15 @@ export type LabelRow = {
   /** The planned pallet printed top left ("P3"), or null for "P___". */
   pallet: string | null;
   /**
-   * Packed together (Hearts, Livers, Kidneys): the label has a blank for each
-   * one ordered, counts written in by hand at Mohawk, with what was ordered
-   * small underneath, and "Box ___ of ___" (Lucas, 10/31/26).
+   * Packed together (Heart, Liver, Kidney): the label has a line for each of
+   * them, ordered or not: its name, what was ordered, and "Sent: ____" for
+   * Kathy to write what she sends once she knows how many came off the lambs
+   * (Kathy, 11/11/26), and "Box ___ of ___".
    */
   writeIn?: WriteIn[];
 };
 
-/** One blank on a packed-together label: "______ Hearts", "ordered: 4 pk". */
+/** One line on a packed-together label: "Heart  ordered 4 pk  Sent: ____". */
 export type WriteIn = { name: string; ordered: string };
 
 export type LabelTable = {
@@ -141,16 +142,15 @@ export function labelList(orders: LabelOrder[], products: Map<string, LabelProdu
               return (o.units?.[id] ?? pr?.unit) === "lb" ? `${fmt(q)} lb ${pr?.name ?? id}` : `${fmt(q)} ${pr?.name ?? id}`;
             });
           if (!parts.length) continue;
-          // A blank for each one ordered, in the group's order (Hearts, Livers, Kidneys).
-          const writeIn = members
-            .filter((id) => num(o.lines[id]) > 0)
-            .map((id) => {
-              const pr = products.get(id);
-              const word = ((pr?.label_name ?? "").trim() || pr?.name || id).trim();
-              const u = o.units?.[id] ?? pr?.unit;
-              const q = fmt(num(o.lines[id]));
-              return { name: /s$/i.test(word) ? word : `${word}s`, ordered: u === "pack" ? `${q} pk` : u === "lb" ? `${q} lb` : q };
-            });
+          // A line for every one of them, in the group's order (Heart, Liver, Kidney), ordered or not:
+          // Kathy sends what came off the lambs, which may include one the store didn't order (11/11/26).
+          const writeIn = members.map((id) => {
+            const pr = products.get(id);
+            const word = ((pr?.label_name ?? "").trim() || pr?.name || id).trim();
+            const u = o.units?.[id] ?? pr?.unit;
+            const q = fmt(num(o.lines[id]));
+            return { name: word, ordered: u === "pack" ? `${q} pk` : u === "lb" ? `${q} lb` : q };
+          });
           const name = o.name ?? o.customer;
           const location = o.location ?? "";
           const line2 = parts.join(", ");

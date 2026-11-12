@@ -1277,6 +1277,14 @@
   .prow.done .box {
     background: var(--forest);
   }
+  /* A box that's packed with no count typed (Heart, Liver, Kidney): there, but not shown as filled (11/11/26). */
+  .prow.boxed {
+    background: var(--field);
+  }
+  .prow.boxed .box {
+    border-color: var(--ink-soft);
+    color: var(--ink-soft);
+  }
   .prow.part {
     background: var(--bad);
   }

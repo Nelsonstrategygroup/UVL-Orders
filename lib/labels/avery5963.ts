@@ -117,7 +117,7 @@ export type LabelLayout = {
   /** Green band with the product name, one or two lines; none on a write-in label. */
   band: Rect | null;
   productLines: TextLine[];
-  /** Write-in label: on the green band, each organ's name in white, a white box under it to write the count in, what was ordered under that. Also "(120 lb ordered)" under the product on a pounds order. */
+  /** Write-in label: on the green band, a line for each organ: its name in white, what was ordered, then "Sent:" and a white box to write the count in. Also "(120 lb ordered)" under the product on a pounds order. */
   writeBoxes: Rect[];
   writeText: TextLine[];
   orderedText: TextLine[];
@@ -156,11 +156,11 @@ export const LAYOUT = {
   tagRadius: 4,
   /** The INV# in the top right corner: bold, readable at arm's length. */
   invSize: 12,
-  /** Write-in label: a taller green band, names up to 18 pt, white write-in boxes up to 1.2 in wide. */
-  writeH: 0.9 * IN,
-  writeMax: 18,
-  writeMin: 10,
-  writeBoxMaxW: 1.2 * IN,
+  /** Write-in label: a taller green band, a line for each product: names up to 14 pt, "Sent:" and a white write-in box 0.95 in wide. */
+  writeH: 0.86 * IN,
+  writeMax: 14,
+  writeMin: 9,
+  writeBoxMaxW: 0.95 * IN,
   boxBlankW: 0.3 * IN,
 } as const;
 
@@ -294,11 +294,14 @@ export function layoutLabel(l: PrintLabel, m: Measure): LabelLayout {
 }
 
 /**
- * The write-in label (Hearts, Livers, Kidneys; Lucas, 10/31/26): in place of
- * the quantity and product, a taller green band with a column for each one
- * ordered: its name in big white letters, a white box under it to write the
- * count in with a marker, and "ordered: 4 pk" small under that. "Box ___ of
- * ___" at the bottom; no box type.
+ * The write-in label (Heart, Liver, Kidney). In place of the quantity and
+ * product, a taller green band with a line for each one: its name in white,
+ * what was ordered ("ordered 4 pk"), then "Sent:" and a white box to write
+ * the count in. Kathy writes what she sends once she knows how many came off
+ * the lambs, and it's often not what was ordered (Kathy, 11/11/26; before
+ * that, a column for each one ordered with the box under its name). Every
+ * one of them is on the label, ordered or not. "Box ___ of ___" at the
+ * bottom; no box type.
  */
 function writeInLayout(
   items: { name: string; ordered: string }[],
@@ -308,28 +311,34 @@ function writeInLayout(
   m: Measure,
 ) {
   const band = { x: PAD, y: itemTop, w: inner, h: LAYOUT.writeH };
-  const pad = 6;
-  const colGap = 6;
-  const n = items.length;
-  const colW = (band.w - 2 * pad - (n - 1) * colGap) / n;
+  const padX = 7;
+  const padY = 3;
+  const n = Math.max(1, items.length);
+  const rowH = (band.h - 2 * padY) / n;
   const names = items.map((i) => plain(i.name));
-  // One size for every name: the biggest that fits the widest in its column.
-  let size: number = LAYOUT.writeMax;
-  while (size > LAYOUT.writeMin && Math.max(...names.map((t) => m.bold(t, size))) > colW - 4) size -= 0.5;
-  const nameBase = band.y + 5 + size * ASCENT;
-  const oSize = 7.5;
-  const boxTop = nameBase + 4;
-  const boxH = band.y + band.h - 4 - oSize * ASCENT - 3 - boxTop;
-  const boxW = Math.min(colW, LAYOUT.writeBoxMaxW);
+  const ordered = items.map((i) => plain(`ordered ${i.ordered}`));
+  const sent = "Sent:";
+  const boxW = LAYOUT.writeBoxMaxW;
+  const boxH = rowH - 3;
+  // One size for every line: the biggest that fits the row's height, and the widest name and amount beside "Sent:" and its box.
+  let size: number = Math.min(LAYOUT.writeMax, rowH * 0.68);
+  const oSize = (s: number) => Math.max(7, s * 0.68);
+  const wide = (s: number) =>
+    padX + Math.max(...names.map((t) => m.bold(t, s))) + 8 + Math.max(...ordered.map((t) => m.regular(t, oSize(s)))) + 8 + m.bold(sent, s) + 4 + boxW + padX;
+  while (size > LAYOUT.writeMin && wide(size) > band.w) size -= 0.5;
+  const nameW = Math.max(...names.map((t) => m.bold(t, size)));
+  const boxX = band.x + band.w - padX - boxW;
+  const sentX = boxX - 4 - m.bold(sent, size);
   const writeBoxes: Rect[] = [];
   const writeText: TextLine[] = [];
   const orderedText: TextLine[] = [];
   names.forEach((t, i) => {
-    const cx = band.x + pad + i * (colW + colGap) + colW / 2;
-    writeText.push({ text: t, x: cx - m.bold(t, size) / 2, y: nameBase, size });
-    writeBoxes.push({ x: cx - boxW / 2, y: boxTop, w: boxW, h: boxH });
-    const o = plain(`ordered: ${items[i].ordered}`);
-    orderedText.push({ text: o, x: cx - m.regular(o, oSize) / 2, y: boxTop + boxH + 3 + oSize * ASCENT, size: oSize });
+    const top = band.y + padY + i * rowH;
+    const base = top + (rowH + size * ASCENT) / 2;
+    writeText.push({ text: t, x: band.x + padX, y: base, size });
+    orderedText.push({ text: ordered[i], x: band.x + padX + nameW + 8, y: base, size: oSize(size) });
+    writeText.push({ text: sent, x: sentX, y: base, size });
+    writeBoxes.push({ x: boxX, y: top + (rowH - boxH) / 2, w: boxW, h: boxH });
   });
   // "Box ___ of ___" on the bottom line.
   const s = 9;

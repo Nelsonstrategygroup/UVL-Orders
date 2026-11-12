@@ -15,7 +15,7 @@ import Sheet from "@/components/Sheet";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { callQueue, displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
-import { ago, todayName } from "@/lib/dates";
+import { addDays, ago, niceDate, todayName } from "@/lib/dates";
 import { setOrder } from "@/lib/db/save";
 import type { Customer, Order, OrderStatus, Qty, Units } from "@/lib/db/types";
 import { hasLines, snapshot, STATUS_LABEL } from "@/lib/orders";
@@ -25,7 +25,7 @@ export default function CallsScreen() {
   const canCalls = useCan("calls").change;
   const canOrders = useCan("orders").change;
   const canAnswer = canCalls || canOrders;
-  const { week } = useWeek();
+  const { week, setWeek } = useWeek();
   const { catalog, customers, error: loadError } = useStaffData();
   const { data, error, patchOrder, refresh } = useWeekData(week);
   const toast = useToast();
@@ -66,6 +66,24 @@ export default function CallsScreen() {
     );
 
   const header = <WeekBar />;
+  // A holiday week (11/11/26): nobody to call, so nobody shows as not called.
+  if (data.weekRow?.no_processing) {
+    return (
+      <>
+        {header}
+        <div className="panel empty">
+          <h3 className="mb-2">No calls this week</h3>
+          <p>
+            No orders, cutting or packing for the week of {niceDate(week)}
+            {data.weekRow.no_processing_note ? ` (${data.weekRow.no_processing_note})` : ""}. Take orders for the week after instead.
+          </p>
+          <button type="button" className="btn" onClick={() => setWeek(addDays(week, 7))}>
+            Go to the week of {niceDate(addDays(week, 7))}
+          </button>
+        </div>
+      </>
+    );
+  }
   if (!queue.length) {
     return (
       <>

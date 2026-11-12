@@ -60,8 +60,12 @@ export function lineWords(l: PackLine): string {
   const flag = l.flagged ? ` · Flag${l.flagNote ? `: ${l.flagNote}` : ""}` : "";
   if (l.shorted) return `Not filled${flag}`;
   if (l.weight <= EPS) return `Tap to weigh${flag}`;
-  const parts = [`Packed ${fmt(l.weight)} lb${l.together ? ` in one box with ${l.together}` : ""}`];
-  if (l.unit === "lb" && !l.together) {
+  // Packed in one box with others (Heart, Liver, Kidney): a scan gives the
+  // box's weight, not how many packs of each went in, so it never reads as
+  // filled unless a count was typed (Kathy, 11/11/26).
+  if (l.together) return `Box packed, ${fmt(l.weight)} lb, with ${l.together}; ${l.count != null ? `${fmt(l.count)} of ${fmt(l.ordered)}` : "count not recorded"}${flag}`;
+  const parts = [`Packed ${fmt(l.weight)} lb`];
+  if (l.unit === "lb") {
     if (l.weight < l.ordered - EPS) parts.push(`short ${fmt(l.ordered - l.weight)} lb`);
     else if (l.weight > l.ordered + EPS) parts.push(`over ${fmt(l.weight - l.ordered)} lb`);
   } else if (l.count != null) {
@@ -131,6 +135,12 @@ export type PackRow = {
   words: string;
   /** One box: what was ordered of each, under the words ("Ordered: 3 Heart, 3 Liver, 3 Kidney"). */
   orderedEach?: string;
+  /**
+   * One box that's packed but with no count typed for at least one of its
+   * products: the box is there, how much of each isn't known. Shown plainly,
+   * not as filled (Kathy, 11/11/26). Typing a count stays optional.
+   */
+  uncounted?: boolean;
 };
 
 /**
@@ -166,12 +176,14 @@ export function packRows(lines: [string, PackLine][], group: (pid: string) => st
       flagNote: flagged?.flagNote ?? "",
     };
     const flag = box.flagged ? ` · Flag${box.flagNote ? `: ${box.flagNote}` : ""}` : "";
+    // A scan records the box's weight, not the packs in it: "count not recorded" unless someone types one.
     const counted = members.filter((id) => byId.get(id)!.count != null).map((id) => `${fmt(byId.get(id)!.count!)} ${name(id)}`);
-    const words = box.shorted
-      ? `Not filled${flag}`
-      : box.weight <= EPS
-        ? `Tap to weigh${flag}`
-        : `Packed ${fmt(box.weight)} lb in one box${counted.length ? `, ${counted.join(", ")}` : ""}${flag}`;
+    const notCounted = members.filter((id) => byId.get(id)!.count == null).map(name);
+    const packed = box.weight > EPS && !box.shorted;
+    const sent = !counted.length
+      ? "count not recorded"
+      : `sent ${counted.join(", ")}${notCounted.length ? `; ${notCounted.join(", ")} count not recorded` : ""}`;
+    const words = box.shorted ? `Not filled${flag}` : !packed ? `Tap to weigh${flag}` : `Box packed, ${fmt(box.weight)} lb, ${sent}${flag}`;
     rows.push({
       pid: members[0],
       members,
@@ -180,6 +192,7 @@ export function packRows(lines: [string, PackLine][], group: (pid: string) => st
       ordered: "1 box",
       words,
       orderedEach: `Ordered: ${members.map((id) => `${fmt(byId.get(id)!.ordered)} ${name(id)}`).join(", ")}`,
+      uncounted: packed && notCounted.length > 0,
     });
   }
   return rows;

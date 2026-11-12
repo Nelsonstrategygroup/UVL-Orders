@@ -356,12 +356,12 @@ function CustomerCard({
           <button
             key={r.pid}
             type="button"
-            className={`prow ${look === "todo" ? "" : look}`}
+            className={`prow ${look === "todo" ? "" : r.uncounted && look === "done" ? "boxed" : look}`}
             onClick={() => onOpen(r.pid)}
             aria-label={`${r.name}. ${r.words}${r.orderedEach ? `. ${r.orderedEach}` : ""}`}
           >
             <span className="box" aria-hidden="true">
-              {l.shorted && !l.flagged ? "✕" : (MARK[look] ?? "")}
+              {l.shorted && !l.flagged ? "✕" : r.uncounted && look === "done" ? "▪" : (MARK[look] ?? "")}
             </span>
             <span className="what">
               <b>{r.name}</b>

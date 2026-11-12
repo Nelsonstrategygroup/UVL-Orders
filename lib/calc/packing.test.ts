@@ -17,7 +17,11 @@ describe("packing a line by weight", () => {
     expect(lineWords(line({}))).toBe("Tap to weigh");
     expect(lineWords(line({ weight: 20 }))).toBe("Packed 20 lb");
     expect(lineWords(line({ weight: 10.95, unit: "pack", ordered: 3, count: 2, together: "Liver, Kidney" }))).toBe(
-      "Packed 10.95 lb in one box with Liver, Kidney, 2 of 3",
+      "Box packed, 10.95 lb, with Liver, Kidney; 2 of 3",
+    );
+    // A scan gives the box's weight, not its packs: never "filled" from a scan alone (Kathy, 11/11/26).
+    expect(lineWords(line({ weight: 10.95, unit: "pack", ordered: 3, together: "Liver, Kidney" }))).toBe(
+      "Box packed, 10.95 lb, with Liver, Kidney; count not recorded",
     );
     // The paper sheet: Hind Shanks 20 ordered, 15.20 filled.
     expect(lineWords(line({ weight: 15.2 }))).toBe("Packed 15.2 lb, short 4.8 lb");
@@ -103,21 +107,28 @@ describe("rows on a store's packing card (11/10/26)", () => {
     ];
     const rows = packRows(lines, group, name);
     expect(rows.map((r) => r.name)).toEqual(["Racks", "Heart / Liver / Kidney"]);
-    expect(rows[1]).toMatchObject({ pid: "heart", members: ["heart", "liver", "kidney"], ordered: "1 box", words: "Packed 10.95 lb in one box", orderedEach: "Ordered: 3 Heart, 3 Liver, 3 Kidney" });
+    expect(rows[1]).toMatchObject({ pid: "heart", members: ["heart", "liver", "kidney"], ordered: "1 box", words: "Box packed, 10.95 lb, count not recorded", orderedEach: "Ordered: 3 Heart, 3 Liver, 3 Kidney", uncounted: true });
     expect(packStats([{ lines: rows.map((r) => r.line) }])).toEqual({ done: 2, total: 2 });
   });
 
   it("named for what the store ordered; counts typed at Mohawk show", () => {
     const rows = packRows([["liver", pk({ ordered: 12, weight: 9, count: 12 })], ["kidney", pk({ ordered: 8, weight: 9 })]], group, name);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ name: "Liver / Kidney", words: "Packed 9 lb in one box, 12 Liver", orderedEach: "Ordered: 12 Liver, 8 Kidney" });
+    // A count for one of them: said, and the other still isn't recorded.
+    expect(rows[0]).toMatchObject({ name: "Liver / Kidney", words: "Box packed, 9 lb, sent 12 Liver; Kidney count not recorded", orderedEach: "Ordered: 12 Liver, 8 Kidney", uncounted: true });
+    // Counts for all of them (optional): what was sent, and no longer "not recorded".
+    const all = packRows([["liver", pk({ ordered: 12, weight: 9, count: 10 })], ["kidney", pk({ ordered: 8, weight: 9, count: 8 })]], group, name);
+    expect(all[0]).toMatchObject({ words: "Box packed, 9 lb, sent 10 Liver, 8 Kidney", uncounted: false });
   });
 
   it("not weighed yet, not filled only when none of them are, and a flag shows", () => {
     expect(packRows([["heart", pk({})], ["liver", pk({})]], group, name)[0].words).toBe("Tap to weigh");
     expect(packRows([["heart", pk({ shorted: true })], ["liver", pk({})]], group, name)[0].line.shorted).toBe(false);
     expect(packRows([["heart", pk({ shorted: true })], ["liver", pk({ shorted: true })]], group, name)[0].words).toBe("Not filled");
-    expect(packRows([["heart", pk({ weight: 5, flagged: true, flagNote: "torn bag" })]], group, name)[0].words).toBe("Packed 5 lb in one box · Flag: torn bag");
+    expect(packRows([["heart", pk({ weight: 5, flagged: true, flagNote: "torn bag" })]], group, name)[0].words).toBe("Box packed, 5 lb, count not recorded · Flag: torn bag");
+    // Nothing packed yet, or not filled: nothing to count.
+    expect(packRows([["heart", pk({})], ["liver", pk({})]], group, name)[0].uncounted).toBe(false);
+    expect(packRows([["heart", pk({ shorted: true })], ["liver", pk({ shorted: true })]], group, name)[0].uncounted).toBe(false);
   });
 
   it("other lines are unchanged", () => {

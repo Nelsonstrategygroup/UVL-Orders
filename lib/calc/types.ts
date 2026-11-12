@@ -40,6 +40,15 @@ export type Product = {
   fill_note?: string;
   /** An uncut carcass lamb: uses no parts, adds one lamb on top of the lambs for parts. */
   carcass?: boolean;
+  /**
+   * Parts this product may be cut from, any of them (Mixed Shanks: front and
+   * hind shank; 11/11/26). It uses none of them in the balance; it gets its
+   * own row against what those parts have left. Which is used first isn't
+   * decided (to confirm with Kathy).
+   */
+  draws_from?: string[];
+  /** Pieces in a pack (shanks: 2). */
+  pieces_per_pack?: number | null;
 };
 
 /** Units an order line can be taken in. */

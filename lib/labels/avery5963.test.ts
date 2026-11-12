@@ -128,39 +128,46 @@ describe("the label layout (10/24/26)", async () => {
     for (const q of l.qtyLines) expect(m.bold(q.text, q.size)).toBeLessThanOrEqual(l.qtyBox!.w - 8 + 0.01);
   });
 
-  it("the write-in label: a big green band, each organ's name over a white box to write in, ordered under it, Box ___ of ___ (10/31/26)", () => {
+  it("the write-in label: a line for each of Heart, Liver, Kidney with what was ordered and Sent: ____ beside it, Box ___ of ___ (Kathy, 11/11/26)", () => {
     const writeIn = [
-      { name: "Hearts", ordered: "4 pk" },
-      { name: "Livers", ordered: "12 pk" },
-      { name: "Kidneys", ordered: "6 pk" },
+      { name: "Heart", ordered: "0 pk" },
+      { name: "Liver", ordered: "12 pk" },
+      { name: "Kidney", ordered: "8 pk" },
     ];
     const l = L({ qty: "", unit: "", product: "Heart, Liver, Kidney", boxType: "", writeIn });
     expect(l.qtyBox).toBeNull();
     expect(l.typeTag).toBeNull();
-    expect(l.band!.h).toBeCloseTo(0.9 * 72);
+    expect(l.band!.h).toBeCloseTo(0.86 * 72);
     expect(l.band!.x + l.band!.w).toBeCloseTo(288 - 0.18 * 72);
-    expect(l.writeText.map((t) => t.text)).toEqual(["Hearts", "Livers", "Kidneys"]);
-    expect(l.writeText[0].size).toBeGreaterThanOrEqual(16);
-    expect(l.orderedText.map((t) => t.text)).toEqual(["ordered: 4 pk", "ordered: 12 pk", "ordered: 6 pk"]);
+    // Each line: the name, then "Sent:"; every one of them, ordered or not.
+    expect(l.writeText.map((t) => t.text)).toEqual(["Heart", "Sent:", "Liver", "Sent:", "Kidney", "Sent:"]);
+    expect(l.orderedText.map((t) => t.text)).toEqual(["ordered 0 pk", "ordered 12 pk", "ordered 8 pk"]);
+    expect(l.writeBoxes).toHaveLength(3);
     for (const [i, b] of l.writeBoxes.entries()) {
-      expect(b.w).toBeGreaterThanOrEqual(1 * 72); // room for a 2 to 3 digit number in marker
-      expect(b.h).toBeGreaterThanOrEqual(0.35 * 72);
-      expect(b.y).toBeGreaterThan(l.writeText[i].y); // under its name
-      expect(b.y + b.h).toBeLessThan(l.orderedText[i].y - 7.5 * 0.718);
-      expect(l.orderedText[i].y).toBeLessThanOrEqual(l.band!.y + l.band!.h);
-      if (i) expect(b.x).toBeGreaterThan(l.writeBoxes[i - 1].x + l.writeBoxes[i - 1].w);
+      const name = l.writeText[2 * i];
+      const sent = l.writeText[2 * i + 1];
+      const ordered = l.orderedText[i];
+      expect(b.w).toBeCloseTo(0.95 * 72); // room for a 2 to 3 digit number
+      expect(b.h).toBeGreaterThanOrEqual(0.2 * 72);
+      // One line, left to right: name, ordered, Sent:, the box; inside the band.
+      expect(name.x + m.bold(name.text, name.size)).toBeLessThan(ordered.x);
+      expect(ordered.x + m.regular(ordered.text, ordered.size)).toBeLessThan(sent.x);
+      expect(sent.x + m.bold(sent.text, sent.size)).toBeLessThanOrEqual(b.x);
+      expect(b.x + b.w).toBeLessThanOrEqual(l.band!.x + l.band!.w);
+      expect(name.y).toBeGreaterThan(b.y);
+      expect(name.y).toBeLessThan(b.y + b.h);
+      expect(b.y).toBeGreaterThanOrEqual(l.band!.y);
+      expect(b.y + b.h).toBeLessThanOrEqual(l.band!.y + l.band!.h);
+      if (i) expect(b.y).toBeGreaterThan(l.writeBoxes[i - 1].y + l.writeBoxes[i - 1].h);
     }
-    for (const t of l.writeText) expect(t.x + m.bold(t.text, t.size)).toBeLessThanOrEqual(l.band!.x + l.band!.w);
-    // The customer still fits above the rule.
-    // Under the pallet number and INV#, above the taller green band.
-    expect(L({ name: "PCC", location: "#10 Issaquah", writeIn, inv: "3001" }).dest[0].size).toBeGreaterThanOrEqual(14);
+    expect(l.writeText[0].size).toBeGreaterThanOrEqual(12);
+    // The customer still reads large above the rule, under the pallet number and INV#.
+    expect(L({ name: "PCC", location: "#10 Issaquah", writeIn, inv: "3001" }).dest[0].size).toBeGreaterThanOrEqual(16);
     expect(l.boxText.text).toBe("Box");
     expect(l.boxMore.map((t) => t.text)).toEqual(["of"]);
     expect(l.blanks).toHaveLength(2);
     expect(l.blanks[1].x + l.blanks[1].w).toBeLessThan(l.labelNo.x);
     expect(l.boxText.y).toBeGreaterThan(l.band!.y + l.band!.h);
-    // One organ: one box, 1.2 in wide.
-    expect(L({ writeIn: [{ name: "Livers", ordered: "3 pk" }] }).writeBoxes[0].w).toBeCloseTo(1.2 * 72);
   });
 
   it("the write-in label makes a PDF", async () => {

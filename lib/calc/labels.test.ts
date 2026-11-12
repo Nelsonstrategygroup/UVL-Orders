@@ -169,14 +169,19 @@ describe("products packed together (Organs)", () => {
     expect(t[0].noBox || t[0].weightUnknown).toBe(false);
   });
 
-  it("has a write-in blank for each organ ordered, in order, with what was ordered (10/31/26)", () => {
+  it("has a line for each of them, ordered or not, with what was ordered (Kathy, 11/11/26)", () => {
     const t = list.tables.find((x) => x.together)!;
     expect(t.rows[0].writeIn).toEqual([
-      { name: "Hearts", ordered: "8 pk" },
-      { name: "Livers", ordered: "8 pk" },
-      { name: "Kidneys", ordered: "6 pk" },
+      { name: "Heart", ordered: "8 pk" },
+      { name: "Liver", ordered: "8 pk" },
+      { name: "Kidney", ordered: "6 pk" },
     ]);
-    expect(t.rows[1].writeIn).toEqual([{ name: "Livers", ordered: "3 pk" }]);
+    // A store that ordered only livers still gets all three lines: Kathy may send what it didn't order.
+    expect(t.rows[1].writeIn).toEqual([
+      { name: "Heart", ordered: "0 pk" },
+      { name: "Liver", ordered: "3 pk" },
+      { name: "Kidney", ordered: "0 pk" },
+    ]);
   });
 
   it("prints last, as one batch", () => {

@@ -177,6 +177,8 @@ Layout, the weekly overview (change request 10/21/26, stage 2), with no subtabs:
 3. Planning: producer, processing day, producer message, extra cuts and where they go, what's filled from extras (Le Trim), and cuts added for half and whole orders.
 4. Follow-ups.
 
+**No processing this week (Lucas, 11/11/26).** A week with no orders, cutting or packing (Thanksgiving: orders Thu Nov 19, packing Mon Nov 23, 2026). At the foot of This week, "Mark 'No processing this week'" asks for a few words why and sets `weeks.no_processing` and `no_processing_note` (migration 20261112000200). For that week: every screen's week bar says "No processing this week: Thanksgiving. No orders, cutting or packing."; Calls shows "No calls this week" with a button to the week after, so nobody is listed as not called; This week shows a panel in place of its steps, warns if orders are already entered, and has "Turn processing back on". Nothing is deleted or blocked. An ordinary empty week needs nothing: every screen already opens empty without errors at the start of each week.
+
 ### 5.5 Cut sheet
 
 Port the prototype's Cut sheet screen exactly. Key behaviors:
@@ -271,6 +273,8 @@ Whole loin model, confirmed by Kathy and Chris on 10/15/26. For the selected wee
 9. For each part: supply = (final - carcass lambs) * per_lamb (a rack or short loin gets one per whole loin that is cut: whole loins going out whole, ordered intact or inside a Whole Lamb, give none); left over = supply minus need. Status: short, sets the count, comes out even, or extra.
 
 Front and hind shanks are shown (need vs. get) but never set the count ("We will not kill lambs to get shanks," Kathy 10/14). Hind shanks stay on the legs and are not part of a boxed Whole Lamb.
+
+**Mixed Shanks (Chris, 11/11/26).** Mixed Shanks are cut from front or hind shanks, but the product was linked to neither part, so its orders weren't counted against the shanks and the week came up short. `products.draws_from` (migration 20261112000100) lists the parts a product may be cut from, any of them: Mixed Shanks has front shank and hind shank. Such a product takes from none of those rows (which shanks are used first isn't decided: OPEN, to confirm with Kathy). On This week it has its own row at the foot of the balance, "From more than one part": need, what the parts it draws from have left over between them after their own orders (a part that's short gives nothing), and short, even or left, with the note "Draws from front and hind, order to be confirmed with Kathy." It never sets the lamb count. The cut sheet screen says how many are ordered and that it has no cut sheet line of its own yet (never printed). A customer who wants only front shanks is entered as Front Shanks, not Mixed. `calcWeek` returns these rows as `shared`.
 
 ### 6.2 Half and whole shortfall and freezer
 
@@ -367,7 +371,7 @@ Packing today uses manual weight entry only. This section adds scanning Mohawk's
 
 ### 11.1 Context
 
-- Mohawk prints a GS1-128 label on every box when it is weighed. Chris packs at Mohawk and scans with his own phone camera inside the app (no separate scanner app). A Bluetooth scanner that types into a focused field must also work, in case the camera can't read these dense barcodes reliably.
+- Mohawk prints a GS1-128 label on every box when it is weighed. Chris packs at Mohawk. Since 11/11/26 the primary way to scan is a Bluetooth barcode scanner in HID (keyboard) mode, paired to Chris's phone and kept at Mohawk: on Scan boxes he taps the "Bluetooth scanner, or type the label" box once and scans; the scanner types the label and presses Enter. Scanning with the phone's camera inside the app is the backup (the scanner missing, not charged, or not paired). Both read the same labels and follow the same steps, offline included. No separate scanner app.
 - There is no cell signal inside the Mohawk freezer. Packing and scanning must work offline (11.7).
 - Manifests must be complete the same day, before the truck leaves.
 - Traceability starts at the Mohawk lot. Ranch-level tracking is deferred; the data model leaves room for it (a lot can later point to its source lambs or ranch).
@@ -645,6 +649,8 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - Heart, Liver and Kidney are packed in one box (`products.packed_with` = "Organs", set in Setup > Products as "Packed in one box with"). One box of any of them, scanned or typed, is the store's order for all of them: on Packing each of their lines counts as packed ("Packed 10.95 lb in one box with Liver, Kidney"), and scanning suggests stores that still need any of them. Box sizes don't apply to them for now. Kathy fills them from what Mohawk has, so labels wait until then.
 - The box label list, the paper packing copy, Type in from paper and the boxes scanning fills show them as one item: one label per store ("8 Heart, 8 Liver, 6 Kidney", no box size), one row with one box, under the group's first product (Lucas, 10/29/26).
 - One line and one box everywhere it's packed, scanned or listed (Lucas, 11/10/26, after Burien showed "9 of 9" lines with 8 boxes and its HLK box printed as "Kidney"). Orders keep three separate quantities (Bellevue: 12 livers, 8 kidneys, no hearts). Packing shows one row per store, "Heart / Liver / Kidney · 1 box", with "Ordered: 3 Heart, 3 Liver, 3 Kidney" under it, and counts as one line there and on This week. The box is named for what that store ordered ("Liver / Kidney" for Bellevue; all of them when the store isn't known) on Packing, Scan boxes, Pallets, manifests and their CSV, and the paperwork warnings, whichever product Mohawk's barcode was taught as (Kidney). The packing record puts the box on the first of them on the order; the others read "In one box with ...". A box of any of them is on the order when any of them was ordered. `lib/calc/packTogether.ts` (`boxName`) and `lib/calc/packing.ts` (`packRows`).
+- The box label (Kathy, 11/11/26): a line for each of Heart, Liver and Kidney, ordered or not, with what was ordered and a blank "Sent: ____" beside it ("Heart  ordered 3 pk  Sent: ____"). Kathy writes what she sends once she knows how many came off the lambs, which is often not what was ordered. (Before: a column for each one ordered, its box under the name.)
+- Fill status (Kathy, 11/11/26): a scan records the box's weight, not the packs in it, so a scan alone never shows Heart, Liver or Kidney as filled. Packing reads "Box packed, 10.95 lb, count not recorded", in a plain row with no tick. Typing the packs on the weigh panel stays optional; with counts it reads "Box packed, 9 lb, sent 10 Liver, 8 Kidney". The box still counts as packed for the store's box count and "All packed".
 - One price for the group, on its first product by sort (Setup > Prices shows one row, "Heart, Liver, Kidney"). The invoice has one line for the group: boxes and weight only (no ordered amounts), with the packs counted on Packing under it if typed ("2 Heart, 5 Liver"). With no organ box, the line is Not shipped, naming what was ordered.
 
 ### 15.4b Stage 3, as built (migration 20261030000100)

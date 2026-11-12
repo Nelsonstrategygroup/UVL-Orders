@@ -52,7 +52,7 @@ export async function loadCatalog(db: SupabaseClient): Promise<Catalog> {
     db
       .from("products")
       .select(
-        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, price_unit, packed_with, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, label_name, box_lb_min, box_lb_max, pack_blanks, product_cut_specs(cut_spec_id, units_per_cut, sort)",
+        "id, name, short_name, unit, group_name, cut_spec_id, fresh_only, active, sort, note, alt_unit, lb_per_unit, pieces_per_pack, order_step, price_unit, packed_with, draws_from, counts_toward_lambs, not_lamb, confirmed, per_box, fill_note, carcass, mohawk_item_no, label_name, box_lb_min, box_lb_max, pack_blanks, product_cut_specs(cut_spec_id, units_per_cut, sort)",
       )
       .order("sort")
       .order("name"),
@@ -347,7 +347,7 @@ export async function loadExtraLambs(db: SupabaseClient, week: string): Promise<
 
 export async function loadWeek(db: SupabaseClient, week: string): Promise<WeekData> {
   const [weekRow, orders, weights, marks, hw, freezer, sets, sheet, leTrim, extraLambs] = await Promise.all([
-    db.from("weeks").select("id, process_date, producer, lamb_override, notes, labels_hash, labels_printed_at, invoice_number").eq("id", week).maybeSingle(),
+    db.from("weeks").select("id, process_date, producer, lamb_override, notes, labels_hash, labels_printed_at, invoice_number, no_processing, no_processing_note").eq("id", week).maybeSingle(),
     loadOrders(db, week),
     fetchAll<{ order_id: string; product_id: string; weight: number }>((a, b) =>
       db

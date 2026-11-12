@@ -13,16 +13,16 @@ import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
 import { useWeekData } from "@/components/data/useWeekData";
 import { useToast } from "@/components/Toast";
-import { useWeek, WeekBar } from "@/components/Week";
+import { useWeek, WEEK_CHANGED, WeekBar } from "@/components/Week";
 import { customerRank, displayName, isDone, orderingCustomers } from "@/lib/calc/customers";
-import { niceDate, todayISO } from "@/lib/dates";
+import { addDays, niceDate, todayISO } from "@/lib/dates";
 import { loadDueFollowUps, type DueFollowUp } from "@/lib/db/load";
 import { packRows, packStats, type PackLine } from "@/lib/calc/packing";
 import { packedWith } from "@/lib/calc/packTogether";
 import { fmt, num } from "@/lib/calc/num";
 import { legBreakdown, legBreakdownText, shortParts, weekNumbers } from "@/lib/calc/summary";
 import { packPartIncludes, partPackSizes } from "@/lib/calc/packs";
-import { plannedExtras, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
+import { plannedExtras, sharedNote, wholeLeft, wholeNeed, type PartRow } from "@/lib/calc/week";
 import { firmLines, weekCalc, willGetLines } from "@/lib/weekCalc";
 import ExtrasPanel from "./ExtrasPanel";
 import { qtyWords } from "@/lib/calc/carcassReport";
@@ -138,6 +138,20 @@ export default function WeekScreen() {
     if (err) toast("Couldn't save. Check the internet connection.");
     else toast("Saved");
     refresh();
+    // Every week bar on screen reads the week again ("No processing this week").
+    if ("no_processing" in patch) window.dispatchEvent(new Event(WEEK_CHANGED));
+  }
+
+  // A holiday week (11/11/26): no orders, cutting or packing. Nothing is deleted; it can be turned back on.
+  const off = !!w?.no_processing;
+  const ordersIn = [...data.orders.values()].filter((o) => o.status === "ordered").length;
+  function markNoProcessing() {
+    const note = window.prompt(
+      `No orders, cutting or packing for the week of ${niceDate(week)}?\n\nWhy, in a few words (it shows on every screen for this week):`,
+      "",
+    );
+    if (note == null) return;
+    void save({ no_processing: true, no_processing_note: note.trim() });
   }
 
   const unit = (row: PartRow) => (row.part.unit === "lb" ? " lb" : "");
@@ -154,6 +168,27 @@ export default function WeekScreen() {
     <>
       <WeekBar processDate={w?.process_date} schedule />
       {!canChange && <ViewOnly what="this week's settings" />}
+      {off && (
+        <section className="panel mt-2">
+          <h3>No processing this week</h3>
+          <p className="mt-1 mb-0">
+            {w?.no_processing_note ? <b>{w.no_processing_note}. </b> : null}
+            Nobody is called, nothing is cut or packed, and this week&apos;s steps are left off. The next week is the week of{" "}
+            {niceDate(addDays(week, 7))}.
+          </p>
+          {ordersIn > 0 && (
+            <p className="note bad mt-2 mb-0">
+              {ordersIn} order{ordersIn === 1 ? " is" : "s are"} already entered for this week. Move {ordersIn === 1 ? "it" : "them"} to another
+              week on Orders, or turn processing back on.
+            </p>
+          )}
+          {canChange && (
+            <button type="button" className="btn ghost mt-3" onClick={() => void save({ no_processing: false, no_processing_note: "" })}>
+              Turn processing back on
+            </button>
+          )}
+        </section>
+      )}
 
       {unconfirmed > 0 && (
         <p className="note small">
@@ -288,7 +323,48 @@ export default function WeekScreen() {
                   </tbody>
                 ),
             )}
+            {/* Mixed Shanks (11/11/26): cut from front or hind shanks, so its own row against what both have left. */}
+            {c.shared.length > 0 && (
+              <tbody>
+                <tr className="bal-group">
+                  <th colSpan={5} scope="rowgroup">
+                    From more than one part <span className="font-normal">not taken out of the rows above</span>
+                  </th>
+                </tr>
+                {c.shared.map((r) => (
+                  <tr key={r.product.id}>
+                    <td>
+                      <b>{r.product.name}</b> <span className="small muted">{r.per > 1 ? "packs" : ""}</span>
+                      <br />
+                      <span className="small">{sharedNote(r)}</span>
+                    </td>
+                    <td className="num">{fmt(r.need / r.per)}</td>
+                    <td className="num">{fmt(Math.floor(r.available / r.per + 1e-9))}</td>
+                    <td>
+                      <div className={`bar ${r.status === "short" ? "short" : ""}`} title={`${fmt(r.need / r.per)} of ${fmt(Math.floor(r.available / r.per + 1e-9))}`}>
+                        <i style={{ width: `${Math.min(100, r.available ? (r.need / r.available) * 100 : 100)}%` }} />
+                      </div>
+                    </td>
+                    <td>
+                      {r.status === "short" ? (
+                        <span className="tag short">Short {fmt(Math.ceil(-r.left / r.per - 1e-9))}</span>
+                      ) : r.status === "even" ? (
+                        <span className="tag even">Even</span>
+                      ) : (
+                        <span className="tag plain">{fmt(Math.floor(r.left / r.per + 1e-9))} left</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            )}
           </table>
+          {c.shared.length > 0 && (
+            <p className="small muted mt-2 mb-0">
+              &quot;Get&quot; for {c.shared.map((r) => r.product.name).join(", ")} is what the parts it draws from have left over after their
+              own orders, added together. A customer who wants only front shanks is entered as Front Shanks.
+            </p>
+          )}
           {packIncludes.map((t) => (
             <p key={t} className="mt-2 mb-0">
               {t}
@@ -323,7 +399,7 @@ export default function WeekScreen() {
         </p>
       )}
 
-      <section className="panel mt-4" aria-labelledby="steps-h">
+      <section className="panel mt-4" aria-labelledby="steps-h" hidden={off}>
         <h3 id="steps-h">This week&apos;s steps</h3>
         <ul className="steps">
           {(seeCalls || seeOrders) && (
@@ -469,6 +545,16 @@ export default function WeekScreen() {
       </section>
 
       {seeNotes && <FollowUps week={week} />}
+
+      {/* A holiday week: one quiet way to say so (11/11/26). */}
+      {!off && canChange && (
+        <p className="small muted mt-4 noprint">
+          No orders, cutting or packing this week (a holiday)?{" "}
+          <button type="button" className="copy" onClick={markNoProcessing}>
+            Mark &quot;No processing this week&quot;
+          </button>
+        </p>
+      )}
     </>
   );
 }

@@ -59,6 +59,30 @@ export type PartRow = {
   availableOnly: boolean;
 };
 
+/**
+ * A product that may be cut from more than one part (Mixed Shanks: front or
+ * hind shanks; Chris, 11/11/26: its orders weren't counted against the shanks
+ * and the week came up short). Which part it takes first isn't decided, so
+ * it takes from neither row: it's shown on its own against what those parts
+ * have left over between them.
+ */
+export type SharedRow = {
+  product: Product;
+  /** Ordered, in the product's own unit (packs). */
+  qty: number;
+  /** Pieces in one of the product's units (2 for a pack of shanks, else 1). */
+  per: number;
+  /** Ordered, in pieces. */
+  need: number;
+  /** The parts it draws from, as named in Setup. */
+  parts: string[];
+  /** Whole pieces those parts have left after their own orders (never below 0 for a part that's short). */
+  available: number;
+  /** available - need. Negative: short. */
+  left: number;
+  status: "short" | "even" | "extra";
+};
+
 /** A product filled from extras instead of the balance (Le Trim). */
 export type FilledFromExtras = { product: Product; qty: number; note: string };
 
@@ -91,7 +115,46 @@ export type WeekCalc = {
   cutSheetLambs: number;
   /** Products Kathy fills from extras, kept out of the balance. */
   filled: FilledFromExtras[];
+  /** Products drawn from more than one part (Mixed Shanks), each against what those parts have left. */
+  shared: SharedRow[];
 };
+
+/**
+ * The note on a shared row, in Kathy's words for Mixed Shanks: "Draws from
+ * front and hind, order to be confirmed with Kathy." Part names lose a
+ * repeated last word ("Front shank", "Hind shank" -> "front and hind").
+ */
+export function sharedNote(r: Pick<SharedRow, "parts">): string {
+  const words = r.parts.map((p) => p.trim().split(/\s+/));
+  const last = words[0]?.[words[0].length - 1]?.toLowerCase();
+  const same = words.length > 1 && words.every((w) => w.length > 1 && w[w.length - 1].toLowerCase() === last);
+  const names = words.map((w) => (same ? w.slice(0, -1) : w).join(" ").toLowerCase());
+  const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : (names[0] ?? "");
+  return `Draws from ${list}, order to be confirmed with Kathy.`;
+}
+
+/**
+ * What's ordered of each product that draws from more than one part, for the
+ * cut sheet's notice (11/11/26): these have no cut sheet line of their own
+ * yet, so the sheet says how many are ordered and where they come from.
+ * `totals` is in each product's own unit.
+ */
+export function sharedOrdered(
+  totals: Qty,
+  products: Pick<Product, "id" | "name" | "unit" | "draws_from">[],
+  parts: Pick<Part, "id" | "name">[],
+): { id: string; name: string; qty: number; unit: string; note: string }[] {
+  const partName = new Map(parts.map((p) => [p.id, p.name]));
+  return products
+    .filter((p) => (p.draws_from ?? []).some((id) => partName.has(id)) && (totals[p.id] ?? 0) > 0)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      qty: totals[p.id],
+      unit: p.unit,
+      note: sharedNote({ parts: (p.draws_from ?? []).filter((id) => partName.has(id)).map((id) => partName.get(id)!) }),
+    }));
+}
 
 export function sumOrders(orders: Qty[]): Qty {
   const totals: Qty = {};
@@ -233,6 +296,32 @@ export function calcWeek(input: {
     for (const k of base) if (parentOf(k.part) === r.part.id) rows.push(toRow(k));
   }
 
+  // Products drawn from more than one part (Mixed Shanks): their own rows,
+  // against what's left of those parts. They never set the lamb count.
+  const shared: SharedRow[] = [];
+  for (const p of input.products) {
+    const from = (p.draws_from ?? []).filter((id) => byId.has(id));
+    const qty = withShort[p.id] ?? 0;
+    if (!from.length || !(qty > 0)) continue;
+    const per = p.unit === "pack" && num(p.pieces_per_pack) > 0 ? num(p.pieces_per_pack) : 1;
+    const need = qty * per;
+    const available = from.reduce((s, id) => {
+      const r = rows.find((x) => x.part.id === id);
+      return s + (r ? Math.max(0, Math.floor(r.left + EPS)) : 0);
+    }, 0);
+    const left = available - need;
+    shared.push({
+      product: p,
+      qty,
+      per,
+      need,
+      parts: from.map((id) => byId.get(id)!.name),
+      available,
+      left,
+      status: left < -EPS ? "short" : Math.abs(left) < EPS ? "even" : "extra",
+    });
+  }
+
   const driver = partsRecommended > 0 ? (rows.find((r) => r.drives && r.lambs === partsRecommended) ?? null) : null;
   return {
     totals,
@@ -249,6 +338,7 @@ export function calcWeek(input: {
     overridden,
     cutSheetLambs,
     filled,
+    shared,
   };
 }
 

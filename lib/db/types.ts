@@ -157,6 +157,9 @@ export type WeekRow = {
   notes: string;
   /** The week's invoice number (INV# 3001), or null when it isn't set yet. */
   invoice_number?: number | null;
+  /** No orders, cutting or packing this week (a holiday; 11/11/26), and why ("Thanksgiving"). */
+  no_processing?: boolean;
+  no_processing_note?: string;
   /** When box labels were printed, a fingerprint of the list, and by whom (SPEC 12.5). */
   labels_hash?: string | null;
   labels_printed_at?: string | null;

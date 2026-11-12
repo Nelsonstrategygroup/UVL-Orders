@@ -41,6 +41,31 @@ questions doc.
 
 ## Decisions
 
+### Follow-ups from Kathy and Chris (11/11/26 to 11/12/26)
+- **Mixed Shanks in the balance.** They weren't counted against the shanks at
+  all (the product was linked to no part), so the week came up short. Now
+  they have their own row on This week against what front and hind shanks
+  have left between them, with "Draws from front and hind, order to be
+  confirmed with Kathy." Front and hind rows are unchanged. The cut sheet
+  screen says how many are ordered. Only-front customers are entered as Front
+  Shanks.
+- **HLK box label.** A line each for Heart, Liver and Kidney (ordered or
+  not): what was ordered and "Sent: ____" for Kathy to write what she sends.
+- **HLK fill status.** A scan gives weight, not packs: Packing says "Box
+  packed, count not recorded" and shows no tick, unless a count is typed
+  (optional).
+- **No processing this week.** A week can be marked so on This week, with a
+  note (Thanksgiving: packing Mon Nov 23). Every screen says so; Calls lists
+  nobody; This week leaves out its steps. It can be turned back on.
+- **Scanning.** The Bluetooth scanner (HID mode, paired to Chris's phone,
+  kept at Mohawk) is the primary way to scan; the phone camera is the backup.
+- **Test order.** Chris's scanner test order (#05 View Ridge, 3 Hind Shanks,
+  filed under the week of Mon Feb 16, 2026, entered 11/11/26) is to be
+  deleted once Lucas confirms. It created no boxes, lots or barcode mappings.
+- Still open: which shanks Mixed Shanks use first (Kathy); whether Mixed
+  Shanks need a cut sheet line of their own; Mixed Shanks still set to single
+  shanks in Setup (Lucas to change to packs).
+
 ### Fixes from packing INV# 3003 (11/10/26 to 11/11/26)
 Ten items Lucas and Chris found while packing Mon Nov 9.
 - **Audit log source.** Every box change records which screen or action made

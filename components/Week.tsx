@@ -42,28 +42,51 @@ export function useWeek(): WeekValue {
 // What happens on each weekday (0 Sunday ... 6 Saturday).
 const PLAN: Record<number, string> = { 4: "Orders", 1: "Mohawk, pack", 2: "Invoice, ship", 3: "Ship" };
 
-/** The week's INV# (its invoice number, the same on the cut sheet and invoices), unless the screen already has it; null offline. */
-function useInvNumber(week: string, given: string | null | undefined): string | null {
-  const [found, setFound] = useState<{ week: string; inv: string | null } | null>(null);
+/** Sent when a week is marked (or unmarked) "No processing this week", so every week bar on screen reads it again. */
+export const WEEK_CHANGED = "uvl:week-changed";
+
+type WeekInfo = { week: string; inv: string | null; off: boolean; note: string };
+
+/**
+ * The week's INV# (the same on the cut sheet and invoices) and whether it's
+ * marked "No processing this week" (11/11/26). Read once per screen; blank
+ * offline or before the week has a row.
+ */
+function useWeekInfo(week: string): WeekInfo | null {
+  const [found, setFound] = useState<WeekInfo | null>(null);
   useEffect(() => {
-    if (given !== undefined) return;
     let live = true;
-    getDb()
-      .from("weeks")
-      .select("invoice_number")
-      .eq("id", week)
-      .maybeSingle()
-      .then(
-        ({ data }) => live && setFound({ week, inv: (data as { invoice_number: number | null } | null)?.invoice_number?.toString() ?? null }),
-        () => {},
-      );
+    const read = () =>
+      getDb()
+        .from("weeks")
+        .select("*")
+        .eq("id", week)
+        .maybeSingle()
+        .then(
+          ({ data }) => {
+            const r = data as { invoice_number?: number | null; no_processing?: boolean; no_processing_note?: string } | null;
+            if (live) setFound({ week, inv: r?.invoice_number?.toString() ?? null, off: !!r?.no_processing, note: (r?.no_processing_note ?? "").trim() });
+          },
+          () => {},
+        );
+    void read();
+    window.addEventListener(WEEK_CHANGED, read);
     return () => {
       live = false;
+      window.removeEventListener(WEEK_CHANGED, read);
     };
-  }, [week, given]);
-  if (given !== undefined) return given?.trim() || null;
-  return found?.week === week ? found.inv : null;
+  }, [week]);
+  return found?.week === week ? found : null;
 }
+
+/** "No processing this week: Thanksgiving." for a week marked so, else null. For screens that change what they show. */
+export function useNoProcessing(week: string): { note: string } | null {
+  const info = useWeekInfo(week);
+  return info?.off ? { note: info.note } : null;
+}
+
+/** The words every screen uses for a week with no processing. */
+export const noProcessingWords = (note: string) => `No processing this week${note ? `: ${note}` : ""}. No orders, cutting or packing.`;
 
 /**
  * One line: ‹ Week of Oct 19 · Inv 3000 › and, on another week, a small
@@ -73,7 +96,9 @@ function useInvNumber(week: string, given: string | null | undefined): string | 
 export function WeekBar({ processDate, inv, schedule = false }: { processDate?: string | null; inv?: string | null; schedule?: boolean }) {
   const { week, setWeek } = useWeek();
   const isCurrent = week === currentWeek();
-  const invNumber = useInvNumber(week, inv);
+  const info = useWeekInfo(week);
+  // The screen's own INV# when it has one (it may be newer than what was read here).
+  const invNumber = inv !== undefined ? inv?.trim() || null : (info?.inv ?? null);
   const days = weekDays(week);
   const today = todayISO();
   return (
@@ -95,6 +120,12 @@ export function WeekBar({ processDate, inv, schedule = false }: { processDate?: 
           </button>
         )}
       </div>
+      {/* A holiday week (11/11/26): said on every screen, so nobody wonders why it's empty. */}
+      {info?.off && (
+        <p className="note warn noprint" role="status">
+          <b>{noProcessingWords(info.note)}</b>
+        </p>
+      )}
       {schedule && (
         <>
           {/* The order week at a glance: a strip on wider screens, one line on phones. */}

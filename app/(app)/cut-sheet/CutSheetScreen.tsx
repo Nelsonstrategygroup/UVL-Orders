@@ -27,6 +27,39 @@ import { parseWeekNumber } from "@/lib/calc/invoiceNumbers";
 import { setWeekInvoiceNumber } from "@/lib/db/invoicing";
 import type { SheetLine, SheetSet } from "@/lib/db/cutsheet";
 import SetCard, { type SetActions } from "./SetCard";
+import { sharedOrdered } from "@/lib/calc/week";
+import { toProductUnit, unitWord } from "@/lib/calc/units";
+import { fmt } from "@/lib/calc/num";
+import type { Catalog } from "@/lib/db/types";
+import type { Qty, Units } from "@/lib/calc/types";
+
+/**
+ * Products cut from more than one part (Mixed Shanks; 11/11/26) have no cut
+ * sheet line of their own yet, so the screen says how many are ordered and
+ * where they come from. Never on the printed sheet.
+ */
+function SharedNotice({ orders, catalog }: { orders: Map<string, { lines: Qty; units: Units }>; catalog: Catalog }) {
+  const totals: Qty = {};
+  for (const o of orders.values())
+    for (const [id, q] of Object.entries(o.lines)) {
+      const p = catalog.productById.get(id);
+      totals[id] = (totals[id] ?? 0) + (p ? toProductUnit(q, o.units[id], p) : q);
+    }
+  const list = sharedOrdered(totals, catalog.products, catalog.parts);
+  if (!list.length) return null;
+  return (
+    <p className="note warn mt-2">
+      {list.map((x) => (
+        <span key={x.id} className="block">
+          <b>
+            {x.name}: {fmt(x.qty)} {unitWord(x.unit, x.qty)} ordered.
+          </b>{" "}
+          Not on a cut sheet line of its own yet. {x.note}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 const LIVE_TABLES = ["cut_sheets", "weeks", "cut_sets", "cut_set_lines", "orders", "order_lines", "le_trim_plans"];
 
@@ -151,6 +184,7 @@ export default function CutSheetScreen() {
       <>
         <div className="screen-only">
           <WeekBar inv={data.sheet?.inv_number || undefined} />
+          <SharedNotice orders={data.orders} catalog={catalog} />
           <h2 className="mb-1">Cut sheet</h2>
           <ViewOnly what="the cut sheet" />
           <section className="panel mt-2">
@@ -244,6 +278,7 @@ export default function CutSheetScreen() {
     <>
       <div className="screen-only">
         <WeekBar inv={data.sheet?.inv_number || undefined} />
+        <SharedNotice orders={data.orders} catalog={catalog} />
 
         <div className="mb-2 flex flex-wrap items-end gap-3">
           <div className="mr-auto">
