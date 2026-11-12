@@ -159,6 +159,8 @@ Opened from Calls, Orders, or a customer. Shows the customer's standing notes, l
 
 Default layout: "One customer at a time," a list of customer cards with status and a summary of their order; tapping opens the order editor. Kathy prefers this. A toggle switches to "Spreadsheet grid" on wide screens: customers down the side, products across the top, Tab moves across, Enter moves down, half and whole shortfall row, totals row. Child locations show as "PCC: Fremont" style names, grouped under the parent.
 
+**Printing the grid (Lucas, 11/10/26).** "Print the grid" (or the browser's Print) on the spreadsheet grid prints a paper layout, not the scrolling grid, which cut off every product past the page edge (Necks, Bones, Tongue, Heart, Liver, Kidney and the pepper sticks on 11/9). Landscape Letter; only products with an order that week (or a half and whole shortfall), 14 product columns a sheet with the customer column on every sheet, and each sheet headed "Products 1 to 14 of 27 · Sheet 1 of 2" under the INV#. Only customers with an order are listed (the count of the rest is noted), chain names above their stores, then the half and whole shortfall and "Total this week" rows. A line taken in another unit than the column's prints its unit ("20 lb"); "*" marks an only-if-extra line. Every product with an order prints (`lib/orderGridPrint.ts`).
+
 ### 5.4 This week
 
 - Large "lambs to order" number with the part that sets it, an override field, producer name, and processing day.

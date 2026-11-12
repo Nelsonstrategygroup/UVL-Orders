@@ -243,7 +243,9 @@ Fix these on the customer's page (Edit details and contacts).
   first scan (10/26/26).
 - Every manifest lists boxes on no pallet, and prints "Data as of"; Packing
   shows boxes for a product not on the order under "Not on the order", with
-  "Correct, ship it" (never on the manifest) (Lucas, 10/26/26).
+  "Correct, ship it". The box is on its pallet's manifest and on the invoice as
+  "not on order"; the order isn't changed (Lucas, 10/26/26; confirmed on
+  Issaquah's pepper sticks, 11/9/26).
 - Order sheets: "Something else" with 4 blank rows after what the customer
   usually buys, to write in by hand (Kathy, 10/28/26).
 

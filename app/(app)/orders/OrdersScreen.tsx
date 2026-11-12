@@ -20,7 +20,9 @@ import { orderBoxes, orderBoxesText } from "@/lib/calc/boxes";
 import { amountText } from "@/lib/calc/extras";
 import { willGetLines } from "@/lib/weekCalc";
 import { fmt, num } from "@/lib/calc/num";
-import { todayName } from "@/lib/dates";
+import { todayName, weekName } from "@/lib/dates";
+import { gridPrintPages, gridPrintRows, type GridPrintRow } from "@/lib/orderGridPrint";
+import PrintHeader from "@/components/PrintHeader";
 import { setOrder } from "@/lib/db/save";
 import type { Customer, Order, OrderStatus, Qty, WeekData } from "@/lib/db/types";
 import { cleanLines, cleanQtyInput, cleanUnits, hasLines, snapshot, STATUSES, STATUS_LABEL, statusAfterLines } from "@/lib/orders";
@@ -89,10 +91,18 @@ export default function OrdersScreen() {
 
   return (
     <>
-      {header}
-      {!canChange && <ViewOnly what="orders" />}
-      <div className="mb-3 flex flex-wrap items-center gap-3">
+      {/* On paper the grid prints by itself, with its own heading (11/10/26). */}
+      <div className={view === "grid" ? "screen-only" : undefined}>
+        {header}
+        {!canChange && <ViewOnly what="orders" />}
+      </div>
+      <div className={`mb-3 flex flex-wrap items-center gap-3 ${view === "grid" ? "screen-only" : ""}`}>
         <h2 className="mr-auto">Orders</h2>
+        {view === "grid" && (
+          <button type="button" className="btn ghost desk-only" onClick={() => window.print()}>
+            Print the grid
+          </button>
+        )}
         <div className="desk-only">
           <div className="seg" role="group" aria-label="Layout">
             <button type="button" aria-pressed={view === "list"} onClick={() => choose("list")}>
@@ -107,14 +117,14 @@ export default function OrdersScreen() {
 
       {view === "grid" ? (
         <>
-          <div className="desk-only">
+          <div className="desk-only og-shell">
             <div className="w-full min-w-0">
               <fieldset disabled={!canChange} className="m-0 min-w-0 border-0 p-0">
                 <OrderGrid list={list} data={data} patchOrder={patchOrder} refresh={refresh} />
               </fieldset>
             </div>
           </div>
-          <div className="mob-only">
+          <div className="mob-only og-cards">
             <div className="w-full min-w-0">{cards}</div>
           </div>
         </>
@@ -422,13 +432,113 @@ function OrderGrid({
     );
   }
 
+  // On paper (11/10/26): only products with an order, a set number of columns a
+  // page, the customer column on every page. The scrolling grid cut off every
+  // product past the page edge.
+  const printRows: GridPrintRow[] = [];
+  let printParent: string | null = null;
+  let anyIfExtra = false;
+  for (const c of list) {
+    const parentId = c.parent_customer_id;
+    if (parentId && parentId !== printParent) printRows.push({ heading: true, name: byId.get(parentId)?.name ?? "", cells: {} });
+    printParent = parentId;
+    const o = data.orders.get(c.id);
+    const l = linesOf(c.id);
+    const cells: Record<string, string> = {};
+    for (const k in l) {
+      if (!(l[k] > 0)) continue;
+      const other = o?.units?.[k];
+      const ifExtra = !!o?.extra?.[k];
+      if (ifExtra) anyIfExtra = true;
+      cells[k] = `${fmt(l[k])}${other ? ` ${unitWord(other, l[k])}` : ""}${ifExtra ? " *" : ""}`;
+    }
+    printRows.push({ name: parentId ? c.name : displayName(c, byId), under: !!parentId, cells });
+  }
+  const printTotals: Qty = {};
+  for (const p of products) printTotals[p.id] = (totals[p.id] ?? 0) + (short[p.id] ?? 0);
+  const printPages = gridPrintPages(
+    products.map((p) => ({ id: p.id, head: p.short_name || p.name, unit: unitWord(p.unit) })),
+    printRows,
+    printTotals,
+  );
+  const shownRows = gridPrintRows(printRows);
+  const noOrder = printRows.filter((r) => !r.heading && !Object.values(r.cells).some(Boolean)).length;
+  const anyShort = products.some((p) => short[p.id]);
+
   return (
     <>
-      <p className="small muted mt-0 mb-2">
+      <div className="print-only ogp">
+        <style>{`@media print { @page { size: letter landscape; margin: 0.4in; } }`}</style>
+        {printPages.length === 0 && <p>No orders for this week yet.</p>}
+        {printPages.map((pg) => (
+          <section key={pg.page} className="ogp-page">
+            <PrintHeader
+              inv={data.weekRow?.invoice_number ?? null}
+              title="Order grid"
+              when={`Packing ${weekName(week)} · Products ${pg.from} to ${pg.to} of ${pg.of}${pg.pages > 1 ? ` · Sheet ${pg.page} of ${pg.pages}` : ""}`}
+              footer={pg.page === 1}
+            />
+            <table className="ogp-table">
+              <thead>
+                <tr>
+                  <th className="cust">Customer</th>
+                  {pg.products.map((p) => (
+                    <th key={p.id}>
+                      {p.head}
+                      <small>{p.unit}</small>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {shownRows.map((r, i) =>
+                  r.heading ? (
+                    <tr key={i} className="grp">
+                      <td className="cust" colSpan={pg.products.length + 1}>
+                        {r.name}
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={i}>
+                      <td className="cust">{r.name}</td>
+                      {pg.products.map((p) => (
+                        <td key={p.id}>{r.cells[p.id] ?? ""}</td>
+                      ))}
+                    </tr>
+                  ),
+                )}
+                {anyShort && (
+                  <tr className="sf">
+                    <td className="cust">Half and whole shortfall</td>
+                    {pg.products.map((p) => (
+                      <td key={p.id}>{short[p.id] ? fmt(short[p.id]) : ""}</td>
+                    ))}
+                  </tr>
+                )}
+                <tr className="tot">
+                  <td className="cust">Total this week</td>
+                  {pg.products.map((p) => (
+                    <td key={p.id}>{printTotals[p.id] ? fmt(printTotals[p.id]) : ""}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+            {pg.page === pg.pages && (
+              <p className="ogp-note">
+                Only products with an order this week are printed. A unit after a number (&quot;20 lb&quot;) means that line was taken
+                in another unit than the column&apos;s; totals are in the column&apos;s unit.
+                {anyIfExtra ? " * Only if extra: not counted on to be filled." : ""}
+                {noOrder > 0 ? ` ${noOrder} customer${noOrder === 1 ? "" : "s"} with no order this week ${noOrder === 1 ? "isn't" : "aren't"} listed.` : ""}
+              </p>
+            )}
+          </section>
+        ))}
+      </div>
+      <p className="small muted mt-0 mb-2 screen-only">
         Customers down the side, products across the top. Type a number and press Tab to move across, Enter to move
         down. It saves as you go.
       </p>
-      <div className="gridwrap">
+      <div className="gridwrap screen-only">
         <table className="og">
           <thead>
             <tr>

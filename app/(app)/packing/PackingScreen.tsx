@@ -315,7 +315,8 @@ function CustomerCard({
   const tags = [...new Set(o.weights.map((w) => w.pallet_id).filter((x): x is string => !!x))]
     .map((id) => pallets.find((p) => p.id === id)?.tag)
     .filter(Boolean);
-  // Boxes for a product the customer didn't order: shown here to check, never on the manifest (Lucas, 10/26/26).
+  // Boxes for a product the customer didn't order: shown here to check ("Correct, ship it"). They are on their
+  // pallet's manifest and on the invoice ("not on order"); the order itself isn't changed (confirmed 11/10/26).
   // A box packed together with something ordered (the HLK box, whichever product its barcode is) is on the order.
   const extras = o.weights.filter((w) => !onOrderAs(w.product_id, o.lines, data.products));
   const toCheck = extras.filter((w) => !w.extra_ok_at).length;

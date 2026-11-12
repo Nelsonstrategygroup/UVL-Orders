@@ -4046,3 +4046,70 @@ td.cb-neg {
     break-inside: avoid;
   }
 }
+
+/* The printed order grid (11/10/26): landscape Letter, a set number of product
+   columns a page, the customer column on every page. */
+.ogp-page {
+  break-after: page;
+}
+.ogp-page:last-child {
+  break-after: auto;
+}
+.ogp-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 10.5pt;
+  margin-top: 6pt;
+}
+.ogp-table th,
+.ogp-table td {
+  border: 1px solid #555;
+  padding: 2.5pt 3pt;
+  text-align: center;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.ogp-table thead th {
+  font-size: 9pt;
+  line-height: 1.15;
+  background: #e6e6e6;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.ogp-table thead th small {
+  display: block;
+  font-weight: 400;
+  font-size: 7.5pt;
+}
+.ogp-table .cust {
+  width: 1.9in;
+  text-align: left;
+  font-weight: 600;
+}
+.ogp-table tr.grp td {
+  background: #f0f0f0;
+  font-weight: 800;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.ogp-table tr.tot td {
+  font-weight: 800;
+  border-top: 2px solid #000;
+}
+.ogp-table tr {
+  break-inside: avoid;
+}
+.ogp-note {
+  font-size: 8.5pt;
+  margin: 5pt 0 0;
+}
+@media print {
+  /* The grid's own wrapper shows on paper whatever the page width; the phone cards don't. */
+  .og-shell {
+    display: block !important;
+  }
+  .og-cards {
+    display: none !important;
+  }
+}
