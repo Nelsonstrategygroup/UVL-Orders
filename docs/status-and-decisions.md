@@ -67,13 +67,13 @@ questions doc.
   Mixed Shanks last). A new product now goes at the end of its group, and
   Setup has "Place on the order screen and order grid" to put any product
   after another. Moved: Mixed Shanks after Front Shanks; Boneless Sirloin and
-  Tenderloin (group "Other") to the end.
+  Tenderloin into Loins and chops, after BNLS Loins (Lucas, 11/12/26).
 - **Test order deleted** (11/12/26): Chris's scanner test order (#05 View
   Ridge, 3 Hind Shanks, filed under the week of Mon Feb 16, 2026), its line,
   its label number and the empty week. It had no boxes, lots or barcode
   mappings. The audit log keeps the record.
 - Still open: whether Mixed Shanks need a cut sheet line of their own
-  (Kathy); where Boneless Sirloin and Tenderloin belong (Lucas).
+  (Kathy).
 
 ### Fixes from packing INV# 3003 (11/10/26 to 11/11/26)
 Ten items Lucas and Chris found while packing Mon Nov 9.
