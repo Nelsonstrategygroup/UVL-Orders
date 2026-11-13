@@ -4068,7 +4068,21 @@ td.cb-neg {
   .lc p {
     margin: 1pt 0;
   }
-  .lc-group,
+  /* Page 1 (11/12/26): a group may run on into the next column, so the two
+     columns come out even and page 1 stays one sheet (whole groups left the
+     second column 200px longer, and Le Trim spilled onto a page of its own).
+     A product line, a sum or a note never splits, and a heading is never
+     left at the foot of a column. */
+  .lc-group h3 {
+    break-after: avoid;
+  }
+  /* A little smaller than page 2, for room in a busy week. */
+  .lc-groups {
+    font-size: 11pt;
+  }
+  .lc-prod,
+  .lc-math,
+  .lc-note,
   .lc-balance tr {
     break-inside: avoid;
   }

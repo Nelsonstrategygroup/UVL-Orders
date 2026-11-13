@@ -151,5 +151,9 @@ describe("lamb count check: Mixed Shanks (11/12/26)", () => {
     expect(rr.groups.find((g) => g.title.startsWith("Other lamb products"))?.products.map((p) => p.name) ?? []).not.toContain("Mixed Shanks");
     // 50 lambs: 100 hind, all to Mixed Shanks first; 100 front, 80 to Front Shanks, the last 20 to Mixed Shanks.
     expect(shanks.math).toEqual(["Front Shanks 40 × 2 + Mixed Shanks 10 × 2 = 100 front shanks", "Mixed Shanks 50 × 2 = 100 hind shanks"]);
+    // Page 2: the hind shank row says it's used first; the front row doesn't repeat it.
+    const row = (n: string) => rr.balance.find((b) => b.name.toLowerCase().startsWith(n))!;
+    expect(row("hind").take).toContain("Mixed Shanks uses hind first, then front.");
+    expect(row("front").take.join(" ")).not.toContain("uses hind first");
   });
 });

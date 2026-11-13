@@ -14,7 +14,7 @@ import { EPS, fmt, num } from "./num";
 import type { Part, Product, Qty, Units } from "./types";
 import { toProductUnit, unitWord } from "./units";
 import type { PartRow, WeekCalc } from "./week";
-import { wholeLeft } from "./week";
+import { sharedNote, wholeLeft } from "./week";
 import { countWorking, partBalances } from "./working";
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
@@ -332,6 +332,8 @@ export function lambCheck(x: CheckInput): LambCheck {
     const took = b.part.unit === "lb" ? orders : Math.ceil(orders - EPS);
     take.push(`Orders take ${dec(took)}${lb}${packs(took)}`);
     if (b.leTrim > EPS) take.push(`Le Trim takes ${dec(b.part.unit === "lb" ? b.leTrim : Math.ceil(b.leTrim - EPS))}${lb}`);
+    // Mixed Shanks: which part it uses first, on that part's row (11/12/26).
+    for (const sh of c.shared ?? []) if (sh.takes[0]?.partId === b.part.id) take.push(`${sh.product.name} ${sharedNote(sh).replace(/^Uses/, "uses")}`);
     const left = wholeLeft(r);
     const short = left < -EPS;
     if (short) shorts.push(`${partWord(b.part, -left)} short ${dec(-left)}${lb}`);
