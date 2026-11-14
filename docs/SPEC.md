@@ -670,3 +670,53 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - ON HOLD (Lucas, 10/29/26): Kirkland's store number and Kathy's OK on the invoice codes. Stage 4 (QuickBooks Online connection) is tabled until Lucas raises it again.
 - OPEN: Kirkland's store number (#23 or #02); its code is PCC23 until changed.
 - OPEN: Kathy's approval of the location invoice codes.
+
+## 16. Lamb cost (change request 11/14/26) — PROPOSED, awaiting approval
+
+What UVL pays producers for each week's lambs, worked out from Mohawk's weigh sheet. A separate module: it only adds new tables, functions, a storage bucket and screens. It never changes an existing table, column, row or screen. Orders, Packing, the cut sheet, Le Trim, invoicing and every other existing screen never read from it, so removing it leaves the app as it was. It reads (never writes) `weeks` (the INV#, the week's lamb count) and `size_classes`.
+
+Admin only to start: every table, function and the photo bucket allow admins only (`is_admin()`), not a permission area. Packing, Office, Billing and Viewer can't see it. Opening it to a role later is a separate change.
+
+Safeguards: full backup of the live database before the first migration (taken 11/14/26: `backups/full_20261114T231122Z/`, all 53 public tables as JSON; not committed, it holds customer data). Each migration has a revert file in `supabase/rollback` that drops only what it added. Tested on the PGlite harness and a branch/preview before production (see 16.7).
+
+### 16.1 Stages
+1. Setup: producers, pricing settings, producer rate overrides. Nothing is calculated yet.
+2. Weigh sheet: kill record and photo, the entry grid, producer head counts, the step-by-step pay calculation, adjustments, the weekly summary (screen and printed).
+3. Later, not now: producer statements with paid status (waits for the payment schedule).
+4. Later, not now: yield, margin by INV#, a producer-facing view.
+
+### 16.2 Setup > Lamb cost (stage 1)
+- Producers: name, ranch name, contact (phone, email, address, as free text), active. None seeded; Kathy enters them. A producer with lambs on any weigh sheet can be turned off but not deleted.
+- Pricing settings, each from a date on: base rate ($ per lb live; currently 3.00) and live weight factor (currently 2.02). A week uses the newest setting dated on or before its kill date. One starting row, 3.00 and 2.02, is entered (OPEN: from what date).
+- Producer rate overrides, each from a date on: a producer's own $ per lb live, used instead of the base rate. None today. (OPEN: rate only, or the factor too.)
+
+### 16.3 Weigh sheet (stage 2; More > Weigh sheet)
+- One kill record per week, linked to the week (`weeks.id`) and shown by its INV#: kill date, notes, and photos of Mohawk's handwritten sheet (private Storage bucket `kill-sheets`, admin only).
+- Entry grid: type a carcass weight, press Enter, the cursor goes to the next row. Number keypad on a phone. Running count and total carcass lb at the top. Each row: lamb number, carcass lb, producer (optional), size, live lb, rate, base pay, adjustments, pay. Rows can be edited and deleted; every change is logged (who, when, old value) in the audit log.
+- Size comes from Setup > Lamb sizes. A weight that falls in no size, or in more than one, shows "Unassigned". Nothing is guessed. Today's sizes overlap (XS 50-55 and Small 50-60; 60 is in both Small and Medium) and have gaps (65-70, 80-90), so Kathy must check them before the size breakdown means anything.
+- Producer deliveries: head count per producer for the kill.
+- Warnings (never blocking): the number of weights doesn't match the producers' head counts, or doesn't match the week's lamb count; lambs given to a producer outnumber that producer's head count.
+
+### 16.4 Calculation (shown step by step on screen)
+- Per lamb: carcass lb x live factor = live lb; live lb x rate (the producer's override if one applies on the kill date, else the base rate) = base pay; plus or minus adjustments = pay.
+- When every lamb has a producer, each producer's pay is exact (the sum of their lambs).
+- When lambs have no producer: each producer's pay = head count x the week's average live lb x their rate, marked "Estimated". (OPEN: when some lambs have a producer and some don't.)
+- The rate, factor and where the rate came from (base or override) are stored on each lamb row when it is saved, so a later change in Setup never changes a past week. "Recalculate with today's settings" is an explicit button on a week, logged.
+- Adjustments: on one lamb, or on a producer for the week; a dollar amount or $ per lb; plus or minus; a reason (premium, dock, hauling, other) and a note (required for other). Logged.
+- Exact decimals (`numeric`) throughout. Pure functions in `lib/calc/lambCost.ts` with unit tests. (OPEN: rounding.)
+
+### 16.5 Weekly summary (on the weigh sheet page, and printable)
+Lambs, total carcass lb, total live lb, total pay, average carcass lb, average pay per lamb, cost per carcass lb. Then the same for each producer, with "Estimated" where it applies. Then lambs by size, with Unassigned.
+
+### 16.6 Not now
+Producer statements, payment tracking, yield, margin, a producer-facing view, any link from Orders, Packing, the cut sheet or invoices.
+
+### 16.7 Open questions
+- OPEN: date the starting 3.00 / 2.02 setting applies from.
+- OPEN: does a producer override replace only the rate, or the factor too?
+- OPEN: some lambs with a producer and some without in the same week.
+- OPEN: rounding: pay per lamb to the cent, or only totals.
+- OPEN: $ per lb adjustments: per live lb or per carcass lb.
+- OPEN: one kill per week, or can a week have two kill dates?
+- OPEN: Lamb sizes in Setup: are they carcass weights, and where does each range end (Kathy to confirm).
+- OPEN: test environment: Supabase branching (paid add-on) or the PGlite harness plus a Vercel preview against the live database (safe here because nothing existing reads the new tables).
