@@ -23,8 +23,13 @@ import type { Table } from "@/lib/reports";
 import type { CarcassReport } from "@/lib/calc/carcassReport";
 import { buildReport, REPORTS, reportHref, type ReportKind } from "../../reports";
 import CarcassBalance from "./CarcassBalance";
+import OrderGridPrint from "./OrderGridPrint";
+import type { GridReportPrint } from "@/lib/orderGridReportPrint";
 
-type Built = { key: string; table: Table; file: string; sheet: string; carcass?: CarcassReport; inv: string } | { key: string; none: true } | { key: string; error: string };
+type Built =
+  | { key: string; table: Table; file: string; sheet: string; carcass?: CarcassReport; gridPrint?: GridReportPrint; inv: string; when?: string }
+  | { key: string; none: true }
+  | { key: string; error: string };
 
 export default function ReportScreen(props: { kind: ReportKind; customer: string; from: string; to: string; print?: boolean }) {
   const { kind } = props;
@@ -60,6 +65,8 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
   }, [kind, def.filter, customerId, from, to]);
 
   const current = built?.key === key ? built : null;
+  // The Order grid has its own paper layout; its screen table and header stay on screen only (11/13/26).
+  const gridPrint = current && "gridPrint" in current ? current.gridPrint : undefined;
   const view = useMemo(() => (current && "table" in current ? readable(current.table, def.shape) : null), [current, def.shape]);
 
   // Opened with Print from Print and download: print once the report is ready.
@@ -165,7 +172,7 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
           label={current && "inv" in current ? current.inv : def.filter === "week" ? invLabel(data?.weekRow?.invoice_number) : ""}
           title={<h1>{def.title}</h1>}
           when={subtitle}
-          className="rp-head"
+          className={`rp-head ${gridPrint ? "screen-only" : ""}`}
         />
 
         {!current ? (
@@ -211,7 +218,8 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
                 ))}
               </div>
             )}
-            <div className={`rp-scroll ${def.wide ? "wide" : "narrow"}`}>
+            {gridPrint && <OrderGridPrint g={gridPrint} inv={current && "inv" in current ? current.inv : ""} when={current && "when" in current ? current.when : undefined} />}
+            <div className={`rp-scroll ${def.wide ? "wide" : "narrow"} ${gridPrint ? "screen-only" : ""}`}>
               <table className={`rp-table ${def.lined ? "lined" : ""}`}>
                 <thead>
                   <tr>

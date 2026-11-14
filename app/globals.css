@@ -1903,6 +1903,108 @@
   }
 }
 
+/* The Order grid report on paper (11/13/26): sections on their own pages,
+   a band per product group, lines between every column and heavier ones
+   between groups, totals under the headers (repeated on every page) and at
+   the bottom, and the name at both ends of the row. */
+.ogr-section + .ogr-section {
+  break-before: page;
+}
+.ogr-table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: 4pt;
+  color: #000;
+}
+.ogr-table th,
+.ogr-table td {
+  border: 0.75px solid #777;
+  padding: 1pt 1.5pt;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+.ogr-table td {
+  font-size: 11pt;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ogr-table td small {
+  font-size: 7pt;
+  font-weight: 400;
+}
+.ogr-table .name {
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 10.5pt;
+  font-weight: 700;
+}
+.ogr-table .name.end {
+  text-align: right;
+}
+.ogr-table .gs {
+  border-left: 2.5px solid #000;
+}
+.ogr-table tr.band th {
+  font-size: 8pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: #cfcfcf;
+  border-bottom: 0;
+}
+.ogr-table tr.band th:first-child,
+.ogr-table tr.band th:last-child {
+  background: none;
+  border: 0;
+}
+/* Narrow columns: long words break at a syllable with a hyphen ("Ten-der-loin"), not mid-letter. */
+.ogr-table tr.head th {
+  font-size: 7.5pt;
+  line-height: 1.05;
+  font-weight: 700;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  background: #e4e4e4;
+}
+.ogr-table tr.head th small {
+  display: block;
+  font-size: 7pt;
+  font-weight: 400;
+}
+.ogr-table tr.head th.name {
+  font-size: 9pt;
+}
+.ogr-table .alt {
+  background: #efefef;
+}
+.ogr-table tr.zebra td {
+  background: #f6f6f6;
+}
+.ogr-table tr.zebra td.alt {
+  background: #e8e8e8;
+}
+.ogr-table tr.tot th,
+.ogr-table tr.tot td {
+  font-size: 11pt;
+  font-weight: 800;
+  background: #d4d4d4;
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+}
+.ogr-table tr {
+  break-inside: avoid;
+}
+.ogr-table thead {
+  display: table-header-group;
+}
+.ogr-table,
+.ogr-table * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 /* Paper copies: .print-only shows only when printing, .screen-only only on screen. */
 .print-only {
   display: none;

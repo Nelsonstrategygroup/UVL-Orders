@@ -2,6 +2,7 @@
 // 10/21/26): how to build its table, and how it reads as a page. The Download
 // button and the Open page both build the table here, so they always match.
 
+import { orderGridReportPrint, type GridReportPrint } from "@/lib/orderGridReportPrint";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { displayName, orderingCustomers, sortByDisplayName } from "@/lib/calc/customers";
 import { halfWholeNeeds } from "@/lib/calc/halfWhole";
@@ -128,6 +129,8 @@ export type BuiltReport = {
   inv: string;
   /** What it covers, after the name: "Packing Mon Nov 2", "As of 2026-10-31". */
   when?: string;
+  /** The Order grid's own paper layout (11/13/26); the screen keeps the table. */
+  gridPrint?: GridReportPrint;
 };
 
 /** Each week's invoice number, for reports over many weeks. */
@@ -179,7 +182,12 @@ async function buildTable(kind: ReportKind, x: ReportInput): Promise<BuiltReport
       // The same customers and products as the grid on Orders.
       const shown = groupProducts(catalog.products.filter((p) => p.active)).flatMap((g) => g.products);
       const list = sortByDisplayName(orderingCustomers(customers.list), customers.byId);
-      return { table: orderGridTable(list, customers.byId, data.orders, shown), ...ofWeek, sheet: "Orders" };
+      return {
+        table: orderGridTable(list, customers.byId, data.orders, shown),
+        gridPrint: orderGridReportPrint(list, customers.byId, data.orders, shown),
+        ...ofWeek,
+        sheet: "Orders",
+      };
     }
     case "product-totals": {
       const { short } = halfWholeNeeds(data.freezer, data.halfWhole, catalog.parts, catalog.products);
