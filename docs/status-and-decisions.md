@@ -102,7 +102,9 @@ Ten items Lucas and Chris found while packing Mon Nov 9.
   "Correct, ship it" on Packing, on the manifest and the invoice. The order
   isn't changed; whether it should be is question 27 for Kathy and Chris.
 - **Order grid print.** A paper layout on landscape Letter: every product
-  with an order, 14 columns a sheet.
+  with an order, 14 columns a sheet. (11/13/26: totals under the headers,
+  shaded columns and group lines, up to 13 columns a sheet shared out evenly,
+  the same column widths on every sheet; a busy week is three pages.)
 - **Mixed Shanks.** Always in packs (Lucas). Packs and pieces now convert by
   the pack size; pieces that aren't whole packs are flagged on This week.
   Lucas sets Mixed Shanks to packs in Setup; Bothell's 15 is 15 packs.

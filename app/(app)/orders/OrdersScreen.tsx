@@ -21,7 +21,7 @@ import { amountText } from "@/lib/calc/extras";
 import { willGetLines } from "@/lib/weekCalc";
 import { fmt, num } from "@/lib/calc/num";
 import { todayName, weekName } from "@/lib/dates";
-import { gridPrintPages, gridPrintRows, type GridPrintRow } from "@/lib/orderGridPrint";
+import { gridPrintPages, gridPrintRows, type GridPrintColumn, type GridPrintPage, type GridPrintRow } from "@/lib/orderGridPrint";
 import PrintHeader from "@/components/PrintHeader";
 import { setOrder } from "@/lib/db/save";
 import type { Customer, Order, OrderStatus, Qty, WeekData } from "@/lib/db/types";
@@ -457,7 +457,7 @@ function OrderGrid({
   const printTotals: Qty = {};
   for (const p of products) printTotals[p.id] = (totals[p.id] ?? 0) + (short[p.id] ?? 0);
   const printPages = gridPrintPages(
-    products.map((p) => ({ id: p.id, head: p.short_name || p.name, unit: unitWord(p.unit) })),
+    products.map((p) => ({ id: p.id, head: p.short_name || p.name, unit: unitWord(p.unit), group: p.group_name })),
     printRows,
     printTotals,
   );
@@ -468,7 +468,7 @@ function OrderGrid({
   return (
     <>
       <div className="print-only ogp">
-        <style>{`@media print { @page { size: letter landscape; margin: 0.4in; } }`}</style>
+        <style>{`@media print { @page { size: letter landscape; margin: 0.3in; } }`}</style>
         {printPages.length === 0 && <p>No orders for this week yet.</p>}
         {printPages.map((pg) => (
           <section key={pg.page} className="ogp-page">
@@ -478,49 +478,69 @@ function OrderGrid({
               when={`Packing ${weekName(week)} · Products ${pg.from} to ${pg.to} of ${pg.of}${pg.pages > 1 ? ` · Sheet ${pg.page} of ${pg.pages}` : ""}`}
               footer={pg.page === 1}
             />
+            {/* Totals right under the headers, every other column shaded, a thicker line between groups,
+                and the same column slots on every sheet (Lucas, 11/13/26). */}
             <table className="ogp-table">
+              <colgroup>
+                <col className="cust" />
+                {Array.from({ length: pg.slots }, (_, i) => (
+                  <col key={i} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
                   <th className="cust">Customer</th>
                   {pg.products.map((p) => (
-                    <th key={p.id}>
+                    <th key={p.id} className={colClass(p)}>
                       {p.head}
                       <small>{p.unit}</small>
                     </th>
                   ))}
+                  {fill(pg)}
                 </tr>
+                <tr className="tot">
+                  <th className="cust">Total this week</th>
+                  {pg.products.map((p) => (
+                    <th key={p.id} className={colClass(p)}>
+                      {printTotals[p.id] ? fmt(printTotals[p.id]) : ""}
+                    </th>
+                  ))}
+                  {fill(pg)}
+                </tr>
+                {anyShort && (
+                  <tr className="sf">
+                    <th className="cust">Of that, half and whole shortfall</th>
+                    {pg.products.map((p) => (
+                      <th key={p.id} className={colClass(p)}>
+                        {short[p.id] ? fmt(short[p.id]) : ""}
+                      </th>
+                    ))}
+                    {fill(pg)}
+                  </tr>
+                )}
               </thead>
               <tbody>
                 {shownRows.map((r, i) =>
                   r.heading ? (
                     <tr key={i} className="grp">
-                      <td className="cust" colSpan={pg.products.length + 1}>
-                        {r.name}
-                      </td>
+                      <td className="cust">{r.name}</td>
+                      {pg.products.map((p) => (
+                        <td key={p.id} className={colClass(p)} />
+                      ))}
+                      {fill(pg)}
                     </tr>
                   ) : (
                     <tr key={i}>
                       <td className="cust">{r.name}</td>
                       {pg.products.map((p) => (
-                        <td key={p.id}>{r.cells[p.id] ?? ""}</td>
+                        <td key={p.id} className={colClass(p)}>
+                          {r.cells[p.id] ?? ""}
+                        </td>
                       ))}
+                      {fill(pg)}
                     </tr>
                   ),
                 )}
-                {anyShort && (
-                  <tr className="sf">
-                    <td className="cust">Half and whole shortfall</td>
-                    {pg.products.map((p) => (
-                      <td key={p.id}>{short[p.id] ? fmt(short[p.id]) : ""}</td>
-                    ))}
-                  </tr>
-                )}
-                <tr className="tot">
-                  <td className="cust">Total this week</td>
-                  {pg.products.map((p) => (
-                    <td key={p.id}>{printTotals[p.id] ? fmt(printTotals[p.id]) : ""}</td>
-                  ))}
-                </tr>
               </tbody>
             </table>
             {pg.page === pg.pages && (
@@ -577,4 +597,14 @@ function OrderGrid({
       </div>
     </>
   );
+}
+
+/** A printed grid column's look: shaded every other column, a thicker line where a new product group starts. */
+function colClass(p: GridPrintColumn): string {
+  return [p.shaded ? "alt" : "", p.groupStart ? "gs" : ""].filter(Boolean).join(" ") || "";
+}
+
+/** Empty slots at the end of a sheet with fewer products, so its columns line up with the other sheets'. */
+function fill(pg: GridPrintPage) {
+  return Array.from({ length: pg.slots - pg.products.length }, (_, i) => <td key={`fill-${i}`} className="fill" aria-hidden="true" />);
 }

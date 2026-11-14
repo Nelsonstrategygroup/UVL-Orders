@@ -4106,15 +4106,30 @@ td.cb-neg {
 .ogp-table th,
 .ogp-table td {
   border: 1px solid #555;
-  padding: 2.5pt 3pt;
+  padding: 1.5pt 3pt;
   text-align: center;
   vertical-align: middle;
   overflow-wrap: anywhere;
 }
-.ogp-table thead th {
+/* Column guides (11/13/26): every other product column shaded, and a
+   thicker line where one product group ends and the next begins. */
+.ogp-table .alt {
+  background: #ececec;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.ogp-table .gs {
+  border-left: 2.5px solid #000;
+}
+/* Empty slots on a sheet with fewer products: no lines, nothing to read. */
+.ogp-table .fill {
+  border: 0;
+  background: none;
+}
+.ogp-table thead tr:first-child th {
   font-size: 9pt;
-  line-height: 1.15;
-  background: #e6e6e6;
+  line-height: 1.05;
+  background: #d9d9d9;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
@@ -4128,15 +4143,23 @@ td.cb-neg {
   text-align: left;
   font-weight: 600;
 }
+.ogp-table col.cust {
+  width: 1.9in;
+}
 .ogp-table tr.grp td {
   background: #f0f0f0;
   font-weight: 800;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-.ogp-table tr.tot td {
+/* Totals right under the column headers, above each column (11/13/26). */
+.ogp-table tr.tot th {
   font-weight: 800;
-  border-top: 2px solid #000;
+  border-bottom: 2.5px solid #000;
+}
+.ogp-table tr.sf th {
+  font-weight: 400;
+  font-size: 9pt;
 }
 .ogp-table tr {
   break-inside: avoid;
