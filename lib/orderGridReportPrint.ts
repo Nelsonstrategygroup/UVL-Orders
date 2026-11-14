@@ -6,13 +6,19 @@
 // On paper:
 // - Two sections, each starting on a new page with the customer column: the
 //   main cuts (Whole Lamb through BI Shoulder), then stew meat, ground and
-//   trim, organs, other byproducts and what isn't lamb. A section never has
+//   trim, organs, byproducts and prepared (not lamb: pepper sticks). A section never has
 //   more than MAX_COLUMNS products; the main cuts' extras move to the start of
 //   the next section.
 // - Only customers with an order and products with a total that week.
 // - A band above the headers names each group (Loins, Racks, Shanks...).
-//   Byproducts split into Organs (packed in one box: Heart, Liver, Kidney),
-//   Other, and Not lamb; Stew Meat has its own band in the second section.
+//   Setup's Byproducts split into Organs (packed in one box: Heart, Liver,
+//   Kidney), Byproducts (the rest), and Prepared (not lamb); Stew Meat has its
+//   own band in the second section (names 11/14/26).
+// - Customers under a light label for their group: "PCC" over its stores,
+//   "Other customers" over the rest. A small gap after every 4 rows of a group.
+// - A long section flows onto more pages (flowPages): both header rows on
+//   every page, no row split, "Continued" at the foot of every page but the
+//   section's last, totals once at its end.
 // - Short headers with the product's usual unit under them, words never
 //   broken ("Jalapeno Honey Pepper Sticks" prints "Pepper Sticks").
 // - A line taken in another unit shows in the column's unit with what was
@@ -64,7 +70,8 @@ export type GridReportPrint = {
   sections: GridReportSection[];
   /** The widest section's column count: every section's product columns are this wide. */
   slots: number;
-  rows: { name: string; cells: Record<string, GridReportCell> }[];
+  /** `group`: the chain a store belongs to ("PCC"), or "Other customers". */
+  rows: { name: string; group: string; cells: Record<string, GridReportCell> }[];
   totals: Record<string, string>;
 };
 
@@ -90,18 +97,21 @@ function printHead(p: GridReportProduct, all: GridReportProduct[]): string {
 export function bandOf(p: GridReportProduct): { band: string; main: boolean } {
   const g = p.group_name || "Other";
   if (/stew/i.test(p.name)) return { band: "Stew meat", main: false };
-  if (p.not_lamb) return { band: "Not lamb", main: false };
+  if (p.not_lamb) return { band: "Prepared", main: false };
   if (MAIN_GROUPS.includes(g)) return { band: BAND[g] ?? g, main: true };
-  if (g === "Byproducts") return { band: (p.packed_with ?? "").trim() ? "Organs" : "Other", main: false };
+  if (g === "Byproducts") return { band: (p.packed_with ?? "").trim() ? "Organs" : "Byproducts", main: false };
   return { band: BAND[g] ?? g, main: false };
 }
 
 /** The second section's bands in this order, whatever the products' order: one "Other" band, not two. */
-const REST_ORDER = ["Stew meat", "Ground and trim", "Organs", "Other", "Not lamb"];
+const REST_ORDER = ["Stew meat", "Ground and trim", "Organs", "Byproducts", "Prepared"];
 const restRank = (band: string) => {
   const i = REST_ORDER.indexOf(band);
-  return i < 0 ? REST_ORDER.length - 1.5 : i; // another Setup group: before Not lamb
+  return i < 0 ? REST_ORDER.length - 1.5 : i; // another Setup group: before Prepared
 };
+
+/** The label over customers who aren't one of a chain's stores. */
+export const OTHER_CUSTOMERS = "Other customers";
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 const num = (v: number) => String(round2(v));
@@ -128,7 +138,8 @@ export function orderGridReportPrint(
       const unit = lineUnit(p.id, p, o.units);
       cells[p.id] = unit === p.unit ? { n: num(q) } : { n: num(toProductUnit(q, unit, p)), was: `(${num(q)} ${unitWord(unit, q)})` };
     }
-    if (Object.keys(cells).length) rows.push({ name: printName(displayName(c, byId)), cells });
+    const chain = c.parent_customer_id ? byId.get(c.parent_customer_id)?.name : undefined;
+    if (Object.keys(cells).length) rows.push({ name: printName(displayName(c, byId)), group: chain ?? OTHER_CUSTOMERS, cells });
   }
 
   // Columns: products with a total, main cuts first, the rest after; the bands in the order they come.
@@ -165,3 +176,70 @@ export function orderGridReportPrint(
   const totals = Object.fromEntries(used.map((p) => [p.id, num(total[p.id])]));
   return { sections, slots: Math.max(0, ...sections.map((s) => s.columns.length)), rows, totals };
 }
+
+/** One line of a printed section: a group's label, or a customer's row (a small gap after it ends a block of 4). */
+export type FlowItem<R> = { kind: "label"; label: string } | { kind: "row"; row: R; gapAfter: boolean };
+
+/**
+ * A section's lines in print order: each group's label, then its rows, a gap
+ * after every 4th row of a group (not after its last).
+ */
+export function flowItems<R extends { group: string }>(rows: R[]): FlowItem<R>[] {
+  const out: FlowItem<R>[] = [];
+  let group: string | null = null;
+  let n = 0;
+  rows.forEach((row, i) => {
+    if (row.group !== group) {
+      group = row.group;
+      n = 0;
+      out.push({ kind: "label", label: row.group });
+    }
+    n++;
+    const last = rows[i + 1]?.group !== row.group;
+    out.push({ kind: "row", row, gapAfter: n % 4 === 0 && !last });
+  });
+  return out;
+}
+
+export type FlowSizes = {
+  /** Room for lines on a page, under the page heading and the column headers (px). */
+  room: number;
+  row: number;
+  label: number;
+  gap: number;
+  /** The totals row, on the section's last page. */
+  total: number;
+  /** The "Continued" line at the foot of a page that isn't the section's last. */
+  more: number;
+};
+
+const heightOf = <R,>(it: FlowItem<R>, z: FlowSizes) => (it.kind === "label" ? z.label : z.row + (it.gapAfter ? z.gap : 0));
+
+/**
+ * Lines onto pages: as many as fit, never a label alone at the foot of a page,
+ * room for "Continued" on every page but the last, and the totals on the last.
+ */
+export function flowPages<R>(items: FlowItem<R>[], z: FlowSizes): FlowItem<R>[][] {
+  const pages: FlowItem<R>[][] = [[]];
+  let used = 0;
+  items.forEach((it, i) => {
+    const h = heightOf(it, z);
+    // A label needs its first row with it.
+    const next = it.kind === "label" && items[i + 1] ? heightOf(items[i + 1], z) : 0;
+    if (pages[pages.length - 1].length && used + h + next > z.room - z.more) {
+      pages.push([]);
+      used = 0;
+    }
+    pages[pages.length - 1].push(it);
+    used += h;
+  });
+  // The last page also holds the totals: when they don't fit, its last row (and a label left alone) goes on.
+  const last = pages[pages.length - 1];
+  if (used + z.total > z.room && last.length > 1) {
+    const moved = [last.pop()!];
+    if (last[last.length - 1]?.kind === "label") moved.unshift(last.pop()!);
+    pages.push(moved);
+  }
+  return pages;
+}
+

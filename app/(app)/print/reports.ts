@@ -75,7 +75,8 @@ export const REPORTS: Record<ReportKind, ReportDef> = {
     filter: "week",
     shape: { constant: ["Week of"], groupBy: "Customer", items: ["Product", "Quantity", "Unit", "Packed (lb)"] },
   },
-  "order-grid": { title: "Order grid", filter: "week", wide: true, xlsxOnly: true, shape: {} },
+  // No Phone on the page (11/14/26); the Excel file keeps it.
+  "order-grid": { title: "Order grid", filter: "week", wide: true, xlsxOnly: true, shape: { hide: ["Phone"] } },
   "product-totals": { title: "Product totals", filter: "week", shape: { constant: ["Week of"] } },
   "packing-record": {
     title: "Packing record",

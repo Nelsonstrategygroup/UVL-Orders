@@ -16,6 +16,8 @@ export type ReadableShape = {
   items?: string[];
   /** Columns kept even when empty everywhere (a blank Notes column to write on). */
   keep?: string[];
+  /** Columns in the file but not on the page (the order grid's Phone, 11/14/26). */
+  hide?: string[];
 };
 
 export type Field = { label: string; value: string };
@@ -52,9 +54,10 @@ function tidyItem(fields: Field[]): Field[] {
 export function readable(t: Table, shape: ReadableShape = {}): Readable {
   const constantSet = new Set(shape.constant ?? []);
   const keepSet = new Set(shape.keep ?? []);
+  const hideSet = new Set(shape.hide ?? []);
   const keep = t.header
     .map((h, i) => ({ h, i }))
-    .filter(({ h, i }) => !constantSet.has(h) && (keepSet.has(h) || t.rows.some((r) => text(r[i]) !== "")));
+    .filter(({ h, i }) => !constantSet.has(h) && !hideSet.has(h) && (keepSet.has(h) || t.rows.some((r) => text(r[i]) !== "")));
   const kinds = t.rows.map((_, i) => t.rowKinds?.[i]);
   const constants = t.header
     .map((h, i) => ({ label: h, value: text(t.rows[0]?.[i]) }))

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Customer, Order } from "./db/types";
-import { bandOf, orderGridReportPrint, printName, type GridReportProduct } from "./orderGridReportPrint";
+import { bandOf, flowItems, flowPages, orderGridReportPrint, printName, type FlowItem, type GridReportProduct } from "./orderGridReportPrint";
 
 const cust = (id: string, name: string, parent: string | null = null) => ({ id, name, parent_customer_id: parent, active: true }) as unknown as Customer;
 const order = (lines: Record<string, number>, units: Record<string, string> = {}) => ({ lines, units }) as unknown as Order;
@@ -39,8 +39,9 @@ describe("the Order grid report on paper (11/13/26)", () => {
   ]);
   const g = orderGridReportPrint(all.slice(1), byId, orders, products);
 
-  it("only customers with an order, names shortened to read in one piece", () => {
+  it("only customers with an order, names shortened to read in one piece, in their group", () => {
     expect(g.rows.map((r) => r.name)).toEqual(["PCC 05 View Ridge", "PCC 17 Burien", "Key City"]);
+    expect(g.rows.map((r) => r.group)).toEqual(["PCC", "PCC", "Other customers"]);
     expect(printName("PCC: #24 Central District")).toBe("PCC 24 Central District");
   });
 
@@ -59,10 +60,10 @@ describe("the Order grid report on paper (11/13/26)", () => {
       { label: "Shanks", span: 1 },
       { label: "Shoulders", span: 1 },
     ]);
-    expect(g.sections[1].bands.map((b) => b.label)).toEqual(["Stew meat", "Ground and trim", "Organs", "Not lamb"]);
+    expect(g.sections[1].bands.map((b) => b.label)).toEqual(["Stew meat", "Ground and trim", "Organs", "Prepared"]);
     expect(g.sections[1].columns.map((c) => c.bandStart)).toEqual([false, true, true, false, true]);
-    expect(bandOf(products.find((x) => x.id === "necks")!).band).toBe("Other");
-    // Other byproducts on either side of the organs still print as one band, after Organs.
+    expect(bandOf(products.find((x) => x.id === "necks")!).band).toBe("Byproducts");
+    // Byproducts on either side of the organs still print as one band, after Organs.
     const mixed = orderGridReportPrint(
       [cust("kc", "Key City")],
       new Map(),
@@ -71,9 +72,9 @@ describe("the Order grid report on paper (11/13/26)", () => {
     );
     expect(mixed.sections[0].bands).toEqual([
       { label: "Organs", span: 1 },
-      { label: "Other", span: 2 },
+      { label: "Byproducts", span: 2 },
     ]);
-    expect(bandOf(products.find((x) => x.id === "bones")!).band).toBe("Other");
+    expect(bandOf(products.find((x) => x.id === "bones")!).band).toBe("Byproducts");
   });
 
   it("short headers with the usual unit; a line in another unit says so; totals in the column's unit", () => {
@@ -112,5 +113,44 @@ describe("the Order grid report on paper, second pass (11/14/26)", () => {
     const r = orderGridReportPrint([cust("kc", "Key City")], new Map(), new Map([["kc", order({ g5: 60 }, { g5: "lb" })]]), [g5]);
     expect(r.rows[0].cells.g5).toEqual({ n: "12", was: "(60 lb)" });
     expect(r.totals.g5).toBe("12");
+  });
+});
+
+describe("printed sections flow onto more pages (11/14/26)", () => {
+  const rows = (pcc: number, other: number) => [
+    ...Array.from({ length: pcc }, (_, i) => ({ name: `PCC ${i + 1}`, group: "PCC" })),
+    ...Array.from({ length: other }, (_, i) => ({ name: `Other ${i + 1}`, group: "Other customers" })),
+  ];
+  const show = (it: FlowItem<{ name: string }>) => (it.kind === "label" ? `[${it.label}]` : `${it.row.name}${it.gapAfter ? " /" : ""}`);
+
+  it("a label over each group, a gap after every 4 rows of a group but not after its last", () => {
+    expect(flowItems(rows(9, 4)).map(show)).toEqual([
+      "[PCC]", "PCC 1", "PCC 2", "PCC 3", "PCC 4 /", "PCC 5", "PCC 6", "PCC 7", "PCC 8 /", "PCC 9",
+      "[Other customers]", "Other 1", "Other 2", "Other 3", "Other 4",
+    ]);
+  });
+
+  const z = { room: 100, row: 10, label: 8, gap: 4, total: 12, more: 10 };
+  const height = (p: FlowItem<{ name: string }>[]) => p.reduce((s, it) => s + (it.kind === "label" ? 8 : 10 + (it.gapAfter ? 4 : 0)), 0);
+
+  it("45 customers: every page within its room, Continued's room kept on all but the last, totals' room on the last", () => {
+    const pages = flowPages(flowItems(rows(30, 15)), { ...z, room: 300 });
+    expect(pages.length).toBeGreaterThan(1);
+    pages.slice(0, -1).forEach((p) => expect(height(p)).toBeLessThanOrEqual(300 - 10));
+    expect(height(pages[pages.length - 1]) + 12).toBeLessThanOrEqual(300);
+    // Every row printed once, in order.
+    expect(pages.flat().filter((it) => it.kind === "row").length).toBe(45);
+    expect(pages.flat().map(show)).toEqual(flowItems(rows(30, 15)).map(show));
+  });
+
+  it("never a label alone at the foot of a page", () => {
+    for (let room = 40; room < 200; room += 3) {
+      const pages = flowPages(flowItems(rows(6, 5)), { ...z, room });
+      for (const p of pages) expect(p[p.length - 1].kind).toBe("row");
+    }
+  });
+
+  it("all on one page when it fits", () => {
+    expect(flowPages(flowItems(rows(3, 2)), z)).toHaveLength(1);
   });
 });

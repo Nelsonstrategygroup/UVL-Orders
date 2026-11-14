@@ -1903,13 +1903,20 @@
   }
 }
 
-/* The Order grid report on paper (11/13/26; simpler lines 11/14/26).
+/* The Order grid report on paper (11/13/26; simpler lines and pages 11/14/26).
    Sections on their own pages. One strong signal going down: the shaded
    columns, with a heavy line only between product groups. No box round
    each cell; faint lines between rows and a darker one every 4 rows, as a
    landmark going across. Totals at the bottom. */
-.ogr-section + .ogr-section {
+.ogr-page + .ogr-page {
   break-before: page;
+}
+/* At the foot of a page that isn't the section's last. */
+.ogr-more {
+  margin: 4pt 0 0;
+  font-size: 10pt;
+  font-weight: 700;
+  text-align: right;
 }
 .ogr-table {
   border-collapse: collapse;
@@ -1952,7 +1959,7 @@
 }
 /* The group bands: words wrap whole, never clipped ("Whole / lamb" over one column). */
 .ogr-table tr.band th {
-  font-size: 7.5pt;
+  font-size: 7pt;
   font-weight: 700;
   text-transform: uppercase;
   line-height: 1.05;
@@ -1973,6 +1980,7 @@
   word-break: normal;
   vertical-align: bottom;
   padding: 2pt 0.5pt;
+  letter-spacing: -0.02em;
   border-bottom: 1.5px solid #000;
 }
 .ogr-table tr.head th small {
@@ -1986,8 +1994,19 @@
 .ogr-table tbody td {
   border-bottom: 0.5px solid #c4c4c4;
 }
-.ogr-table tbody tr:nth-child(4n) td {
-  border-bottom: 1.25px solid #6f6f6f;
+/* A group's label ("PCC", "Other customers"), and the small white gap after every 4 rows. */
+.ogr-table tr.grp td {
+  text-align: left;
+  font-size: 8.5pt;
+  font-weight: 700;
+  background: #f2f2f2;
+  border-bottom: 1px solid #9a9a9a;
+  padding: 0 4pt;
+}
+.ogr-table tr.gap td {
+  background: #fff;
+  border: 0;
+  padding: 0;
 }
 .ogr-table tr.tot td {
   font-size: 11pt;

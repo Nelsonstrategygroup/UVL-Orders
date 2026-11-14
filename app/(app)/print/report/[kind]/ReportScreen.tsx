@@ -218,7 +218,7 @@ export default function ReportScreen(props: { kind: ReportKind; customer: string
                 ))}
               </div>
             )}
-            {gridPrint && <OrderGridPrint g={gridPrint} inv={current && "inv" in current ? current.inv : ""} when={current && "when" in current ? current.when : undefined} />}
+            {gridPrint && <OrderGridPrint g={gridPrint} inv={current && "inv" in current ? current.inv : ""} />}
             <div className={`rp-scroll ${def.wide ? "wide" : "narrow"} ${gridPrint ? "screen-only" : ""}`}>
               <table className={`rp-table ${def.lined ? "lined" : ""}`}>
                 <thead>
