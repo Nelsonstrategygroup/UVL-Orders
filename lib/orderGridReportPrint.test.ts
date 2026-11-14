@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Customer, Order } from "./db/types";
-import { bandOf, orderGridReportPrint, printName, softHyphens, type GridReportProduct } from "./orderGridReportPrint";
+import { bandOf, orderGridReportPrint, printName, type GridReportProduct } from "./orderGridReportPrint";
 
 const cust = (id: string, name: string, parent: string | null = null) => ({ id, name, parent_customer_id: parent, active: true }) as unknown as Customer;
 const order = (lines: Record<string, number>, units: Record<string, string> = {}) => ({ lines, units }) as unknown as Order;
@@ -80,8 +80,9 @@ describe("the Order grid report on paper (11/13/26)", () => {
     const shoulder = g.sections[0].columns.find((c) => c.id === "sh")!;
     expect([shoulder.head, shoulder.unit]).toEqual(["BNLS Shoulder", "pcs"]);
     expect(g.sections[1].columns.find((c) => c.id === "pep")!.head).toBe("JH Pepper Sticks");
-    expect(g.rows.find((r) => r.name === "Key City")!.cells.sh).toBe("20 lb");
-    expect(g.rows.find((r) => r.name === "PCC 17 Burien")!.cells.sh).toBe("2");
+    // In another unit: the column's unit, with what was ordered under it (11/14/26).
+    expect(g.rows.find((r) => r.name === "Key City")!.cells.sh).toEqual({ n: "4", was: "(20 lb)" });
+    expect(g.rows.find((r) => r.name === "PCC 17 Burien")!.cells.sh).toEqual({ n: "2" });
     // 2 pieces + 20 lb at 4.5 lb a piece: 4 pieces (pounds become whole pieces, 11/7/26).
     expect(g.totals.sh).toBe("6");
     expect(g.totals.fs).toBe("4");
@@ -96,14 +97,20 @@ describe("the Order grid report on paper (11/13/26)", () => {
   });
 });
 
-describe("soft hyphens for narrow headers (11/14/26)", () => {
-  const show = (t: string) => softHyphens(t).replace(/­/g, "-");
-  it("breaks long words at syllables, leaves short ones alone", () => {
-    expect(show("Tenderloin")).toBe("Ten-der-loin");
-    expect(show("Boneless Sirloin")).toBe("Bone-less Sir-loin");
-    expect(show("Jalapeno Honey Pepper Sticks")).toBe("Ja-lape-no Honey Pep-per Sticks");
-    expect(show("BNLS Shoulder")).toBe("BNLS Shoul-der");
-    expect(show("Front Shanks")).toBe("Front Shanks");
-    expect(show("Ground Lamb 1 lb")).toBe("Ground Lamb 1 lb");
+describe("the Order grid report on paper, second pass (11/14/26)", () => {
+  it("Jalapeno Honey Pepper Sticks prints as Pepper Sticks, unless plain Pepper Sticks print too", () => {
+    const jh = p("jh", "Jalapeno Honey Pepper Sticks", "Byproducts", { unit: "case", not_lamb: true });
+    const plain = p("ps", "Pepper Sticks", "Byproducts", { unit: "case", not_lamb: true });
+    const run = (lines: Record<string, number>) =>
+      orderGridReportPrint([cust("kc", "Key City")], new Map(), new Map([["kc", order(lines)]]), [plain, jh]).sections[0].columns.map((c) => c.head);
+    expect(run({ jh: 1 })).toEqual(["Pepper Sticks"]);
+    expect(run({ jh: 1, ps: 2 })).toEqual(["Pepper Sticks", "Jalapeno Honey Pepper Sticks"]);
+  });
+
+  it("Key City's 60 lb of 5 lb packs reads 12, with (60 lb) under it", () => {
+    const g5 = p("g5", "Ground Lamb 5 lb", "Ground and trim", { unit: "pack", lb_per_unit: 5 });
+    const r = orderGridReportPrint([cust("kc", "Key City")], new Map(), new Map([["kc", order({ g5: 60 }, { g5: "lb" })]]), [g5]);
+    expect(r.rows[0].cells.g5).toEqual({ n: "12", was: "(60 lb)" });
+    expect(r.totals.g5).toBe("12");
   });
 });

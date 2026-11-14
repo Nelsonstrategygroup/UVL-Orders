@@ -13,11 +13,14 @@
 // - A band above the headers names each group (Loins, Racks, Shanks...).
 //   Byproducts split into Organs (packed in one box: Heart, Liver, Kidney),
 //   Other, and Not lamb; Stew Meat has its own band in the second section.
-// - Short headers with the product's usual unit under them; a line taken in
-//   another unit says so in its cell ("20 lb").
-// - Totals under the headers (repeated on every page) and at the bottom.
-// - The customer name at both ends of the row, never wrapped, shortened:
-//   "PCC: #05 View Ridge" prints "PCC 05 View Ridge".
+// - Short headers with the product's usual unit under them, words never
+//   broken ("Jalapeno Honey Pepper Sticks" prints "Pepper Sticks").
+// - A line taken in another unit shows in the column's unit with what was
+//   ordered small under it ("12" over "(60 lb)"), so it adds up to the total.
+// - Totals at the bottom (11/14/26: not repeated under the headers).
+// - The customer name on the left, never wrapped, shortened: "PCC: #05 View
+//   Ridge" prints "PCC 05 View Ridge". A customer with nothing in a section
+//   isn't in it.
 // - Every product column the same width, the same on both sections.
 
 import { lineUnit, toProductUnit, unitWord } from "./calc/units";
@@ -55,17 +58,32 @@ export type GridReportProduct = {
 
 export type GridReportColumn = { id: string; head: string; unit: string; band: string; bandStart: boolean };
 export type GridReportSection = { columns: GridReportColumn[]; bands: { label: string; span: number }[] };
+/** A cell: in the column's unit; `was` is what was ordered when it was in another unit ("(60 lb)"). */
+export type GridReportCell = { n: string; was?: string };
 export type GridReportPrint = {
   sections: GridReportSection[];
   /** The widest section's column count: every section's product columns are this wide. */
   slots: number;
-  rows: { name: string; cells: Record<string, string> }[];
+  rows: { name: string; cells: Record<string, GridReportCell> }[];
   totals: Record<string, string>;
 };
 
 /** "PCC: #05 View Ridge" -> "PCC 05 View Ridge": no colon or number sign, so it reads in one piece. */
 export function printName(name: string): string {
   return name.replace(/:\s*/g, " ").replace(/#/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * A product's header on paper: its short name, else its name. "Jalapeno
+ * Honey Pepper Sticks" prints "Pepper Sticks" (Lucas, 11/14/26), unless plain
+ * Pepper Sticks are on the same printout, where that would read twice.
+ */
+function printHead(p: GridReportProduct, all: GridReportProduct[]): string {
+  const head = (p.short_name ?? "").trim() || p.name;
+  const short = head.replace(/^jalape(n|ñ)o honey /i, "");
+  if (short === head) return head;
+  const clash = all.some((x) => x.id !== p.id && ((x.short_name ?? "").trim() || x.name).toLowerCase() === short.toLowerCase());
+  return clash ? head : short;
 }
 
 /** Which band a product prints under, and whether it's a main cut. */
@@ -102,13 +120,13 @@ export function orderGridReportPrint(
   for (const c of customers) {
     const o = orders.get(c.id);
     if (!o) continue;
-    const cells: Record<string, string> = {};
+    const cells: Record<string, GridReportCell> = {};
     for (const p of products) {
       const q = o.lines[p.id] ?? 0;
       if (!(q > 0)) continue;
       total[p.id] = (total[p.id] ?? 0) + toProductUnit(q, o.units?.[p.id], p);
       const unit = lineUnit(p.id, p, o.units);
-      cells[p.id] = unit === p.unit ? num(q) : `${num(q)} ${unitWord(unit, q)}`;
+      cells[p.id] = unit === p.unit ? { n: num(q) } : { n: num(toProductUnit(q, unit, p)), was: `(${num(q)} ${unitWord(unit, q)})` };
     }
     if (Object.keys(cells).length) rows.push({ name: printName(displayName(c, byId)), cells });
   }
@@ -117,7 +135,7 @@ export function orderGridReportPrint(
   const used = products.filter((p) => (total[p.id] ?? 0) > 0);
   const col = (p: GridReportProduct): GridReportColumn => ({
     id: p.id,
-    head: (p.short_name ?? "").trim() || p.name,
+    head: printHead(p, used),
     unit: unitWord(p.unit),
     band: bandOf(p).band,
     bandStart: false,
@@ -146,36 +164,4 @@ export function orderGridReportPrint(
   }
   const totals = Object.fromEntries(used.map((p) => [p.id, num(total[p.id])]));
   return { sections, slots: Math.max(0, ...sections.map((s) => s.columns.length)), rows, totals };
-}
-
-const VOWEL = /[aeiouy]/i;
-/** Word endings to break before ("Bone-less", "Sir-loin", "Shoul-der"). */
-const ENDINGS = ["less", "loin", "der", "ders", "ing", "ness"];
-/** Letter pairs that sound as one: never split. */
-const PAIRS = new Set(["sh", "ch", "th", "ck", "ng", "ph", "wh", "qu"]);
-
-/**
- * Soft hyphens at likely syllable breaks in long words, for headers in
- * narrow columns: "Ten-der-loin", "Bone-less", "Shoul-der". A soft hyphen
- * only shows where the line actually breaks. Chrome on Windows does not
- * hyphenate by itself.
- */
-export function softHyphens(text: string, min = 6): string {
-  return text
-    .split(" ")
-    .map((w) => {
-      if (w.length < min || !/^[a-z]+$/i.test(w)) return w;
-      const low = w.toLowerCase();
-      const cut = new Set<number>();
-      for (const e of ENDINGS) if (low.endsWith(e) && low.length - e.length >= 3) cut.add(low.length - e.length);
-      for (let i = 2; i <= low.length - 2; i++) {
-        const [d, a, b, c, n] = [low[i - 2], low[i - 1], low[i], low[i + 1] ?? "", low[i + 2] ?? ""];
-        // Between two consonants with vowels round them: "Ten-der", "Pep-per".
-        if (VOWEL.test(d) && !VOWEL.test(a) && !VOWEL.test(b) && VOWEL.test(c) && !PAIRS.has(a + b)) cut.add(i);
-        // Before one consonant between vowels, unless a silent e follows ("Bone", not "Bo-ne"): "Ja-la-pe-no".
-        if (VOWEL.test(a) && !VOWEL.test(b) && VOWEL.test(c) && !(c === "e" && n && !VOWEL.test(n))) cut.add(i);
-      }
-      return [...w].map((ch, i) => (cut.has(i) ? "­" : "") + ch).join("");
-    })
-    .join(" ");
 }

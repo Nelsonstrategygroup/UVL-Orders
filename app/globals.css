@@ -1903,10 +1903,11 @@
   }
 }
 
-/* The Order grid report on paper (11/13/26): sections on their own pages,
-   a band per product group, lines between every column and heavier ones
-   between groups, totals under the headers (repeated on every page) and at
-   the bottom, and the name at both ends of the row. */
+/* The Order grid report on paper (11/13/26; simpler lines 11/14/26).
+   Sections on their own pages. One strong signal going down: the shaded
+   columns, with a heavy line only between product groups. No box round
+   each cell; faint lines between rows and a darker one every 4 rows, as a
+   landmark going across. Totals at the bottom. */
 .ogr-section + .ogr-section {
   break-before: page;
 }
@@ -1918,20 +1919,23 @@
 }
 .ogr-table th,
 .ogr-table td {
-  border: 0.75px solid #777;
-  padding: 1pt 1.5pt;
+  border: 0;
+  padding: 1pt 2pt;
   text-align: center;
   vertical-align: middle;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 .ogr-table td {
   font-size: 11pt;
   font-weight: 600;
   white-space: nowrap;
 }
+/* What was ordered, under the number, when it was in another unit: "(60 lb)". */
 .ogr-table td small {
+  display: block;
   font-size: 7pt;
   font-weight: 400;
+  line-height: 1;
 }
 .ogr-table .name {
   text-align: left;
@@ -1940,33 +1944,36 @@
   font-size: 10.5pt;
   font-weight: 700;
 }
-.ogr-table .name.end {
-  text-align: right;
+.ogr-table .alt {
+  background: #e9e9e9;
 }
 .ogr-table .gs {
   border-left: 2.5px solid #000;
 }
+/* The group bands: words wrap whole, never clipped ("Whole / lamb" over one column). */
 .ogr-table tr.band th {
-  font-size: 8pt;
+  font-size: 7.5pt;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  line-height: 1.05;
+  padding: 2pt 1pt;
   background: #cfcfcf;
-  border-bottom: 0;
+  border-bottom: 1px solid #fff;
 }
-.ogr-table tr.band th:first-child,
-.ogr-table tr.band th:last-child {
+.ogr-table tr.band th:first-child {
   background: none;
-  border: 0;
 }
-/* Narrow columns: long words break at a syllable with a hyphen ("Ten-der-loin"), not mid-letter. */
+/* Headers: whole words only, a line each if need be, the unit small under them. */
 .ogr-table tr.head th {
   font-size: 7.5pt;
   line-height: 1.05;
-  font-weight: 700;
-  hyphens: auto;
-  -webkit-hyphens: auto;
-  background: #e4e4e4;
+  font-weight: 600;
+  hyphens: manual;
+  overflow-wrap: normal;
+  word-break: normal;
+  vertical-align: bottom;
+  padding: 2pt 0.5pt;
+  border-bottom: 1.5px solid #000;
 }
 .ogr-table tr.head th small {
   display: block;
@@ -1976,22 +1983,22 @@
 .ogr-table tr.head th.name {
   font-size: 9pt;
 }
-.ogr-table .alt {
-  background: #efefef;
+.ogr-table tbody td {
+  border-bottom: 0.5px solid #c4c4c4;
 }
-.ogr-table tr.zebra td {
-  background: #f6f6f6;
+.ogr-table tbody tr:nth-child(4n) td {
+  border-bottom: 1.25px solid #6f6f6f;
 }
-.ogr-table tr.zebra td.alt {
-  background: #e8e8e8;
-}
-.ogr-table tr.tot th,
 .ogr-table tr.tot td {
   font-size: 11pt;
   font-weight: 800;
-  background: #d4d4d4;
+  background: #d2d2d2;
   border-top: 2px solid #000;
   border-bottom: 2px solid #000;
+  height: 26px;
+}
+.ogr-table tr.tot td.alt {
+  background: #c2c2c2;
 }
 .ogr-table tr {
   break-inside: avoid;
