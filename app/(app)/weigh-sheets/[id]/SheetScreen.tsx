@@ -119,8 +119,8 @@ function Grid({
   const byPos = new Map(mine.map((l) => [l.position, l]));
   const maxPos = mine.reduce((m, l) => Math.max(m, l.position), 0);
   // Always room for the next lamb: a new column opens after row 20.
-  const [extraColumns, setExtraColumns] = useState(0);
-  const columns = Math.max(1, Math.ceil((maxPos + 1) / GRID_ROWS)) + extraColumns;
+  const [minColumns, setMinColumns] = useState(1);
+  const columns = Math.max(minColumns, Math.ceil((maxPos + 1) / GRID_ROWS));
   const inputs = useRef(new Map<number, HTMLInputElement>());
   const [focusNext, setFocusNext] = useState<number | null>(null);
   // What each place last held, so Enter then leaving the box doesn't save twice.
@@ -165,7 +165,7 @@ function Grid({
     const err = await setWeight(db, sheet.id, position, v);
     saving.current.delete(position);
     if (err) {
-      toast(`Couldn't save: ${err}`);
+      toast(`Couldn't save lamb ${position}: ${err}`);
       return false;
     }
     refresh();
@@ -213,11 +213,22 @@ function Grid({
                           if (e.key !== "Enter") return;
                           e.preventDefault();
                           const el = e.currentTarget;
-                          void commit(position, el).then((ok) => {
-                            if (!ok) return el.select();
-                            if (position % GRID_ROWS === 0 && position >= maxPos) setExtraColumns((n) => n + 1);
+                          // Check the weight now, but don't wait for the save: the cursor
+                          // moves at once so fast typing never lands in the wrong box.
+                          const text = el.value.trim();
+                          if (text && parseCarcass(text) == null) {
+                            toast("Type a weight like 62.4");
+                            return el.select();
+                          }
+                          void commit(position, el);
+                          const next = inputs.current.get(position + 1);
+                          if (next) {
+                            next.focus();
+                            next.select();
+                          } else {
+                            setMinColumns(Math.ceil((position + 1) / GRID_ROWS));
                             setFocusNext(position + 1);
-                          });
+                          }
                         }}
                         onBlur={(e) => void commit(position, e.currentTarget)}
                       />
