@@ -30,14 +30,26 @@ export type PriceRow = {
 
 /**
  * The price for a product on a date: the customer's own newest price on or
- * before the date, else the newest default on or before it, else null
- * ("Price needed").
+ * before the date, else its chain's (the customer it's a location of, like
+ * PCC; Lucas, 11/14/26), else the newest default, else null ("Price
+ * needed"). A store's own price wins while it exists, even over a newer
+ * chain price. public.price_on() in the database does the same.
  */
-export function priceFor(prices: PriceRow[], productId: string, customerId: string | null, date: string): PriceRow | null {
+export function priceFor(
+  prices: PriceRow[],
+  productId: string,
+  customerId: string | null,
+  date: string,
+  chainId: string | null = null,
+): PriceRow | null {
   const newest = (rows: PriceRow[]) =>
     rows.filter((p) => p.effective_from <= date).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0] ?? null;
   const mine = prices.filter((p) => p.product_id === productId);
-  return (customerId ? newest(mine.filter((p) => p.customer_id === customerId)) : null) ?? newest(mine.filter((p) => p.customer_id === null));
+  return (
+    (customerId ? newest(mine.filter((p) => p.customer_id === customerId)) : null) ??
+    (chainId ? newest(mine.filter((p) => p.customer_id === chainId)) : null) ??
+    newest(mine.filter((p) => p.customer_id === null))
+  );
 }
 
 /** A product's default prices (or one customer's), newest first. */

@@ -66,8 +66,14 @@ export function discountCents(grossCents: bigint, kind: DiscountKind | null, val
   return neg ? -c : c;
 }
 
-/** Price every line for this customer on this date. */
-export function priceLines(lines: InvoiceLineRow[], prices: PriceRow[], customerId: string, date: string): PricedLine[] {
+/** Price every line for this customer (a location of chainId, if any) on this date. */
+export function priceLines(
+  lines: InvoiceLineRow[],
+  prices: PriceRow[],
+  customerId: string,
+  date: string,
+  chainId: string | null = null,
+): PricedLine[] {
   return [...lines]
     .sort((a, b) => a.sort - b.sort)
     .map((l) => {
@@ -78,7 +84,7 @@ export function priceLines(lines: InvoiceLineRow[], prices: PriceRow[], customer
         price = String(l.unit_price);
         priceFrom = "line";
       } else if (l.product_id && !shorted) {
-        const p = priceFor(prices, l.product_id, customerId, date);
+        const p = priceFor(prices, l.product_id, customerId, date, chainId);
         if (p) {
           price = String(p.price);
           priceFrom = p.customer_id ? "customer" : "default";

@@ -27,6 +27,23 @@ describe("priceFor", () => {
     expect(priceFor(prices, "rack", "newport", "2026-11-05")?.id).toBe("c1");
     expect(priceFor(prices, "rack", "newport", "2026-10-10")?.id).toBe("d1");
   });
+  it("uses the chain's price for its stores, and a store's own price before the chain's", () => {
+    const chain = [
+      ...prices,
+      row("p1", "rack", "pcc", 20, "2026-10-08"),
+      row("p2", "rack", "pcc", 21, "2026-11-01"),
+      row("s1", "rack", "pcc20", 22, "2026-10-08"),
+    ];
+    expect(priceFor(chain, "rack", "pcc10", "2026-10-27", "pcc")?.id).toBe("p1");
+    expect(priceFor(chain, "rack", "pcc10", "2026-11-03", "pcc")?.id).toBe("p2");
+    expect(priceFor(chain, "rack", "pcc20", "2026-11-03", "pcc")?.id).toBe("s1");
+    // Before the chain price starts: the default.
+    expect(priceFor(chain, "rack", "pcc10", "2026-10-05", "pcc")?.id).toBe("d1");
+    // No chain price for this product: the default.
+    expect(priceFor(chain, "legs", "pcc10", "2026-10-27", "pcc")?.id).toBe("o1");
+    // Not a location: chain prices don't apply.
+    expect(priceFor(chain, "rack", "pcc10", "2026-10-27")?.id).toBe("d1");
+  });
   it("is null when there's no price yet (Price needed)", () => {
     expect(priceFor(prices, "rack", null, "2026-09-30")).toBeNull();
     expect(priceFor(prices, "shanks", "newport", "2026-10-27")).toBeNull();
