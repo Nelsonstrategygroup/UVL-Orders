@@ -14,7 +14,7 @@ insert into public.profiles (id, display_name, role) values
   ('00000000-0000-4000-8000-00000000c0a3', 'LC Office', 'office');
 
 select is((select count(*)::int from public.producers), 0, 'no producers are seeded');
-select is((select count(*)::int from public.lamb_cost_settings), 0, 'no pricing setting is seeded');
+select is((select string_agg(effective_from::text || ' ' || base_rate::text || ' ' || live_factor::text, ', ') from public.lamb_cost_settings), '2026-10-01 3.0000 2.0200', 'only the starting setting (stage 2) is seeded');
 
 set local role authenticated;
 

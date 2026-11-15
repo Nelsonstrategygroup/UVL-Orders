@@ -3,7 +3,7 @@
 // producer's own rate from a date on. A kill date uses the newest of each
 // dated on or before it. Values stay decimal strings, never floats.
 
-import { parsePrice } from "./prices";
+import { centsText, parsePrice, toFixedInt } from "./prices";
 
 /** Base $ per lb live and the live weight factor, from a date on. */
 export type LambCostSetting = {
@@ -99,4 +99,256 @@ export function rateText(v: string | number): string {
 export function factorText(v: string | number): string {
   const s = String(v);
   return s.includes(".") ? s.replace(/\.?0+$/, "") : s;
+}
+
+// ---------------------------------------------------------------------------
+// Stage 2: weigh sheets (SPEC 16.3-16.5). Each lamb is worked out exactly
+// (BigInt fixed point): carcass lb has 2 decimals, the factor and rates 4,
+// so live lb has 6 and money 10. Only a sheet's total and the week's totals
+// are rounded, half up to the cent.
+// ---------------------------------------------------------------------------
+
+const LB = 6; // live lb decimals
+const MONEY = 10; // money decimals before rounding
+const TEN = (p: number) => BigInt(10) ** BigInt(p);
+const ZERO = BigInt(0);
+
+/** A sheet as stored: the rate and factor were copied onto it when it was made. */
+export type KillSheet = {
+  id: string;
+  producer_id: string;
+  kill_date: string;
+  week_id: string;
+  base_rate: string | number;
+  live_factor: string | number;
+  rate_source: "base" | "producer";
+  notes: string;
+};
+
+export type KillLamb = { id: string; sheet_id: string; position: number; carcass_lb: string | number };
+
+export type AdjustmentKind = "dollars" | "per_live_lb";
+export type AdjustmentReason = "premium" | "dock" | "hauling" | "other";
+export const ADJUSTMENT_REASONS: AdjustmentReason[] = ["premium", "dock", "hauling", "other"];
+export const REASON_LABEL: Record<AdjustmentReason, string> = { premium: "Premium", dock: "Dock", hauling: "Hauling", other: "Other" };
+
+export type KillAdjustment = {
+  id: string;
+  sheet_id: string;
+  lamb_id: string | null;
+  kind: AdjustmentKind;
+  amount: string | number;
+  reason: AdjustmentReason;
+  note: string;
+};
+
+/** Round a fixed-point value with `places` decimals to whole cents, half up (away from zero). */
+export function roundToCents(v: bigint, places: number): bigint {
+  if (places <= 2) return v * TEN(2 - places);
+  const unit = TEN(places - 2);
+  const half = unit / BigInt(2);
+  const a = v < ZERO ? -v : v;
+  const c = (a + half) / unit;
+  return v < ZERO ? -c : c;
+}
+
+/** A fixed-point value shown to `digits` decimals, half up, with thousands commas ("1,262.40"). */
+export function fixedRounded(v: bigint, places: number, digits: number): string {
+  const unit = TEN(Math.max(0, places - digits));
+  const half = places > digits ? unit / BigInt(2) : ZERO;
+  const neg = v < ZERO;
+  const scaled = places >= digits ? ((neg ? -v : v) + half) / unit : (neg ? -v : v) * TEN(digits - places);
+  const whole = (scaled / TEN(digits)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const frac = digits ? `.${(scaled % TEN(digits)).toString().padStart(digits, "0")}` : "";
+  return `${neg && scaled !== ZERO ? "-" : ""}${whole}${frac}`;
+}
+
+/** Money with 10 decimals shown to the cent, for one lamb's line: "$378.15", "-$10.00". */
+export function moneyText(v: bigint): string {
+  const s = fixedRounded(v, MONEY, 2);
+  return s.startsWith("-") ? `-$${s.slice(1)}` : `$${s}`;
+}
+
+/** What one adjustment adds (or takes off) in money (10 decimals), given the live lb (6 decimals) it applies to. */
+export function adjustmentMoney(adj: Pick<KillAdjustment, "kind" | "amount">, liveLb: bigint): bigint {
+  const amount = toFixedInt(adj.amount, 4);
+  return adj.kind === "dollars" ? amount * TEN(MONEY - 4) : amount * liveLb; // 4 + 6 = 10 decimals
+}
+
+export type LambPay = {
+  lamb: KillLamb;
+  carcass: bigint; // 2 decimals
+  live: bigint; // 6 decimals
+  base: bigint; // 10 decimals
+  adjustments: { adj: KillAdjustment; money: bigint }[];
+  pay: bigint; // 10 decimals
+};
+
+export type SheetPay = {
+  sheet: KillSheet;
+  lambs: LambPay[];
+  count: number;
+  carcass: bigint; // 2 decimals
+  live: bigint; // 6 decimals
+  base: bigint; // 10 decimals
+  lambAdjustments: bigint; // 10 decimals
+  sheetAdjustments: { adj: KillAdjustment; money: bigint }[];
+  /** Exact, 10 decimals. */
+  exact: bigint;
+  /** The sheet total, rounded to the cent. */
+  cents: bigint;
+};
+
+/**
+ * A sheet's pay, step by step: each lamb's carcass lb x factor = live lb;
+ * live lb x rate = base pay; plus or minus that lamb's adjustments = pay.
+ * Then the sheet's own adjustments (dollars, or $/live lb x the sheet's live
+ * lb). Nothing is rounded until the sheet total.
+ */
+export function sheetPay(sheet: KillSheet, lambs: KillLamb[], adjustments: KillAdjustment[]): SheetPay {
+  const factor = toFixedInt(sheet.live_factor, 4);
+  const rate = toFixedInt(sheet.base_rate, 4);
+  const mine = adjustments.filter((a) => a.sheet_id === sheet.id);
+  const rows: LambPay[] = lambs
+    .filter((l) => l.sheet_id === sheet.id)
+    .sort((a, b) => a.position - b.position)
+    .map((lamb) => {
+      const carcass = toFixedInt(lamb.carcass_lb, 2);
+      const live = carcass * factor; // 2 + 4 = 6 decimals
+      const base = live * rate; // 6 + 4 = 10 decimals
+      const adjs = mine.filter((a) => a.lamb_id === lamb.id).map((adj) => ({ adj, money: adjustmentMoney(adj, live) }));
+      return { lamb, carcass, live, base, adjustments: adjs, pay: adjs.reduce((s, a) => s + a.money, base) };
+    });
+  const carcass = rows.reduce((s, r) => s + r.carcass, ZERO);
+  const live = rows.reduce((s, r) => s + r.live, ZERO);
+  const base = rows.reduce((s, r) => s + r.base, ZERO);
+  const lambAdjustments = rows.reduce((s, r) => s + (r.pay - r.base), ZERO);
+  const sheetAdjustments = mine.filter((a) => !a.lamb_id).map((adj) => ({ adj, money: adjustmentMoney(adj, live) }));
+  const exact = sheetAdjustments.reduce((s, a) => s + a.money, base + lambAdjustments);
+  return { sheet, lambs: rows, count: rows.length, carcass, live, base, lambAdjustments, sheetAdjustments, exact, cents: roundToCents(exact, MONEY) };
+}
+
+export type ProducerWeek = {
+  producerId: string;
+  sheets: number;
+  head: number;
+  carcass: bigint; // 2 decimals
+  live: bigint; // 6 decimals
+  exact: bigint; // 10 decimals
+  /** Rounded once, from the exact sum. */
+  cents: bigint;
+};
+
+export type WeekPay = {
+  producers: ProducerWeek[];
+  head: number;
+  carcass: bigint;
+  live: bigint;
+  exact: bigint;
+  /** The week total: the exact sum, rounded once to the cent. */
+  cents: bigint;
+};
+
+/** A week's sheets added up per producer and in total. Weekly totals are rounded once, from the exact sums. */
+export function weekPay(sheets: SheetPay[]): WeekPay {
+  const by = new Map<string, ProducerWeek>();
+  for (const s of sheets) {
+    const p = by.get(s.sheet.producer_id) ?? { producerId: s.sheet.producer_id, sheets: 0, head: 0, carcass: ZERO, live: ZERO, exact: ZERO, cents: ZERO };
+    p.sheets += 1;
+    p.head += s.count;
+    p.carcass += s.carcass;
+    p.live += s.live;
+    p.exact += s.exact;
+    by.set(p.producerId, p);
+  }
+  const exact = sheets.reduce((s, x) => s + x.exact, ZERO);
+  return {
+    producers: [...by.values()].map((p) => ({ ...p, cents: roundToCents(p.exact, MONEY) })),
+    head: sheets.reduce((s, x) => s + x.count, 0),
+    carcass: sheets.reduce((s, x) => s + x.carcass, ZERO),
+    live: sheets.reduce((s, x) => s + x.live, ZERO),
+    exact,
+    cents: roundToCents(exact, MONEY),
+  };
+}
+
+/** Average carcass lb over a head count, to 1 decimal ("63.1"); "" with no lambs. */
+export function averageLbText(carcass: bigint, head: number): string {
+  if (!head) return "";
+  // carcass has 2 decimals; scale to 5 before dividing so the average rounds right.
+  return fixedRounded((carcass * BigInt(1000)) / BigInt(head), 5, 1);
+}
+
+/** Carcass lb (2 decimals) shown to 2 decimals with commas: "1,262.40". */
+export function carcassText(v: bigint): string {
+  return fixedRounded(v, 2, 2);
+}
+
+/** Live lb (6 decimals) shown to 2 decimals: "126.05". */
+export function liveText(v: bigint): string {
+  return fixedRounded(v, LB, 2);
+}
+
+/** Whole cents as "$1,234.56". */
+export { centsText };
+
+// ----- Sizes -----
+
+export type SizeClass = { id: string; label: string; weight_range: string; sort: number };
+
+/** "50-60 Lbs" -> [50, 60]; "90+ Lbs" -> [90, Infinity]; null if it can't be read. Ends are included. */
+export function parseSizeRange(text: string): [number, number] | null {
+  const t = text.replace(/,/g, "");
+  const plus = t.match(/(\d+(?:\.\d+)?)\s*\+/);
+  if (plus) return [Number(plus[1]), Infinity];
+  const r = t.match(/(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)/i);
+  if (!r) return null;
+  const a = Number(r[1]);
+  const b = Number(r[2]);
+  return a <= b ? [a, b] : [b, a];
+}
+
+/**
+ * A lamb's size from its carcass weight: the one size whose range holds it.
+ * In no range, or in more than one (they overlap), it's unassigned: null.
+ * Nothing is guessed.
+ */
+export function sizeFor(carcassLb: number, sizes: SizeClass[]): SizeClass | null {
+  const hits = sizes.filter((s) => {
+    const r = parseSizeRange(s.weight_range);
+    return r != null && carcassLb >= r[0] && carcassLb <= r[1];
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+
+/** Lambs per size, in the sizes' order, then "Unassigned". */
+export function sizeCounts(weights: number[], sizes: SizeClass[]): { label: string; count: number }[] {
+  const sorted = [...sizes].sort((a, b) => a.sort - b.sort);
+  const counts = new Map<string, number>();
+  let unassigned = 0;
+  for (const w of weights) {
+    const s = sizeFor(w, sorted);
+    if (s) counts.set(s.id, (counts.get(s.id) ?? 0) + 1);
+    else unassigned++;
+  }
+  return [...sorted.map((s) => ({ label: s.label, count: counts.get(s.id) ?? 0 })), { label: "Unassigned", count: unassigned }];
+}
+
+// ----- The paper grid -----
+
+/** Rows in one column of Mohawk's kill log; a heavier line after row 10. */
+export const GRID_ROWS = 20;
+
+/** Place on the sheet (1-based) as column and row (both 1-based). */
+export function gridPlace(position: number): { column: number; row: number } {
+  return { column: Math.floor((position - 1) / GRID_ROWS) + 1, row: ((position - 1) % GRID_ROWS) + 1 };
+}
+
+/** A typed carcass weight, "62.4": up to 2 decimals, above 0 and under 500, as a decimal string; null if not. */
+export function parseCarcass(text: string): string | null {
+  const t = text.trim();
+  if (!/^\d{1,3}(\.\d{0,2})?$|^\.\d{1,2}$/.test(t)) return null;
+  const v = Number(t);
+  if (!(v > 0 && v < 500)) return null;
+  return t.replace(/\.$/, "").replace(/^\./, "0.");
 }
