@@ -1,8 +1,9 @@
 "use client";
 
-// Weekly P&L (SPEC 16.6, Lamb cost stage 3). A P&L, not accounting: the
-// week's income entries, producer cost from the weigh sheets, charges worked
-// out from the week, and expense entries. Every dated entry counts toward the
+// Weekly P&L (SPEC 16.6, Lamb cost stage 3). A P&L, not accounting: income
+// from the week's invoices (finalized is real; packed and not finalized yet is
+// projected, Lucas 11/15/26) plus other income entered by hand, producer cost
+// from the weigh sheets, charges worked out from the week, and expense entries. Every dated entry counts toward the
 // order week containing its date. Printable: the entry forms don't print.
 // Where something is missing it says so instead of showing a number.
 
@@ -15,22 +16,57 @@ import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { averageLbText, carcassText, centsText, factorText, fixedRounded, liveText, rateText, sheetPay, weekPay } from "@/lib/calc/lambCost";
-import { parseMoney, weekPnl, type ExpenseCategory, type ExpenseEntry, type IncomeEntry, type WeekPnl } from "@/lib/calc/pnl";
+import {
+  invoiceIncome,
+  parseMoney,
+  weekPnl,
+  type ExpenseCategory,
+  type ExpenseEntry,
+  type IncomeEntry,
+  type InvoiceIncome,
+  type IncomeStatus,
+  type WeekPnl,
+} from "@/lib/calc/pnl";
+import { loadCharges, loadPrices } from "@/lib/db/invoicing";
 import { longDate, niceDate, weekDays, weekName } from "@/lib/dates";
 import { loadLambCostSetup } from "@/lib/db/lambCost";
-import { addExpense, addIncome, deleteEntry, loadPnlSetup, loadWeekEntries } from "@/lib/db/pnl";
+import { addExpense, addIncome, deleteEntry, loadPnlSetup, loadWeekEntries, loadWeekInvoiceData } from "@/lib/db/pnl";
 import { loadWeekSheets } from "@/lib/db/weighSheets";
 
-const TABLES = ["pnl_expenses", "pnl_income", "kill_sheets", "kill_lambs", "kill_adjustments", "producers"];
+// Invoices, packing and prices too: projected income follows packing as it happens.
+const TABLES = [
+  "pnl_expenses",
+  "pnl_income",
+  "kill_sheets",
+  "kill_lambs",
+  "kill_adjustments",
+  "producers",
+  "invoices",
+  "packing_weights",
+  "packing_lines",
+  "order_lines",
+  "prices",
+  "carcass_charges",
+];
 const SETUP_TABLES = ["pnl_lamb_charges", "pnl_percent_charges", "expense_categories"];
 
 async function loadWeek(db: SupabaseClient, week: string) {
-  const [entries, sheets, inv] = await Promise.all([
+  const [entries, sheets, inv, invoiceData, prices, charges] = await Promise.all([
     loadWeekEntries(db, week),
     loadWeekSheets(db, week),
     db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
+    loadWeekInvoiceData(db, week),
+    loadPrices(db),
+    loadCharges(db),
   ]);
-  return { ...entries, sheets, inv: (inv.data as { invoice_number?: number | null } | null)?.invoice_number ?? null };
+  return {
+    ...entries,
+    sheets,
+    inv: (inv.data as { invoice_number?: number | null } | null)?.invoice_number ?? null,
+    invoiceData,
+    prices,
+    charges,
+  };
 }
 
 export default function PnlScreen() {
@@ -41,6 +77,7 @@ export default function PnlScreen() {
   const { data: setup } = useLive("pnl-setup", loadSetup, SETUP_TABLES);
   const loadProducers = useCallback((d: SupabaseClient) => loadLambCostSetup(d), []);
   const { data: lc } = useLive("lamb-cost-setup", loadProducers, ["producers", "lamb_cost_settings", "producer_rates"]);
+  const { customers, catalog } = useStaffData();
 
   const head = (
     <div className="noprint">
@@ -48,10 +85,24 @@ export default function PnlScreen() {
     </div>
   );
   if (error) return <>{head}<p className="note bad">Couldn&apos;t load the P&amp;L: {error}</p></>;
-  if (!data || !setup || !lc) return <>{head}<p className="small muted">Loading...</p></>;
+  if (!data || !setup || !lc || !customers || !catalog) return <>{head}<p className="small muted">Loading...</p></>;
 
   const pays = data.sheets.sheets.map((s) => sheetPay(s, data.sheets.lambs, data.sheets.adjustments));
   const pay = weekPay(pays);
+  const ii = invoiceIncome({
+    week,
+    locations: data.invoiceData.locationIds
+      .map((id) => {
+        const c = customers.byId.get(id);
+        return { id, name: c ? displayName(c, customers.byId) : "Unknown customer", chainId: c?.parent_customer_id ?? null };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    invoices: data.invoiceData.invoices,
+    packed: data.invoiceData.packed,
+    prices: data.prices,
+    charges: data.charges,
+    productName: (id) => catalog.productById.get(id)?.name ?? id,
+  });
   const p = weekPnl({
     week,
     pay,
@@ -60,6 +111,7 @@ export default function PnlScreen() {
     categories: setup.categories,
     lambCharges: setup.lambCharges,
     percentCharges: setup.percentCharges,
+    invoices: ii,
   });
   const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";
 
@@ -80,32 +132,11 @@ export default function PnlScreen() {
         that contains its date. A P&amp;L, not accounting: payments aren&apos;t tracked.
       </p>
 
+      {p.projected && <ProjectedBanner ii={ii} />}
+
       <Summary p={p} />
 
-      <section className="panel mt-3" aria-labelledby="pnl-income">
-        <h3 id="pnl-income">Income by customer</h3>
-        {p.income.length === 0 ? (
-          <p className="note mt-1 mb-0">No income entered.</p>
-        ) : (
-          <table className="simple mt-1">
-            <tbody>
-              {p.income.map((r) => (
-                <tr key={r.key}>
-                  <td>
-                    {r.name}
-                    {r.entries > 1 && <span className="small muted"> · {r.entries} entries</span>}
-                  </td>
-                  <td className="num text-right">{centsText(r.cents)}</td>
-                </tr>
-              ))}
-              <tr className="font-bold">
-                <td>Total income</td>
-                <td className="num text-right">{centsText(p.incomeCents)}</td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-      </section>
+      <Income p={p} ii={ii} />
 
       <section className="panel mt-3" aria-labelledby="pnl-producers">
         <h3 id="pnl-producers">Producer cost</h3>
@@ -168,8 +199,8 @@ export default function PnlScreen() {
                           ? "No weigh sheet for this week."
                           : `${c.lambs} lambs × ${rateText(c.rate)}`
                         : c.cents == null
-                          ? "No income entered."
-                          : `${factorText(c.percent)}% × ${centsText(c.income)} income`}
+                          ? "No income yet."
+                          : `${factorText(c.percent)}% × ${centsText(c.income)} ${p.projected ? "projected " : ""}income`}
                     </span>
                   </td>
                   <td className="num text-right align-top">{c.cents == null ? <span className="muted">Not worked out</span> : centsText(c.cents)}</td>
@@ -214,9 +245,107 @@ export default function PnlScreen() {
   );
 }
 
+const STATUS: Record<IncomeStatus, { label: string; cls: string }> = {
+  finalized: { label: "Finalized", cls: "ordered" },
+  packed: { label: "Packed", cls: "callback" },
+  not_packed: { label: "Not packed", cls: "none" },
+};
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** While any income is projected: a colored banner at the top. */
+function ProjectedBanner({ ii }: { ii: InvoiceIncome }) {
+  const n = ii.rows.length;
+  return (
+    <p className="note warn mt-2" role="status">
+      <b>Invoices not finalized.</b> Income is projected from packed weights for {ii.packedCount} of {plural(n, "location", "locations")}.
+      {ii.notPacked.length > 0 && ` ${plural(ii.notPacked.length, "location", "locations")} not packed yet.`}
+      {ii.priceNeeded.length > 0 && " Some packed products have no price (below)."} Marketing, profit and per head are projected
+      too, until every invoice is finalized.
+    </p>
+  );
+}
+
+/** Income by location (finalized, packed, not packed), then other income, totals, not packed and price needed. */
+function Income({ p, ii }: { p: WeekPnl; ii: InvoiceIncome }) {
+  const counted = ii.rows.filter((r) => r.status !== "not_packed");
+  const total = (label: string, v: bigint, strong = false) => (
+    <tr className={strong ? "font-bold" : ""}>
+      <td colSpan={2}>{label}</td>
+      <td className="num text-right">{centsText(v)}</td>
+    </tr>
+  );
+  return (
+    <section className="panel mt-3" aria-labelledby="pnl-income">
+      <h3 id="pnl-income">Income</h3>
+      {!p.hasIncome ? (
+        <p className="note mt-1 mb-0">No income yet. Projected income shows once boxes are packed.</p>
+      ) : (
+        <table className="simple mt-1">
+          <tbody>
+            {counted.map((r) => (
+              <tr key={r.customerId}>
+                <td>
+                  {r.name}
+                  {r.unpackedLines > 0 && <span className="small muted block">{plural(r.unpackedLines, "ordered line", "ordered lines")} not packed</span>}
+                  {r.priceNeeded.length > 0 && <span className="small block">Price needed: {r.priceNeeded.join(", ")}</span>}
+                </td>
+                <td>
+                  <span className={`tag ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>
+                </td>
+                <td className="num text-right">{r.cents != null ? centsText(r.cents) : ""}</td>
+              </tr>
+            ))}
+            {p.income.map((r) => (
+              <tr key={r.key}>
+                <td>
+                  {r.name}
+                  {r.entries > 1 && <span className="small muted"> · {r.entries} entries</span>}
+                </td>
+                <td>
+                  <span className="tag">Other income</span>
+                </td>
+                <td className="num text-right">{centsText(r.cents)}</td>
+              </tr>
+            ))}
+            {p.projected ? (
+              <>
+                {total("Finalized", ii.finalizedCents)}
+                {total("Packed, not invoiced", ii.packedCents)}
+                {p.otherCents !== BigInt(0) && total("Other income", p.otherCents)}
+                {total("Projected total income", p.incomeCents, true)}
+              </>
+            ) : (
+              total("Total income", p.incomeCents, true)
+            )}
+          </tbody>
+        </table>
+      )}
+      {ii.notPacked.length > 0 && (
+        <p className="small mt-2 mb-0">
+          <b>Not packed yet:</b> {ii.notPacked.map((r) => r.name).join(", ")}
+        </p>
+      )}
+      {ii.priceNeeded.length > 0 && (
+        <div className="small mt-2">
+          <b>Price needed</b> (left out of the total; set it in Setup &gt; Prices):
+          <ul className="m-0 pl-5">
+            {ii.priceNeeded.map((x) => (
+              <li key={x.product}>
+                {x.product}: {x.locations.join(", ")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** Income, total expense, profit, per head, per carcass lb: or what's missing. */
 function Summary({ p }: { p: WeekPnl }) {
-  const waits = [!p.hasSheets && "No weigh sheet for this week.", !p.hasIncome && "No income entered."].filter(Boolean) as string[];
+  const waits = [!p.hasSheets && "No weigh sheet for this week.", !p.hasIncome && "No income yet."].filter(Boolean) as string[];
+  // While some income is projected, so is everything worked out from it.
+  const pj = (label: string) => (p.projected ? `${label} (projected)` : label);
   const row = (label: string, value: React.ReactNode, strong = false) => (
     <tr className={strong ? "font-bold" : ""}>
       <td>{label}</td>
@@ -235,14 +364,14 @@ function Summary({ p }: { p: WeekPnl }) {
       )}
       <table className="simple mt-1">
         <tbody>
-          {row("Income", p.hasIncome ? centsText(p.incomeCents) : missing)}
+          {row(pj("Income"), p.hasIncome ? centsText(p.incomeCents) : missing)}
           {row("Producer cost", p.hasSheets ? centsText(p.producerCents) : missing)}
-          {row("Charges", centsText(p.chargeCents))}
+          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Charges (projected)" : "Charges", centsText(p.chargeCents))}
           {row("Entered expenses", centsText(p.expenseCents))}
-          {row("Total expense", p.totalExpense != null ? centsText(p.totalExpense) : missing, true)}
-          {row("Profit", p.profit != null ? centsText(p.profit) : missing, true)}
-          {row("Profit per head", p.profitPerHead != null ? `${centsText(p.profitPerHead)} (${p.head} head)` : missing)}
-          {row("Cost per carcass lb", p.costPerCarcassLb != null ? `$${fixedRounded(p.costPerCarcassLb, 4, 2)}` : missing)}
+          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Total expense (projected)" : "Total expense", p.totalExpense != null ? centsText(p.totalExpense) : missing, true)}
+          {row(pj("Profit"), p.profit != null ? centsText(p.profit) : missing, true)}
+          {row(pj("Profit per head"), p.profitPerHead != null ? `${centsText(p.profitPerHead)} (${p.head} head)` : missing)}
+          {row(pj("Cost per carcass lb"), p.costPerCarcassLb != null ? `$${fixedRounded(p.costPerCarcassLb, 4, 2)}` : missing)}
         </tbody>
       </table>
     </section>
@@ -287,8 +416,10 @@ function Entries({
   return (
     <div className="noprint">
       <section className="panel mt-3" aria-labelledby="pnl-add-income">
-        <h3 id="pnl-add-income">Income entries</h3>
-        <p className="small muted mt-1">Until invoices are used here: what each customer paid for this week, entered by hand.</p>
+        <h3 id="pnl-add-income">Other income</h3>
+        <p className="small muted mt-1">
+          Income that isn&apos;t on an invoice, entered by hand. Invoices are counted already: don&apos;t enter them here.
+        </p>
         <EntryList
           rows={income.map((e) => ({ id: e.id, date: e.entry_date, what: e.customer_name, amount: e.amount, note: e.note }))}
           onDelete={(id, label) => void remove("pnl_income", id, label)}

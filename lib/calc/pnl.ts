@@ -5,8 +5,11 @@
 // cent. Where something is missing the page says so instead of showing a
 // misleading number.
 
+import type { PriceUnit } from "../db/types";
+import { addDays } from "../dates";
+import { priceLines, type InvoiceLineRow, type InvoiceStatus } from "./invoice";
 import { roundToCents, type WeekPay } from "./lambCost";
-import { toFixedInt } from "./prices";
+import { toFixedInt, type ChargeRow, type PriceRow } from "./prices";
 
 const ZERO = BigInt(0);
 
@@ -54,14 +57,134 @@ export function parseMoney(text: string): string | null {
   return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
 }
 
+// ---------------------------------------------------------------------------
+// Income from invoices (Lucas, 11/15/26). A finalized (or sent) invoice is real
+// income. Before that, what's packed is priced the way the invoice will be
+// (the customer's own price, the chain's, the default; Mohawk charges too),
+// as projected income. Worked out each time; never stored, never mixed into
+// the finalized figure. Lines added by hand and discounts count once finalized.
+// ---------------------------------------------------------------------------
+
+/** A line from public.invoice_lines_from_packing() for one location: what's packed (or ordered and not packed). */
+export type PackedLine = {
+  customer_id: string;
+  kind: "packed" | "shorted";
+  product_id: string | null;
+  description: string;
+  ordered_qty: number | string | null;
+  ordered_unit: string | null;
+  boxes: number;
+  quantity: number | string | null;
+  price_unit: PriceUnit | null;
+  not_on_order: boolean;
+  sort: number;
+  detail: string | null;
+};
+
+/** The week's live invoice for a location (not void). */
+export type WeekInvoice = { customer_id: string; status: InvoiceStatus; total: number | string | null; invoice_date: string };
+
+export type IncomeStatus = "finalized" | "packed" | "not_packed";
+
+export type LocationIncome = {
+  customerId: string;
+  name: string;
+  status: IncomeStatus;
+  /** The invoice total (finalized), or what's packed and priced (packed); null when not packed. */
+  cents: bigint | null;
+  /** Ordered lines with nothing packed. */
+  unpackedLines: number;
+  /** Packed products with no price for this customer (left out of cents). */
+  priceNeeded: string[];
+};
+
+export type InvoiceIncome = {
+  rows: LocationIncome[];
+  finalizedCents: bigint;
+  packedCents: bigint;
+  /** Some income is projected: a location is packed but its invoice isn't finalized. */
+  projected: boolean;
+  finalizedCount: number;
+  packedCount: number;
+  notPacked: LocationIncome[];
+  /** Every packed product with no price, and where. */
+  priceNeeded: { product: string; locations: string[] }[];
+};
+
+export function invoiceIncome(input: {
+  week: string;
+  /** Every location with an order this week, or an invoice. chainId: the chain it's a store of (PCC). */
+  locations: { id: string; name: string; chainId: string | null }[];
+  invoices: WeekInvoice[];
+  packed: PackedLine[];
+  prices: PriceRow[];
+  charges: ChargeRow[];
+  productName: (id: string) => string;
+}): InvoiceIncome {
+  const tuesday = addDays(input.week, 1); // a new draft's invoice date
+  const rows: LocationIncome[] = input.locations.map((loc) => {
+    const inv = input.invoices.find((i) => i.customer_id === loc.id && i.status !== "void");
+    if (inv && (inv.status === "finalized" || inv.status === "sent")) {
+      return { customerId: loc.id, name: loc.name, status: "finalized", cents: cents(inv.total ?? 0), unpackedLines: 0, priceNeeded: [] };
+    }
+    const mine = input.packed.filter((l) => l.customer_id === loc.id);
+    const unpackedLines = mine.filter((l) => l.kind === "shorted").length;
+    const packed = mine.filter((l) => l.kind === "packed");
+    if (!packed.length) return { customerId: loc.id, name: loc.name, status: "not_packed", cents: null, unpackedLines, priceNeeded: [] };
+    const lines: InvoiceLineRow[] = packed.map((l, i) => ({
+      id: `${loc.id}:${i}`,
+      invoice_id: "",
+      kind: "packed",
+      product_id: l.product_id,
+      description: l.description,
+      ordered_qty: l.ordered_qty,
+      ordered_unit: l.ordered_unit ?? "",
+      boxes: l.boxes,
+      quantity: l.quantity,
+      price_unit: l.price_unit,
+      unit_price: null,
+      discount_kind: null,
+      discount: null,
+      not_on_order: l.not_on_order,
+      note: "",
+      sort: l.sort,
+      detail: l.detail ?? "",
+    }));
+    const priced = priceLines(lines, input.prices, loc.id, inv?.invoice_date ?? tuesday, loc.chainId, input.charges);
+    const sum = priced.reduce((s, l) => s + (l.totalCents ?? ZERO), ZERO);
+    const missing = [...new Set(priced.filter((l) => l.priceNeeded && l.product_id).map((l) => input.productName(l.product_id!)))];
+    return { customerId: loc.id, name: loc.name, status: "packed", cents: sum, unpackedLines, priceNeeded: missing };
+  });
+  const sum = (s: IncomeStatus) => rows.filter((r) => r.status === s).reduce((t, r) => t + (r.cents ?? ZERO), ZERO);
+  const needed = new Map<string, string[]>();
+  for (const r of rows) for (const p of r.priceNeeded) needed.set(p, [...(needed.get(p) ?? []), r.name]);
+  const packedCount = rows.filter((r) => r.status === "packed").length;
+  return {
+    rows,
+    finalizedCents: sum("finalized"),
+    packedCents: sum("packed"),
+    projected: packedCount > 0,
+    finalizedCount: rows.filter((r) => r.status === "finalized").length,
+    packedCount,
+    notPacked: rows.filter((r) => r.status === "not_packed"),
+    priceNeeded: [...needed.entries()].map(([product, locations]) => ({ product, locations })).sort((a, b) => a.product.localeCompare(b.product)),
+  };
+}
+
 export type ChargeLine =
   | { kind: "lamb"; name: string; rate: string; lambs: number; cents: bigint | null }
   | { kind: "percent"; name: string; percent: string; income: bigint; cents: bigint | null };
 
 export type WeekPnl = {
+  /** Income entered by hand (Other income), by customer. */
   income: { key: string; name: string; entries: number; cents: bigint }[];
+  /** Other income + finalized invoices + what's packed and not finalized yet. */
   incomeCents: bigint;
   hasIncome: boolean;
+  /** Income entered by hand. */
+  otherCents: bigint;
+  /** Some of the income (so marketing, profit and per head) is projected from packing. */
+  projected: boolean;
   /** Lambs on the week's weigh sheets; 0 means no weigh sheet (or no weights yet). */
   head: number;
   hasSheets: boolean;
@@ -100,6 +223,8 @@ export function weekPnl(input: {
   categories: ExpenseCategory[];
   lambCharges: LambCharge[];
   percentCharges: PercentCharge[];
+  /** Income from the week's invoices and packing; none: entered income only. */
+  invoices?: InvoiceIncome;
 }): WeekPnl {
   // Income by customer (the id when there is one, else the name).
   const byCustomer = new Map<string, { key: string; name: string; entries: number; cents: bigint }>();
@@ -111,8 +236,10 @@ export function weekPnl(input: {
     byCustomer.set(key, row);
   }
   const income = [...byCustomer.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const incomeCents = income.reduce((s, r) => s + r.cents, ZERO);
-  const hasIncome = input.income.length > 0;
+  const otherCents = income.reduce((s, r) => s + r.cents, ZERO);
+  const inv = input.invoices;
+  const incomeCents = otherCents + (inv ? inv.finalizedCents + inv.packedCents : ZERO);
+  const hasIncome = input.income.length > 0 || (!!inv && inv.finalizedCount + inv.packedCount > 0);
 
   const head = input.pay.head;
   const hasSheets = head > 0;
@@ -151,6 +278,8 @@ export function weekPnl(input: {
     income,
     incomeCents,
     hasIncome,
+    otherCents,
+    projected: !!inv?.projected,
     head,
     hasSheets,
     producerCents,

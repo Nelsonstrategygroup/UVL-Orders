@@ -39,7 +39,8 @@ select is(public.pack_group_product('tg-chops'), 'tg-chops', 'a product on its o
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000e3a1","role":"authenticated"}';
-select is(public.make_invoice_drafts('2099-10-05')::text, '2', 'drafts made');
+select public.make_invoice_drafts('2099-10-05');
+select is((select count(*)::int from public.invoices where week_id = '2099-10-05'), 2, 'drafts made (by packing since 11/15/26)');
 
 reset role;
 create temp view tg as
