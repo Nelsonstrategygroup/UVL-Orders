@@ -39,8 +39,16 @@ describe("screens by permission", () => {
       "/freezer",
       "/customers",
       "/setup",
+      "/weigh-sheets",
       "/users",
     ]);
+  });
+
+  it("shows Weigh sheets (Lamb cost) to admins only", () => {
+    expect(navFor(ALL_ACCESS, "admin").some((n) => n.href === "/weigh-sheets")).toBe(true);
+    expect(navFor(ALL_ACCESS, "office").some((n) => n.href === "/weigh-sheets")).toBe(false);
+    expect(canOpen(ALL_ACCESS, "office", "/weigh-sheets/abc")).toBe(false);
+    expect(canOpen(ALL_ACCESS, "admin", "/weigh-sheets/abc")).toBe(true);
   });
 
   it("hides Users and the import from everyone but admins", () => {
