@@ -671,7 +671,7 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - OPEN: Kirkland's store number (#23 or #02); its code is PCC23 until changed.
 - OPEN: Kathy's approval of the location invoice codes.
 
-## 16. Lamb cost (change request 11/14/26) — PROPOSED, awaiting approval
+## 16. Lamb cost (change request 11/14/26) — tables and screens approved by Lucas 11/14/26
 
 What UVL pays producers for each week's lambs, worked out from Mohawk's weigh sheet. A separate module: it only adds new tables, functions, a storage bucket and screens. It never changes an existing table, column, row or screen. Orders, Packing, the cut sheet, Le Trim, invoicing and every other existing screen never read from it, so removing it leaves the app as it was. It reads (never writes) `weeks` (the INV#, the week's lamb count) and `size_classes`.
 
@@ -689,6 +689,7 @@ Safeguards: full backup of the live database before the first migration (taken 1
 - Producers: name, ranch name, contact (phone, email, address, as free text), active. None seeded; Kathy enters them. A producer with lambs on any weigh sheet can be turned off but not deleted.
 - Pricing settings, each from a date on: base rate ($ per lb live; currently 3.00) and live weight factor (currently 2.02). A week uses the newest setting dated on or before its kill date. One starting row, 3.00 and 2.02, is entered (OPEN: from what date).
 - Producer rate overrides, each from a date on: a producer's own $ per lb live, used instead of the base rate. None today. (OPEN: rate only, or the factor too.)
+- As built (migration 20261114000100; revert in `supabase/rollback`): `producers`, `lamb_cost_settings` (one per start date), `producer_rates` (one per producer per start date). Admins only; changes in the audit log. Nothing seeded: with no setting yet, the form starts at 3.00 and 2.02 and Kathy picks the date. Lookups in `lib/calc/lambCost.ts` (`settingFor`, `producerRateFor`, `rateFor`). Not in Export all data (nothing existing reads these tables).
 
 ### 16.3 Weigh sheet (stage 2; More > Weigh sheet)
 - One kill record per week, linked to the week (`weeks.id`) and shown by its INV#: kill date, notes, and photos of Mohawk's handwritten sheet (private Storage bucket `kill-sheets`, admin only).

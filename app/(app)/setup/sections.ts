@@ -13,6 +13,7 @@ export const SETUP_SECTIONS = [
   { slug: "prices", title: "Prices", sub: "Each product's price, and customer prices, from a date on" },
   { slug: "invoicing", title: "Invoicing", sub: "Invoice numbers, location codes, terms, and what prints on every invoice" },
   { slug: "processor", title: "Processor", sub: "Name, email for cut sheets, instructions on every sheet" },
+  { slug: "lamb-cost", title: "Lamb cost", sub: "Producers, and what they're paid per lb live", adminOnly: true },
   { slug: "records", title: "Your records", sub: "Export all data to keep a copy", adminOnly: true },
 ] as const;
 
