@@ -43,7 +43,7 @@ export function sheetFor(data: InvoiceWeek, inv: InvoiceRow, customers: Customer
   const c = customers.byId.get(inv.customer_id);
   const b = data.billing.get(inv.customer_id);
   const terms = termsFor(b?.terms_days, data.settings?.default_terms_days ?? 15);
-  const lines = priceLines(inv.invoice_lines, data.prices, inv.customer_id, inv.invoice_date);
+  const lines = priceLines(inv.invoice_lines, data.prices, inv.customer_id, inv.invoice_date, c?.parent_customer_id ?? null);
   return {
     invoice: inv,
     lines,

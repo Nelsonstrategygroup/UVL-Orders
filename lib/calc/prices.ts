@@ -30,14 +30,41 @@ export type PriceRow = {
 
 /**
  * The price for a product on a date: the customer's own newest price on or
- * before the date, else the newest default on or before it, else null
- * ("Price needed").
+ * before the date, else its chain's (the customer it's a location of, like
+ * PCC; Lucas, 11/14/26), else the newest default, else null ("Price
+ * needed"). A store's own price wins while it exists, even over a newer
+ * chain price. public.price_on() in the database does the same.
  */
-export function priceFor(prices: PriceRow[], productId: string, customerId: string | null, date: string): PriceRow | null {
+export function priceFor(
+  prices: PriceRow[],
+  productId: string,
+  customerId: string | null,
+  date: string,
+  chainId: string | null = null,
+): PriceRow | null {
   const newest = (rows: PriceRow[]) =>
     rows.filter((p) => p.effective_from <= date).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0] ?? null;
   const mine = prices.filter((p) => p.product_id === productId);
-  return (customerId ? newest(mine.filter((p) => p.customer_id === customerId)) : null) ?? newest(mine.filter((p) => p.customer_id === null));
+  return (
+    (customerId ? newest(mine.filter((p) => p.customer_id === customerId)) : null) ??
+    (chainId ? newest(mine.filter((p) => p.customer_id === chainId)) : null) ??
+    newest(mine.filter((p) => p.customer_id === null))
+  );
+}
+
+/**
+ * Kathy prefers prices that end in 0 (Lucas, 11/14/26): true for 7.40, 12
+ * and 9.5; false for 7.45, 9.99 and 7.125. Only a warning; any price saves.
+ */
+export function endsInZero(price: number | string): boolean {
+  return toFixedInt(price, 4) % BigInt(1000) === BigInt(0);
+}
+
+/** Where a customer's price comes from: their own, their chain's (PCC), or the default. */
+export type PriceSource = "own" | "chain" | "default";
+
+export function priceSource(row: PriceRow, customerId: string | null): PriceSource {
+  return row.customer_id == null ? "default" : row.customer_id === customerId ? "own" : "chain";
 }
 
 /** A product's default prices (or one customer's), newest first. */
