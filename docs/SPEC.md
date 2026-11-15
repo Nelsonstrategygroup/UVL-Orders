@@ -709,8 +709,17 @@ Same safeguards as stage 1: admin only, additive migrations only, no change to e
 ### 16.5 Week view
 The week's sheets (producer, kill date, lambs, carcass lb, pay), then each producer's head count, carcass lb, live lb, average carcass weight and pay, then the week total. Lambs by size, with Unassigned. A warning (never blocking) when the week's lambs across all sheets don't match the week's lamb count (the one This week shows).
 
-### 16.6 Stage 3 and later, not now
-Expense entries, income entries, the weekly P&L page, renaming Setup > Lamb cost to "P&L Setup". Later: yield, margin by INV#, a producer-facing view.
 
-### 16.7 Open questions
-- None for stage 2.
+### 16.6 Stage 3: weekly P&L (Lucas, 11/14/26)
+Admin only, additive only, same safeguards. A P&L, not accounting: payment status is not tracked.
+
+- Week rule: every dated entry (weigh sheet, expense, income) counts toward the order week that contains its date (Thursday to Wednesday, named by its packing Monday and INV#). Several entries in a week add up.
+- Setup > Lamb cost is renamed "P&L Setup" (same page and address). It adds, each from a date on (newest on or before the week's packing Monday applies; set 0 from a date to stop one):
+  - Per-lamb charges: name and $ per lamb, times the week's lambs on the weigh sheets. Starts with ALB/OSC at $1.80.
+  - Percent-of-income charges: name and percent, times the week's total income. Starts with Marketing at 4%.
+  - Expense categories: Butcher (Mohawk), Labor, Freight, Other to start. An admin can add, rename or retire (turn off) them.
+  - The two starting charges apply from Oct 1, 2026, like the starting rate.
+- Expense entries: date, category, amount, note. Any number per week. Butcher is entered here as needed.
+- Income entries: date, customer (picked from the customer list, which is only read), amount, note. A stopgap until invoices are used. The customer's name is copied onto the entry and no link is added to the customers table, so deleting or changing customers works as before.
+- Weekly P&L (More, printable, the usual week bar): income by customer; producer cost by producer (head count, carcass lb, live lb, average weight, pay); each calculated charge with its math ("103 lambs × $1.80"); entered expenses by category; total expense, profit, profit per head, cost per carcass lb. Each charge is rounded to the cent. Where something is missing the page says so instead of showing a misleading number: "No income entered", "No weigh sheet for this week", and profit, profit per head and cost per carcass lb wait for both.
+- Not now: invoices feeding income, freezer in and out, payment tracking, a producer-facing view.

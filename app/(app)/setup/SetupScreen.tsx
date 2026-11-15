@@ -618,7 +618,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
 
     case "lamb-cost":
       // Admins only (SPEC 16); the tables' own security says the same.
-      if (!canEdit) return page(<p className="note">Only an admin can see Lamb cost.</p>);
+      if (!canEdit) return page(<p className="note">Only an admin can see P&amp;L Setup.</p>);
       return page(<LambCost />);
 
     case "records":

@@ -1,9 +1,9 @@
 "use client";
 
-// Setup > Lamb cost (SPEC 16, stage 1): producers, the base rate and live
-// weight factor from a date on, and a producer's own rate from a date on.
-// Admins only. Nothing is worked out here yet: the weigh sheet (stage 2)
-// uses these. A change applies from its date on; past weeks never change.
+// Setup > P&L Setup (SPEC 16; "Lamb cost" until stage 3): producers, the
+// base rate and live weight factor from a date on, a producer's own rate
+// from a date on, and (stage 3) the P&L charges and expense categories.
+// Admins only. A change applies from its date on; past weeks never change.
 
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -30,6 +30,7 @@ import {
   saveProducer,
   type LambCostSetup,
 } from "@/lib/db/lambCost";
+import PnlSetupCards from "./PnlSetup";
 
 /** "Oct 19, 2026" */
 const dateText = (d: string) => `${niceDate(d)}, ${d.slice(0, 4)}`;
@@ -39,7 +40,7 @@ export default function LambCost() {
   const { data, refresh, error } = useLive("lamb-cost-setup", load, ["producers", "lamb_cost_settings", "producer_rates"]);
   const toast = useToast();
 
-  if (error) return <p className="note bad">Couldn&apos;t load Lamb cost: {error}</p>;
+  if (error) return <p className="note bad">Couldn&apos;t load P&amp;L Setup: {error}</p>;
   if (!data) return <p className="small muted">Loading...</p>;
 
   /** Show the result, reload, and say whether it worked. */
@@ -52,12 +53,13 @@ export default function LambCost() {
   return (
     <>
       <p className="small muted mt-0">
-        What UVL pays producers for lambs. Only admins can see this. The weigh sheet uses these to work out pay. A change
-        applies from its start date on, so past weeks keep what they were paid.
+        What UVL pays producers for lambs, and the charges and expense categories on the weekly P&amp;L. Only admins can see
+        this. A change applies from its start date on, so past weeks keep what they were.
       </p>
       <Pricing data={data} after={after} />
       <Producers data={data} after={after} />
       <ProducerRates data={data} after={after} />
+      <PnlSetupCards />
     </>
   );
 }

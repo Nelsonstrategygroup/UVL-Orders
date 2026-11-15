@@ -40,6 +40,7 @@ describe("screens by permission", () => {
       "/customers",
       "/setup",
       "/weigh-sheets",
+      "/pnl",
       "/users",
     ]);
   });
@@ -49,6 +50,8 @@ describe("screens by permission", () => {
     expect(navFor(ALL_ACCESS, "office").some((n) => n.href === "/weigh-sheets")).toBe(false);
     expect(canOpen(ALL_ACCESS, "office", "/weigh-sheets/abc")).toBe(false);
     expect(canOpen(ALL_ACCESS, "admin", "/weigh-sheets/abc")).toBe(true);
+    expect(canOpen(ALL_ACCESS, "office", "/pnl")).toBe(false);
+    expect(navFor(ALL_ACCESS, "office").some((n) => n.href === "/pnl")).toBe(false);
   });
 
   it("hides Users and the import from everyone but admins", () => {
