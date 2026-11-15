@@ -34,7 +34,11 @@ export function toIssued(
     lines: lines.map((l) => ({
       kind: l.kind,
       // The QuickBooks product: the line's name as printed ("Racks"; "Heart, Liver, Kidney" for the organ box).
-      item: (l.product_id ? groupName(l.product_id) : null) ?? (l.description || (l.product_id ? productName(l.product_id) : "")),
+      // A Mohawk charge line is its own item ("Mohawk charge, shrouded carcass"), not the product.
+      item:
+        l.kind === "charge"
+          ? l.description
+          : ((l.product_id ? groupName(l.product_id) : null) ?? (l.description || (l.product_id ? productName(l.product_id) : ""))),
       description: [l.description, l.detail].filter(Boolean).join(": "),
       quantity: l.quantity,
       rate: l.price,

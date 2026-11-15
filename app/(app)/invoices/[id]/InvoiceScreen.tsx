@@ -313,7 +313,8 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
                 </p>
                 <ul className="m-0 mt-1 grid list-none gap-2 p-0">
                   {sheet.lines
-                    .filter((l) => l.kind !== "shorted")
+                    // Mohawk charge lines come from Setup > Prices, not from here.
+                    .filter((l) => l.kind !== "shorted" && l.kind !== "charge")
                     .map((l) => (
                       <LineEdit key={`${l.id}:${l.discount_kind}:${l.discount}:${l.note}`} line={l} onSaved={after} />
                     ))}
