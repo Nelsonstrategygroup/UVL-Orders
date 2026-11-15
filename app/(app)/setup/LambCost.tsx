@@ -409,7 +409,9 @@ function ProducerRates({ data, after }: { data: LambCostSetup; after: After }) {
           </button>
         </form>
       ) : (
-        <p className="small muted mt-2 mb-0">Add a producer first.</p>
+        <p className="small muted mt-2 mb-0">
+          {data.producers.length ? "Every producer is turned off. Turn one on first." : "Add a producer first."}
+        </p>
       )}
     </section>
   );
