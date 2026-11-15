@@ -3,7 +3,7 @@
 -- stores); a reopened draft has no stored charge line.
 
 begin;
-select plan(14);
+select plan(15);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-00000000f1a1', 'cc-admin@test.local'),
@@ -48,7 +48,8 @@ insert into public.packing_weights (order_id, product_id, weight) values
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000f1a2","role":"authenticated"}';
-select is(public.sync_invoice_drafts('2099-12-14')::text, '2', 'two drafts');
+select is(public.sync_invoice_drafts('2099-12-14')::text, '0', 'opening the week makes nothing: packing made the drafts');
+select is((select count(*)::int from public.invoices where week_id = '2099-12-14'), 2, 'two drafts');
 select is((select count(*)::int from public.invoice_lines l join public.invoices i on i.id = l.invoice_id
   where i.week_id = '2099-12-14' and l.kind = 'charge'), 0, 'a draft stores no charge line');
 select lives_ok($$ select public.finalize_invoice(id) from public.invoices

@@ -4,7 +4,7 @@
 -- admin can reopen a finalized invoice (who and when kept).
 
 begin;
-select plan(24);
+select plan(25);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-00000000e5a1', 'live-admin@test.local'),
@@ -45,7 +45,8 @@ create function pg_temp.changes() returns bigint language sql as $$
 -- Office (can see invoices) opens the week: a draft for the packed location only.
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000e5a3","role":"authenticated"}';
-select is(public.sync_invoice_drafts('2099-12-07')::text, '1', 'a draft for the packed location, made by opening the week');
+select is(public.sync_invoice_drafts('2099-12-07')::text, '0', 'opening the week makes nothing: packing made the draft already');
+select is((select count(*)::int from public.invoices where week_id = '2099-12-07'), 1, 'a draft for the packed location only');
 select is((pg_temp.inv()).number, '99401-LVA', 'numbered from the week and the code');
 select is(pg_temp.qty(), 10.5::numeric, 'billing the box weight');
 reset role;
@@ -62,7 +63,8 @@ insert into public.packing_weights (id, order_id, product_id, weight) values
   ('00000000-0000-4000-8000-00000000e5d2', '00000000-0000-4000-8000-00000000e5b2', 'lv-chops', 8);
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000e5a3","role":"authenticated"}';
-select is(public.sync_invoice_drafts('2099-12-07')::text, '1', 'the newly packed location gets its draft');
+select public.sync_invoice_drafts('2099-12-07');
+select is((select count(*)::int from public.invoices where week_id = '2099-12-07'), 2, 'the newly packed location gets its draft (made by packing)');
 select is(pg_temp.qty(), 12.25::numeric, 'the new weight shows without deleting anything');
 
 -- Numbers: typed by hand is kept; blank goes back to automatic; the week's number is followed.
