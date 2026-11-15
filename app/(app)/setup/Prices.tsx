@@ -428,6 +428,8 @@ function PriceChecks({
       .sort((a, b) => b.changed_at.localeCompare(a.changed_at))[0];
     if (!latest) return "";
     const d = new Date(latest.changed_at).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+    // PCC's rows were set when this started (11/14/26), not by a person.
+    if (latest.changed_by_name.startsWith("Starting setting")) return `Confirmed from the start, ${dateText(d)}`;
     return `${latest.confirmed ? "Checked" : "Unchecked"}${latest.changed_by_name ? ` by ${latest.changed_by_name}` : ""} on ${dateText(d)}`;
   };
 
