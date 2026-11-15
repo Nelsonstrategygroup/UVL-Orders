@@ -95,6 +95,12 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
     return r;
   };
 
+  // Prices not confirmed for this location (Setup > Prices; Lucas, 11/14/26): warn before it's printed or sent.
+  const unconfirmed = inv.status !== "void" && !data.pricesConfirmed.has(inv.customer_id);
+  const okUnconfirmed = (doing: string) =>
+    !unconfirmed ||
+    confirm(`Prices for ${sheet.customerName} aren't confirmed yet (Setup > Prices). Check them before this goes to the customer. ${doing} anyway?`);
+
   // What stops a draft being finalized, in plain words.
   const blockers = [
     !inv.number ? "It needs an invoice number." : "",
@@ -147,13 +153,14 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
           <h2 className="mr-auto">
             {sheet.customerName} · {weekName(week)}
           </h2>
-          <button type="button" className="btn" onClick={() => window.print()}>
+          <button type="button" className="btn" onClick={() => okUnconfirmed("Print") && window.print()}>
             Print
           </button>
           <button
             type="button"
             className="btn ghost"
             onClick={() => {
+              if (!okUnconfirmed("Save as PDF")) return;
               toast('In the print window, choose "Save as PDF" as the printer.');
               setTimeout(() => window.print(), 600);
             }}
@@ -181,6 +188,13 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
             </span>
           )}
         </p>
+
+        {unconfirmed && (
+          <p className="note warn mt-2" role="alert">
+            Prices for {sheet.customerName} aren&apos;t confirmed yet. Check them before you print or send this invoice. Someone who
+            can change prices checks the box on Setup &gt; Prices once they match what this customer is really charged.
+          </p>
+        )}
 
         {data.changedSince.has(inv.id) && (
           <p className="note warn mt-2" role="alert">
@@ -247,9 +261,10 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
                     type="button"
                     className={inv.status === "sent" ? "btn ghost" : "btn"}
                     disabled={busy}
-                    onClick={() =>
-                      void run(() => markSent(db, inv.id, inv.status !== "sent"), inv.status === "sent" ? "Marked not sent" : "Marked sent")
-                    }
+                    onClick={() => {
+                      if (inv.status !== "sent" && !okUnconfirmed("Mark it sent")) return;
+                      void run(() => markSent(db, inv.id, inv.status !== "sent"), inv.status === "sent" ? "Marked not sent" : "Marked sent");
+                    }}
                   >
                     {inv.status === "sent" ? "Mark not sent" : "Mark sent"}
                   </button>

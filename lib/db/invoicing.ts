@@ -51,6 +51,29 @@ export async function deletePrice(db: SupabaseClient, id: string): Promise<strin
   return msg(error);
 }
 
+/** Prices confirmed for a location (Setup > Prices; Lucas, 11/14/26). No row: not confirmed. */
+export type PriceCheck = {
+  customer_id: string;
+  confirmed: boolean;
+  changed_by_name: string;
+  changed_at: string;
+};
+
+export async function loadPriceChecks(db: SupabaseClient): Promise<Map<string, PriceCheck>> {
+  const { data, error } = await db.from("customer_price_checks").select("customer_id, confirmed, changed_by_name, changed_at");
+  if (error) throw new Error(error.message);
+  return new Map(((data ?? []) as PriceCheck[]).map((r) => [r.customer_id, r]));
+}
+
+/** Check or uncheck Prices confirmed for these locations (a chain's stores at once). The database records who and when. */
+export async function setPriceChecks(db: SupabaseClient, customerIds: string[], confirmed: boolean): Promise<string | null> {
+  if (!customerIds.length) return null;
+  const { error } = await db
+    .from("customer_price_checks")
+    .upsert(customerIds.map((customer_id) => ({ customer_id, confirmed })), { onConflict: "customer_id" });
+  return plain(error);
+}
+
 /** A location's billing details. */
 export type CustomerBilling = {
   customer_id: string;

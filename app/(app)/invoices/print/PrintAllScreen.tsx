@@ -40,6 +40,11 @@ export default function PrintAllScreen() {
     .filter((i) => i.status !== "void")
     .sort((a, b) => compareCustomerIds(customers.byId)(a.customer_id, b.customer_id))
     .map((inv) => sheetFor(data, inv, customers, catalog));
+  // Prices not confirmed (Setup > Prices; Lucas, 11/14/26): warn before printing.
+  const unconfirmed = sheets.filter((s) => !data.pricesConfirmed.has(s.invoice.customer_id)).map((s) => s.customerName);
+  const okUnconfirmed = (doing: string) =>
+    !unconfirmed.length ||
+    confirm(`Prices aren't confirmed yet for: ${unconfirmed.join(", ")} (Setup > Prices). Check them before these go to the customers. ${doing} anyway?`);
 
   return (
     <>
@@ -50,7 +55,7 @@ export default function PrintAllScreen() {
             &larr; Invoices
           </Link>
           <h2 className="mr-auto">All invoices ({sheets.length})</h2>
-          <button type="button" className="btn" disabled={!sheets.length} onClick={() => window.print()}>
+          <button type="button" className="btn" disabled={!sheets.length} onClick={() => okUnconfirmed("Print") && window.print()}>
             Print
           </button>
           <button
@@ -58,6 +63,7 @@ export default function PrintAllScreen() {
             className="btn ghost"
             disabled={!sheets.length}
             onClick={() => {
+              if (!okUnconfirmed("Save as PDF")) return;
               toast('In the print window, choose "Save as PDF" as the printer.');
               setTimeout(() => window.print(), 600);
             }}
@@ -65,6 +71,12 @@ export default function PrintAllScreen() {
             Save as PDF
           </button>
         </div>
+        {unconfirmed.length > 0 && (
+          <p className="note warn mt-2" role="alert">
+            Prices aren&apos;t confirmed yet for: {unconfirmed.join(", ")}. Check them before you print or send these invoices
+            (Setup &gt; Prices).
+          </p>
+        )}
         {!sheets.length && <div className="empty">No invoices this week.</div>}
       </div>
       {sheets.map((s) => (

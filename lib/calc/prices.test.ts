@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsText, lineTotalCents, parsePrice, priceFor, priceHistory, priceText, type PriceRow } from "./prices";
+import { centsText, endsInZero, lineTotalCents, parsePrice, priceFor, priceHistory, priceSource, priceText, type PriceRow } from "./prices";
 
 const row = (id: string, product_id: string, customer_id: string | null, price: number | string, effective_from: string): PriceRow => ({
   id,
@@ -51,6 +51,23 @@ describe("priceFor", () => {
   it("lists a price history newest first", () => {
     expect(priceHistory(prices, "rack", null).map((p) => p.id)).toEqual(["d2", "d1"]);
     expect(priceHistory(prices, "rack", "newport").map((p) => p.id)).toEqual(["c1"]);
+  });
+});
+
+describe("endsInZero", () => {
+  it("is true for prices ending in 0", () => {
+    for (const p of ["7.40", "12", "9.5", "10.00", "0", 13.5]) expect(endsInZero(p)).toBe(true);
+  });
+  it("is false otherwise", () => {
+    for (const p of ["7.45", "9.99", "7.125", "11.25", "0.01", 8.65]) expect(endsInZero(p)).toBe(false);
+  });
+});
+
+describe("priceSource", () => {
+  it("says whose price it is", () => {
+    expect(priceSource(row("a", "rack", null, 1, "2026-10-08"), "pcc10")).toBe("default");
+    expect(priceSource(row("b", "rack", "pcc10", 1, "2026-10-08"), "pcc10")).toBe("own");
+    expect(priceSource(row("c", "rack", "pcc", 1, "2026-10-08"), "pcc10")).toBe("chain");
   });
 });
 

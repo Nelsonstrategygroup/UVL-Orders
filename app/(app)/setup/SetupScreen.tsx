@@ -200,10 +200,10 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
 
   const page = (body: React.ReactNode, wide = false, after?: React.ReactNode) => (
     <div className={wide ? "" : "max-w-[900px]"}>
-      <Link href="/setup" className="copy">
+      <Link href="/setup" className="copy noprint">
         &larr; Setup
       </Link>
-      <h2 className="mt-1 mb-2">{titleOf(section)}</h2>
+      <h2 className="noprint mt-1 mb-2">{titleOf(section)}</h2>
       {/* Prices and Invoicing have their own permissions (SPEC 15). */}
       {section !== "prices" && section !== "invoicing" && section !== "lamb-cost" && editNote}
       {body}

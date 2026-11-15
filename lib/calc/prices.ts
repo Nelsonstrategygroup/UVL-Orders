@@ -52,6 +52,21 @@ export function priceFor(
   );
 }
 
+/**
+ * Kathy prefers prices that end in 0 (Lucas, 11/14/26): true for 7.40, 12
+ * and 9.5; false for 7.45, 9.99 and 7.125. Only a warning; any price saves.
+ */
+export function endsInZero(price: number | string): boolean {
+  return toFixedInt(price, 4) % BigInt(1000) === BigInt(0);
+}
+
+/** Where a customer's price comes from: their own, their chain's (PCC), or the default. */
+export type PriceSource = "own" | "chain" | "default";
+
+export function priceSource(row: PriceRow, customerId: string | null): PriceSource {
+  return row.customer_id == null ? "default" : row.customer_id === customerId ? "own" : "chain";
+}
+
 /** A product's default prices (or one customer's), newest first. */
 export function priceHistory(prices: PriceRow[], productId: string, customerId: string | null): PriceRow[] {
   return prices
