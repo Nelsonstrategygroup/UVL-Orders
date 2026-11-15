@@ -23,6 +23,8 @@ const SRC = "weigh sheet";
 /** Database errors in plain words. */
 export function plain(e: { message: string; code?: string; hint?: string } | null): string | null {
   if (!e) return null;
+  // The database's message names the page by its old name ("Lamb cost").
+  if (/^No pricing setting starts on or before/.test(e.message)) return e.message.replace("Setup > Lamb cost", "Setup > P&L Setup");
   if (e.code === "23505" && /kill_sheets/.test(e.message)) return "That producer already has a sheet for that kill date.";
   if (e.code === "23505" && /kill_lambs/.test(e.message)) return "That place on the sheet already has a weight.";
   if (e.code === "23503" && /kill_adjustments/.test(e.message)) return "This lamb has an adjustment. Remove the adjustment first.";

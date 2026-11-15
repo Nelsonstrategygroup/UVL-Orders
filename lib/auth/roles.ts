@@ -109,6 +109,7 @@ export const NAV: NavItem[] = [
   { href: "/customers", label: "Customers", short: "Customers", icon: "☺", bottom: false, sub: "Customer list and call days", area: "customers" },
   { href: "/setup", label: "Setup", short: "Setup", icon: "⚙", bottom: false, sub: "Parts per lamb and products", area: "setup" },
   { href: "/weigh-sheets", label: "Weigh sheets", short: "Weigh", icon: "⚖", bottom: false, sub: "Mohawk's kill log and what producers are paid", adminOnly: true },
+  { href: "/pnl", label: "Weekly P&L", short: "P&L", icon: "∑", bottom: false, sub: "Income, costs and profit for the week", adminOnly: true },
   { href: "/users", label: "Users", short: "Users", icon: "☻", bottom: false, sub: "Who can log in", adminOnly: true },
 ];
 

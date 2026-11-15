@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { centsText, sheetPay, weekPay, type KillSheet } from "./lambCost";
-import { chargesOn, weekPnl, type ExpenseCategory, type ExpenseEntry, type IncomeEntry, type LambCharge, type PercentCharge } from "./pnl";
+import { chargesOn, parseMoney, weekPnl, type ExpenseCategory, type ExpenseEntry, type IncomeEntry, type LambCharge, type PercentCharge } from "./pnl";
 
 const WEEK = "2026-11-16";
 const sheet: KillSheet = {
@@ -47,6 +47,22 @@ const inc = (id: string, customer_id: string | null, customer_name: string, amou
   customer_name,
   amount,
   note: "",
+});
+
+describe("parseMoney", () => {
+  it("reads typed amounts", () => {
+    expect(parseMoney("$1,250.00")).toBe("1250");
+    expect(parseMoney("980.5")).toBe("980.5");
+    expect(parseMoney(".75")).toBe("0.75");
+    expect(parseMoney("-25")).toBe("-25");
+    expect(parseMoney("-$25.10")).toBe("-25.1");
+  });
+  it("refuses what isn't money, or 0", () => {
+    expect(parseMoney("0")).toBeNull();
+    expect(parseMoney("12.345")).toBeNull();
+    expect(parseMoney("ten")).toBeNull();
+    expect(parseMoney("")).toBeNull();
+  });
 });
 
 describe("chargesOn", () => {

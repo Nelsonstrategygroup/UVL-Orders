@@ -189,11 +189,11 @@ function NewSheet({ producers, days, hasRate }: { producers: Producer[]; days: s
   const [killDate, setKillDate] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!hasRate) return <p className="note small mt-3">Add a rate in Setup &gt; Lamb cost first.</p>;
+  if (!hasRate) return <p className="note small mt-3">Add a rate in Setup &gt; P&amp;L Setup first.</p>;
   if (on.length === 0)
     return (
       <p className="small mt-3 mb-0">
-        Add a producer in <Link href="/setup/lamb-cost">Setup &gt; Lamb cost</Link> first.
+        Add a producer in <Link href="/setup/lamb-cost">Setup &gt; P&amp;L Setup</Link> first.
       </p>
     );
 

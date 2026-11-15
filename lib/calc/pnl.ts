@@ -39,6 +39,21 @@ export function chargesOn<T extends { name: string; effective_from: string }>(ro
 /** A money amount as whole cents. */
 export const cents = (v: string | number) => toFixedInt(v, 2);
 
+/**
+ * A typed amount, "$1,250.00", "980.5" or "-25" (a refund or credit), as a
+ * decimal string with at most 2 decimals; null if it isn't money or is 0.
+ */
+export function parseMoney(text: string): string | null {
+  const t = text.trim().replace(/^(-?)\s*\$/, "$1").replace(/,/g, "");
+  if (!/^-?(\d+(\.\d{0,2})?|\.\d{1,2})$/.test(t)) return null;
+  if (Number(t) === 0) return null;
+  const neg = t.startsWith("-");
+  const [w, f = ""] = t.replace("-", "").split(".");
+  const whole = (w || "0").replace(/^0+(?=\d)/, "");
+  const frac = f.replace(/0+$/, "");
+  return `${neg ? "-" : ""}${whole}${frac ? `.${frac}` : ""}`;
+}
+
 export type ChargeLine =
   | { kind: "lamb"; name: string; rate: string; lambs: number; cents: bigint | null }
   | { kind: "percent"; name: string; percent: string; income: bigint; cents: bigint | null };
