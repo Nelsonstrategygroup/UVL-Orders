@@ -123,17 +123,17 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                   <td>
                     {l.description}
                     {l.not_on_order && <span className="inv-small"> · not on the order</span>}
-                    {l.kind !== "manual" && ordered(l) && <span className="inv-small block">{ordered(l)}</span>}
+                    {l.kind !== "manual" && l.kind !== "charge" && ordered(l) && <span className="inv-small block">{ordered(l)}</span>}
                     {l.detail && <span className="inv-small block">{l.detail}</span>}
                     {l.note && !l.discount && <span className="inv-small block">{l.note}</span>}
                   </td>
-                  <td className="num">{l.kind === "manual" ? "" : l.boxes}</td>
+                  <td className="num">{l.kind === "manual" || l.kind === "charge" ? "" : l.boxes}</td>
                   <td className="num">
                     {l.kind === "shorted" ? (
                       "Not shipped"
                     ) : l.countNeeded ? (
                       <b className="screen-only">Count needed</b>
-                    ) : l.kind === "manual" ? (
+                    ) : l.kind === "manual" || l.kind === "charge" ? (
                       Number(l.quantity)
                     ) : many ? (
                       <span className="inv-boxlist">

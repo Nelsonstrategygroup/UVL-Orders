@@ -14,7 +14,7 @@ import {
   STATE_LABEL,
   type InvoiceLineRow,
 } from "./invoice";
-import type { PriceRow } from "./prices";
+import type { ChargeRow, PriceRow } from "./prices";
 
 const line = (p: Partial<InvoiceLineRow>): InvoiceLineRow => ({
   id: p.id ?? "l",
@@ -164,5 +164,36 @@ describe("payments and status", () => {
     expect(daysOverdue("2026-11-11", "2026-11-20")).toBe(9);
     expect(daysOverdue("2026-11-11", "2026-11-01")).toBe(0);
     expect(daysOverdue(null, "2026-11-01")).toBe(0);
+  });
+});
+
+describe("Mohawk charge lines on a draft (Lucas, 11/15/26)", () => {
+  const carcass = line({ id: "c", product_id: "carcass", description: "Carcass Lamb", ordered_qty: "1", boxes: 1, quantity: "62", sort: 5 });
+  const chops = line({ id: "x", sort: 1 });
+  const after = line({ id: "y", product_id: "racks", description: "Racks", sort: 6 });
+  const prices = [price("carcass", "6", "2026-10-08"), price("chops", "10", "2026-10-08"), price("racks", "16", "2026-10-08")];
+  const charge = (amount: string, customer_id: string | null = null): ChargeRow => ({
+    ...price("carcass", amount, "2026-10-08", customer_id),
+    name: "Mohawk charge, shrouded carcass",
+  });
+  it("adds count x charge on its own line, right under the carcass", () => {
+    const out = priceLines([after, carcass, chops], prices, "emerson", "2026-11-03", null, [charge("40")]);
+    expect(out.map((l) => l.description)).toEqual(["Chops", "Carcass Lamb", "Mohawk charge, shrouded carcass", "Racks"]);
+    const c = out[2];
+    expect(c.kind).toBe("charge");
+    expect(Number(c.quantity)).toBe(1);
+    expect(c.totalCents).toBe(BigInt(4000));
+    expect(out[1].totalCents).toBe(BigInt(37200));
+    expect(invoiceTotals(out.filter((l) => l.id !== "x" && l.id !== "y")).totalCents).toBe(BigInt(41200));
+  });
+  it("adds none where the charge is 0 (PCC) or before it starts", () => {
+    const pcc = priceLines([carcass], prices, "pcc10", "2026-11-03", "pcc", [charge("40"), charge("0", "pcc")]);
+    expect(pcc.some((l) => l.kind === "charge")).toBe(false);
+    const early = priceLines([carcass], prices, "emerson", "2026-10-01", null, [charge("40")]);
+    expect(early.some((l) => l.kind === "charge")).toBe(false);
+  });
+  it("counts the boxes when it wasn't on the order", () => {
+    const out = priceLines([{ ...carcass, ordered_qty: null, boxes: 2 }], prices, "emerson", "2026-11-03", null, [charge("40")]);
+    expect(out[1].totalCents).toBe(BigInt(8000));
   });
 });

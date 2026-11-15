@@ -10,7 +10,7 @@
 // when a price doesn't end in 0, Prices confirmed for each location, and a
 // printable price list for one customer.
 
-import { useCallback, useState } from "react";
+import { Fragment, useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import PrintHeader from "@/components/PrintHeader";
 import { useCan } from "@/components/CurrentUser";
@@ -19,6 +19,7 @@ import { useLive } from "@/components/data/useLive";
 import { useToast } from "@/components/Toast";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import {
+  chargeFor,
   endsInZero,
   parsePrice,
   priceFor,
@@ -26,12 +27,24 @@ import {
   priceSource,
   priceText,
   PRICE_UNIT_SHORT,
+  toFixedInt,
+  type ChargeRow,
   type PriceRow,
 } from "@/lib/calc/prices";
 import { groupLead, packedWith } from "@/lib/calc/packTogether";
 import { groupProducts } from "@/lib/calc/products";
 import { niceDate, todayISO } from "@/lib/dates";
-import { deletePrice, loadPriceChecks, loadPrices, setPrice, setPriceChecks, type PriceCheck } from "@/lib/db/invoicing";
+import {
+  deleteCharge,
+  deletePrice,
+  loadCharges,
+  loadPriceChecks,
+  loadPrices,
+  setCharge,
+  setPrice,
+  setPriceChecks,
+  type PriceCheck,
+} from "@/lib/db/invoicing";
 import type { CatalogProduct, Customer } from "@/lib/db/types";
 
 const WHOLE = "Whole lambs";
@@ -56,40 +69,67 @@ export default function Prices() {
   const load = useCallback((d: SupabaseClient) => loadPrices(d), []);
   const { data: prices, refresh, error } = useLive("prices", load, ["prices"]);
   const loadChecks = useCallback((d: SupabaseClient) => loadPriceChecks(d), []);
-  const { data: checks, refresh: refreshChecks, error: checksError } = useLive("price-checks", loadChecks, ["customer_price_checks"]);
+  const {
+    data: checks,
+    refresh: refreshChecks,
+    error: checksError,
+  } = useLive("price-checks", loadChecks, ["customer_price_checks"]);
+  const loadCh = useCallback((d: SupabaseClient) => loadCharges(d), []);
+  const {
+    data: charges,
+    refresh: refreshCharges,
+    error: chargesError,
+  } = useLive("carcass-charges", loadCh, ["carcass_charges"]);
   const [from, setFrom] = useState(todayISO());
   const [listFor, setListFor] = useState("");
 
-  if (error || checksError) return <p className="note bad">Couldn&apos;t load prices: {error ?? checksError}</p>;
-  if (!prices || !checks || !catalog || !customers) return <p className="small muted">Loading...</p>;
+  const loadErr = error ?? checksError ?? chargesError;
+  if (loadErr)
+    return <p className="note bad">Couldn&apos;t load prices: {loadErr}</p>;
+  if (!prices || !checks || !charges || !catalog || !customers)
+    return <p className="small muted">Loading...</p>;
 
   const today = todayISO();
   // Products packed together (Organs) have one price, on the group's first product: one row.
-  const groups = groupProducts(catalog.products.filter((p) => p.active && groupLead(p.id, catalog.products) === p.id));
+  const groups = groupProducts(
+    catalog.products.filter(
+      (p) => p.active && groupLead(p.id, catalog.products) === p.id,
+    ),
+  );
   const title = (p: CatalogProduct) => {
     const ids = packedWith(p.id, catalog.products);
-    return ids.length > 1 ? ids.map((id) => catalog.productById.get(id)?.name ?? id).join(", ") : p.name;
+    return ids.length > 1
+      ? ids.map((id) => catalog.productById.get(id)?.name ?? id).join(", ")
+      : p.name;
   };
   // Whole lambs first, so the whole-lamb price sits next to the cuts.
   groups.sort((a, b) => Number(b.group === WHOLE) - Number(a.group === WHOLE));
-  const hasLocations = new Set(customers.list.map((c) => c.parent_customer_id).filter(Boolean));
+  const hasLocations = new Set(
+    customers.list.map((c) => c.parent_customer_id).filter(Boolean),
+  );
   const billable = sortByDisplayName(
     customers.list.filter((c) => c.active && !hasLocations.has(c.id)),
     customers.byId,
   );
   // Chains: customers with locations that bill (PCC). A price on a chain applies to all its stores.
   const chains = sortByDisplayName(
-    customers.list.filter((c) => c.active && billable.some((b) => b.parent_customer_id === c.id)),
+    customers.list.filter(
+      (c) => c.active && billable.some((b) => b.parent_customer_id === c.id),
+    ),
     customers.byId,
   );
-  const storesOf = (chainId: string) => billable.filter((b) => b.parent_customer_id === chainId);
+  const storesOf = (chainId: string) =>
+    billable.filter((b) => b.parent_customer_id === chainId);
   const customerName = (id: string) => {
     const c = customers.byId.get(id);
     if (!c) return "Unknown customer";
-    if (hasLocations.has(id)) return `${c.name} (all ${storesOf(id).length} locations)`;
+    if (hasLocations.has(id))
+      return `${c.name} (all ${storesOf(id).length} locations)`;
     return displayName(c, customers.byId);
   };
-  const missing = groups.flatMap((g) => g.products).filter((p) => !priceFor(prices, p.id, null, today)).length;
+  const missing = groups
+    .flatMap((g) => g.products)
+    .filter((p) => !priceFor(prices, p.id, null, today)).length;
 
   const listCustomer = listFor ? customers.byId.get(listFor) : undefined;
   if (listCustomer) {
@@ -97,11 +137,16 @@ export default function Prices() {
       <PriceList
         customer={listCustomer}
         name={customerName(listCustomer.id)}
-        chainName={listCustomer.parent_customer_id ? (customers.byId.get(listCustomer.parent_customer_id)?.name ?? "") : ""}
+        chainName={
+          listCustomer.parent_customer_id
+            ? (customers.byId.get(listCustomer.parent_customer_id)?.name ?? "")
+            : ""
+        }
         check={checks.get(listCustomer.id)}
         groups={groups}
         title={title}
         prices={prices}
+        charges={charges}
         onBack={() => setListFor("")}
       />
     );
@@ -111,29 +156,47 @@ export default function Prices() {
     <>
       <section className="panel">
         <p className="small muted mt-0">
-          Prices are per lb unless the product says per case or per each (set on the product in Setup &gt; Products). A price
-          applies from its start date on, so invoices dated earlier keep the old price. A price for a chain (like PCC) is used for
-          all its stores. A customer&apos;s own price is used instead of the chain&apos;s or the default.
+          Prices are per lb unless the product says per case or per each (set on
+          the product in Setup &gt; Products). A price applies from its start
+          date on, so invoices dated earlier keep the old price. A price for a
+          chain (like PCC) is used for all its stores. A customer&apos;s own
+          price is used instead of the chain&apos;s or the default.
         </p>
         {canEdit ? (
           <label className="grid max-w-[16rem] gap-1">
             <span className="lbl m-0">New prices start on</span>
-            <input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value || todayISO())} />
+            <input
+              type="date"
+              className="field"
+              value={from}
+              onChange={(e) => setFrom(e.target.value || todayISO())}
+            />
           </label>
         ) : (
-          <p className="note small">Only someone who can change prices can change these.</p>
+          <p className="note small">
+            Only someone who can change prices can change these.
+          </p>
         )}
         <p className="small mt-2 mb-0">
-          {missing === 0 ? "Every product has a price today." : `${missing} products have no default price yet (Price needed on invoices).`}
+          {missing === 0
+            ? "Every product has a price today."
+            : `${missing} products have no default price yet (Price needed on invoices).`}
         </p>
       </section>
 
       <section className="panel mt-3">
         <h3>Price list for one customer</h3>
-        <p className="small muted mt-1">Every product with the price this customer pays, and where it comes from. You can print it.</p>
+        <p className="small muted mt-1">
+          Every product with the price this customer pays, and where it comes
+          from. You can print it.
+        </p>
         <label className="grid max-w-[22rem] gap-1">
           <span className="lbl m-0">Customer</span>
-          <select className="field" value="" onChange={(e) => setListFor(e.target.value)}>
+          <select
+            className="field"
+            value=""
+            onChange={(e) => setListFor(e.target.value)}
+          >
             <option value="">Pick a customer</option>
             {billable.map((c) => (
               <option key={c.id} value={c.id}>
@@ -144,10 +207,29 @@ export default function Prices() {
         </label>
       </section>
 
+      <CarcassCharges
+        products={catalog.products.filter(
+          (p) =>
+            p.active &&
+            (p.carcass || charges.some((c) => c.product_id === p.id)),
+        )}
+        charges={charges}
+        from={from}
+        canEdit={canEdit}
+        chains={chains}
+        billable={billable}
+        customerName={customerName}
+        refresh={refreshCharges}
+      />
+
       <PriceChecks
         chains={chains}
         storesOf={storesOf}
-        others={billable.filter((b) => !b.parent_customer_id || !chains.some((c) => c.id === b.parent_customer_id))}
+        others={billable.filter(
+          (b) =>
+            !b.parent_customer_id ||
+            !chains.some((c) => c.id === b.parent_customer_id),
+        )}
         customerName={customerName}
         checks={checks}
         canEdit={canEdit}
@@ -226,14 +308,28 @@ function ProductRow({
   const history = priceHistory(prices, p.id, null);
   const later = history.filter((h) => h.effective_from > today);
   // Customers with prices of their own for this product: each chain, then its stores with their own price, then the rest.
-  const withPrices = new Set(prices.filter((x) => x.product_id === p.id && x.customer_id).map((x) => x.customer_id!));
+  const withPrices = new Set(
+    prices
+      .filter((x) => x.product_id === p.id && x.customer_id)
+      .map((x) => x.customer_id!),
+  );
   const chainIds = chains.map((c) => c.id).filter((id) => withPrices.has(id));
-  const storeIds = billable.filter((b) => withPrices.has(b.id)).map((b) => b.id);
+  const storeIds = billable
+    .filter((b) => withPrices.has(b.id))
+    .map((b) => b.id);
   const ordered = [
-    ...chainIds.flatMap((cid) => [cid, ...storeIds.filter((s) => customers.get(s)?.parent_customer_id === cid)]),
-    ...storeIds.filter((s) => !chainIds.includes(customers.get(s)?.parent_customer_id ?? "")),
+    ...chainIds.flatMap((cid) => [
+      cid,
+      ...storeIds.filter((s) => customers.get(s)?.parent_customer_id === cid),
+    ]),
+    ...storeIds.filter(
+      (s) => !chainIds.includes(customers.get(s)?.parent_customer_id ?? ""),
+    ),
     // A price on a customer no longer listed (inactive): still shown, so it can be deleted.
-    ...[...withPrices].filter((id) => !chains.some((c) => c.id === id) && !billable.some((b) => b.id === id)),
+    ...[...withPrices].filter(
+      (id) =>
+        !chains.some((c) => c.id === id) && !billable.some((b) => b.id === id),
+    ),
   ];
 
   const after = (err: string | null, ok: string) => {
@@ -255,7 +351,12 @@ function ProductRow({
   };
   const remove = async (row: PriceRow) => {
     const who = row.customer_id ? ` for ${customerName(row.customer_id)}` : "";
-    if (!confirm(`Delete the ${priceText(row.price)} price${who} starting ${dateText(row.effective_from)}?`)) return;
+    if (
+      !confirm(
+        `Delete the ${priceText(row.price)} price${who} starting ${dateText(row.effective_from)}?`,
+      )
+    )
+      return;
     after(await deletePrice(db, row.id), "Deleted");
   };
   const historyList = (rows: PriceRow[]) => (
@@ -268,7 +369,11 @@ function ProductRow({
           </span>
           <span className="muted">from {dateText(h.effective_from)}</span>
           {canEdit && (
-            <button type="button" className="copy min-h-[44px] px-2" onClick={() => void remove(h)}>
+            <button
+              type="button"
+              className="copy min-h-[44px] px-2"
+              onClick={() => void remove(h)}
+            >
               Delete
             </button>
           )}
@@ -276,28 +381,43 @@ function ProductRow({
       ))}
     </ul>
   );
-  const isStoreOfChain = (id: string) => chainIds.includes(customers.get(id)?.parent_customer_id ?? "");
+  const isStoreOfChain = (id: string) =>
+    chainIds.includes(customers.get(id)?.parent_customer_id ?? "");
 
   return (
     <tr>
       <td>
         <b>{title}</b>
         <span className="small muted"> · per {p.price_unit}</span>
-        {title !== p.name && <span className="small muted block">Packed in one box: one price for all of them.</span>}
+        {title !== p.name && (
+          <span className="small muted block">
+            Packed in one box: one price for all of them.
+          </span>
+        )}
         {(history.length > 0 || ordered.length > 0 || canEdit) && (
           <details className="mt-1">
             <summary className="copy">
-              Past prices and customer prices{ordered.length ? ` (${ordered.length})` : ""}
+              Past prices and customer prices
+              {ordered.length ? ` (${ordered.length})` : ""}
             </summary>
             <div className="small mt-1 grid gap-2">
               <div>
                 <b>Default</b>
-                {history.length ? historyList(history) : <p className="muted m-0">None yet.</p>}
+                {history.length ? (
+                  historyList(history)
+                ) : (
+                  <p className="muted m-0">None yet.</p>
+                )}
               </div>
               {ordered.map((id) => (
                 <div key={id} className={isStoreOfChain(id) ? "ml-4" : ""}>
                   <b>{customerName(id)}</b>
-                  {isStoreOfChain(id) && <span className="muted"> · its own price, not the chain&apos;s</span>}
+                  {isStoreOfChain(id) && (
+                    <span className="muted">
+                      {" "}
+                      · its own price, not the chain&apos;s
+                    </span>
+                  )}
                   {historyList(priceHistory(prices, p.id, id))}
                 </div>
               ))}
@@ -307,12 +427,18 @@ function ProductRow({
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (!custId) return toast("Pick a customer");
-                    void save(custId, custText).then((ok) => ok && setCustText(""));
+                    void save(custId, custText).then(
+                      (ok) => ok && setCustText(""),
+                    );
                   }}
                 >
                   <label className="grid gap-1">
                     <span className="lbl m-0">Customer</span>
-                    <select className="field" value={custId} onChange={(e) => setCustId(e.target.value)}>
+                    <select
+                      className="field"
+                      value={custId}
+                      onChange={(e) => setCustId(e.target.value)}
+                    >
                       <option value="">Pick a customer</option>
                       {chains.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -328,9 +454,18 @@ function ProductRow({
                   </label>
                   <label className="grid gap-1">
                     <span className="lbl m-0">Their price{unit}</span>
-                    <input className="field num w-28!" inputMode="decimal" value={custText} onChange={(e) => setCustText(e.target.value)} />
+                    <input
+                      className="field num w-28!"
+                      inputMode="decimal"
+                      value={custText}
+                      onChange={(e) => setCustText(e.target.value)}
+                    />
                   </label>
-                  <button type="submit" className="btn ghost" disabled={!custId || !custText.trim()}>
+                  <button
+                    type="submit"
+                    className="btn ghost"
+                    disabled={!custId || !custText.trim()}
+                  >
                     Add from {niceDate(from)}
                   </button>
                   <RoundWarning typed={custText} />
@@ -347,14 +482,17 @@ function ProductRow({
               {priceText(now.price)}
               {unit}
             </b>
-            <span className="small muted block">since {dateText(now.effective_from)}</span>
+            <span className="small muted block">
+              since {dateText(now.effective_from)}
+            </span>
           </>
         ) : (
           <span className="tag extra">Price needed</span>
         )}
         {later.length > 0 && (
           <span className="small block">
-            {priceText(later[later.length - 1].price)} from {niceDate(later[later.length - 1].effective_from)}
+            {priceText(later[later.length - 1].price)} from{" "}
+            {niceDate(later[later.length - 1].effective_from)}
           </span>
         )}
       </td>
@@ -409,15 +547,27 @@ function PriceChecks({
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const rows = [
-    ...chains.map((c) => ({ id: c.id, name: customerName(c.id), ids: storesOf(c.id).map((s) => s.id) })),
+    ...chains.map((c) => ({
+      id: c.id,
+      name: customerName(c.id),
+      ids: storesOf(c.id).map((s) => s.id),
+    })),
     ...others.map((c) => ({ id: c.id, name: customerName(c.id), ids: [c.id] })),
   ];
-  const notYet = rows.filter((r) => !r.ids.every((id) => checks.get(id)?.confirmed)).length;
+  const notYet = rows.filter(
+    (r) => !r.ids.every((id) => checks.get(id)?.confirmed),
+  ).length;
   const set = async (ids: string[], on: boolean, name: string) => {
     setBusy(true);
     const err = await setPriceChecks(db, ids, on);
     setBusy(false);
-    toast(err ? `Couldn't save: ${err}` : on ? `${name}: prices confirmed` : `${name}: not confirmed`);
+    toast(
+      err
+        ? `Couldn't save: ${err}`
+        : on
+          ? `${name}: prices confirmed`
+          : `${name}: not confirmed`,
+    );
     refresh();
   };
   /** Who last checked it and when ("Kathy, Nov 14"), from the newest change among its stores. */
@@ -427,9 +577,12 @@ function PriceChecks({
       .filter((c): c is PriceCheck => !!c)
       .sort((a, b) => b.changed_at.localeCompare(a.changed_at))[0];
     if (!latest) return "";
-    const d = new Date(latest.changed_at).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+    const d = new Date(latest.changed_at).toLocaleDateString("en-CA", {
+      timeZone: "America/Los_Angeles",
+    });
     // PCC's rows were set when this started (11/14/26), not by a person.
-    if (latest.changed_by_name.startsWith("Starting setting")) return `Confirmed from the start, ${dateText(d)}`;
+    if (latest.changed_by_name.startsWith("Starting setting"))
+      return `Confirmed from the start, ${dateText(d)}`;
     return `${latest.confirmed ? "Checked" : "Unchecked"}${latest.changed_by_name ? ` by ${latest.changed_by_name}` : ""} on ${dateText(d)}`;
   };
 
@@ -437,13 +590,15 @@ function PriceChecks({
     <section className="panel mt-3">
       <h3>Prices confirmed</h3>
       <p className="small muted mt-1">
-        Check a customer once their prices here match what they&apos;re really charged. An invoice for a customer that isn&apos;t
-        checked shows a warning before it&apos;s printed or sent.
+        Check a customer once their prices here match what they&apos;re really
+        charged. An invoice for a customer that isn&apos;t checked shows a
+        warning before it&apos;s printed or sent.
         {notYet > 0 ? ` ${notYet} not confirmed yet.` : " All confirmed."}
       </p>
       <ul className="m-0 grid list-none gap-0 p-0">
         {rows.map((r) => {
-          const all = r.ids.length > 0 && r.ids.every((id) => checks.get(id)?.confirmed);
+          const all =
+            r.ids.length > 0 && r.ids.every((id) => checks.get(id)?.confirmed);
           const some = !all && r.ids.some((id) => checks.get(id)?.confirmed);
           return (
             <li key={r.id} className="border-t border-line py-1">
@@ -474,7 +629,11 @@ function PriceChecks({
   );
 }
 
-const SOURCE_LABEL = { own: "Their own price", chain: "", default: "Default" } as const;
+const SOURCE_LABEL = {
+  own: "Their own price",
+  chain: "",
+  default: "Default",
+} as const;
 
 /** Every product with the price one customer pays on a date, and where it comes from. Printable. */
 function PriceList({
@@ -485,6 +644,7 @@ function PriceList({
   groups,
   title,
   prices,
+  charges,
   onBack,
 }: {
   customer: Customer;
@@ -495,6 +655,7 @@ function PriceList({
   groups: { group: string; products: CatalogProduct[] }[];
   title: (p: CatalogProduct) => string;
   prices: PriceRow[];
+  charges: ChargeRow[];
   onBack: () => void;
 }) {
   const [on, setOn] = useState(todayISO());
@@ -511,17 +672,32 @@ function PriceList({
         </button>
         <label className="grid gap-1">
           <span className="lbl m-0">Prices on</span>
-          <input type="date" className="field" value={on} onChange={(e) => setOn(e.target.value || todayISO())} />
+          <input
+            type="date"
+            className="field"
+            value={on}
+            onChange={(e) => setOn(e.target.value || todayISO())}
+          />
         </label>
-        <button type="button" className="btn ml-auto" onClick={() => window.print()}>
+        <button
+          type="button"
+          className="btn ml-auto"
+          onClick={() => window.print()}
+        >
           Print
         </button>
       </div>
-      <PrintHeader className="print-only" label="" title={`Price list: ${name}`} when={`Prices on ${dateText(on)}`} />
+      <PrintHeader
+        className="print-only"
+        label=""
+        title={`Price list: ${name}`}
+        when={`Prices on ${dateText(on)}`}
+      />
       <p className="mt-2">
         <b>{name}</b> · prices on {dateText(on)}
         <span className="small block">
-          {check?.confirmed ? "Prices confirmed." : "Prices not confirmed yet."} Per lb unless it says per case or per each.
+          {check?.confirmed ? "Prices confirmed." : "Prices not confirmed yet."}{" "}
+          Per lb unless it says per case or per each.
         </span>
       </p>
       <table className="simple mt-1">
@@ -537,21 +713,49 @@ function PriceList({
             <PriceListGroup key={g.group} group={g.group}>
               {g.products.map((p) => {
                 const r = priceFor(prices, p.id, customer.id, on, chainId);
+                const ch = chargeFor(charges, p.id, customer.id, on, chainId);
                 return (
-                  <tr key={p.id}>
-                    <td>{title(p)}</td>
-                    <td className="num whitespace-nowrap text-right">
-                      {r ? (
-                        <>
-                          {priceText(r.price)}
-                          {PRICE_UNIT_SHORT[p.price_unit]}
-                        </>
-                      ) : (
-                        <span className="tag extra">Price needed</span>
-                      )}
-                    </td>
-                    <td className="small">{r ? (priceSource(r, customer.id) === "default" ? label(r) : <b>{label(r)}</b>) : ""}</td>
-                  </tr>
+                  <Fragment key={p.id}>
+                    <tr>
+                      <td>{title(p)}</td>
+                      <td className="num whitespace-nowrap text-right">
+                        {r ? (
+                          <>
+                            {priceText(r.price)}
+                            {PRICE_UNIT_SHORT[p.price_unit]}
+                          </>
+                        ) : (
+                          <span className="tag extra">Price needed</span>
+                        )}
+                      </td>
+                      <td className="small">
+                        {r ? (
+                          priceSource(r, customer.id) === "default" ? (
+                            label(r)
+                          ) : (
+                            <b>{label(r)}</b>
+                          )
+                        ) : (
+                          ""
+                        )}
+                      </td>
+                    </tr>
+                    {ch && toFixedInt(ch.price, 4) > BigInt(0) && (
+                      <tr>
+                        <td className="small">plus {ch.name}</td>
+                        <td className="num whitespace-nowrap text-right">
+                          {priceText(ch.price)} each
+                        </td>
+                        <td className="small">
+                          {priceSource(ch, customer.id) === "default" ? (
+                            label(ch)
+                          ) : (
+                            <b>{label(ch)}</b>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </PriceListGroup>
@@ -562,7 +766,13 @@ function PriceList({
   );
 }
 
-function PriceListGroup({ group, children }: { group: string; children: React.ReactNode }) {
+function PriceListGroup({
+  group,
+  children,
+}: {
+  group: string;
+  children: React.ReactNode;
+}) {
   return (
     <>
       <tr>
@@ -572,5 +782,268 @@ function PriceListGroup({ group, children }: { group: string; children: React.Re
       </tr>
       {children}
     </>
+  );
+}
+
+/**
+ * Mohawk charge per carcass (Lucas, 11/15/26): a flat charge on its own
+ * invoice line, on top of the per-lb price, for Carcass Lamb (shrouded) and
+ * Custom Cut Lamb. From a start date, like prices; a chain's or customer's own
+ * charge (0 for none, as PCC) is used instead of everyone's.
+ */
+function CarcassCharges({
+  products,
+  charges,
+  from,
+  canEdit,
+  chains,
+  billable,
+  customerName,
+  refresh,
+}: {
+  products: CatalogProduct[];
+  charges: ChargeRow[];
+  from: string;
+  canEdit: boolean;
+  chains: Customer[];
+  billable: Customer[];
+  customerName: (id: string) => string;
+  refresh: () => void;
+}) {
+  const today = todayISO();
+  if (!products.length) return null;
+  return (
+    <section className="panel mt-3">
+      <h3>Mohawk charge per carcass</h3>
+      <p className="small muted mt-1">
+        A flat charge for each carcass, on its own invoice line under the
+        product, on top of the price per lb. A customer or chain can have its
+        own charge; 0 means none.
+      </p>
+      <ul className="m-0 grid list-none gap-0 p-0">
+        {products.map((p) => (
+          <ChargeRowEdit
+            key={p.id}
+            product={p}
+            charges={charges.filter((c) => c.product_id === p.id)}
+            today={today}
+            from={from}
+            canEdit={canEdit}
+            chains={chains}
+            billable={billable}
+            customerName={customerName}
+            refresh={refresh}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ChargeRowEdit({
+  product: p,
+  charges,
+  today,
+  from,
+  canEdit,
+  chains,
+  billable,
+  customerName,
+  refresh,
+}: {
+  product: CatalogProduct;
+  charges: ChargeRow[];
+  today: string;
+  from: string;
+  canEdit: boolean;
+  chains: Customer[];
+  billable: Customer[];
+  customerName: (id: string) => string;
+  refresh: () => void;
+}) {
+  const db = getDb();
+  const toast = useToast();
+  const [text, setText] = useState("");
+  const [custId, setCustId] = useState("");
+  const [custText, setCustText] = useState("");
+  const now = chargeFor(charges, p.id, null, today);
+  const lineName = charges[0]?.name ?? `Mohawk charge, ${p.name}`;
+  const custIds = [
+    ...new Set(charges.filter((c) => c.customer_id).map((c) => c.customer_id!)),
+  ];
+  const save = async (customerId: string | null, typed: string) => {
+    const v = parsePrice(typed);
+    if (v == null) {
+      toast("Type a charge like 40.00");
+      return false;
+    }
+    const who = customerId ? ` for ${customerName(customerId)}` : "";
+    const err = await setCharge(db, {
+      productId: p.id,
+      customerId,
+      name: lineName,
+      amount: v,
+      from,
+    });
+    toast(
+      err
+        ? `Couldn't save: ${err}`
+        : `Saved: ${priceText(v)} a carcass${who} from ${niceDate(from)}`,
+    );
+    refresh();
+    return !err;
+  };
+  const remove = async (c: ChargeRow) => {
+    const who = c.customer_id ? ` for ${customerName(c.customer_id)}` : "";
+    if (
+      !confirm(
+        `Delete the ${priceText(c.price)} charge${who} starting ${dateText(c.effective_from)}?`,
+      )
+    )
+      return;
+    const err = await deleteCharge(db, c.id);
+    toast(err ? `Couldn't delete: ${err}` : "Deleted");
+    refresh();
+  };
+  const list = (rows: ChargeRow[]) => (
+    <ul className="m-0 list-none p-0">
+      {[...rows]
+        .sort((a, b) => b.effective_from.localeCompare(a.effective_from))
+        .map((c) => (
+          <li key={c.id} className="flex flex-wrap items-center gap-x-3">
+            <span className="num">
+              {toFixedInt(c.price, 4) > BigInt(0)
+                ? priceText(c.price)
+                : "None ($0)"}
+            </span>
+            <span className="muted">from {dateText(c.effective_from)}</span>
+            {canEdit && (
+              <button
+                type="button"
+                className="copy min-h-[44px] px-2"
+                onClick={() => void remove(c)}
+              >
+                Delete
+              </button>
+            )}
+          </li>
+        ))}
+    </ul>
+  );
+
+  return (
+    <li className="border-t border-line py-2">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <b>{p.name}</b>
+          <span className="small muted block">{lineName}</span>
+          <span className="block">
+            {now ? (
+              <b className="num">{priceText(now.price)} a carcass</b>
+            ) : (
+              <span className="small muted">No charge yet</span>
+            )}
+            {now && (
+              <span className="small muted">
+                {" "}
+                · since {dateText(now.effective_from)}
+              </span>
+            )}
+          </span>
+        </div>
+        {canEdit && (
+          <form
+            className="grid gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void save(null, text).then((ok) => ok && setText(""));
+            }}
+          >
+            <span className="lbl m-0">New charge from {niceDate(from)}</span>
+            <span className="flex gap-2">
+              <input
+                className="field num w-28!"
+                inputMode="decimal"
+                aria-label={`New Mohawk charge for ${p.name}`}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="btn ghost"
+                disabled={!text.trim()}
+              >
+                Save
+              </button>
+            </span>
+            <RoundWarning typed={text} />
+          </form>
+        )}
+      </div>
+      <details className="mt-1">
+        <summary className="copy">
+          Past charges and customer charges
+          {custIds.length ? ` (${custIds.length})` : ""}
+        </summary>
+        <div className="small mt-1 grid gap-2">
+          <div>
+            <b>Everyone</b>
+            {charges.some((c) => !c.customer_id) ? (
+              list(charges.filter((c) => !c.customer_id))
+            ) : (
+              <p className="muted m-0">None yet.</p>
+            )}
+          </div>
+          {custIds.map((id) => (
+            <div key={id}>
+              <b>{customerName(id)}</b>
+              {list(charges.filter((c) => c.customer_id === id))}
+            </div>
+          ))}
+          {canEdit && (
+            <form
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!custId) return toast("Pick a customer");
+                void save(custId, custText).then((ok) => ok && setCustText(""));
+              }}
+            >
+              <label className="grid gap-1">
+                <span className="lbl m-0">Customer</span>
+                <select
+                  className="field"
+                  value={custId}
+                  onChange={(e) => setCustId(e.target.value)}
+                >
+                  <option value="">Pick a customer</option>
+                  {[...chains, ...billable].map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {customerName(c.id)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1">
+                <span className="lbl m-0">Their charge (0 for none)</span>
+                <input
+                  className="field num w-28!"
+                  inputMode="decimal"
+                  value={custText}
+                  onChange={(e) => setCustText(e.target.value)}
+                />
+              </label>
+              <button
+                type="submit"
+                className="btn ghost"
+                disabled={!custId || !custText.trim()}
+              >
+                Add from {niceDate(from)}
+              </button>
+            </form>
+          )}
+        </div>
+      </details>
+    </li>
   );
 }

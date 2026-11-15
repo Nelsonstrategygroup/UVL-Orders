@@ -53,6 +53,27 @@ export function priceFor(
 }
 
 /**
+ * A charge per carcass (Mohawk) on top of the per-lb price (Lucas, 11/15/26):
+ * Carcass Lamb $40 shrouded, Custom Cut Lamb $100. Looked up like a price:
+ * the store's own, else its chain's, else the default. 0 means none.
+ */
+export type ChargeRow = PriceRow & {
+  /** The invoice line: "Mohawk charge, shrouded carcass". */
+  name: string;
+};
+
+/** The charge for a product on a date, or null. public.charge_on() does the same. */
+export function chargeFor(
+  charges: ChargeRow[],
+  productId: string,
+  customerId: string | null,
+  date: string,
+  chainId: string | null = null,
+): ChargeRow | null {
+  return priceFor(charges, productId, customerId, date, chainId) as ChargeRow | null;
+}
+
+/**
  * Kathy prefers prices that end in 0 (Lucas, 11/14/26): true for 7.40, 12
  * and 9.5; false for 7.45, 9.99 and 7.125. Only a warning; any price saves.
  */

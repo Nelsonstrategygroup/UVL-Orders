@@ -7,10 +7,11 @@
 
 import type { PriceUnit } from "../db/types";
 import { addDays } from "../dates";
-import { lineTotalCents, priceFor, toFixedInt, type PriceRow } from "./prices";
+import { chargeFor, lineTotalCents, priceFor, toFixedInt, type ChargeRow, type PriceRow } from "./prices";
 
 export type InvoiceStatus = "draft" | "finalized" | "sent" | "void";
-export type LineKind = "packed" | "shorted" | "manual" | "inventory";
+/** charge: a per-carcass Mohawk charge under its product (Lucas, 11/15/26). */
+export type LineKind = "packed" | "shorted" | "manual" | "inventory" | "charge";
 export type DiscountKind = "amount" | "percent";
 
 /** An invoice line as stored. Numbers from the database may be numbers or decimal strings. */
@@ -73,9 +74,41 @@ export function priceLines(
   customerId: string,
   date: string,
   chainId: string | null = null,
+  /** A draft's per-carcass charges (Mohawk). A finalized invoice has its charge lines stored, so it passes none. */
+  charges: ChargeRow[] = [],
 ): PricedLine[] {
-  return [...lines]
-    .sort((a, b) => a.sort - b.sort)
+  // A draft's charge lines, worked out here: under each packed line whose
+  // product has a charge above 0 on the date, carcasses (as ordered, else the
+  // boxes) x the charge. Finalizing stores the same lines (finalize_invoice()).
+  const chargeLines: InvoiceLineRow[] = [];
+  for (const l of lines) {
+    if (l.kind !== "packed" || !l.product_id) continue;
+    const c = chargeFor(charges, l.product_id, customerId, date, chainId);
+    const count = l.ordered_qty != null ? Number(l.ordered_qty) : l.boxes;
+    if (!c || toFixedInt(c.price, 4) <= ZERO || !(count > 0)) continue;
+    chargeLines.push({
+      id: `${l.id}:charge`,
+      invoice_id: l.invoice_id,
+      kind: "charge",
+      product_id: l.product_id,
+      description: c.name,
+      ordered_qty: null,
+      ordered_unit: "",
+      boxes: 0,
+      quantity: count,
+      price_unit: "each",
+      unit_price: String(c.price),
+      discount_kind: null,
+      discount: null,
+      not_on_order: false,
+      note: "",
+      sort: l.sort,
+      detail: "",
+    });
+  }
+  return [...lines, ...chargeLines]
+    // A charge line right under its product's line.
+    .sort((a, b) => a.sort - b.sort || Number(a.kind === "charge") - Number(b.kind === "charge"))
     .map((l) => {
       const shorted = l.kind === "shorted";
       let price: string | null = null;

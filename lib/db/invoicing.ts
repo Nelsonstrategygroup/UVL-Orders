@@ -3,7 +3,7 @@
 // numbers. Money goes to the database as decimal strings, never floats.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PriceRow } from "../calc/prices";
+import type { ChargeRow, PriceRow } from "../calc/prices";
 
 const msg = (e: { message: string } | null) => (e ? e.message : null);
 
@@ -48,6 +48,37 @@ export async function setPrice(
 
 export async function deletePrice(db: SupabaseClient, id: string): Promise<string | null> {
   const { error } = await db.from("prices").delete().eq("id", id);
+  return msg(error);
+}
+
+/** Per-carcass charges (Mohawk), as ChargeRow: amount is in `price` so they look up like prices. */
+export async function loadCharges(db: SupabaseClient): Promise<ChargeRow[]> {
+  const { data, error } = await db
+    .from("carcass_charges")
+    .select("id, product_id, customer_id, name, amount, effective_from, note")
+    .order("effective_from", { ascending: false });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as (Omit<ChargeRow, "price"> & { amount: number | string })[]).map(({ amount, ...r }) => ({ ...r, price: amount }));
+}
+
+/** Set a charge from a date on: everyone's (customerId null) or a customer's or chain's. One starting that day is replaced. */
+export async function setCharge(
+  db: SupabaseClient,
+  c: { productId: string; customerId: string | null; name: string; amount: string; from: string },
+): Promise<string | null> {
+  let q = db.from("carcass_charges").select("id").eq("product_id", c.productId).eq("effective_from", c.from);
+  q = c.customerId ? q.eq("customer_id", c.customerId) : q.is("customer_id", null);
+  const { data: same, error: findErr } = await q.maybeSingle();
+  if (findErr) return plain(findErr);
+  const row = { name: c.name, amount: c.amount };
+  const { error } = same
+    ? await db.from("carcass_charges").update(row).eq("id", (same as { id: string }).id)
+    : await db.from("carcass_charges").insert({ ...row, product_id: c.productId, customer_id: c.customerId, effective_from: c.from });
+  return plain(error);
+}
+
+export async function deleteCharge(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await db.from("carcass_charges").delete().eq("id", id);
   return msg(error);
 }
 

@@ -9,16 +9,17 @@
 import { useCallback } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useLive } from "@/components/data/useLive";
-import { loadCustomerBilling, loadInvoiceSettings, loadPriceChecks, loadPrices } from "@/lib/db/invoicing";
+import { loadCharges, loadCustomerBilling, loadInvoiceSettings, loadPriceChecks, loadPrices } from "@/lib/db/invoicing";
 import { loadFingerprints, loadWeekBoxes, loadWeekInvoices, loadWeekPacking, syncDrafts } from "@/lib/db/invoices";
 
 async function loadWeek(db: SupabaseClient, week: string) {
   // Live drafts: every packed location gets one, each following packing.
   await syncDrafts(db, week);
-  const [invoices, fingerprints, prices, priceChecks, billing, settings, weekRow, boxes, packing] = await Promise.all([
+  const [invoices, fingerprints, prices, charges, priceChecks, billing, settings, weekRow, boxes, packing] = await Promise.all([
     loadWeekInvoices(db, week),
     loadFingerprints(db, week),
     loadPrices(db),
+    loadCharges(db),
     loadPriceChecks(db),
     loadCustomerBilling(db),
     loadInvoiceSettings(db),
@@ -34,6 +35,8 @@ async function loadWeek(db: SupabaseClient, week: string) {
       invoices.filter((i) => (i.status === "finalized" || i.status === "sent") && fingerprints.get(i.id) !== i.fingerprint).map((i) => i.id),
     ),
     prices,
+    /** Per-carcass charges (Mohawk), for drafts. */
+    charges,
     /** Locations whose prices are confirmed (Setup > Prices); an invoice for any other warns before it's printed or sent. */
     pricesConfirmed: new Set([...priceChecks.values()].filter((c) => c.confirmed).map((c) => c.customer_id)),
     billing,
@@ -55,6 +58,7 @@ export function useInvoiceWeek(week: string) {
     "invoice_lines",
     "prices",
     "customer_price_checks",
+    "carcass_charges",
     "customer_billing",
     "invoice_settings",
     "weeks",
