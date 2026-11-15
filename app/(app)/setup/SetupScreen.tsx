@@ -37,6 +37,7 @@ import { addCutSpec } from "@/lib/db/cutsheet";
 import type { CatalogProduct } from "@/lib/db/types";
 import EditProduct from "./EditProduct";
 import Invoicing from "./Invoicing";
+import LambCost from "./LambCost";
 import Prices from "./Prices";
 
 // What each cut spec type counts as on a cut set (SPEC 6.3), in plain words.
@@ -204,7 +205,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
       </Link>
       <h2 className="mt-1 mb-2">{titleOf(section)}</h2>
       {/* Prices and Invoicing have their own permissions (SPEC 15). */}
-      {section !== "prices" && section !== "invoicing" && editNote}
+      {section !== "prices" && section !== "invoicing" && section !== "lamb-cost" && editNote}
       {body}
       {after}
       {editingProduct && (
@@ -614,6 +615,11 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
           />
         </section>,
       );
+
+    case "lamb-cost":
+      // Admins only (SPEC 16); the tables' own security says the same.
+      if (!canEdit) return page(<p className="note">Only an admin can see Lamb cost.</p>);
+      return page(<LambCost />);
 
     case "records":
       if (!canEdit) return page(<p className="note">Only an admin can export all data.</p>);
