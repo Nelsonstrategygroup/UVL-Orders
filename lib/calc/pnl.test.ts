@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { centsText, sheetPay, weekPay, type KillSheet } from "./lambCost";
-import { chargesOn, parseMoney, weekPnl, type ExpenseCategory, type ExpenseEntry, type IncomeEntry, type LambCharge, type PercentCharge } from "./pnl";
+import { chargesOn, invoiceIncome, parseMoney, weekPnl, type PackedLine, type ExpenseCategory, type ExpenseEntry, type IncomeEntry, type LambCharge, type PercentCharge } from "./pnl";
 
 const WEEK = "2026-11-16";
 const sheet: KillSheet = {
@@ -124,5 +124,108 @@ describe("weekPnl", () => {
     expect(noSheet.charges.find((c) => c.kind === "percent")!.cents).toBe(BigInt(400));
     expect(noSheet.totalExpense).toBeNull();
     expect(noSheet.profit).toBeNull();
+  });
+});
+
+describe("income from invoices and packing (Lucas, 11/15/26)", () => {
+  const W = "2026-11-09";
+  const price = (product_id: string, v: string, customer_id: string | null = null) => ({
+    id: `${product_id}-${customer_id}`,
+    product_id,
+    customer_id,
+    price: v,
+    effective_from: "2026-10-08",
+    note: "",
+  });
+  const prices = [price("racks", "16.15"), price("racks", "16", "pcc"), price("carcass", "6")];
+  const charges = [{ ...price("carcass", "40"), name: "Mohawk charge, shrouded carcass" }];
+  const packed = (customer_id: string, product_id: string, quantity: string | null, kind: "packed" | "shorted" = "packed"): PackedLine => ({
+    customer_id,
+    kind,
+    product_id,
+    description: product_id,
+    ordered_qty: "1",
+    ordered_unit: null,
+    boxes: kind === "packed" ? 1 : 0,
+    quantity,
+    price_unit: product_id === "sticks" ? "case" : "lb",
+    not_on_order: false,
+    sort: 1,
+    detail: null,
+  });
+  const locations = [
+    { id: "emerson", name: "Emerson", chainId: null },
+    { id: "pcc10", name: "PCC: #10 Issaquah", chainId: "pcc" },
+    { id: "newport", name: "Newport Ave", chainId: null },
+    { id: "keycity", name: "Key City", chainId: null },
+  ];
+  const r = invoiceIncome({
+    week: W,
+    locations,
+    invoices: [{ customer_id: "newport", status: "finalized", total: "1000.00", invoice_date: "2026-11-10" }],
+    packed: [
+      packed("emerson", "carcass", "62"),
+      packed("pcc10", "racks", "10"),
+      packed("pcc10", "sticks", "1"),
+      packed("pcc10", "legs", null, "shorted"),
+      packed("keycity", "racks", null, "shorted"),
+      // Ignored: Newport is finalized, so its invoice total is used.
+      packed("newport", "racks", "99"),
+    ],
+    prices,
+    charges,
+    productName: (id) => (id === "sticks" ? "Pepper Sticks" : id),
+  });
+  const row = (id: string) => r.rows.find((x) => x.customerId === id)!;
+  it("uses the invoice total once finalized", () => {
+    expect(row("newport")).toMatchObject({ status: "finalized", cents: BigInt(100000) });
+    expect(r.finalizedCents).toBe(BigInt(100000));
+  });
+  it("prices what's packed as the invoice will, Mohawk charge included", () => {
+    expect(row("emerson")).toMatchObject({ status: "packed", cents: BigInt(41200) }); // 62 x 6.00 + 40
+    expect(row("pcc10")).toMatchObject({ status: "packed", cents: BigInt(16000), unpackedLines: 1 }); // 10 x 16.00 (PCC)
+    expect(r.packedCents).toBe(BigInt(57200));
+  });
+  it("leaves out and lists packed products with no price", () => {
+    expect(row("pcc10").priceNeeded).toEqual(["Pepper Sticks"]);
+    expect(r.priceNeeded).toEqual([{ product: "Pepper Sticks", locations: ["PCC: #10 Issaquah"] }]);
+  });
+  it("counts nothing for a location not packed", () => {
+    expect(row("keycity")).toMatchObject({ status: "not_packed", cents: null, unpackedLines: 1 });
+    expect(r.notPacked.map((x) => x.name)).toEqual(["Key City"]);
+    expect(r).toMatchObject({ projected: true, finalizedCount: 1, packedCount: 2 });
+  });
+  it("adds into the P&L as projected income, with entered income as other income", () => {
+    const p = weekPnl({
+      week: W,
+      pay,
+      income: [inc("o1", null, "Farm stand", "50")],
+      expenses: [],
+      categories,
+      lambCharges,
+      percentCharges,
+      invoices: r,
+    });
+    expect(p.incomeCents).toBe(BigInt(100000 + 57200 + 5000));
+    expect(p.otherCents).toBe(BigInt(5000));
+    expect(p.projected).toBe(true);
+    expect(p.hasIncome).toBe(true);
+  });
+  it("is final once every packed location is finalized", () => {
+    const done = invoiceIncome({
+      week: W,
+      locations: [locations[2]],
+      invoices: [{ customer_id: "newport", status: "sent", total: "1000.00", invoice_date: "2026-11-10" }],
+      packed: [],
+      prices,
+      charges,
+      productName: (id) => id,
+    });
+    expect(done.projected).toBe(false);
+    expect(weekPnl({ week: W, pay, income: [], expenses: [], categories, lambCharges, percentCharges, invoices: done }).projected).toBe(false);
+  });
+  it("has no income before anything is packed", () => {
+    const none = invoiceIncome({ week: W, locations: [locations[3]], invoices: [], packed: [packed("keycity", "racks", null, "shorted")], prices, charges, productName: (id) => id });
+    expect(weekPnl({ week: W, pay, income: [], expenses: [], categories, lambCharges, percentCharges, invoices: none }).hasIncome).toBe(false);
   });
 });

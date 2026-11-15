@@ -3,7 +3,7 @@
 // Admins only (Row Level Security). Nothing else in the app reads these.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ExpenseCategory, ExpenseEntry, IncomeEntry, LambCharge, PercentCharge } from "../calc/pnl";
+import type { ExpenseCategory, ExpenseEntry, IncomeEntry, LambCharge, PackedLine, PercentCharge, WeekInvoice } from "../calc/pnl";
 import { withSource } from "./source";
 
 const SRC = "weekly P&L";
@@ -65,6 +65,39 @@ export async function saveCategory(db: SupabaseClient, c: { id?: string; name: s
     ? await withSource(db.from("expense_categories").update(row).eq("id", c.id), "P&L Setup")
     : await withSource(db.from("expense_categories").insert(row), "P&L Setup");
   return plain(error);
+}
+
+/**
+ * What the week's income is worked out from (Lucas, 11/15/26): the locations
+ * with an order or an invoice, their live invoices, and for each location
+ * what's packed, as the invoice would bill it (invoice_lines_from_packing(),
+ * the same lines a draft is made from). Only reads; makes no drafts.
+ */
+export type WeekInvoiceData = { locationIds: string[]; invoices: WeekInvoice[]; packed: PackedLine[] };
+
+export async function loadWeekInvoiceData(db: SupabaseClient, week: string): Promise<WeekInvoiceData> {
+  const [o, inv] = await Promise.all([
+    db.from("orders").select("customer_id, order_lines (product_id)").eq("week_id", week),
+    db.from("invoices").select("customer_id, status, total, invoice_date").eq("week_id", week).neq("status", "void"),
+  ]);
+  const err = o.error ?? inv.error;
+  if (err) throw new Error(err.message);
+  const orders = (o.data ?? []) as unknown as { customer_id: string; order_lines: { product_id: string }[] }[];
+  const invoices = (inv.data ?? []) as WeekInvoice[];
+  const locationIds = [
+    ...new Set([...orders.filter((x) => x.order_lines.length > 0).map((x) => x.customer_id), ...invoices.map((i) => i.customer_id)]),
+  ];
+  const final = new Set(invoices.filter((i) => i.status === "finalized" || i.status === "sent").map((i) => i.customer_id));
+  const lines = await Promise.all(
+    locationIds
+      .filter((id) => !final.has(id))
+      .map(async (id) => {
+        const { data, error } = await db.rpc("invoice_lines_from_packing", { p_week: week, p_customer: id });
+        if (error) throw new Error(error.message);
+        return ((data ?? []) as Omit<PackedLine, "customer_id">[]).map((l) => ({ ...l, customer_id: id }));
+      }),
+  );
+  return { locationIds, invoices, packed: lines.flat() };
 }
 
 export type WeekEntries = { expenses: ExpenseEntry[]; income: IncomeEntry[] };
