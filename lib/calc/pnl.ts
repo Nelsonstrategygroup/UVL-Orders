@@ -7,7 +7,7 @@
 
 import type { PriceUnit } from "../db/types";
 import { addDays } from "../dates";
-import { priceLines, type InvoiceLineRow, type InvoiceStatus } from "./invoice";
+import { priceLines, type InvoiceLineRow, type InvoiceStatus, type PricedLine } from "./invoice";
 import { roundToCents, type WeekPay } from "./lambCost";
 import { toFixedInt, type ChargeRow, type PriceRow } from "./prices";
 
@@ -17,7 +17,17 @@ const ZERO = BigInt(0);
 export type LambCharge = { id: string; name: string; effective_from: string; per_lamb: string | number; note: string };
 export type PercentCharge = { id: string; name: string; effective_from: string; percent: string | number; note: string };
 export type ExpenseCategory = { id: string; name: string; active: boolean; sort: number };
-export type ExpenseEntry = { id: string; entry_date: string; week_id: string; category_id: string; amount: string | number; note: string };
+export type ExpenseEntry = {
+  id: string;
+  entry_date: string;
+  week_id: string;
+  category_id: string;
+  amount: string | number;
+  note: string;
+  /** Who entered it, and when (for the P&L detail). */
+  created_by?: string | null;
+  created_at?: string;
+};
 export type IncomeEntry = {
   id: string;
   entry_date: string;
@@ -26,6 +36,8 @@ export type IncomeEntry = {
   customer_name: string;
   amount: string | number;
   note: string;
+  created_by?: string | null;
+  created_at?: string;
 };
 
 /** Each charge name's newest row on or before the date (the week's packing Monday). Charges set to 0 drop out. */
@@ -81,8 +93,16 @@ export type PackedLine = {
   detail: string | null;
 };
 
-/** The week's live invoice for a location (not void). */
-export type WeekInvoice = { customer_id: string; status: InvoiceStatus; total: number | string | null; invoice_date: string };
+/** The week's live invoice for a location (not void). Lines, when loaded, for the P&L detail. */
+export type WeekInvoice = {
+  id?: string;
+  number?: string | null;
+  customer_id: string;
+  status: InvoiceStatus;
+  total: number | string | null;
+  invoice_date: string;
+  invoice_lines?: InvoiceLineRow[];
+};
 
 export type IncomeStatus = "finalized" | "packed" | "not_packed";
 
@@ -96,6 +116,14 @@ export type LocationIncome = {
   unpackedLines: number;
   /** Packed products with no price for this customer (left out of cents). */
   priceNeeded: string[];
+  /** The invoice, if there is one (a draft too). */
+  invoiceId: string | null;
+  number: string | null;
+  /** The invoice date, or the date a new draft would get: prices are looked up on it. */
+  date: string;
+  chainId: string | null;
+  /** Finalized: the lines as finalized. Packed: what's packed, priced (Mohawk charge lines included). */
+  lines: PricedLine[];
 };
 
 export type InvoiceIncome = {
@@ -124,13 +152,15 @@ export function invoiceIncome(input: {
   const tuesday = addDays(input.week, 1); // a new draft's invoice date
   const rows: LocationIncome[] = input.locations.map((loc) => {
     const inv = input.invoices.find((i) => i.customer_id === loc.id && i.status !== "void");
+    const base = { invoiceId: inv?.id ?? null, number: inv?.number ?? null, date: inv?.invoice_date ?? tuesday, chainId: loc.chainId };
     if (inv && (inv.status === "finalized" || inv.status === "sent")) {
-      return { customerId: loc.id, name: loc.name, status: "finalized", cents: cents(inv.total ?? 0), unpackedLines: 0, priceNeeded: [] };
+      const lines = inv.invoice_lines ? priceLines(inv.invoice_lines, [], loc.id, inv.invoice_date) : [];
+      return { customerId: loc.id, name: loc.name, status: "finalized", cents: cents(inv.total ?? 0), unpackedLines: 0, priceNeeded: [], ...base, lines };
     }
     const mine = input.packed.filter((l) => l.customer_id === loc.id);
     const unpackedLines = mine.filter((l) => l.kind === "shorted").length;
     const packed = mine.filter((l) => l.kind === "packed");
-    if (!packed.length) return { customerId: loc.id, name: loc.name, status: "not_packed", cents: null, unpackedLines, priceNeeded: [] };
+    if (!packed.length) return { customerId: loc.id, name: loc.name, status: "not_packed", cents: null, unpackedLines, priceNeeded: [], ...base, lines: [] };
     const lines: InvoiceLineRow[] = packed.map((l, i) => ({
       id: `${loc.id}:${i}`,
       invoice_id: "",
@@ -153,7 +183,7 @@ export function invoiceIncome(input: {
     const priced = priceLines(lines, input.prices, loc.id, inv?.invoice_date ?? tuesday, loc.chainId, input.charges);
     const sum = priced.reduce((s, l) => s + (l.totalCents ?? ZERO), ZERO);
     const missing = [...new Set(priced.filter((l) => l.priceNeeded && l.product_id).map((l) => input.productName(l.product_id!)))];
-    return { customerId: loc.id, name: loc.name, status: "packed", cents: sum, unpackedLines, priceNeeded: missing };
+    return { customerId: loc.id, name: loc.name, status: "packed", cents: sum, unpackedLines, priceNeeded: missing, ...base, lines: priced };
   });
   const sum = (s: IncomeStatus) => rows.filter((r) => r.status === s).reduce((t, r) => t + (r.cents ?? ZERO), ZERO);
   const needed = new Map<string, string[]>();

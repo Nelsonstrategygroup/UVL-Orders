@@ -5,21 +5,20 @@
 // projected, Lucas 11/15/26) plus other income entered by hand, producer cost
 // from the weigh sheets, charges worked out from the week, and expense entries. Every dated entry counts toward the
 // order week containing its date. Printable: the entry forms don't print.
-// Where something is missing it says so instead of showing a number.
+// Where something is missing it says so instead of showing a number. Every
+// line can be tapped for how it was calculated (Lucas, 11/15/26), the whole
+// week's detail prints from /pnl/detail, and the checks at the top list what's
+// missing before the week can be trusted.
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
-import { useLive } from "@/components/data/useLive";
 import { useToast } from "@/components/Toast";
 import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
-import { averageLbText, carcassText, centsText, factorText, fixedRounded, liveText, rateText, sheetPay, weekPay } from "@/lib/calc/lambCost";
+import { averageLbText, carcassText, centsText, factorText, fixedRounded, liveText, rateText } from "@/lib/calc/lambCost";
 import {
-  invoiceIncome,
   parseMoney,
-  weekPnl,
   type ExpenseCategory,
   type ExpenseEntry,
   type IncomeEntry,
@@ -27,116 +26,78 @@ import {
   type IncomeStatus,
   type WeekPnl,
 } from "@/lib/calc/pnl";
-import { loadCharges, loadPrices } from "@/lib/db/invoicing";
+import type { PnlCheck } from "@/lib/calc/pnlDetail";
 import { longDate, niceDate, weekDays, weekName } from "@/lib/dates";
-import { loadLambCostSetup } from "@/lib/db/lambCost";
-import { addExpense, addIncome, deleteEntry, loadPnlSetup, loadWeekEntries, loadWeekInvoiceData } from "@/lib/db/pnl";
-import { loadWeekSheets } from "@/lib/db/weighSheets";
+import { addExpense, addIncome, deleteEntry } from "@/lib/db/pnl";
+import { LineSheet } from "./Detail";
+import { usePnlWeek } from "./usePnlWeek";
 
-// Invoices, packing and prices too: projected income follows packing as it happens.
-const TABLES = [
-  "pnl_expenses",
-  "pnl_income",
-  "kill_sheets",
-  "kill_lambs",
-  "kill_adjustments",
-  "producers",
-  "invoices",
-  "packing_weights",
-  "packing_lines",
-  "order_lines",
-  "prices",
-  "carcass_charges",
-];
-const SETUP_TABLES = ["pnl_lamb_charges", "pnl_percent_charges", "expense_categories"];
+/** Which line's detail is open: one or more lines, or one record under them. */
+type Open = { keys: string[]; only?: string } | null;
+type OnOpen = (keys: string[], only?: string) => void;
 
-async function loadWeek(db: SupabaseClient, week: string) {
-  const [entries, sheets, inv, invoiceData, prices, charges] = await Promise.all([
-    loadWeekEntries(db, week),
-    loadWeekSheets(db, week),
-    db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
-    loadWeekInvoiceData(db, week),
-    loadPrices(db),
-    loadCharges(db),
-  ]);
-  return {
-    ...entries,
-    sheets,
-    inv: (inv.data as { invoice_number?: number | null } | null)?.invoice_number ?? null,
-    invoiceData,
-    prices,
-    charges,
-  };
+/** A P&L line's label you can tap for how it was calculated. */
+function Tap({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      className="cursor-pointer border-0 bg-transparent p-0 text-left text-inherit underline decoration-dotted underline-offset-4"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
 }
 
 export default function PnlScreen() {
   const { week } = useWeek();
-  const load = useCallback((d: SupabaseClient) => loadWeek(d, week), [week]);
-  const { data, error, refresh } = useLive(`pnl:${week}`, load, TABLES);
-  const loadSetup = useCallback((d: SupabaseClient) => loadPnlSetup(d), []);
-  const { data: setup } = useLive("pnl-setup", loadSetup, SETUP_TABLES);
-  const loadProducers = useCallback((d: SupabaseClient) => loadLambCostSetup(d), []);
-  const { data: lc } = useLive("lamb-cost-setup", loadProducers, ["producers", "lamb_cost_settings", "producer_rates"]);
-  const { customers, catalog } = useStaffData();
+  const w = usePnlWeek(week);
+  const [open, setOpen] = useState<Open>(null);
+  const onOpen: OnOpen = (keys, only) => setOpen({ keys, only });
 
   const head = (
     <div className="noprint">
       <WeekBar />
     </div>
   );
-  if (error) return <>{head}<p className="note bad">Couldn&apos;t load the P&amp;L: {error}</p></>;
-  if (!data || !setup || !lc || !customers || !catalog) return <>{head}<p className="small muted">Loading...</p></>;
-
-  const pays = data.sheets.sheets.map((s) => sheetPay(s, data.sheets.lambs, data.sheets.adjustments));
-  const pay = weekPay(pays);
-  const ii = invoiceIncome({
-    week,
-    locations: data.invoiceData.locationIds
-      .map((id) => {
-        const c = customers.byId.get(id);
-        return { id, name: c ? displayName(c, customers.byId) : "Unknown customer", chainId: c?.parent_customer_id ?? null };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    invoices: data.invoiceData.invoices,
-    packed: data.invoiceData.packed,
-    prices: data.prices,
-    charges: data.charges,
-    productName: (id) => catalog.productById.get(id)?.name ?? id,
-  });
-  const p = weekPnl({
-    week,
-    pay,
-    income: data.income,
-    expenses: data.expenses,
-    categories: setup.categories,
-    lambCharges: setup.lambCharges,
-    percentCharges: setup.percentCharges,
-    invoices: ii,
-  });
-  const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";
+  if (w.error) return <>{head}<p className="note bad">Couldn&apos;t load the P&amp;L: {w.error}</p></>;
+  if (!w.ready) return <>{head}<p className="small muted">Loading...</p></>;
+  const { data, setup, pay, ii, p, details, checks, producerName, refresh } = w;
+  const chargeKeys = details.filter((d) => d.key.startsWith("charge:")).map((d) => d.key);
 
   return (
     <div className="max-w-[900px]">
       {head}
+      {open && (
+        <LineSheet details={details.filter((d) => open.keys.includes(d.key))} only={open.only} week={week} onClose={() => setOpen(null)} />
+      )}
       <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0">
           Weekly P&amp;L · {weekName(week)}
           {data.inv != null && <span className="muted"> · INV# {data.inv}</span>}
         </h2>
-        <button type="button" className="btn ghost noprint" onClick={() => window.print()}>
-          Print
-        </button>
+        <span className="noprint flex flex-wrap gap-2">
+          <Link href={`/pnl/detail?week=${week}`} className="btn ghost">
+            P&amp;L detail
+          </Link>
+          <button type="button" className="btn ghost" onClick={() => window.print()}>
+            Print
+          </button>
+        </span>
       </div>
       <p className="small muted mt-1">
         Thursday {niceDate(weekDays(week)[0])} to Wednesday {niceDate(weekDays(week)[6])}. Every entry counts toward the week
-        that contains its date. A P&amp;L, not accounting: payments aren&apos;t tracked.
+        that contains its date. A P&amp;L, not accounting: payments aren&apos;t tracked.{" "}
+        <span className="noprint">Tap any line to see how it was calculated.</span>
       </p>
+
+      <Checks checks={checks} />
 
       {p.projected && <ProjectedBanner ii={ii} />}
 
-      <Summary p={p} />
+      <Summary p={p} chargeKeys={chargeKeys} onOpen={onOpen} />
 
-      <Income p={p} ii={ii} />
+      <Income p={p} ii={ii} onOpen={onOpen} />
 
       <section className="panel mt-3" aria-labelledby="pnl-producers">
         <h3 id="pnl-producers">Producer cost</h3>
@@ -160,7 +121,9 @@ export default function PnlScreen() {
               <tbody>
                 {pay.producers.map((r) => (
                   <tr key={r.producerId}>
-                    <td>{producerName(r.producerId)}</td>
+                    <td>
+                      <Tap onClick={() => onOpen(["producer"])}>{producerName(r.producerId)}</Tap>
+                    </td>
                     <td className="num text-right">{r.head}</td>
                     <td className="num text-right">{carcassText(r.carcass)}</td>
                     <td className="num text-right">{liveText(r.live)}</td>
@@ -192,7 +155,9 @@ export default function PnlScreen() {
               {p.charges.map((c) => (
                 <tr key={`${c.kind}:${c.name}`}>
                   <td>
-                    <b>{c.name}</b>
+                    <Tap onClick={() => onOpen([`charge:${c.name}`])}>
+                      <b>{c.name}</b>
+                    </Tap>
                     <span className="block small">
                       {c.kind === "lamb"
                         ? c.cents == null
@@ -225,7 +190,7 @@ export default function PnlScreen() {
               {p.expenses.map((r) => (
                 <tr key={r.categoryId}>
                   <td>
-                    {r.name}
+                    <Tap onClick={() => onOpen(["expenses"], r.name)}>{r.name}</Tap>
                     {r.entries > 1 && <span className="small muted"> · {r.entries} entries</span>}
                   </td>
                   <td className="num text-right">{centsText(r.cents)}</td>
@@ -241,6 +206,27 @@ export default function PnlScreen() {
       </section>
 
       <Entries week={week} income={data.income} expenses={data.expenses} categories={setup.categories} refresh={refresh} />
+    </div>
+  );
+}
+
+/** What's missing before the week can be trusted, or a green Complete. */
+function Checks({ checks }: { checks: PnlCheck[] }) {
+  if (!checks.length)
+    return (
+      <p className="note mt-2 bg-ok" role="status">
+        <b>Complete.</b> Every invoice is finalized, every packed product has a price, the weigh sheets match the lamb count, and
+        the Butcher (Mohawk) cost is in.
+      </p>
+    );
+  return (
+    <div className="note warn mt-2" role="status">
+      <b>Before this week can be trusted:</b>
+      <ul className="m-0 mt-1 pl-5">
+        {checks.map((c) => (
+          <li key={c.key}>{c.text}</li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -266,7 +252,7 @@ function ProjectedBanner({ ii }: { ii: InvoiceIncome }) {
 }
 
 /** Income by location (finalized, packed, not packed), then other income, totals, not packed and price needed. */
-function Income({ p, ii }: { p: WeekPnl; ii: InvoiceIncome }) {
+function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOpen }) {
   const counted = ii.rows.filter((r) => r.status !== "not_packed");
   const total = (label: string, v: bigint, strong = false) => (
     <tr className={strong ? "font-bold" : ""}>
@@ -285,7 +271,7 @@ function Income({ p, ii }: { p: WeekPnl; ii: InvoiceIncome }) {
             {counted.map((r) => (
               <tr key={r.customerId}>
                 <td>
-                  {r.name}
+                  <Tap onClick={() => onOpen(["income"], r.name)}>{r.name}</Tap>
                   {r.unpackedLines > 0 && <span className="small muted block">{plural(r.unpackedLines, "ordered line", "ordered lines")} not packed</span>}
                   {r.priceNeeded.length > 0 && <span className="small block">Price needed: {r.priceNeeded.join(", ")}</span>}
                 </td>
@@ -342,13 +328,13 @@ function Income({ p, ii }: { p: WeekPnl; ii: InvoiceIncome }) {
 }
 
 /** Income, total expense, profit, per head, per carcass lb: or what's missing. */
-function Summary({ p }: { p: WeekPnl }) {
+function Summary({ p, chargeKeys, onOpen }: { p: WeekPnl; chargeKeys: string[]; onOpen: OnOpen }) {
   const waits = [!p.hasSheets && "No weigh sheet for this week.", !p.hasIncome && "No income yet."].filter(Boolean) as string[];
   // While some income is projected, so is everything worked out from it.
   const pj = (label: string) => (p.projected ? `${label} (projected)` : label);
-  const row = (label: string, value: React.ReactNode, strong = false) => (
+  const row = (label: string, value: React.ReactNode, strong = false, keys: string[] = []) => (
     <tr className={strong ? "font-bold" : ""}>
-      <td>{label}</td>
+      <td>{keys.length ? <Tap onClick={() => onOpen(keys)}>{label}</Tap> : label}</td>
       <td className="num text-right">{value}</td>
     </tr>
   );
@@ -364,14 +350,14 @@ function Summary({ p }: { p: WeekPnl }) {
       )}
       <table className="simple mt-1">
         <tbody>
-          {row(pj("Income"), p.hasIncome ? centsText(p.incomeCents) : missing)}
-          {row("Producer cost", p.hasSheets ? centsText(p.producerCents) : missing)}
-          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Charges (projected)" : "Charges", centsText(p.chargeCents))}
-          {row("Entered expenses", centsText(p.expenseCents))}
-          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Total expense (projected)" : "Total expense", p.totalExpense != null ? centsText(p.totalExpense) : missing, true)}
-          {row(pj("Profit"), p.profit != null ? centsText(p.profit) : missing, true)}
-          {row(pj("Profit per head"), p.profitPerHead != null ? `${centsText(p.profitPerHead)} (${p.head} head)` : missing)}
-          {row(pj("Cost per carcass lb"), p.costPerCarcassLb != null ? `$${fixedRounded(p.costPerCarcassLb, 4, 2)}` : missing)}
+          {row(pj("Income"), p.hasIncome ? centsText(p.incomeCents) : missing, false, ["income"])}
+          {row("Producer cost", p.hasSheets ? centsText(p.producerCents) : missing, false, ["producer"])}
+          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Charges (projected)" : "Charges", centsText(p.chargeCents), false, chargeKeys)}
+          {row("Entered expenses", centsText(p.expenseCents), false, ["expenses"])}
+          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Total expense (projected)" : "Total expense", p.totalExpense != null ? centsText(p.totalExpense) : missing, true, ["producer", ...chargeKeys, "expenses", "total"])}
+          {row(pj("Profit"), p.profit != null ? centsText(p.profit) : missing, true, ["profit"])}
+          {row(pj("Profit per head"), p.profitPerHead != null ? `${centsText(p.profitPerHead)} (${p.head} head)` : missing, false, ["perhead"])}
+          {row(pj("Cost per carcass lb"), p.costPerCarcassLb != null ? `$${fixedRounded(p.costPerCarcassLb, 4, 2)}` : missing, false, ["costlb"])}
         </tbody>
       </table>
     </section>
