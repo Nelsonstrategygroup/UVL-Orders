@@ -164,3 +164,47 @@ describe("P&L checks", () => {
     expect(keys).toEqual(["invoices", "price:Racks", "sheet", "butcher"]);
   });
 });
+
+describe("adjustments in the line detail (stage B)", () => {
+  const adj = (id: string, kind: "adjustment" | "one_off", line_key: string | null, side: "income" | "expense", amount: string, voided = false) => ({
+    id,
+    week_id: WEEK,
+    kind,
+    line_key,
+    side,
+    label: kind === "one_off" ? "Freight bill (Heritage)" : "",
+    amount,
+    reason: kind === "one_off" ? "Bill #4471" : "Dock: 2 lambs condemned",
+    attachment_path: id === "a1" ? "2026-11-16/adjustments/x.pdf" : null,
+    attachment_name: id === "a1" ? "dock.pdf" : "",
+    created_by_name: "Kathy Panner",
+    created_at: "2026-11-16T22:10:00Z",
+    voided_at: voided ? "2026-11-17T18:00:00Z" : null,
+    voided_by_name: voided ? "Lucas Nelson" : "",
+    void_reason: voided ? "Entered twice" : "",
+  });
+  const adjustments = [
+    adj("a1", "adjustment", "producer", "expense", "-50"),
+    adj("a2", "adjustment", "producer", "expense", "-50", true),
+    adj("a3", "one_off", null, "expense", "412.50"),
+  ];
+  const pa = weekPnl({ week: WEEK, pay, income: [], expenses, categories, lambCharges, percentCharges, invoices: ii, adjustments });
+  const da = pnlDetails({ ...input, p: pa });
+  const prod = da.find((x) => x.key === "producer")!;
+  it("shows calculated + adjustments = total", () => {
+    expect(prod.amount).toBe("$706.44");
+    expect(prod.how.at(-1)).toBe("Calculated $756.44 − adjustments $50.00 = $706.44");
+  });
+  it("lists each adjustment with who, when and the file; voided ones marked", () => {
+    const items = prod.items.filter((i) => i.tag === "Adjustment" || i.tag === "Voided");
+    expect(items[0]).toMatchObject({ label: "Dock: 2 lambs condemned", amount: "-$50.00", files: [{ path: "2026-11-16/adjustments/x.pdf", name: "dock.pdf" }] });
+    expect(items[0].note).toBe("Added by Kathy Panner, Nov 16, 2:10 PM");
+    expect(items[1]).toMatchObject({ tag: "Voided", voided: true });
+    expect(items[1].note).toBe("Added by Kathy Panner, Nov 16, 2:10 PM · Voided by Lucas Nelson, Nov 17, 10:00 AM: Entered twice");
+  });
+  it("lists one-off expense lines under expenses", () => {
+    const e = da.find((x) => x.key === "expenses")!;
+    expect(e.items.at(-1)).toMatchObject({ label: "Freight bill (Heritage)", tag: "One-off expense", amount: "$412.50", math: ["Reason: Bill #4471"] });
+    expect(e.how.at(-1)).toBe("$120.00 + one-off $412.50 = $532.50");
+  });
+});

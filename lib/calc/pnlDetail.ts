@@ -21,7 +21,18 @@ import {
   type SheetPay,
   type WeekPay,
 } from "./lambCost";
-import { chargesOn, type ExpenseCategory, type ExpenseEntry, type IncomeEntry, type InvoiceIncome, type LambCharge, type PercentCharge, type WeekPnl } from "./pnl";
+import {
+  cents,
+  chargesOn,
+  type ExpenseCategory,
+  type ExpenseEntry,
+  type IncomeEntry,
+  type InvoiceIncome,
+  type LambCharge,
+  type PercentCharge,
+  type PnlAdjustment,
+  type WeekPnl,
+} from "./pnl";
 import { priceFor, priceSource, priceText, PRICE_UNIT_SHORT, type ChargeRow, type PriceRow } from "./prices";
 import { longDate, niceDate } from "../dates";
 
@@ -34,7 +45,11 @@ export type DetailItem = {
   math?: string[];
   amount?: string;
   links?: { label: string; href: string }[];
+  /** Attached files (in the private pnl-files bucket). */
+  files?: { path: string; name: string }[];
   note?: string;
+  /** A voided adjustment: shown, counts for nothing. */
+  voided?: boolean;
   items?: DetailItem[];
 };
 
@@ -44,6 +59,8 @@ export type LineDetail = {
   /** The line's amount, or null when it isn't worked out (with why in `how`). */
   amount: string | null;
   projected: boolean;
+  /** The line an adjustment to it is made against (income, producer, charge:<name>); "category" for expenses. */
+  lineKey?: string;
   /** How the line is worked out, in plain words, then the sum with its numbers. */
   how: string[];
   items: DetailItem[];
@@ -85,7 +102,38 @@ export type DetailInput = {
   /** The product a box is billed under (products packed together bill as the first). */
   lead: (productId: string) => string;
   userName: (id: string | null | undefined) => string;
+  /** Files attached to expense entries. */
+  expenseFiles?: { expense_id: string; path: string; name: string }[];
 };
+
+/** "+$25.00", "-$50.00" */
+const signed = (c: bigint) => (c < BigInt(0) ? `-${centsText(-c)}` : `+${centsText(c)}`);
+
+/** Adjustments (and one-off lines) as detail items: amount, reason, who and when, voided or not. */
+function adjustmentItems(list: PnlAdjustment[]): DetailItem[] {
+  return list.map((a) => ({
+    label: a.kind === "one_off" ? a.label : a.reason,
+    tag: a.voided_at ? "Voided" : a.kind === "one_off" ? (a.side === "income" ? "One-off income" : "One-off expense") : "Adjustment",
+    amount: a.kind === "one_off" ? centsText(cents(a.amount)) : signed(cents(a.amount)),
+    voided: !!a.voided_at,
+    math: a.kind === "one_off" ? [`Reason: ${a.reason}`] : undefined,
+    note: [
+      `Added by ${a.created_by_name || "someone"}, ${stamp(a.created_at)}`,
+      a.voided_at ? `Voided by ${a.voided_by_name || "someone"}, ${stamp(a.voided_at)}: ${a.void_reason}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    files: a.attachment_path ? [{ path: a.attachment_path, name: a.attachment_name || "Attachment" }] : undefined,
+  }));
+}
+
+/** The adjustments to one line, voided ones too. */
+const adjustmentsOf = (p: WeekPnl, key: string) => p.adjustments.filter((a) => a.kind === "adjustment" && a.line_key === key);
+
+/** "Calculated $X + adjustments $Y = $Z", when a line has adjustments. */
+function withAdjustments(calc: bigint, adj: bigint, total: bigint, any: boolean): string[] {
+  return any ? [`Calculated ${centsText(calc)} ${adj < BigInt(0) ? "−" : "+"} adjustments ${centsText(adj < BigInt(0) ? -adj : adj)} = ${centsText(total)}`] : [];
+}
 
 /** Where a packed line's price came from, and since when. */
 function priceFrom(x: DetailInput, customerId: string, chainId: string | null, productId: string, date: string): string {
@@ -151,20 +199,25 @@ function incomeDetail(x: DetailInput): LineDetail {
     });
   }
   if (ii.notPacked.length) items.push({ label: "Not packed yet", tag: "No income", note: ii.notPacked.map((r) => r.name).join(", ") });
+  const incomeAdj = adjustmentsOf(p, "income");
+  items.push(...adjustmentItems(incomeAdj), ...adjustmentItems(p.adjustments.filter((a) => a.kind === "one_off" && a.side === "income")));
   const parts = [
     `Finalized ${centsText(ii.finalizedCents)}`,
     ...(ii.packedCount ? [`packed, not invoiced ${centsText(ii.packedCents)}`] : []),
     ...(p.otherCents ? [`other income ${centsText(p.otherCents)}`] : []),
+    ...(p.incomeAdj ? [`adjustments ${signed(p.incomeAdj)}`] : []),
+    ...(p.oneOffIncomeCents ? [`one-off income ${centsText(p.oneOffIncomeCents)}`] : []),
   ];
   return {
     key: "income",
+    lineKey: "income",
     title: p.projected ? "Income (projected)" : "Income",
     amount: p.hasIncome ? centsText(p.incomeCents) : null,
     projected: p.projected,
     how: [
       "Finalized (or sent) invoices: the invoice total.",
       "Packed, not finalized yet: what's packed (lb: the boxes' weights; case: the boxes; each: the pieces counted) × the customer's price on the invoice date (their own, else the chain's, else the default), each line rounded to the cent, plus the Mohawk charge per carcass.",
-      "Other income: entered by hand on this page.",
+      "Other income: entered by hand on this page. Adjustments and one-off income: added on this page, each with a reason.",
       p.hasIncome ? `${parts.join(" + ")} = ${centsText(p.incomeCents)}` : "No income yet: nothing is packed.",
     ],
     items,
@@ -208,8 +261,11 @@ function producerDetail(x: DetailInput): LineDetail {
       ],
     };
   });
+  const prodAdj = adjustmentsOf(x.p, "producer");
+  items.push(...adjustmentItems(prodAdj));
   return {
     key: "producer",
+    lineKey: "producer",
     title: "Producer cost",
     amount: x.p.hasSheets ? centsText(x.p.producerCents) : null,
     projected: false,
@@ -217,8 +273,9 @@ function producerDetail(x: DetailInput): LineDetail {
       "From the weigh sheets with a kill date in this week (Thursday to Wednesday).",
       "Each lamb: carcass lb × live factor = live lb; live lb × the rate = its pay. Premiums and docks are added, then each sheet is rounded once to the cent.",
       x.p.hasSheets
-        ? `${x.pays.map((sp) => centsText(sp.cents)).join(" + ")} = ${centsText(x.p.producerCents)} (${plural(x.pay.head, "lamb", "lambs")}, ${carcassText(x.pay.carcass)} carcass lb)`
+        ? `${x.pays.map((sp) => centsText(sp.cents)).join(" + ")} = ${centsText(x.p.producerCalc)} (${plural(x.pay.head, "lamb", "lambs")}, ${carcassText(x.pay.carcass)} carcass lb)`
         : "No weigh sheet for this week yet.",
+      ...withAdjustments(x.p.producerCalc, x.p.producerAdj, x.p.producerCents, prodAdj.length > 0),
     ],
     items,
   };
@@ -232,35 +289,44 @@ function chargeDetails(x: DetailInput): LineDetail[] {
   }));
   const lamb = chargesOn(x.lambCharges, x.week, (r) => r.per_lamb).map((c): LineDetail => {
     const line = x.p.charges.find((l) => l.kind === "lamb" && l.name === c.name);
+    const list = adjustmentsOf(x.p, `charge:${c.name}`);
     return {
       key: `charge:${c.name}`,
+      lineKey: `charge:${c.name}`,
       title: c.name,
-      amount: line?.cents != null ? centsText(line.cents) : null,
+      amount: line?.total != null ? centsText(line.total) : null,
       projected: false,
       how: [
         `Lambs on this week's weigh sheets × ${rateText(c.per_lamb)} a lamb (P&L Setup, from ${short(c.effective_from)}).`,
         line?.cents != null ? `${x.pay.head} lambs × ${rateText(c.per_lamb)} = ${centsText(line.cents)}` : "No weigh sheet for this week yet.",
+        ...(line?.cents != null ? withAdjustments(line.cents, line.adj, line.total!, list.length > 0) : []),
       ],
-      items: sheets,
+      items: [...sheets, ...adjustmentItems(list)],
     };
   });
   const pct = chargesOn(x.percentCharges, x.week, (r) => r.percent).map((c): LineDetail => {
     const line = x.p.charges.find((l) => l.kind === "percent" && l.name === c.name);
+    const list = adjustmentsOf(x.p, `charge:${c.name}`);
     return {
       key: `charge:${c.name}`,
+      lineKey: `charge:${c.name}`,
       title: x.p.projected ? `${c.name} (projected)` : c.name,
-      amount: line?.cents != null ? centsText(line.cents) : null,
+      amount: line?.total != null ? centsText(line.total) : null,
       projected: x.p.projected,
       how: [
         `${factorText(c.percent)}% of the week's income (P&L Setup, from ${short(c.effective_from)}), rounded to the cent.`,
         line?.cents != null
           ? `${factorText(c.percent)}% × ${centsText(x.p.incomeCents)}${x.p.projected ? " projected" : ""} income = ${centsText(line.cents)}`
           : "No income yet.",
+        ...(line?.cents != null ? withAdjustments(line.cents, line.adj, line.total!, list.length > 0) : []),
       ],
       items: [
+        ...adjustmentItems(list),
         { label: "Finalized invoices", amount: centsText(x.ii.finalizedCents) },
         ...(x.ii.packedCount ? [{ label: "Packed, not invoiced (projected)", amount: centsText(x.ii.packedCents) }] : []),
         ...(x.p.otherCents ? [{ label: "Other income", amount: centsText(x.p.otherCents) }] : []),
+        ...(x.p.incomeAdj ? [{ label: "Income adjustments", amount: signed(x.p.incomeAdj) }] : []),
+        ...(x.p.oneOffIncomeCents ? [{ label: "One-off income", amount: centsText(x.p.oneOffIncomeCents) }] : []),
       ],
     };
   });
@@ -268,25 +334,40 @@ function chargeDetails(x: DetailInput): LineDetail[] {
 }
 
 function expenseDetail(x: DetailInput): LineDetail {
-  const items: DetailItem[] = x.p.expenses.map((cat) => ({
-    label: cat.name,
-    amount: centsText(cat.cents),
-    items: x.expenses
-      .filter((e) => e.category_id === cat.categoryId)
-      .map((e) => ({
-        label: day(e.entry_date),
-        amount: centsText(BigInt(Math.round(Number(e.amount) * 100))),
-        note: [e.note, `Entered by ${x.userName(e.created_by)}${e.created_at ? `, ${stamp(e.created_at)}` : ""}`].filter(Boolean).join(" · "),
-      })),
-  }));
+  const items: DetailItem[] = x.p.expenses.map((cat) => {
+    const list = adjustmentsOf(x.p, `category:${cat.categoryId}`);
+    return {
+      label: cat.name,
+      amount: centsText(cat.total),
+      math: list.length ? withAdjustments(cat.cents, cat.adj, cat.total, true) : undefined,
+      items: [
+        ...x.expenses
+          .filter((e) => e.category_id === cat.categoryId)
+          .map((e) => {
+            const files = (x.expenseFiles ?? []).filter((f) => f.expense_id === e.id);
+            return {
+              label: day(e.entry_date),
+              amount: centsText(cents(e.amount)),
+              note: [e.note, `Entered by ${x.userName(e.created_by)}${e.created_at ? `, ${stamp(e.created_at)}` : ""}`].filter(Boolean).join(" · "),
+              files: files.length ? files.map((f) => ({ path: f.path, name: f.name || "Attachment" })) : undefined,
+            };
+          }),
+        ...adjustmentItems(list),
+      ],
+    };
+  });
+  items.push(...adjustmentItems(x.p.adjustments.filter((a) => a.kind === "one_off" && a.side === "expense")));
   return {
     key: "expenses",
+    lineKey: "category",
     title: "Entered expenses",
     amount: centsText(x.p.expenseCents),
     projected: false,
     how: [
-      "Expenses entered on this page, by category, dated in this week.",
-      x.p.expenses.length ? `${x.p.expenses.map((c) => centsText(c.cents)).join(" + ")} = ${centsText(x.p.expenseCents)}` : "None entered yet.",
+      "Expenses entered on this page, by category, dated in this week, with their adjustments; then one-off expense lines.",
+      x.p.expenses.length || x.p.oneOffExpense.length
+        ? `${[...x.p.expenses.map((c) => centsText(c.total)), ...(x.p.oneOffExpenseCents ? [`one-off ${centsText(x.p.oneOffExpenseCents)}`] : [])].join(" + ")} = ${centsText(x.p.expenseCents)}`
+        : "None entered yet.",
     ],
     items,
   };

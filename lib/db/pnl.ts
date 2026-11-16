@@ -3,7 +3,7 @@
 // Admins only (Row Level Security). Nothing else in the app reads these.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ExpenseCategory, ExpenseEntry, IncomeEntry, LambCharge, PackedLine, PercentCharge, WeekInvoice } from "../calc/pnl";
+import type { ExpenseCategory, ExpenseEntry, IncomeEntry, LambCharge, PackedLine, PercentCharge, PnlAdjustment, WeekInvoice } from "../calc/pnl";
 import { loadWeekInvoices } from "./invoices";
 import { withSource } from "./source";
 
@@ -136,6 +136,102 @@ export async function addIncome(db: SupabaseClient, x: { date: string; customerI
 }
 
 export async function deleteEntry(db: SupabaseClient, table: "pnl_expenses" | "pnl_income", id: string) {
+  // An expense's files go with it.
+  const files = table === "pnl_expenses" ? ((await db.from("pnl_expense_files").select("path").eq("expense_id", id)).data ?? []) : [];
   const { error } = await withSource(db.from(table).delete().eq("id", id), SRC);
+  if (!error && files.length) await db.storage.from("pnl-files").remove(files.map((f) => (f as { path: string }).path));
   return plain(error);
+}
+
+// ---------------------------------------------------------------------------
+// Adjustments, one-off lines and files (P&L stage B, Lucas 11/15/26)
+// ---------------------------------------------------------------------------
+
+const BUCKET = "pnl-files";
+const ADJ_COLS =
+  "id, week_id, kind, line_key, side, label, amount, reason, attachment_path, attachment_name, created_by_name, created_at, voided_at, voided_by_name, void_reason";
+
+/** The week's adjustments and one-off lines, voided ones too, oldest first. */
+export async function loadWeekAdjustments(db: SupabaseClient, week: string): Promise<PnlAdjustment[]> {
+  const { data, error } = await db.from("pnl_adjustments").select(ADJ_COLS).eq("week_id", week).order("created_at");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PnlAdjustment[];
+}
+
+/** Files on the week's expense entries. */
+export async function loadWeekExpenseFiles(db: SupabaseClient, week: string): Promise<{ id: string; expense_id: string; path: string; name: string }[]> {
+  const { data, error } = await db.from("pnl_expense_files").select("id, expense_id, path, name, pnl_expenses!inner (week_id)").eq("pnl_expenses.week_id", week);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as { id: string; expense_id: string; path: string; name: string }[]).map(({ id, expense_id, path, name }) => ({ id, expense_id, path, name }));
+}
+
+/** Put a file (a photo, already shrunk, or a PDF) in the private bucket; returns its path. */
+async function upload(db: SupabaseClient, folder: string, file: Blob): Promise<{ path: string } | { error: string }> {
+  const ext = file.type === "application/pdf" ? "pdf" : file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `${folder}/${crypto.randomUUID()}.${ext}`;
+  const up = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+  if (up.error) return { error: /mime|type/i.test(up.error.message) ? "Attach a photo or a PDF." : /size|large/i.test(up.error.message) ? "That file is too big (10 MB at most)." : up.error.message };
+  return { path };
+}
+
+export async function addAdjustment(
+  db: SupabaseClient,
+  x: {
+    week: string;
+    kind: "adjustment" | "one_off";
+    lineKey: string | null;
+    side: "income" | "expense";
+    label: string;
+    amount: string;
+    reason: string;
+    file?: { blob: Blob; name: string } | null;
+  },
+): Promise<string | null> {
+  let path: string | null = null;
+  if (x.file) {
+    const up = await upload(db, `${x.week}/adjustments`, x.file.blob);
+    if ("error" in up) return up.error;
+    path = up.path;
+  }
+  const { error } = await withSource(
+    db.from("pnl_adjustments").insert({
+      week_id: x.week,
+      kind: x.kind,
+      line_key: x.lineKey,
+      side: x.side,
+      label: x.label.trim(),
+      amount: x.amount,
+      reason: x.reason.trim(),
+      attachment_path: path,
+      attachment_name: x.file?.name ?? "",
+    }),
+    SRC,
+  );
+  if (error && path) await db.storage.from(BUCKET).remove([path]);
+  if (error?.code === "23514" && /reason/.test(error.message)) return "Type a reason.";
+  if (error?.code === "23514" && /label/.test(error.message)) return "Type a name for the line.";
+  return plain(error);
+}
+
+export async function voidAdjustment(db: SupabaseClient, id: string, reason: string): Promise<string | null> {
+  const { error } = await withSource(
+    db.from("pnl_adjustments").update({ voided_at: new Date().toISOString(), void_reason: reason.trim() }).eq("id", id),
+    SRC,
+  );
+  if (error?.code === "23514") return "Type why it's being voided.";
+  return plain(error);
+}
+
+export async function addExpenseFile(db: SupabaseClient, week: string, expenseId: string, file: { blob: Blob; name: string }): Promise<string | null> {
+  const up = await upload(db, `${week}/expenses`, file.blob);
+  if ("error" in up) return up.error;
+  const { error } = await withSource(db.from("pnl_expense_files").insert({ expense_id: expenseId, path: up.path, name: file.name }), SRC);
+  if (error) await db.storage.from(BUCKET).remove([up.path]);
+  return plain(error);
+}
+
+/** A link to look at a file (good for an hour). */
+export async function fileLink(db: SupabaseClient, path: string): Promise<string | null> {
+  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, 3600);
+  return error ? null : data.signedUrl;
 }

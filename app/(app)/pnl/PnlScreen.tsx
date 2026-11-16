@@ -24,11 +24,14 @@ import {
   type IncomeEntry,
   type InvoiceIncome,
   type IncomeStatus,
+  type PnlAdjustment,
   type WeekPnl,
 } from "@/lib/calc/pnl";
 import type { PnlCheck } from "@/lib/calc/pnlDetail";
 import { longDate, niceDate, weekDays, weekName } from "@/lib/dates";
-import { addExpense, addIncome, deleteEntry } from "@/lib/db/pnl";
+import { addExpense, addExpenseFile, addIncome, deleteEntry } from "@/lib/db/pnl";
+import { shrinkPhoto } from "@/lib/shrinkPhoto";
+import { AdjustmentsPanel, FileButton } from "./Adjustments";
 import { LineSheet } from "./Detail";
 import { usePnlWeek } from "./usePnlWeek";
 
@@ -69,7 +72,15 @@ export default function PnlScreen() {
     <div className="max-w-[900px]">
       {head}
       {open && (
-        <LineSheet details={details.filter((d) => open.keys.includes(d.key))} only={open.only} week={week} onClose={() => setOpen(null)} />
+        <LineSheet
+          details={details.filter((d) => open.keys.includes(d.key))}
+          only={open.only}
+          week={week}
+          p={p}
+          categories={setup.categories}
+          onSaved={refresh}
+          onClose={() => setOpen(null)}
+        />
       )}
       <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="m-0">
@@ -132,13 +143,27 @@ export default function PnlScreen() {
                   </tr>
                 ))}
                 <tr className="font-bold">
-                  <td>Producer cost</td>
+                  <td>{p.producerAdj ? "From the weigh sheets" : "Producer cost"}</td>
                   <td className="num text-right">{pay.head}</td>
                   <td className="num text-right">{carcassText(pay.carcass)}</td>
                   <td className="num text-right">{liveText(pay.live)}</td>
                   <td className="num text-right">{averageLbText(pay.carcass, pay.head)}</td>
                   <td className="num text-right">{centsText(pay.cents)}</td>
                 </tr>
+                {p.producerAdj !== BigInt(0) && (
+                  <>
+                    <tr>
+                      <td colSpan={5}>
+                        <Tap onClick={() => onOpen(["producer"])}>Adjustments</Tap>
+                      </td>
+                      <td className="num text-right">{signed(p.producerAdj)}</td>
+                    </tr>
+                    <tr className="font-bold">
+                      <td colSpan={5}>Producer cost</td>
+                      <td className="num text-right">{centsText(p.producerCents)}</td>
+                    </tr>
+                  </>
+                )}
               </tbody>
             </table>
           </div>
@@ -166,13 +191,14 @@ export default function PnlScreen() {
                         : c.cents == null
                           ? "No income yet."
                           : `${factorText(c.percent)}% × ${centsText(c.income)} ${p.projected ? "projected " : ""}income`}
+                      {c.adj !== BigInt(0) && c.cents != null && ` = ${centsText(c.cents)}; ${signed(c.adj)} adjustments`}
                     </span>
                   </td>
-                  <td className="num text-right align-top">{c.cents == null ? <span className="muted">Not worked out</span> : centsText(c.cents)}</td>
+                  <td className="num text-right align-top">{c.total == null ? <span className="muted">Not worked out</span> : centsText(c.total)}</td>
                 </tr>
               ))}
               <tr className="font-bold">
-                <td>Charges{p.charges.some((c) => c.cents == null) ? " so far" : ""}</td>
+                <td>Charges{p.charges.some((c) => c.total == null) ? " so far" : ""}</td>
                 <td className="num text-right">{centsText(p.chargeCents)}</td>
               </tr>
             </tbody>
@@ -182,7 +208,7 @@ export default function PnlScreen() {
 
       <section className="panel mt-3" aria-labelledby="pnl-expenses">
         <h3 id="pnl-expenses">Expenses by category</h3>
-        {p.expenses.length === 0 ? (
+        {p.expenses.length === 0 && p.oneOffExpense.length === 0 ? (
           <p className="small muted mt-1 mb-0">No expenses entered.</p>
         ) : (
           <table className="simple mt-1">
@@ -192,9 +218,17 @@ export default function PnlScreen() {
                   <td>
                     <Tap onClick={() => onOpen(["expenses"], r.name)}>{r.name}</Tap>
                     {r.entries > 1 && <span className="small muted"> · {r.entries} entries</span>}
+                    {r.adj !== BigInt(0) && (
+                      <span className="small block">
+                        Entered {centsText(r.cents)}; {signed(r.adj)} adjustments
+                      </span>
+                    )}
                   </td>
-                  <td className="num text-right">{centsText(r.cents)}</td>
+                  <td className="num text-right">{centsText(r.total)}</td>
                 </tr>
+              ))}
+              {p.oneOffExpense.map((a) => (
+                <OneOffRow key={a.id} a={a} onOpen={() => onOpen(["expenses"], a.label)} />
               ))}
               <tr className="font-bold">
                 <td>Entered expenses</td>
@@ -205,8 +239,40 @@ export default function PnlScreen() {
         )}
       </section>
 
-      <Entries week={week} income={data.income} expenses={data.expenses} categories={setup.categories} refresh={refresh} />
+      <AdjustmentsPanel week={week} p={p} categories={setup.categories} refresh={refresh} />
+
+      <Entries
+        week={week}
+        income={data.income}
+        expenses={data.expenses}
+        files={data.expenseFiles}
+        categories={setup.categories}
+        refresh={refresh}
+      />
     </div>
+  );
+}
+
+/** "+$25.00", "-$50.00" */
+const signed = (c: bigint) => (c < BigInt(0) ? `-${centsText(-c)}` : `+${centsText(c)}`);
+
+/** An adjustment to income, or a one-off line, as a row under its section. */
+function OneOffRow({ a, onOpen }: { a: PnlAdjustment; onOpen: () => void }) {
+  const c = BigInt(Math.round(Number(a.amount) * 100));
+  const isOneOff = a.kind === "one_off";
+  return (
+    <tr>
+      <td>
+        <Tap onClick={onOpen}>{isOneOff ? a.label : "Adjustment"}</Tap>
+        <span className="small muted block">{a.reason}</span>
+      </td>
+      {a.side === "income" && (
+        <td>
+          <span className="tag">{isOneOff ? "One-off" : "Adjustment"}</span>
+        </td>
+      )}
+      <td className="num text-right">{isOneOff ? centsText(c) : signed(c)}</td>
+    </tr>
   );
 }
 
@@ -281,6 +347,11 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
                 <td className="num text-right">{r.cents != null ? centsText(r.cents) : ""}</td>
               </tr>
             ))}
+            {p.adjustments
+              .filter((a) => !a.voided_at && a.side === "income")
+              .map((a) => (
+                <OneOffRow key={a.id} a={a} onOpen={() => onOpen(["income"], a.kind === "one_off" ? a.label : a.reason)} />
+              ))}
             {p.income.map((r) => (
               <tr key={r.key}>
                 <td>
@@ -298,6 +369,8 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
                 {total("Finalized", ii.finalizedCents)}
                 {total("Packed, not invoiced", ii.packedCents)}
                 {p.otherCents !== BigInt(0) && total("Other income", p.otherCents)}
+                {p.incomeAdj !== BigInt(0) && total("Adjustments", p.incomeAdj)}
+                {p.oneOffIncomeCents !== BigInt(0) && total("One-off income", p.oneOffIncomeCents)}
                 {total("Projected total income", p.incomeCents, true)}
               </>
             ) : (
@@ -370,12 +443,14 @@ function Entries({
   week,
   income,
   expenses,
+  files,
   categories,
   refresh,
 }: {
   week: string;
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
+  files: { id: string; expense_id: string; path: string; name: string }[];
   categories: ExpenseCategory[];
   refresh: () => void;
 }) {
@@ -431,6 +506,12 @@ function Entries({
         </p>
         <EntryList
           rows={expenses.map((e) => ({ id: e.id, date: e.entry_date, what: catName(e.category_id), amount: e.amount, note: e.note }))}
+          files={files}
+          onAttach={async (id, file) => {
+            const err = await addExpenseFile(db, week, id, { blob: await shrinkPhoto(file), name: file.name });
+            toast(err ? `Couldn't attach it: ${err}` : "Attached");
+            refresh();
+          }}
           onDelete={(id, label) => void remove("pnl_expenses", id, label)}
         />
         <EntryForm
@@ -452,9 +533,14 @@ function Entries({
 function EntryList({
   rows,
   onDelete,
+  files,
+  onAttach,
 }: {
   rows: { id: string; date: string; what: string; amount: string | number; note: string }[];
   onDelete: (id: string, label: string) => void;
+  /** Expense entries: their files, and attaching one. */
+  files?: { id: string; expense_id: string; path: string; name: string }[];
+  onAttach?: (id: string, file: File) => Promise<void>;
 }) {
   if (rows.length === 0) return <p className="small m-0">None yet this week.</p>;
   return (
@@ -467,8 +553,30 @@ function EntryList({
             <span className="min-w-0 flex-1">
               {r.what}
               {r.note && <span className="small muted block">{r.note}</span>}
+              {files
+                ?.filter((x) => x.expense_id === r.id)
+                .map((x) => (
+                  <span key={x.id} className="small block">
+                    <FileButton path={x.path} name={x.name} />
+                  </span>
+                ))}
             </span>
             <span className="num">{amount}</span>
+            {onAttach && (
+              <label className="copy min-h-[44px] cursor-pointer px-2">
+                Attach
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) void onAttach(r.id, file);
+                  }}
+                />
+              </label>
+            )}
             <button type="button" className="copy min-h-[44px] px-2" onClick={() => onDelete(r.id, `${r.what} ${amount} on ${niceDate(r.date)}`)}>
               Delete
             </button>
