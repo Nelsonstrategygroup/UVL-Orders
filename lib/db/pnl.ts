@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExpenseCategory, ExpenseEntry, IncomeEntry, LambCharge, PackedLine, PercentCharge, WeekInvoice } from "../calc/pnl";
+import { loadWeekInvoices } from "./invoices";
 import { withSource } from "./source";
 
 const SRC = "weekly P&L";
@@ -78,12 +79,11 @@ export type WeekInvoiceData = { locationIds: string[]; invoices: WeekInvoice[]; 
 export async function loadWeekInvoiceData(db: SupabaseClient, week: string): Promise<WeekInvoiceData> {
   const [o, inv] = await Promise.all([
     db.from("orders").select("customer_id, order_lines (product_id)").eq("week_id", week),
-    db.from("invoices").select("customer_id, status, total, invoice_date").eq("week_id", week).neq("status", "void"),
+    loadWeekInvoices(db, week),
   ]);
-  const err = o.error ?? inv.error;
-  if (err) throw new Error(err.message);
+  if (o.error) throw new Error(o.error.message);
   const orders = (o.data ?? []) as unknown as { customer_id: string; order_lines: { product_id: string }[] }[];
-  const invoices = (inv.data ?? []) as WeekInvoice[];
+  const invoices: WeekInvoice[] = inv.filter((i) => i.status !== "void");
   const locationIds = [
     ...new Set([...orders.filter((x) => x.order_lines.length > 0).map((x) => x.customer_id), ...invoices.map((i) => i.customer_id)]),
   ];
@@ -105,8 +105,8 @@ export type WeekEntries = { expenses: ExpenseEntry[]; income: IncomeEntry[] };
 /** The week's expense and income entries (by packing Monday). */
 export async function loadWeekEntries(db: SupabaseClient, week: string): Promise<WeekEntries> {
   const [e, i] = await Promise.all([
-    db.from("pnl_expenses").select("id, entry_date, week_id, category_id, amount, note").eq("week_id", week).order("entry_date").order("created_at"),
-    db.from("pnl_income").select("id, entry_date, week_id, customer_id, customer_name, amount, note").eq("week_id", week).order("entry_date").order("created_at"),
+    db.from("pnl_expenses").select("id, entry_date, week_id, category_id, amount, note, created_by, created_at").eq("week_id", week).order("entry_date").order("created_at"),
+    db.from("pnl_income").select("id, entry_date, week_id, customer_id, customer_name, amount, note, created_by, created_at").eq("week_id", week).order("entry_date").order("created_at"),
   ]);
   const err = e.error ?? i.error;
   if (err) throw new Error(err.message);
