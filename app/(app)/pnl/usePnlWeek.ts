@@ -18,7 +18,7 @@ import { pnlChecks, pnlDetails } from "@/lib/calc/pnlDetail";
 import { loadWeekBoxes } from "@/lib/db/invoices";
 import { loadCharges, loadPrices } from "@/lib/db/invoicing";
 import { loadLambCostSetup } from "@/lib/db/lambCost";
-import { loadPnlSetup, loadWeekEntries, loadWeekInvoiceData } from "@/lib/db/pnl";
+import { loadPnlSetup, loadWeekAdjustments, loadWeekEntries, loadWeekExpenseFiles, loadWeekInvoiceData } from "@/lib/db/pnl";
 import { loadWeekSheets } from "@/lib/db/weighSheets";
 import { weekCalc } from "@/lib/weekCalc";
 
@@ -36,11 +36,13 @@ const TABLES = [
   "order_lines",
   "prices",
   "carcass_charges",
+  "pnl_adjustments",
+  "pnl_expense_files",
 ];
 const SETUP_TABLES = ["pnl_lamb_charges", "pnl_percent_charges", "expense_categories"];
 
 async function loadWeek(db: SupabaseClient, week: string) {
-  const [entries, sheets, inv, invoiceData, prices, charges, boxes, people] = await Promise.all([
+  const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles] = await Promise.all([
     loadWeekEntries(db, week),
     loadWeekSheets(db, week),
     db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
@@ -49,6 +51,8 @@ async function loadWeek(db: SupabaseClient, week: string) {
     loadCharges(db),
     loadWeekBoxes(db, week),
     db.from("profiles").select("id, display_name"),
+    loadWeekAdjustments(db, week),
+    loadWeekExpenseFiles(db, week),
   ]);
   return {
     ...entries,
@@ -58,6 +62,8 @@ async function loadWeek(db: SupabaseClient, week: string) {
     prices,
     charges,
     boxes,
+    adjustments,
+    expenseFiles,
     people: new Map(((people.data ?? []) as { id: string; display_name: string }[]).map((x) => [x.id, x.display_name])),
   };
 }
@@ -102,6 +108,7 @@ export function usePnlWeek(week: string) {
     lambCharges: setup.lambCharges,
     percentCharges: setup.percentCharges,
     invoices: ii,
+    adjustments: data.adjustments,
   });
   const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";
   const details = pnlDetails({
@@ -123,6 +130,7 @@ export function usePnlWeek(week: string) {
     producerName,
     lead: (id) => groupLead(id, catalog.products),
     userName: (id) => (id ? (data.people.get(id) ?? "someone no longer listed") : "unknown"),
+    expenseFiles: data.expenseFiles,
   });
   const lambCount = weekData ? weekCalc(weekData, catalog).c.final : null;
   const checks = pnlChecks({ p, ii, lambCount, categories: setup.categories, expenses: data.expenses });

@@ -201,14 +201,58 @@ export function invoiceIncome(input: {
   };
 }
 
-export type ChargeLine =
-  | { kind: "lamb"; name: string; rate: string; lambs: number; cents: bigint | null }
-  | { kind: "percent"; name: string; percent: string; income: bigint; cents: bigint | null };
+// ---------------------------------------------------------------------------
+// Adjustments and one-off lines (P&L stage B, Lucas 11/15/26). A calculated
+// number is never changed: an adjustment is its own line with a reason, and
+// the line shows calculated + adjustments = total. Voided ones are kept (and
+// shown in the detail) but count for nothing.
+// ---------------------------------------------------------------------------
+
+export type PnlAdjustment = {
+  id: string;
+  week_id: string;
+  kind: "adjustment" | "one_off";
+  /** income, producer, charge:<name>, category:<id>; null for a one-off line. */
+  line_key: string | null;
+  side: "income" | "expense";
+  /** A one-off line's name. */
+  label: string;
+  amount: string | number;
+  reason: string;
+  attachment_path: string | null;
+  attachment_name: string;
+  created_by_name: string;
+  created_at: string;
+  voided_at: string | null;
+  voided_by_name: string;
+  void_reason: string;
+};
+
+export type ChargeLine = (
+  | { kind: "lamb"; name: string; rate: string; lambs: number }
+  | { kind: "percent"; name: string; percent: string; income: bigint }
+) & {
+  /** Calculated; null when it can't be (no weigh sheet, no income). */
+  cents: bigint | null;
+  /** Adjustments to this charge. */
+  adj: bigint;
+  /** Calculated + adjustments; null while it can't be calculated. */
+  total: bigint | null;
+};
+
+export type ExpenseRow = { categoryId: string; name: string; entries: number; cents: bigint; adj: bigint; total: bigint };
 
 export type WeekPnl = {
   /** Income entered by hand (Other income), by customer. */
   income: { key: string; name: string; entries: number; cents: bigint }[];
   /** Other income + finalized invoices + what's packed and not finalized yet. */
+  incomeCalc: bigint;
+  /** Adjustments to income. */
+  incomeAdj: bigint;
+  /** One-off income lines. */
+  oneOffIncome: PnlAdjustment[];
+  oneOffIncomeCents: bigint;
+  /** All income: calculated + adjustments + one-off lines. */
   incomeCents: bigint;
   hasIncome: boolean;
   /** Income entered by hand. */
@@ -218,10 +262,17 @@ export type WeekPnl = {
   /** Lambs on the week's weigh sheets; 0 means no weigh sheet (or no weights yet). */
   head: number;
   hasSheets: boolean;
+  /** From the weigh sheets. */
+  producerCalc: bigint;
+  producerAdj: bigint;
+  /** Calculated + adjustments. */
   producerCents: bigint;
   charges: ChargeLine[];
   chargeCents: bigint;
-  expenses: { categoryId: string; name: string; entries: number; cents: bigint }[];
+  expenses: ExpenseRow[];
+  oneOffExpense: PnlAdjustment[];
+  oneOffExpenseCents: bigint;
+  /** Entered expenses and their adjustments, plus one-off expense lines. */
   expenseCents: bigint;
   /** Producer cost + charges + entered expenses. Null without a weigh sheet. */
   totalExpense: bigint | null;
@@ -230,6 +281,8 @@ export type WeekPnl = {
   profitPerHead: bigint | null;
   /** Total expense per carcass lb, in ten-thousandths of a dollar (4 decimals); null unless both. */
   costPerCarcassLb: bigint | null;
+  /** Every adjustment and one-off line of the week, voided ones too (for the detail). */
+  adjustments: PnlAdjustment[];
 };
 
 /** Divide two whole numbers, rounding half up (away from zero). */
@@ -239,6 +292,13 @@ function divRound(a: bigint, b: bigint): bigint {
   const y = b < ZERO ? -b : b;
   const q = (x * BigInt(2) + y) / (y * BigInt(2));
   return neg ? -q : q;
+}
+
+/** The adjustments (not voided) to one line, in cents. */
+export function adjustmentsTo(adjustments: PnlAdjustment[], lineKey: string): bigint {
+  return adjustments
+    .filter((a) => a.kind === "adjustment" && a.line_key === lineKey && !a.voided_at)
+    .reduce((s, a) => s + cents(a.amount), ZERO);
 }
 
 /**
@@ -255,7 +315,13 @@ export function weekPnl(input: {
   percentCharges: PercentCharge[];
   /** Income from the week's invoices and packing; none: entered income only. */
   invoices?: InvoiceIncome;
+  /** The week's adjustments and one-off lines (voided ones count for nothing). */
+  adjustments?: PnlAdjustment[];
 }): WeekPnl {
+  const adjustments = input.adjustments ?? [];
+  const live = adjustments.filter((a) => !a.voided_at);
+  const adj = (key: string) => adjustmentsTo(adjustments, key);
+
   // Income by customer (the id when there is one, else the name).
   const byCustomer = new Map<string, { key: string; name: string; entries: number; cents: bigint }>();
   for (const e of input.income) {
@@ -268,37 +334,68 @@ export function weekPnl(input: {
   const income = [...byCustomer.values()].sort((a, b) => a.name.localeCompare(b.name));
   const otherCents = income.reduce((s, r) => s + r.cents, ZERO);
   const inv = input.invoices;
-  const incomeCents = otherCents + (inv ? inv.finalizedCents + inv.packedCents : ZERO);
-  const hasIncome = input.income.length > 0 || (!!inv && inv.finalizedCount + inv.packedCount > 0);
+  const incomeCalc = otherCents + (inv ? inv.finalizedCents + inv.packedCents : ZERO);
+  const incomeAdj = adj("income");
+  const oneOffIncome = live.filter((a) => a.kind === "one_off" && a.side === "income");
+  const oneOffIncomeCents = oneOffIncome.reduce((s, a) => s + cents(a.amount), ZERO);
+  const incomeCents = incomeCalc + incomeAdj + oneOffIncomeCents;
+  const hasIncome =
+    input.income.length > 0 ||
+    (!!inv && inv.finalizedCount + inv.packedCount > 0) ||
+    live.some((a) => a.side === "income");
 
   const head = input.pay.head;
   const hasSheets = head > 0;
-  const producerCents = input.pay.cents;
+  const producerCalc = input.pay.cents;
+  const producerAdj = adj("producer");
+  const producerCents = producerCalc + producerAdj;
 
+  const withAdj = <T extends { name: string; cents: bigint | null }>(c: T) => {
+    const a = adj(`charge:${c.name}`);
+    return { ...c, adj: a, total: c.cents == null ? null : c.cents + a };
+  };
   const charges: ChargeLine[] = [
     ...chargesOn(input.lambCharges, input.week, (r) => r.per_lamb).map((c): ChargeLine => {
       const rate = String(c.per_lamb);
-      return { kind: "lamb", name: c.name, rate, lambs: head, cents: hasSheets ? roundToCents(toFixedInt(rate, 4) * BigInt(head), 4) : null };
+      return withAdj({ kind: "lamb" as const, name: c.name, rate, lambs: head, cents: hasSheets ? roundToCents(toFixedInt(rate, 4) * BigInt(head), 4) : null });
     }),
     ...chargesOn(input.percentCharges, input.week, (r) => r.percent).map((c): ChargeLine => {
       const percent = String(c.percent);
       // cents (2 decimals) x percent (4 decimals) / 100 = dollars with 8 decimals
-      return { kind: "percent", name: c.name, percent, income: incomeCents, cents: hasIncome ? roundToCents(incomeCents * toFixedInt(percent, 4), 8) : null };
+      return withAdj({
+        kind: "percent" as const,
+        name: c.name,
+        percent,
+        income: incomeCents,
+        cents: hasIncome ? roundToCents(incomeCents * toFixedInt(percent, 4), 8) : null,
+      });
     }),
   ];
-  const chargeCents = charges.reduce((s, c) => s + (c.cents ?? ZERO), ZERO);
+  const chargeCents = charges.reduce((s, c) => s + (c.total ?? ZERO), ZERO);
 
   const catName = new Map(input.categories.map((c) => [c.id, c]));
-  const byCat = new Map<string, { categoryId: string; name: string; entries: number; cents: bigint }>();
+  const byCat = new Map<string, ExpenseRow>();
+  const row = (id: string) =>
+    byCat.get(id) ?? { categoryId: id, name: catName.get(id)?.name ?? "Unknown category", entries: 0, cents: ZERO, adj: ZERO, total: ZERO };
   for (const e of input.expenses) {
-    const row = byCat.get(e.category_id) ?? { categoryId: e.category_id, name: catName.get(e.category_id)?.name ?? "Unknown category", entries: 0, cents: ZERO };
-    row.entries += 1;
-    row.cents += cents(e.amount);
-    byCat.set(e.category_id, row);
+    const r = row(e.category_id);
+    r.entries += 1;
+    r.cents += cents(e.amount);
+    byCat.set(e.category_id, r);
+  }
+  // A category can be adjusted with no entries yet.
+  for (const a of live) {
+    if (a.kind === "adjustment" && a.line_key?.startsWith("category:")) byCat.set(a.line_key.slice(9), row(a.line_key.slice(9)));
+  }
+  for (const r of byCat.values()) {
+    r.adj = adj(`category:${r.categoryId}`);
+    r.total = r.cents + r.adj;
   }
   const order = (id: string) => catName.get(id)?.sort ?? 999;
   const expenses = [...byCat.values()].sort((a, b) => order(a.categoryId) - order(b.categoryId) || a.name.localeCompare(b.name));
-  const expenseCents = expenses.reduce((s, r) => s + r.cents, ZERO);
+  const oneOffExpense = live.filter((a) => a.kind === "one_off" && a.side === "expense");
+  const oneOffExpenseCents = oneOffExpense.reduce((s, a) => s + cents(a.amount), ZERO);
+  const expenseCents = expenses.reduce((s, r) => s + r.total, ZERO) + oneOffExpenseCents;
 
   const totalExpense = hasSheets ? producerCents + chargeCents + expenseCents : null;
   const both = hasSheets && hasIncome && totalExpense != null;
@@ -306,21 +403,30 @@ export function weekPnl(input: {
   const carcass = input.pay.carcass; // 2 decimals
   return {
     income,
+    incomeCalc,
+    incomeAdj,
+    oneOffIncome,
+    oneOffIncomeCents,
     incomeCents,
     hasIncome,
     otherCents,
     projected: !!inv?.projected,
     head,
     hasSheets,
+    producerCalc,
+    producerAdj,
     producerCents,
     charges,
     chargeCents,
     expenses,
+    oneOffExpense,
+    oneOffExpenseCents,
     expenseCents,
     totalExpense,
     profit,
     profitPerHead: profit != null ? divRound(profit, BigInt(head)) : null,
     // total cents / carcass (2 decimals) = $/lb; x 10^4 keeps 4 decimals
     costPerCarcassLb: both && carcass > ZERO ? divRound(totalExpense * BigInt(10000), carcass) : null,
+    adjustments,
   };
 }

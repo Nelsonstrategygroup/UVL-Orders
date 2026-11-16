@@ -7,17 +7,19 @@
 
 import Link from "next/link";
 import Sheet from "@/components/Sheet";
+import type { ExpenseCategory, WeekPnl } from "@/lib/calc/pnl";
 import type { DetailItem, LineDetail } from "@/lib/calc/pnlDetail";
+import { AdjustForm, FileButton, lineOptions } from "./Adjustments";
 
 function Item({ it, depth }: { it: DetailItem; depth: number }) {
   return (
-    <li className={depth ? "border-t border-line py-1" : "border-t border-line py-2"}>
+    <li className={`${depth ? "border-t border-line py-1" : "border-t border-line py-2"} ${it.voided ? "muted" : ""}`}>
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className={depth ? "min-w-0 flex-1" : "min-w-0 flex-1 font-semibold"}>
-          {it.label}
+          <span className={it.voided ? "line-through" : ""}>{it.label}</span>
           {it.tag && <span className="tag ml-2">{it.tag}</span>}
         </span>
-        {it.amount && <span className="num">{it.amount}</span>}
+        {it.amount && <span className={`num ${it.voided ? "line-through" : ""}`}>{it.amount}</span>}
       </div>
       {it.math?.map((m, i) => (
         <div key={i} className="small num">
@@ -25,6 +27,14 @@ function Item({ it, depth }: { it: DetailItem; depth: number }) {
         </div>
       ))}
       {it.note && <div className="small muted">{it.note}</div>}
+      {it.files && (
+        <div className="small noprint flex flex-wrap gap-x-3">
+          {it.files.map((f) => (
+            <FileButton key={f.path} path={f.path} name={f.name} />
+          ))}
+        </div>
+      )}
+      {it.files && <div className="small print-only">Attached: {it.files.map((f) => f.name).join(", ")}</div>}
       {it.links && (
         <div className="small noprint flex flex-wrap gap-x-3">
           {it.links.map((l) => (
@@ -72,13 +82,40 @@ export function DetailBlock({ d, only }: { d: LineDetail; only?: string }) {
   );
 }
 
-/** Tap a P&L line: its detail in a sheet. */
-export function LineSheet({ details, only, week, onClose }: { details: LineDetail[]; only?: string; week: string; onClose: () => void }) {
+/** Tap a P&L line: its detail in a sheet, and a way to adjust it. */
+export function LineSheet({
+  details,
+  only,
+  week,
+  p,
+  categories,
+  onSaved,
+  onClose,
+}: {
+  details: LineDetail[];
+  only?: string;
+  week: string;
+  p: WeekPnl;
+  categories: ExpenseCategory[];
+  onSaved: () => void;
+  onClose: () => void;
+}) {
+  const options = lineOptions(p, categories);
   return (
     <Sheet title="How this was calculated" onClose={onClose}>
       <div className="grid gap-4">
         {details.map((d) => (
-          <DetailBlock key={d.key} d={d} only={only} />
+          <div key={d.key}>
+            <DetailBlock d={d} only={only} />
+            {d.lineKey && (
+              <details className="mt-2">
+                <summary className="copy">Adjust {d.lineKey === "category" ? "an expense category" : d.title.replace(/ \(projected\)$/, "")}</summary>
+                <div className="mt-2">
+                  <AdjustForm week={week} options={options} lineKey={d.lineKey} onSaved={onSaved} />
+                </div>
+              </details>
+            )}
+          </div>
         ))}
       </div>
       <p className="small muted mt-3 mb-0">
