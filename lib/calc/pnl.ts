@@ -9,6 +9,7 @@ import type { PriceUnit } from "../db/types";
 import { addDays } from "../dates";
 import { priceLines, type InvoiceLineRow, type InvoiceStatus, type PricedLine } from "./invoice";
 import { roundToCents, type WeekPay } from "./lambCost";
+import { stopsMade, type RunPay } from "./truck";
 import { toFixedInt, type ChargeRow, type PriceRow } from "./prices";
 
 const ZERO = BigInt(0);
@@ -23,6 +24,10 @@ export type ExpenseCategory = {
   method: CategoryMethod;
   income_base: "all" | "sales";
   base_category_ids: string[];
+  /** per_truck_run: which part of a run it counts. */
+  truck_part?: "driver_pay" | "fuel" | "maintenance" | null;
+  /** Delivery: truck (UVL's own, counts toward cost per stop) or freight. */
+  delivery_kind?: "truck" | "freight" | null;
   note: string;
 };
 export type ExpenseEntry = {
@@ -343,6 +348,14 @@ export type WeekPnl = {
   totalExpense: bigint | null;
   /** Delivery total − freight income (none yet). */
   netDelivery: bigint;
+  /** The week's truck runs, with pay and fuel. */
+  runs: RunPay[];
+  /** Truck categories (delivery_kind truck) added up. */
+  truckCents: bigint;
+  /** Stops made on the week's runs (regular + extra). */
+  truckStops: number;
+  /** Truck cost ÷ stops made; null with no stops. */
+  costPerStop: bigint | null;
   /** Box lb shipped this week (2 decimals, as hundredths). */
   lbShipped: bigint;
   /** Net delivery ÷ lb shipped, in ten-thousandths of a dollar; null with nothing shipped. */
@@ -393,6 +406,8 @@ export function weekPnl(input: {
   noProcessing?: boolean;
   /** Box lb shipped (the week's packed boxes). */
   lbShipped?: number | string;
+  /** The week's truck runs (runPay). */
+  runs?: RunPay[];
 }): WeekPnl {
   const adjustments = input.adjustments ?? [];
   const live = adjustments.filter((a) => !a.voided_at);
@@ -471,9 +486,20 @@ export function weekPnl(input: {
       case "percent_category":
         calc = ZERO; // after the others, below
         break;
-      case "per_truck_run":
-        waiting = "Comes with the truck run log.";
+      case "per_truck_run": {
+        const runs = input.runs ?? [];
+        if (c.truck_part === "driver_pay") {
+          const noRate = runs.filter((r) => r.pay == null);
+          if (noRate.length) [calc, waiting] = [null, `No pay rate for ${[...new Set(noRate.map((r) => r.driverName))].join(", ")} (P&L Setup).`];
+          else calc = runs.reduce((t, r) => t + r.pay!, ZERO);
+        } else if (c.truck_part === "fuel") calc = runs.reduce((t, r) => t + (r.fuel ?? ZERO), ZERO);
+        else if (c.truck_part === "maintenance") {
+          const n = runs.filter((r) => r.maintenance).length;
+          calc = n && rate?.amount != null ? cents(rate.amount) * BigInt(n) : ZERO;
+          if (n && rate == null) waiting = "No rate for this week (P&L Setup).";
+        } else waiting = "Pick which part of a run it counts (P&L Setup).";
         break;
+      }
       case "freight_weight":
       case "freight_pallet":
         waiting = "Comes with freight from pallets.";
@@ -549,6 +575,9 @@ export function weekPnl(input: {
   const totalExpense = producerKnown && lambsKnown ? groups.reduce((s, g) => s + g.total, ZERO) + oneOffExpenseCents : null;
 
   const netDelivery = groups.find((g) => g.name === "Delivery")!.total;
+  const runs = input.runs ?? [];
+  const truckCents = categories.filter((l) => input.categories.find((x) => x.id === l.categoryId)?.delivery_kind === "truck").reduce((t, l) => t + (l.total ?? ZERO), ZERO);
+  const truckStops = runs.reduce((t, r) => t + stopsMade(r), 0);
   const lbShipped = toFixedInt(input.lbShipped ?? 0, 2);
   const both = totalExpense != null && (hasIncome || noProcessing);
   const profit = both ? incomeCents - totalExpense : null;
@@ -573,6 +602,10 @@ export function weekPnl(input: {
     oneOffExpenseCents,
     totalExpense,
     netDelivery,
+    runs,
+    truckCents,
+    truckStops,
+    costPerStop: truckStops > 0 ? divRound(truckCents, BigInt(truckStops)) : null,
     lbShipped,
     // cents / lb (2 decimals) = $/lb; × 10^4 keeps 4 decimals
     deliveryPerLb: lbShipped > ZERO ? divRound(netDelivery * BigInt(10000), lbShipped) : null,

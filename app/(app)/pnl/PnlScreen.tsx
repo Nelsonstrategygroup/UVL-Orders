@@ -400,6 +400,18 @@ function Expenses({ p, onOpen }: { p: WeekPnl; onOpen: OnOpen }) {
                   </tr>
                   <tr>
                     <td>
+                      <Tap onClick={() => onOpen(["perstop"])}>Truck cost per stop</Tap>
+                      <span className="small muted block">
+                        {p.truckStops ? `${centsText(p.truckCents)} ÷ ${p.truckStops} stops on ${p.runs.length} ${p.runs.length === 1 ? "run" : "runs"}` : "No truck runs this week"}
+                        <Link href="/truck-runs" className="noprint ml-2">
+                          Truck runs
+                        </Link>
+                      </span>
+                    </td>
+                    <td className="num text-right align-top">{p.costPerStop != null ? centsText(p.costPerStop) : missing}</td>
+                  </tr>
+                  <tr>
+                    <td>
                       <Tap onClick={() => onOpen(["deliverylb"])}>Delivery cost per lb shipped</Tap>
                       <span className="small muted block">{p.lbShipped > BigInt(0) ? `${carcassText(p.lbShipped)} lb in packed boxes` : "Nothing packed"}</span>
                     </td>

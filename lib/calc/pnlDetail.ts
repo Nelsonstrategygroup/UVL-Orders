@@ -34,6 +34,7 @@ import {
   type PnlAdjustment,
   type WeekPnl,
 } from "./pnl";
+import type { RunPay } from "./truck";
 import { priceFor, priceSource, priceText, PRICE_UNIT_SHORT, type ChargeRow, type PriceRow } from "./prices";
 import { longDate, niceDate } from "../dates";
 
@@ -47,7 +48,8 @@ export type DetailItem = {
   amount?: string;
   links?: { label: string; href: string }[];
   /** Attached files (in the private pnl-files bucket). */
-  files?: { path: string; name: string }[];
+  /** bucket: where the file is (default pnl-files). */
+  files?: { path: string; name: string; bucket?: string }[];
   note?: string;
   /** A voided adjustment: shown, counts for nothing. */
   voided?: boolean;
@@ -355,6 +357,52 @@ function categoryDetail(x: DetailInput, l: CategoryLine): LineDetail {
       items.push(...of.map((c) => ({ label: c.name, amount: c.total != null ? centsText(c.total) : "Not worked out" })));
       break;
     }
+    case "per_truck_run": {
+      const runs = p.runs;
+      const part = cat?.truck_part;
+      const link = [{ label: "Truck runs", href: `/truck-runs?week=${x.week}` }];
+      const head = (r: RunPay) => `${day(r.run.run_date)} · ${r.driverName}`;
+      const stopsText = (r: RunPay) =>
+        [
+          `${plural(r.regular, "stop", "stops")}${r.extra ? `, ${plural(r.extra, "extra stop", "extra stops")}` : ""}${r.skipped ? `, ${r.skipped} skipped` : ""}`,
+          r.stops.length ? r.stops.map((s) => (s.kind === "stop" ? s.name : `${s.name} (${s.kind})`)).join(", ") : "",
+        ].filter(Boolean);
+      if (part === "driver_pay") {
+        how.push("Each run: the driver's base pay + per extra stop × extra stops − per skipped stop × skipped stops (rates per driver in P&L Setup, from the run's date).");
+        how.push(l.calc == null ? (l.waiting ?? "") : runs.length ? `${runs.map((r) => centsText(r.pay ?? BigInt(0))).join(" + ")} = ${centsText(l.calc)}` : "No truck runs this week.");
+        items.push(
+          ...runs.map((r) => ({
+            label: head(r),
+            amount: r.pay != null ? centsText(r.pay) : "No pay rate",
+            math: r.rate
+              ? [
+                  `${centsText(cents(r.rate.base))} base + ${r.extra} × ${centsText(cents(r.rate.per_extra))} − ${r.skipped} × ${centsText(cents(r.rate.per_skipped))} = ${centsText(r.pay!)}`,
+                  `${r.driverName}'s rate from ${short(r.rate.effective_from)}.`,
+                  ...stopsText(r),
+                ]
+              : [`No pay rate for ${r.driverName} on ${short(r.run.run_date)} (P&L Setup).`, ...stopsText(r)],
+            links: link,
+          })),
+        );
+      } else if (part === "fuel") {
+        how.push("Fuel entered on each truck run.");
+        how.push(runs.length ? `${runs.map((r) => (r.fuel != null ? centsText(r.fuel) : "not entered")).join(" + ")} = ${centsText(l.calc ?? BigInt(0))}` : "No truck runs this week.");
+        items.push(
+          ...runs.map((r) => ({
+            label: head(r),
+            amount: r.fuel != null ? centsText(r.fuel) : "Not entered",
+            files: r.run.receipt_path ? [{ path: r.run.receipt_path, name: r.run.receipt_name || "Receipt", bucket: "truck-files" }] : undefined,
+            links: link,
+          })),
+        );
+      } else if (part === "maintenance") {
+        const on = runs.filter((r) => r.maintenance);
+        how.push(`${l.rate?.amount != null ? centsText(cents(l.rate.amount)) : "The rate"} per run, for drivers with maintenance turned on${from(l.rate)}.`);
+        how.push(on.length ? `${on.length} × ${centsText(cents(l.rate?.amount ?? 0))} = ${centsText(l.calc ?? BigInt(0))}` : "No runs by a driver with maintenance on.");
+        items.push(...on.map((r) => ({ label: head(r), amount: centsText(cents(l.rate?.amount ?? 0)), links: link })));
+      } else how.push(l.waiting ?? "");
+      break;
+    }
     case "entered":
       how.push("Expenses entered on the Weekly P&L, dated in this week.");
       break;
@@ -452,6 +500,19 @@ function resultDetails(x: DetailInput): LineDetail[] {
       items: [],
     },
     {
+      key: "perstop",
+      title: "Truck cost per stop",
+      amount: p.costPerStop != null ? centsText(p.costPerStop) : null,
+      projected: false,
+      how: [
+        "The truck categories (driver pay, payroll taxes, fuel, maintenance, insurance, depreciation, repairs) ÷ stops made on this week's truck runs (regular + extra; skipped stops aren't made). Carrier freight isn't in it.",
+        p.costPerStop != null
+          ? `${centsText(p.truckCents)} ÷ ${plural(p.truckStops, "stop", "stops")} = ${centsText(p.costPerStop)} a stop`
+          : "Not worked out: no stops on truck runs this week.",
+      ],
+      items: [],
+    },
+    {
       key: "deliverylb",
       title: "Delivery cost per lb shipped",
       amount: p.deliveryPerLb != null ? `$${fixedRounded(p.deliveryPerLb, 4, 2)}` : null,
@@ -526,6 +587,10 @@ export function pnlChecks(x: {
   if (ii.packedCount) out.push({ key: "invoices", text: `${plural(ii.packedCount, "invoice", "invoices")} not finalized.` });
   if (ii.notPacked.length) out.push({ key: "notpacked", text: `${plural(ii.notPacked.length, "location", "locations")} with orders not packed: ${ii.notPacked.map((r) => r.name).join(", ")}.` });
   for (const n of ii.priceNeeded) out.push({ key: `price:${n.product}`, text: `${n.product} is packed but has no price (${n.locations.join(", ")}).` });
+  if (p.lbShipped > BigInt(0) && p.runs.length === 0 && p.categories.some((l) => l.method === "per_truck_run" && l.active))
+    out.push({ key: "truckrun", text: "Boxes were packed, but no truck run is entered for this week." });
+  for (const r of p.runs.filter((x) => x.fuel == null))
+    out.push({ key: `fuel:${r.run.id}`, text: `The truck run on ${short(r.run.run_date)} (${r.driverName}) has no fuel entered.` });
   if (!p.hasSheets && !p.noProcessing) out.push({ key: "sheet", text: "No weigh sheet entered for this week's kill." });
   if (p.hasSheets && x.lambCount != null && p.head !== x.lambCount)
     out.push({ key: "lambs", text: `The weigh sheets have ${p.head} lambs; This week's lamb count is ${x.lambCount}.` });
