@@ -8,7 +8,9 @@
 // Where something is missing it says so instead of showing a number. Every
 // line can be tapped for how it was calculated (Lucas, 11/15/26), the whole
 // week's detail prints from /pnl/detail, and the checks at the top list what's
-// missing before the week can be trusted.
+// missing before the week can be trusted. A week can be reviewed and closed
+// (stage C): a closed week shows the P&L saved when it was closed, with no
+// entry forms.
 
 import { useState } from "react";
 import Link from "next/link";
@@ -34,6 +36,7 @@ import { shrinkPhoto } from "@/lib/shrinkPhoto";
 import { AdjustmentsPanel, FileButton } from "./Adjustments";
 import { LineSheet } from "./Detail";
 import { usePnlWeek } from "./usePnlWeek";
+import { WeekStatus } from "./WeekStatus";
 
 /** Which line's detail is open: one or more lines, or one record under them. */
 type Open = { keys: string[]; only?: string } | null;
@@ -65,7 +68,8 @@ export default function PnlScreen() {
   );
   if (w.error) return <>{head}<p className="note bad">Couldn&apos;t load the P&amp;L: {w.error}</p></>;
   if (!w.ready) return <>{head}<p className="small muted">Loading...</p></>;
-  const { data, setup, pay, ii, p, details, checks, producerName, refresh } = w;
+  const { data, setup, pay, ii, p, details, checks, producerName, refresh, status, snapshot } = w;
+  const closed = !!status.closed;
   const chargeKeys = details.filter((d) => d.key.startsWith("charge:")).map((d) => d.key);
 
   return (
@@ -79,6 +83,7 @@ export default function PnlScreen() {
           p={p}
           categories={setup.categories}
           onSaved={refresh}
+          closed={closed}
           onClose={() => setOpen(null)}
         />
       )}
@@ -102,7 +107,9 @@ export default function PnlScreen() {
         <span className="noprint">Tap any line to see how it was calculated.</span>
       </p>
 
-      <Checks checks={checks} />
+      <WeekStatus week={week} status={status} checks={checks} snapshot={snapshot} refresh={refresh} />
+
+      {!closed && <Checks checks={checks} />}
 
       {p.projected && <ProjectedBanner ii={ii} />}
 
@@ -239,8 +246,9 @@ export default function PnlScreen() {
         )}
       </section>
 
-      <AdjustmentsPanel week={week} p={p} categories={setup.categories} refresh={refresh} />
+      <AdjustmentsPanel week={week} p={p} categories={setup.categories} refresh={refresh} closed={closed} />
 
+      {!closed && (
       <Entries
         week={week}
         income={data.income}
@@ -249,6 +257,7 @@ export default function PnlScreen() {
         categories={setup.categories}
         refresh={refresh}
       />
+      )}
     </div>
   );
 }

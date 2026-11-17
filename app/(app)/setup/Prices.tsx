@@ -33,7 +33,8 @@ import {
 } from "@/lib/calc/prices";
 import { groupLead, packedWith } from "@/lib/calc/packTogether";
 import { groupProducts } from "@/lib/calc/products";
-import { niceDate, todayISO } from "@/lib/dates";
+import { addDays, niceDate, todayISO, weekName } from "@/lib/dates";
+import { loadClosedWeeks } from "@/lib/db/pnl";
 import {
   deleteCharge,
   deletePrice,
@@ -46,6 +47,20 @@ import {
   type PriceCheck,
 } from "@/lib/db/invoicing";
 import type { CatalogProduct, Customer } from "@/lib/db/types";
+
+/**
+ * Saving a price or charge from a date: if weeks closed on the Weekly P&L
+ * have invoice dates on or after it, say so first (P&L stage C, Lucas 11/16/26).
+ */
+async function okForClosedWeeks(db: SupabaseClient, from: string, what: string): Promise<boolean> {
+  const hit = (await loadClosedWeeks(db)).filter((w) => addDays(w, 1) >= from).sort();
+  if (!hit.length) return true;
+  return confirm(
+    `This ${what} starts ${niceDate(from)}, which reaches back into ${hit.length === 1 ? "a week" : "weeks"} closed on the Weekly P&L: ${hit.map(weekName).join(", ")}.
+
+A closed week's P&L stays as it was when closed, and finalized invoices keep their prices. Save anyway?`,
+  );
+}
 
 const WHOLE = "Whole lambs";
 
@@ -343,6 +358,7 @@ function ProductRow({
       toast("Type a price like 9.50");
       return false;
     }
+    if (!(await okForClosedWeeks(db, from, "price"))) return false;
     const who = customerId ? ` for ${customerName(customerId)}` : "";
     return after(
       await setPrice(db, { productId: p.id, customerId, price: v, from }),
@@ -877,6 +893,7 @@ function ChargeRowEdit({
       toast("Type a charge like 40.00");
       return false;
     }
+    if (!(await okForClosedWeeks(db, from, "charge"))) return false;
     const who = customerId ? ` for ${customerName(customerId)}` : "";
     const err = await setCharge(db, {
       productId: p.id,

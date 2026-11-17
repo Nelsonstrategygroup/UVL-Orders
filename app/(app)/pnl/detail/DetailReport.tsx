@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import PrintHeader from "@/components/PrintHeader";
 import { useWeek, WeekBar } from "@/components/Week";
 import { isISODate, weekDays, weekName, niceDate } from "@/lib/dates";
+import { stamp } from "@/lib/calc/pnlDetail";
 import { DetailBlock } from "../Detail";
 import { usePnlWeek } from "../usePnlWeek";
 
@@ -30,7 +31,8 @@ export default function DetailReport() {
   );
   if (w.error) return <>{head}<p className="note bad">Couldn&apos;t load the P&amp;L: {w.error}</p></>;
   if (!w.ready) return <>{head}<p className="small muted">Loading...</p></>;
-  const { data, details, checks, p } = w;
+  const { data, details, checks, p, status } = w;
+  const closed = status.closed;
   const days = weekDays(week);
 
   return (
@@ -51,6 +53,28 @@ export default function DetailReport() {
         dates they apply from, and the records it came from.
         {p.projected && <b> Income and everything worked out from it are projected: not every invoice is finalized.</b>}
       </p>
+      {closed && (
+        <p className="note">
+          <b>Closed</b> by {closed.closed_by_name || "someone"}, {stamp(closed.closed_at)}. This is the P&amp;L as it was when the
+          week was closed.
+          {status.reviews.length > 0 && ` Reviewed by ${status.reviews.map((r) => `${r.name} (${stamp(r.reviewed_at)})`).join(", ")}.`}
+        </p>
+      )}
+      {!closed && status.reviews.length > 0 && (
+        <p className="small">Reviewed by {status.reviews.map((r) => `${r.name} (${stamp(r.reviewed_at)})`).join(", ")}.</p>
+      )}
+      {closed ? (
+        closed.missing.length > 0 && (
+          <div className="note warn">
+            <b>Closed with these still missing:</b>
+            <ul className="m-0 mt-1 pl-5">
+              {closed.missing.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+          </div>
+        )
+      ) : (
       <div className={checks.length ? "note warn" : "note bg-ok"}>
         {checks.length ? (
           <>
@@ -65,6 +89,7 @@ export default function DetailReport() {
           <b>Complete.</b>
         )}
       </div>
+      )}
       <div className="grid gap-4">
         {details.map((d) => (
           <div key={d.key} className="panel">

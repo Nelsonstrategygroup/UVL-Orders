@@ -235,3 +235,64 @@ export async function fileLink(db: SupabaseClient, path: string): Promise<string
   const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, 3600);
   return error ? null : data.signedUrl;
 }
+
+// ---------------------------------------------------------------------------
+// Reviewing, closing and reopening a week (P&L stage C, Lucas 11/16/26)
+// ---------------------------------------------------------------------------
+
+export type ClosedWeek = { week_id: string; closed_at: string; closed_by_name: string; snapshot: unknown; missing: string[] };
+export type WeekReview = { user_id: string; name: string; reviewed_at: string };
+export type WeekEvent = {
+  id: string;
+  action: "reviewed" | "review_removed" | "closed" | "reopened";
+  reason: string;
+  missing: string[];
+  by_name: string;
+  at: string;
+};
+export type WeekStatus = { closed: ClosedWeek | null; reviews: WeekReview[]; events: WeekEvent[]; admins: { id: string; name: string }[] };
+
+export async function loadWeekStatus(db: SupabaseClient, week: string): Promise<WeekStatus> {
+  const [c, r, e, a] = await Promise.all([
+    db.from("pnl_closed_weeks").select("week_id, closed_at, closed_by_name, snapshot, missing").eq("week_id", week).maybeSingle(),
+    db.from("pnl_week_reviews").select("user_id, name, reviewed_at").eq("week_id", week).order("reviewed_at"),
+    db.from("pnl_week_events").select("id, action, reason, missing, by_name, at").eq("week_id", week).order("at"),
+    db.from("profiles").select("id, display_name").eq("role", "admin").order("display_name"),
+  ]);
+  const err = c.error ?? r.error ?? e.error ?? a.error;
+  if (err) throw new Error(err.message);
+  return {
+    closed: (c.data as ClosedWeek | null) ?? null,
+    reviews: (r.data ?? []) as WeekReview[],
+    events: (e.data ?? []) as WeekEvent[],
+    admins: ((a.data ?? []) as { id: string; display_name: string }[]).map((x) => ({ id: x.id, name: x.display_name })),
+  };
+}
+
+/** Closed weeks (packing Mondays), newest first. Empty for anyone but an admin. */
+export async function loadClosedWeeks(db: SupabaseClient): Promise<string[]> {
+  const { data } = await db.from("pnl_closed_weeks").select("week_id").order("week_id", { ascending: false });
+  return ((data ?? []) as { week_id: string }[]).map((x) => x.week_id);
+}
+
+function weekPlain(e: { message: string; code?: string } | null): string | null {
+  if (!e) return null;
+  if (e.code === "42501" && /closed already|Only an admin/.test(e.message)) return e.message;
+  if (e.code === "23514" || e.code === "P0002") return e.message;
+  return plain(e);
+}
+
+export async function reviewWeek(db: SupabaseClient, week: string, reviewed: boolean): Promise<string | null> {
+  const { error } = await db.rpc("review_pnl_week", { p_week: week, p_reviewed: reviewed });
+  return weekPlain(error);
+}
+
+export async function closeWeek(db: SupabaseClient, week: string, snapshot: Record<string, unknown>, missing: string[]): Promise<string | null> {
+  const { error } = await db.rpc("close_pnl_week", { p_week: week, p_snapshot: snapshot, p_missing: missing });
+  return weekPlain(error);
+}
+
+export async function reopenWeek(db: SupabaseClient, week: string, reason: string): Promise<string | null> {
+  const { error } = await db.rpc("reopen_pnl_week", { p_week: week, p_reason: reason.trim() });
+  return weekPlain(error);
+}

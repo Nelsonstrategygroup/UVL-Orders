@@ -90,6 +90,7 @@ export function LineSheet({
   p,
   categories,
   onSaved,
+  closed = false,
   onClose,
 }: {
   details: LineDetail[];
@@ -98,6 +99,8 @@ export function LineSheet({
   p: WeekPnl;
   categories: ExpenseCategory[];
   onSaved: () => void;
+  /** A closed week: no adjusting. */
+  closed?: boolean;
   onClose: () => void;
 }) {
   const options = lineOptions(p, categories);
@@ -107,7 +110,7 @@ export function LineSheet({
         {details.map((d) => (
           <div key={d.key}>
             <DetailBlock d={d} only={only} />
-            {d.lineKey && (
+            {d.lineKey && !closed && (
               <details className="mt-2">
                 <summary className="copy">Adjust {d.lineKey === "category" ? "an expense category" : d.title.replace(/ \(projected\)$/, "")}</summary>
                 <div className="mt-2">
