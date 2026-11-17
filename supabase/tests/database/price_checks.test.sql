@@ -12,6 +12,11 @@ insert into public.profiles (id, display_name, role) values
   ('00000000-0000-4000-8000-00000000c1a1', 'Check Biller', 'billing'),
   ('00000000-0000-4000-8000-00000000c1a2', 'Check Packer', 'packing'),
   ('00000000-0000-4000-8000-00000000c1a3', 'Check Office', 'office');
+-- Since 11/17/26 these defaults changed: the test users get them as their own settings.
+insert into public.user_permissions (user_id, area, level) values
+  ('00000000-0000-4000-8000-00000000c1a1', 'prices', 2),
+  ('00000000-0000-4000-8000-00000000c1a3', 'prices', 1),
+  ('00000000-0000-4000-8000-00000000c1a3', 'invoices', 1);
 insert into public.customers (id, name) values ('00000000-0000-4000-8000-00000000c1c1', 'Check Market');
 
 select is((select count(*)::int from public.customer_price_checks c join public.customers s on s.id = c.customer_id

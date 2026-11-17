@@ -14,6 +14,8 @@ insert into public.profiles (id, display_name, role) values
   ('00000000-0000-4000-8000-00000000e5a1', 'Boss', 'admin'),
   ('00000000-0000-4000-8000-00000000e5a2', 'Biller', 'billing'),
   ('00000000-0000-4000-8000-00000000e5a3', 'Office', 'office');
+-- Since 11/17/26 an Operations lead has no invoices by default: this test user gets View as their own setting.
+insert into public.user_permissions (user_id, area, level) values ('00000000-0000-4000-8000-00000000e5a3', 'invoices', 1);
 insert into public.customers (id, name) values
   ('00000000-0000-4000-8000-00000000e5c1', 'Live A'),
   ('00000000-0000-4000-8000-00000000e5c2', 'Live B');
