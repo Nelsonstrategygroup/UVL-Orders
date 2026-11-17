@@ -351,6 +351,12 @@ function methodText(l: CategoryLine, p: WeekPnl): string {
     case "fixed_weekly":
       s = "Fixed weekly";
       break;
+    case "per_truck_run": {
+      const runs = `${p.runs.length} truck ${p.runs.length === 1 ? "run" : "runs"}`;
+      const on = p.runs.filter((r) => r.maintenance).length;
+      s = p.runs.length === 0 ? "No truck runs" : l.rate?.amount != null && on ? `${on} × ${rateText(l.rate.amount)} a run` : runs;
+      break;
+    }
     case "entered":
       s = entries || "None entered";
       return l.adj ? `${s}; ${signed(l.adj)} adjustments` : s;
