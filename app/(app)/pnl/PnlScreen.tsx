@@ -410,7 +410,9 @@ function methodText(l: CategoryLine, p: WeekPnl): string {
  */
 function Expenses({ p, checks, onOpen }: { p: WeekPnl; checks: PnlCheck[]; onOpen: OnOpen }) {
   const [all, setAll] = useState(false);
-  const expected = new Set(checks.map((c) => c.categoryId).filter(Boolean) as string[]);
+  // On a phone each group is one line until opened.
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const expected =new Set(checks.map((c) => c.categoryId).filter(Boolean) as string[]);
   const shown = (l: CategoryLine) => all || l.total == null || l.total !== BigInt(0) || expected.has(l.categoryId) || l.entries > 0 || l.adj !== BigInt(0);
   const hidden = p.categories.filter((l) => !shown(l)).length;
   const missing = <span className="muted">Not worked out</span>;
@@ -426,13 +428,21 @@ function Expenses({ p, checks, onOpen }: { p: WeekPnl; checks: PnlCheck[]; onOpe
               <tr className="font-bold">
                 <td className="pt-3">
                   <Tap onClick={() => onOpen(groupKeys(p, g.name))}>{g.complete ? g.name : `${g.name} so far`}</Tap>
+                  <button
+                    type="button"
+                    className="copy ml-2 px-2 sm:hidden"
+                    aria-label={openGroups.includes(g.name) ? `Fold ${g.name}` : `Open ${g.name}`}
+                    onClick={() => setOpenGroups(openGroups.includes(g.name) ? openGroups.filter((x) => x !== g.name) : [...openGroups, g.name])}
+                  >
+                    {openGroups.includes(g.name) ? "▾" : "▸"}
+                  </button>
                 </td>
                 <td className="num pt-3 text-right">{centsText(g.total)}</td>
               </tr>
               {g.lines.filter(shown).map((l) => {
                 const notEntered = expected.has(l.categoryId) && l.total === BigInt(0);
                 return (
-                  <tr key={l.categoryId}>
+                  <tr key={l.categoryId} className={openGroups.includes(g.name) ? "" : "max-sm:hidden"}>
                     <td className="pl-3">
                       <Tap onClick={() => onOpen([categoryKey(l.categoryId)])}>{l.name}</Tap>
                       {!l.active && <span className="tag ml-2">Retired</span>}
