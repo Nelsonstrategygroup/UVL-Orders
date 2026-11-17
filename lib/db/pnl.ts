@@ -22,12 +22,12 @@ function plain(e: { message: string; code?: string } | null): string | null {
 
 export type PnlSetup = { categories: ExpenseCategory[]; rates: CategoryRate[] };
 
-const CAT_COLS = "id, name, active, sort, group_name, method, income_base, base_category_ids, note, truck_part, delivery_kind";
+const CAT_COLS = "id, name, active, sort, group_name, method, income_base, base_category_ids, note, truck_part, delivery_kind, carrier, customer_ids, weight_basis";
 
 export async function loadPnlSetup(db: SupabaseClient): Promise<PnlSetup> {
   const [c, r] = await Promise.all([
     db.from("expense_categories").select(CAT_COLS).order("sort").order("name"),
-    db.from("expense_category_rates").select("id, category_id, effective_from, amount, percent, parts, note").order("effective_from", { ascending: false }),
+    db.from("expense_category_rates").select("id, category_id, effective_from, amount, percent, parts, per_box_lb, per_pallet_lb, note").order("effective_from", { ascending: false }),
   ]);
   const err = c.error ?? r.error;
   if (err) throw new Error(err.message);
@@ -51,7 +51,7 @@ export async function saveCategory(
 /** A category's rate from a date on (a rate already starting that day is replaced). */
 export async function saveRate(
   db: SupabaseClient,
-  r: { categoryId: string; from: string; amount?: string | null; percent?: string | null; parts?: RatePart[]; note: string },
+  r: { categoryId: string; from: string; amount?: string | null; percent?: string | null; parts?: RatePart[]; perBoxLb?: string | null; perPalletLb?: string | null; note: string },
 ): Promise<string | null> {
   const { error } = await withSource(
     db.from("expense_category_rates").upsert(
@@ -61,6 +61,8 @@ export async function saveRate(
         amount: r.amount ?? null,
         percent: r.percent ?? null,
         parts: r.parts ?? [],
+        per_box_lb: r.perBoxLb ?? null,
+        per_pallet_lb: r.perPalletLb ?? null,
         note: r.note.trim(),
       },
       { onConflict: "category_id,effective_from" },

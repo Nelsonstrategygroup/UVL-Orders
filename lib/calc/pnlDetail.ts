@@ -100,6 +100,8 @@ export type DetailInput = {
   /** The week's boxes by location and product (packing records). */
   boxes: { customer_id: string; product_id: string; weight: number | string }[];
   producerName: (id: string) => string;
+  /** A customer, location or chain by id (freight). */
+  customerName?: (id: string) => string;
   /** The product a box is billed under (products packed together bill as the first). */
   lead: (productId: string) => string;
   userName: (id: string | null | undefined) => string;
@@ -403,6 +405,41 @@ function categoryDetail(x: DetailInput, l: CategoryLine): LineDetail {
       } else how.push(l.waiting ?? "");
       break;
     }
+    case "freight_weight":
+    case "freight_pallet": {
+      const f = l.freight;
+      const where = (cat?.customer_ids ?? []).map((id) => x.customerName?.(id) ?? "a location").join(", ") || "no locations picked yet";
+      const lbText = (v: bigint) => `${carcassText(v)} lb`;
+      if (l.method === "freight_pallet") {
+        how.push(`${cat?.carrier || "The carrier"}: ${l.rate?.amount != null ? centsText(cents(l.rate.amount)) : "the rate"} per pallet carrying boxes for ${where}${from(l.rate)}.`);
+        how.push(f && l.rate ? `${plural(f.pallets.length, "pallet", "pallets")} × ${centsText(cents(l.rate.amount ?? 0))} = ${centsText(l.calc ?? BigInt(0))}` : (l.waiting ?? ""));
+      } else {
+        const gross = f?.basis === "gross";
+        const perBox = l.rate?.per_box_lb ?? 0;
+        const perPallet = l.rate?.per_pallet_lb ?? 0;
+        how.push(
+          `${cat?.carrier || "The carrier"}: ${l.rate?.amount != null ? `$${Number(l.rate.amount)}` : "the rate"} per lb of ${gross ? "gross" : "net (meat)"} weight of the boxes for ${where} on this week's pallets${from(l.rate)}.`,
+        );
+        if (f && l.rate) {
+          if (gross)
+            how.push(
+              `${lbText(f.netLb)} meat + ${f.boxes} boxes × ${Number(perBox)} lb + ${plural(f.pallets.length, "pallet", "pallets")} × ${Number(perPallet)} lb = ${lbText(f.lb)}${
+                Number(perBox) === 0 && Number(perPallet) === 0 ? " (no lb per box or pallet set yet: P&L Setup)" : ""
+              }`,
+            );
+          how.push(`${lbText(f.lb)} × $${Number(l.rate.amount)} = ${centsText(l.calc ?? BigInt(0))}`);
+        } else how.push(l.waiting ?? "");
+      }
+      items.push(
+        ...(f?.pallets ?? []).map((pl) => ({
+          label: `Pallet ${pl.tag}`,
+          amount: l.method === "freight_weight" ? lbText(pl.lb) : undefined,
+          note: `${plural(pl.boxes, "box", "boxes")} for ${pl.customerIds.map((id) => x.customerName?.(id) ?? "a location").join(", ")}`,
+        })),
+      );
+      if (f?.offPallet) items.push({ label: "Not on a pallet", tag: "Not counted", note: plural(f.offPallet, "box", "boxes") });
+      break;
+    }
     case "entered":
       how.push("Expenses entered on the Weekly P&L, dated in this week.");
       break;
@@ -500,6 +537,23 @@ function resultDetails(x: DetailInput): LineDetail[] {
       items: [],
     },
     {
+      key: "perpallet",
+      title: "Freight per pallet",
+      amount: p.freightPerPallet != null ? centsText(p.freightPerPallet) : null,
+      projected: false,
+      how: [
+        "The freight categories (carriers) ÷ pallets carrying boxes a carrier covers.",
+        p.freightPerPallet != null
+          ? `${centsText(p.freightCents)} ÷ ${plural(p.freightPallets, "pallet", "pallets")} = ${centsText(p.freightPerPallet)} a pallet`
+          : "Not worked out: no pallets for a freight carrier this week.",
+      ],
+      items: p.shipping.pallets.map((pl) => ({
+        label: `Pallet ${pl.tag}`,
+        tag: pl.byFreight ? "Freight" : pl.byTruck ? "Truck" : "Not covered",
+        note: pl.customerIds.map((id) => x.customerName?.(id) ?? "a location").join(", "),
+      })),
+    },
+    {
       key: "perstop",
       title: "Truck cost per stop",
       amount: p.costPerStop != null ? centsText(p.costPerStop) : null,
@@ -587,8 +641,17 @@ export function pnlChecks(x: {
   if (ii.packedCount) out.push({ key: "invoices", text: `${plural(ii.packedCount, "invoice", "invoices")} not finalized.` });
   if (ii.notPacked.length) out.push({ key: "notpacked", text: `${plural(ii.notPacked.length, "location", "locations")} with orders not packed: ${ii.notPacked.map((r) => r.name).join(", ")}.` });
   for (const n of ii.priceNeeded) out.push({ key: `price:${n.product}`, text: `${n.product} is packed but has no price (${n.locations.join(", ")}).` });
-  if (p.lbShipped > BigInt(0) && p.runs.length === 0 && p.categories.some((l) => l.method === "per_truck_run" && l.active))
-    out.push({ key: "truckrun", text: "Boxes were packed, but no truck run is entered for this week." });
+  // How it ships: each pallet is covered by a freight carrier or is on a truck run.
+  const nameOf = new Map(ii.rows.map((r) => [r.customerId, r.name]));
+  const names = (ids: string[]) => ids.map((id) => nameOf.get(id) ?? "a location").join(", ");
+  for (const pl of p.shipping.pallets.filter((x) => !x.byFreight && !x.byTruck))
+    out.push({ key: `ship:${pl.id}`, text: `Pallet ${pl.tag} (${names(pl.customerIds)}) is on no truck run, and no freight carrier covers it.` });
+  if (p.shipping.pallets.length === 0) {
+    const loose = p.shipping.locations.filter((l) => !l.byFreight && !l.byTruck).map((l) => l.customerId);
+    if (loose.length) out.push({ key: "truckrun", text: `Boxes packed for ${names(loose)} are on no truck run, and no freight carrier covers them.` });
+  }
+  for (const l of p.categories.filter((c) => c.freight && c.freight.offPallet > 0))
+    out.push({ key: `offpallet:${l.categoryId}`, text: `${l.name}: ${plural(l.freight!.offPallet, "box isn't", "boxes aren't")} on a pallet, so not counted.` });
   for (const r of p.runs.filter((x) => x.fuel == null))
     out.push({ key: `fuel:${r.run.id}`, text: `The truck run on ${short(r.run.run_date)} (${r.driverName}) has no fuel entered.` });
   if (!p.hasSheets && !p.noProcessing) out.push({ key: "sheet", text: "No weigh sheet entered for this week's kill." });

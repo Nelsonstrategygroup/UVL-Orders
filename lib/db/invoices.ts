@@ -192,13 +192,15 @@ export type InvoiceBox = {
   label_no: number | null;
   case_no: string | null;
   source: "weigh" | "scan" | "manual";
+  /** The pallet it's on (P&L freight). */
+  pallet_id?: string | null;
 };
 
 /** Every box packed for a customer this week, from the box records as they are now. */
 export async function loadWeekBoxes(db: SupabaseClient, week: string): Promise<InvoiceBox[]> {
   const { data, error } = await db
     .from("packing_weights")
-    .select("id, product_id, weight, lot, pack_date, serial, label_no, case_no, source, orders!inner (customer_id, week_id)")
+    .select("id, product_id, weight, lot, pack_date, serial, label_no, case_no, source, pallet_id, orders!inner (customer_id, week_id)")
     .eq("orders.week_id", week);
   if (error) throw new Error(error.message);
   type R = Omit<InvoiceBox, "customer_id"> & { orders: { customer_id: string } };

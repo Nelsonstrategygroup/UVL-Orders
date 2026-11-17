@@ -115,6 +115,8 @@ function spec(table: string, n: Names): FieldSpec[] {
               ? (v as { label: string; amount: number; per: string }[]).map((q) => `${q.label} ${money(q.amount)}${q.per === "year" ? " a year" : " a week"}`).join(" + ")
               : "",
         ],
+        ["per_box_lb", "Lb a box (gross)", (v) => (Number(v) ? `${Number(v)} lb` : "")],
+        ["per_pallet_lb", "Lb a pallet (gross)", (v) => (Number(v) ? `${Number(v)} lb` : "")],
         ["effective_from", "From", date],
         ["note", "Note"],
       ];
@@ -123,6 +125,9 @@ function spec(table: string, n: Names): FieldSpec[] {
         ["name", "Name"],
         ["group_name", "Group"],
         ["method", "Method", (v) => METHOD_LABEL[s(v) as CategoryMethod] ?? s(v)],
+        ["carrier", "Carrier"],
+        ["weight_basis", "Weight", (v, r) => (r.method === "freight_weight" ? (v === "net" ? "net" : "gross") : "")],
+        ["customer_ids", "Locations", (v) => (Array.isArray(v) && v.length ? v.map((id) => n.customer(s(id))).join(", ") : "")],
         ["income_base", "Percent of", (v, r) => (r.method === "percent_income" ? (v === "sales" ? "sales only" : "all income") : "")],
         ["active", "In use", (v) => (v === false ? "retired" : "yes")],
       ];

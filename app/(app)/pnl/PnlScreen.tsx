@@ -351,6 +351,17 @@ function methodText(l: CategoryLine, p: WeekPnl): string {
     case "fixed_weekly":
       s = "Fixed weekly";
       break;
+    case "freight_pallet":
+      s = l.freight && r?.amount != null ? `${l.freight.pallets.length} ${l.freight.pallets.length === 1 ? "pallet" : "pallets"} × ${rateText(r.amount)}` : "";
+      break;
+    case "freight_weight":
+      s =
+        l.freight && r?.amount != null
+          ? `${carcassText(l.freight.lb)} lb ${l.freight.basis === "gross" ? "gross" : "net"} × $${Number(r.amount)}${
+              l.freight.basis === "gross" && !Number(r.per_box_lb ?? 0) && !Number(r.per_pallet_lb ?? 0) ? " (no lb per box or pallet set yet)" : ""
+            }`
+          : "";
+      break;
     case "per_truck_run": {
       const runs = `${p.runs.length} truck ${p.runs.length === 1 ? "run" : "runs"}`;
       const on = p.runs.filter((r) => r.maintenance).length;
@@ -403,6 +414,15 @@ function Expenses({ p, onOpen }: { p: WeekPnl; onOpen: OnOpen }) {
                       <span className="small muted block">Delivery − freight income (none set up)</span>
                     </td>
                     <td className="num text-right">{centsText(p.netDelivery)}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <Tap onClick={() => onOpen(["perpallet"])}>Freight per pallet</Tap>
+                      <span className="small muted block">
+                        {p.freightPallets ? `${centsText(p.freightCents)} ÷ ${p.freightPallets} ${p.freightPallets === 1 ? "pallet" : "pallets"}` : "No pallets for a freight carrier"}
+                      </span>
+                    </td>
+                    <td className="num text-right align-top">{p.freightPerPallet != null ? centsText(p.freightPerPallet) : missing}</td>
                   </tr>
                   <tr>
                     <td>
