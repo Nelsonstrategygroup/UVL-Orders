@@ -27,16 +27,20 @@ import {
 } from "@/lib/calc/pnl";
 import { niceDate, packingMonday, todayISO, weekName } from "@/lib/dates";
 import { deleteRate, loadClosedWeeks, loadPnlSetup, saveCategory, saveRate, type PnlSetup } from "@/lib/db/pnl";
+import TruckDrivers from "./TruckDrivers";
 
 const TABLES = ["expense_categories", "expense_category_rates"];
 const dateText = (d: string) => `${niceDate(d)}, ${d.slice(0, 4)}`;
 /** Methods that can be picked today; the others come with the truck run log and freight from pallets. */
-const PICKABLE: CategoryMethod[] = ["entered", "per_lamb", "percent_income", "fixed_weekly", "percent_category", "weigh_sheets"];
+const PICKABLE: CategoryMethod[] = ["entered", "per_lamb", "percent_income", "fixed_weekly", "percent_category", "per_truck_run", "weigh_sheets"];
 const HAS_RATE: CategoryMethod[] = ["per_lamb", "percent_income", "fixed_weekly", "percent_category"];
+/** A category with rates: these methods, and truck maintenance (per run). */
+const hasRate = (c: ExpenseCategory) => HAS_RATE.includes(c.method) || (c.method === "per_truck_run" && c.truck_part === "maintenance");
 
 /** A rate in words: "$1.80 per lamb", "4%", "$110.46 a week". */
 function rateWords(method: CategoryMethod, r: CategoryRate): string {
   if (method === "per_lamb") return `${rateText(r.amount ?? 0)} per lamb`;
+  if (method === "per_truck_run") return `${rateText(r.amount ?? 0)} per run`;
   if (method === "percent_income" || method === "percent_category") return `${factorText(r.percent ?? 0)}%`;
   if (method === "fixed_weekly") return `${centsText(weeklyFromParts(r.parts ?? []).cents)} a week`;
   return r.amount != null ? rateText(r.amount) : "";
@@ -53,7 +57,12 @@ export default function PnlSetupCards() {
     refresh();
     return !err;
   };
-  return <Categories data={data} after={after} />;
+  return (
+    <>
+      <Categories data={data} after={after} />
+      <TruckDrivers />
+    </>
+  );
 }
 
 type After = (err: string | null, ok: string) => boolean;
@@ -134,7 +143,7 @@ function CategoryRow({ c, data, thisWeek, after }: { c: ExpenseCategory; data: P
   const summary = [
     METHOD_LABEL[c.method],
     c.method === "percent_income" ? (c.income_base === "sales" ? "of sales" : "of all income") : "",
-    HAS_RATE.includes(c.method) ? (now ? `this week ${rateWords(c.method, now)}` : "no rate this week") : "",
+    hasRate(c) ? (now ? `this week ${rateWords(c.method, now)}` : "no rate this week") : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -148,7 +157,7 @@ function CategoryRow({ c, data, thisWeek, after }: { c: ExpenseCategory; data: P
         </summary>
         <div className="mt-2 grid gap-3 pl-4">
           <CategoryForm c={c} data={data} after={after} />
-          {HAS_RATE.includes(c.method) && <Rates c={c} rates={rates} now={now} after={after} />}
+          {hasRate(c) && <Rates c={c} rates={rates} now={now} after={after} />}
           {c.method === "weigh_sheets" && (
             <p className="small m-0">The rate and live factor are under Pricing and the producers above; each weigh sheet keeps its own.</p>
           )}
@@ -167,6 +176,8 @@ function CategoryForm({ c, data, after }: { c: ExpenseCategory; data: PnlSetup; 
   const [base, setBase] = useState<"all" | "sales">(c.income_base);
   const [of, setOf] = useState<string[]>(c.base_category_ids);
   const [sort, setSort] = useState(String(c.sort));
+  const [part, setPart] = useState(c.truck_part ?? "driver_pay");
+  const [kind, setKind] = useState(c.delivery_kind ?? "");
   const methods = PICKABLE.includes(c.method) ? PICKABLE : [c.method, ...PICKABLE];
   const others = data.categories.filter((x) => x.id !== c.id && x.method !== "percent_category");
 
@@ -181,6 +192,8 @@ function CategoryForm({ c, data, after }: { c: ExpenseCategory; data: PnlSetup; 
         income_base: base,
         base_category_ids: method === "percent_category" ? of : c.base_category_ids,
         sort: Number.isFinite(Number(sort)) ? Math.round(Number(sort)) : c.sort,
+        truck_part: method === "per_truck_run" ? (part as "driver_pay" | "fuel" | "maintenance") : null,
+        delivery_kind: group === "Delivery" && kind ? (kind as "truck" | "freight") : null,
       }),
       `Saved ${name.trim()}`,
     );
@@ -222,6 +235,30 @@ function CategoryForm({ c, data, after }: { c: ExpenseCategory; data: PnlSetup; 
           <input className="field num w-20!" inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value)} />
         </label>
       </div>
+      {(method === "per_truck_run" || group === "Delivery") && (
+        <div className="flex flex-wrap items-end gap-2">
+          {method === "per_truck_run" && (
+            <label className="grid gap-1">
+              <span className="lbl m-0">From each run</span>
+              <select className="field" value={part} onChange={(e) => setPart(e.target.value as "driver_pay" | "fuel" | "maintenance")}>
+                <option value="driver_pay">Driver pay (the driver&apos;s rates, below)</option>
+                <option value="fuel">Fuel (entered on the run)</option>
+                <option value="maintenance">Maintenance (rate per run, drivers with it on)</option>
+              </select>
+            </label>
+          )}
+          {group === "Delivery" && (
+            <label className="grid gap-1">
+              <span className="lbl m-0">Truck or freight</span>
+              <select className="field" value={kind} onChange={(e) => setKind(e.target.value)}>
+                <option value="truck">Our truck (counts toward cost per stop)</option>
+                <option value="freight">Freight (carriers)</option>
+                <option value="">Neither</option>
+              </select>
+            </label>
+          )}
+        </div>
+      )}
       {method === "percent_income" && (
         <label className="grid gap-1">
           <span className="lbl m-0">Percent of</span>
@@ -378,7 +415,7 @@ function Rates({ c, rates, now, after }: { c: ExpenseCategory; rates: CategoryRa
           </label>
           {!fixed && (
             <label className="grid gap-1">
-              <span className="lbl m-0">{isPercent ? "Percent" : "$ per lamb"}</span>
+              <span className="lbl m-0">{isPercent ? "Percent" : c.method === "per_truck_run" ? "$ per run" : "$ per lamb"}</span>
               <input className="field num w-24!" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
           )}

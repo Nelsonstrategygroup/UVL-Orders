@@ -30,7 +30,7 @@ function Item({ it, depth }: { it: DetailItem; depth: number }) {
       {it.files && (
         <div className="small noprint flex flex-wrap gap-x-3">
           {it.files.map((f) => (
-            <FileButton key={f.path} path={f.path} name={f.name} />
+            <FileButton key={f.path} path={f.path} name={f.name} bucket={f.bucket} />
           ))}
         </div>
       )}

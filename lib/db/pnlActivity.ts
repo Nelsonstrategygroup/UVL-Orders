@@ -20,6 +20,7 @@ const COLS = "id, table_name, row_id, action, old_data, new_data, user_id, at, s
 export const PAGE = 300;
 
 type Sheet = { id: string; producer_id: string; kill_date: string; week_id: string };
+type Run = { id: string; run_date: string; driver_id: string; week_id: string };
 
 export type Activity = {
   rows: AuditRow[];
@@ -27,6 +28,8 @@ export type Activity = {
   rates: RateRow[];
   sheets: Map<string, Sheet>;
   expenseWeeks: Map<string, string>;
+  runs: Map<string, Run>;
+  drivers: Map<string, string>;
   /** Every week: more older rows to show (the id to show them before). */
   more: number | null;
 };
@@ -52,11 +55,17 @@ async function currentRates(db: SupabaseClient): Promise<RateRow[]> {
 }
 
 export async function loadActivity(db: SupabaseClient, week: string | null, before: number | null = null): Promise<Activity> {
-  const [rates, sheetRes, expRes] = await Promise.all([
+  const [rates, sheetRes, expRes, runRes, driverRes] = await Promise.all([
     currentRates(db),
     db.from("kill_sheets").select("id, producer_id, kill_date, week_id"),
     db.from("pnl_expenses").select("id, week_id"),
+    db.from("truck_runs").select("id, run_date, driver_id, week_id"),
+    db.from("truck_drivers").select("id, name"),
   ]);
+  const runs = new Map(ok(runRes as { data: Run[] | null; error: { message: string } | null }).map((r) => [r.id, r]));
+  const drivers = new Map(
+    ok(driverRes as { data: { id: string; name: string }[] | null; error: { message: string } | null }).map((x) => [x.id, x.name]),
+  );
   const sheets = new Map(ok(sheetRes as { data: Sheet[] | null; error: { message: string } | null }).map((s) => [s.id, s]));
   const expenseWeeks = new Map(
     ok(expRes as { data: { id: string; week_id: string }[] | null; error: { message: string } | null }).map((e) => [e.id, e.week_id]),
@@ -67,6 +76,8 @@ export async function loadActivity(db: SupabaseClient, week: string | null, befo
       const x = d(r);
       if (r.table_name === "kill_sheets" && !sheets.has(String(x.id))) sheets.set(String(x.id), x as unknown as Sheet);
       if (r.table_name === "pnl_expenses" && !expenseWeeks.has(String(x.id))) expenseWeeks.set(String(x.id), String(x.week_id));
+      if (r.table_name === "truck_runs" && !runs.has(String(x.id))) runs.set(String(x.id), x as unknown as Run);
+      if (r.table_name === "truck_drivers" && !drivers.has(String(x.id))) drivers.set(String(x.id), String(x.name));
     }
   };
 
@@ -76,7 +87,7 @@ export async function loadActivity(db: SupabaseClient, week: string | null, befo
     const [rowsRes, evRes, sheetLog] = await Promise.all([
       q,
       db.from("pnl_week_events").select("id, week_id, action, reason, missing, by_name, at").order("at", { ascending: false }).limit(PAGE),
-      db.from("audit_log").select(COLS).eq("table_name", "kill_sheets").eq("action", "delete"),
+      db.from("audit_log").select(COLS).in("table_name", ["kill_sheets", "truck_runs", "truck_drivers"]).eq("action", "delete"),
     ]);
     const rows = ok(rowsRes as { data: AuditRow[] | null; error: { message: string } | null });
     remember(ok(sheetLog as { data: AuditRow[] | null; error: { message: string } | null }));
@@ -87,6 +98,8 @@ export async function loadActivity(db: SupabaseClient, week: string | null, befo
       rates,
       sheets,
       expenseWeeks,
+      runs,
+      drivers,
       more: rows.length === PAGE ? rows[rows.length - 1].id : null,
     };
   }
@@ -112,12 +125,21 @@ export async function loadActivity(db: SupabaseClient, week: string | null, befo
       ...[...expenseWeeks].filter(([, w]) => w === week).map(([id]) => id),
     ]),
   ];
-  const [sheetRows, fileRows] = await Promise.all([
+  const runIds = [
+    ...new Set([
+      ...weekRows.filter((r) => r.table_name === "truck_runs").flatMap((r) => both(r, "id")),
+      ...[...runs.values()].filter((r) => r.week_id === week).map((r) => r.id),
+    ]),
+  ];
+  const [sheetRows, fileRows, stopRows] = await Promise.all([
     sheetIds.length
       ? db.from("audit_log").select(COLS).in("table_name", [...SHEET_TABLES]).or(inList("sheet_id", sheetIds))
       : Promise.resolve({ data: [], error: null }),
     expenseIds.length
       ? db.from("audit_log").select(COLS).eq("table_name", "pnl_expense_files").or(inList("expense_id", expenseIds))
+      : Promise.resolve({ data: [], error: null }),
+    runIds.length
+      ? db.from("audit_log").select(COLS).eq("table_name", "truck_run_stops").or(inList("run_id", runIds))
       : Promise.resolve({ data: [], error: null }),
   ]);
   const rateRows = ok(rateRes as { data: AuditRow[] | null; error: { message: string } | null }).filter((r) =>
@@ -129,12 +151,15 @@ export async function loadActivity(db: SupabaseClient, week: string | null, befo
       ...weekRows,
       ...ok(sheetRows as { data: AuditRow[] | null; error: { message: string } | null }),
       ...ok(fileRows as { data: AuditRow[] | null; error: { message: string } | null }),
+      ...ok(stopRows as { data: AuditRow[] | null; error: { message: string } | null }),
       ...rateRows,
     ],
     events: ok(evRes as { data: WeekEventRow[] | null; error: { message: string } | null }),
     rates,
     sheets,
     expenseWeeks,
+    runs,
+    drivers,
     more: null,
   };
 }

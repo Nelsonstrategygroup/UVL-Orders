@@ -22,6 +22,8 @@ import { loadCharges, loadPrices } from "@/lib/db/invoicing";
 import { loadLambCostSetup } from "@/lib/db/lambCost";
 import { loadPnlSetup, loadWeekAdjustments, loadWeekEntries, loadWeekExpenseFiles, loadWeekInvoiceData, loadWeekStatus } from "@/lib/db/pnl";
 import { loadWeekSheets } from "@/lib/db/weighSheets";
+import { loadDrivers, loadWeekRuns } from "@/lib/db/trucks";
+import { runPay } from "@/lib/calc/truck";
 import { weekCalc } from "@/lib/weekCalc";
 
 // Invoices, packing and prices too: projected income follows packing as it happens.
@@ -40,13 +42,18 @@ const TABLES = [
   "carcass_charges",
   "pnl_adjustments",
   "pnl_expense_files",
+  "truck_runs",
+  "truck_run_stops",
+  "truck_drivers",
+  "truck_driver_rates",
+  "weeks",
 ];
 const SETUP_TABLES = ["expense_categories", "expense_category_rates"];
 
 const STATUS_TABLES = ["pnl_closed_weeks", "pnl_week_reviews", "pnl_week_events"];
 
 async function loadWeek(db: SupabaseClient, week: string) {
-  const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles] = await Promise.all([
+  const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles, weekRuns, drivers] = await Promise.all([
     loadWeekEntries(db, week),
     loadWeekSheets(db, week),
     db.from("weeks").select("invoice_number, no_processing").eq("id", week).maybeSingle(),
@@ -57,6 +64,8 @@ async function loadWeek(db: SupabaseClient, week: string) {
     db.from("profiles").select("id, display_name"),
     loadWeekAdjustments(db, week),
     loadWeekExpenseFiles(db, week),
+    loadWeekRuns(db, week),
+    loadDrivers(db),
   ]);
   return {
     ...entries,
@@ -69,6 +78,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     boxes,
     adjustments,
     expenseFiles,
+    runs: weekRuns.runs.map((r) => runPay(r, weekRuns.stops, drivers.drivers, drivers.rates)),
     people: new Map(((people.data ?? []) as { id: string; display_name: string }[]).map((x) => [x.id, x.display_name])),
   };
 }
@@ -140,6 +150,7 @@ export function usePnlWeek(week: string) {
     invoices: ii,
     adjustments: data.adjustments,
     noProcessing: data.noProcessing,
+    runs: data.runs,
     lbShipped: data.boxes.reduce((s, b) => s + Number(b.weight), 0).toFixed(2),
   });
   const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";

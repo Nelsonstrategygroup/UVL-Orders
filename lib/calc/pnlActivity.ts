@@ -22,12 +22,21 @@ export type AuditRow = {
 };
 
 /** The change log tables the activity page reads. */
-export const RATE_TABLES = ["prices", "carcass_charges", "expense_category_rates", "producer_rates", "lamb_cost_settings"] as const;
+export const RATE_TABLES = ["prices", "carcass_charges", "expense_category_rates", "producer_rates", "lamb_cost_settings", "truck_driver_rates"] as const;
 /** Rate tables that are gone (charges became expense categories, 11/16/26): their log rows still show. */
 export const OLD_RATE_TABLES = ["pnl_lamb_charges", "pnl_percent_charges"] as const;
-export const WEEK_TABLES = ["kill_sheets", "pnl_expenses", "pnl_income", "pnl_adjustments"] as const;
+export const WEEK_TABLES = ["kill_sheets", "pnl_expenses", "pnl_income", "pnl_adjustments", "truck_runs"] as const;
 export const SHEET_TABLES = ["kill_lambs", "kill_adjustments"] as const;
-export const ACTIVITY_TABLES = [...RATE_TABLES, ...OLD_RATE_TABLES, ...WEEK_TABLES, ...SHEET_TABLES, "pnl_expense_files", "expense_categories"] as const;
+export const ACTIVITY_TABLES = [
+  ...RATE_TABLES,
+  ...OLD_RATE_TABLES,
+  ...WEEK_TABLES,
+  ...SHEET_TABLES,
+  "pnl_expense_files",
+  "expense_categories",
+  "truck_run_stops",
+  "truck_drivers",
+] as const;
 
 /** Names for the ids in the log. */
 export type Names = {
@@ -41,6 +50,10 @@ export type Names = {
   sheet: (id: string) => { label: string; week: string | null };
   /** An expense by id: its week. */
   expenseWeek: (id: string) => string | null;
+  /** A truck driver by id. */
+  driver?: (id: string) => string;
+  /** A truck run by id: "Nov 17, Sam", and its week. */
+  run?: (id: string) => { label: string; week: string | null };
 };
 
 export type Field = { label: string; old?: string; new?: string };
@@ -178,6 +191,33 @@ function spec(table: string, n: Names): FieldSpec[] {
       ];
     case "pnl_expense_files":
       return [["name", "File"]];
+    case "truck_runs":
+      return [
+        ["run_date", "Date", date],
+        ["driver_id", "Driver", (v) => n.driver?.(s(v)) ?? "a driver"],
+        ["fuel", "Fuel", money],
+        ["note", "Note"],
+        ["receipt_name", "Receipt"],
+      ];
+    case "truck_run_stops":
+      return [
+        ["name", "Stop"],
+        ["kind", "Kind", (v) => ({ stop: "stop", extra: "extra stop", skipped: "skipped" })[s(v)] ?? s(v)],
+      ];
+    case "truck_drivers":
+      return [
+        ["name", "Name"],
+        ["maintenance", "Maintenance", (v) => (v ? "on" : "off")],
+        ["active", "Drives", (v) => (v === false ? "no longer" : "yes")],
+      ];
+    case "truck_driver_rates":
+      return [
+        ["base", "A run", money],
+        ["per_extra", "Per extra stop", money],
+        ["per_skipped", "Per skipped stop", money],
+        ["effective_from", "From", date],
+        ["note", "Note"],
+      ];
     default:
       return [];
   }
@@ -222,6 +262,14 @@ function title(table: string, d: Record<string, unknown>, n: Names): string {
     }
     case "pnl_expense_files":
       return "File on an expense";
+    case "truck_runs":
+      return `Truck run: ${date(d.run_date)}, ${n.driver?.(s(d.driver_id)) ?? "a driver"}`;
+    case "truck_run_stops":
+      return `Truck run stop: ${n.run?.(s(d.run_id)).label ?? "a run"}`;
+    case "truck_drivers":
+      return `Truck driver: ${s(d.name)}`;
+    case "truck_driver_rates":
+      return `Driver pay rate: ${n.driver?.(s(d.driver_id)) ?? "a driver"}`;
     default:
       return table;
   }
@@ -232,6 +280,7 @@ export function rowWeek(table: string, d: Record<string, unknown>, n: Names): st
   if ((WEEK_TABLES as readonly string[]).includes(table)) return (d.week_id as string | null) ?? null;
   if ((SHEET_TABLES as readonly string[]).includes(table)) return n.sheet(s(d.sheet_id)).week;
   if (table === "pnl_expense_files") return n.expenseWeek(s(d.expense_id));
+  if (table === "truck_run_stops") return n.run?.(s(d.run_id)).week ?? null;
   return null;
 }
 
@@ -249,6 +298,8 @@ export function rateKey(table: string, d: Record<string, unknown>): string {
       return s(d.producer_id);
     case "expense_category_rates":
       return s(d.category_id);
+    case "truck_driver_rates":
+      return s(d.driver_id);
     default:
       return "";
   }
@@ -278,7 +329,7 @@ export function rangeText({ from, to }: { from: string; to: string | null }): st
 /** The days in a week a rate is looked up on (prices: the invoice date; weigh sheets: the kill days; charges: the Monday). */
 export function weekRateDays(table: string, week: string): { from: string; to: string } {
   if (table === "prices" || table === "carcass_charges") return { from: addDays(week, 1), to: addDays(week, 1) };
-  if (table === "producer_rates" || table === "lamb_cost_settings") return { from: weekDays(week)[0], to: weekEnd(week) };
+  if (table === "producer_rates" || table === "lamb_cost_settings" || table === "truck_driver_rates") return { from: weekDays(week)[0], to: weekEnd(week) };
   return { from: week, to: week };
 }
 
@@ -297,6 +348,7 @@ const APPLIES_NOTE: Record<string, string> = {
   pnl_lamb_charges: "weeks",
   pnl_percent_charges: "weeks",
   expense_category_rates: "weeks",
+  truck_driver_rates: "truck runs dated",
 };
 
 /** One change log row in words. null: nothing the P&L shows changed. */
@@ -326,7 +378,7 @@ export function describe(row: AuditRow, n: Names, current: RateRow[]): Entry | n
   const isRate = [...RATE_TABLES, ...OLD_RATE_TABLES].includes(row.table_name as (typeof RATE_TABLES)[number]);
   const range = isRate ? rateRange(row.table_name, d, current) : null;
   const applies = range ? `${APPLIES_NOTE[row.table_name] ?? ""} ${rangeText(range).replace(/^From/, "from")}`.trim() : null;
-  const parent = (SHEET_TABLES as readonly string[]).includes(row.table_name) ? s(d.sheet_id) : "";
+  const parent = (SHEET_TABLES as readonly string[]).includes(row.table_name) ? s(d.sheet_id) : row.table_name === "truck_run_stops" ? s(d.run_id) : "";
   return {
     id: `a${row.id}`,
     at: row.at,

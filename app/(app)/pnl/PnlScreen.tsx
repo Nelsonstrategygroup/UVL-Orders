@@ -351,6 +351,12 @@ function methodText(l: CategoryLine, p: WeekPnl): string {
     case "fixed_weekly":
       s = "Fixed weekly";
       break;
+    case "per_truck_run": {
+      const runs = `${p.runs.length} truck ${p.runs.length === 1 ? "run" : "runs"}`;
+      const on = p.runs.filter((r) => r.maintenance).length;
+      s = p.runs.length === 0 ? "No truck runs" : l.rate?.amount != null && on ? `${on} × ${rateText(l.rate.amount)} a run` : runs;
+      break;
+    }
     case "entered":
       s = entries || "None entered";
       return l.adj ? `${s}; ${signed(l.adj)} adjustments` : s;
@@ -397,6 +403,18 @@ function Expenses({ p, onOpen }: { p: WeekPnl; onOpen: OnOpen }) {
                       <span className="small muted block">Delivery − freight income (none set up)</span>
                     </td>
                     <td className="num text-right">{centsText(p.netDelivery)}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <Tap onClick={() => onOpen(["perstop"])}>Truck cost per stop</Tap>
+                      <span className="small muted block">
+                        {p.truckStops ? `${centsText(p.truckCents)} ÷ ${p.truckStops} stops on ${p.runs.length} ${p.runs.length === 1 ? "run" : "runs"}` : "No truck runs this week"}
+                        <Link href="/truck-runs" className="noprint ml-2">
+                          Truck runs
+                        </Link>
+                      </span>
+                    </td>
+                    <td className="num text-right align-top">{p.costPerStop != null ? centsText(p.costPerStop) : missing}</td>
                   </tr>
                   <tr>
                     <td>

@@ -76,6 +76,8 @@ export default function ActivityScreen() {
   const pages = [data, ...older];
   const sheets = new Map(pages.flatMap((p) => [...p.sheets]));
   const expenseWeeks = new Map(pages.flatMap((p) => [...p.expenseWeeks]));
+  const runs = new Map(pages.flatMap((p) => [...p.runs]));
+  const drivers = new Map(pages.flatMap((p) => [...p.drivers]));
   const names: Names = {
     product: (id) => catalog.productById.get(id)?.name ?? id,
     customer: (id) => {
@@ -93,6 +95,11 @@ export default function ActivityScreen() {
         : { label: "a weigh sheet no longer listed", week: null };
     },
     expenseWeek: (id) => expenseWeeks.get(id) ?? null,
+    driver: (id) => drivers.get(id) ?? "a driver no longer listed",
+    run: (id) => {
+      const r = runs.get(id);
+      return r ? { label: `${niceDate(r.run_date)}, ${drivers.get(r.driver_id) ?? "a driver"}`, week: r.week_id } : { label: "a run no longer listed", week: null };
+    },
   };
   const entries: Entry[] = [
     ...pages.flatMap((p) => p.rows.map((r) => describe(r, names, data.rates)).filter((e): e is Entry => !!e)),

@@ -22,7 +22,7 @@ function plain(e: { message: string; code?: string } | null): string | null {
 
 export type PnlSetup = { categories: ExpenseCategory[]; rates: CategoryRate[] };
 
-const CAT_COLS = "id, name, active, sort, group_name, method, income_base, base_category_ids, note";
+const CAT_COLS = "id, name, active, sort, group_name, method, income_base, base_category_ids, note, truck_part, delivery_kind";
 
 export async function loadPnlSetup(db: SupabaseClient): Promise<PnlSetup> {
   const [c, r] = await Promise.all([
@@ -238,8 +238,8 @@ export async function addExpenseFile(db: SupabaseClient, week: string, expenseId
 }
 
 /** A link to look at a file (good for an hour). */
-export async function fileLink(db: SupabaseClient, path: string): Promise<string | null> {
-  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, 3600);
+export async function fileLink(db: SupabaseClient, path: string, bucket: string = BUCKET): Promise<string | null> {
+  const { data, error } = await db.storage.from(bucket).createSignedUrl(path, 3600);
   return error ? null : data.signedUrl;
 }
 

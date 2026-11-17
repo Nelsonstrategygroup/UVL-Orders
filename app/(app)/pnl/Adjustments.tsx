@@ -34,7 +34,7 @@ export function lineLabel(a: PnlAdjustment, options: { key: string; label: strin
 }
 
 /** Opens an attached file in a new tab (a short-lived private link). */
-export function FileButton({ path, name }: { path: string; name: string }) {
+export function FileButton({ path, name, bucket }: { path: string; name: string; bucket?: string }) {
   const toast = useToast();
   return (
     <button
@@ -43,7 +43,7 @@ export function FileButton({ path, name }: { path: string; name: string }) {
       onClick={async () => {
         // Open the tab first (browsers block tabs opened after a wait), then point it at the file.
         const tab = window.open("", "_blank");
-        const url = await fileLink(getDb(), path);
+        const url = await fileLink(getDb(), path, bucket);
         if (!url) {
           tab?.close();
           return toast("Couldn't open the file.");

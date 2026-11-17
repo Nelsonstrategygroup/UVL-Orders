@@ -39,6 +39,7 @@ describe("screens by permission", () => {
       "/freezer",
       "/customers",
       "/setup",
+      "/truck-runs",
       "/weigh-sheets",
       "/pnl",
       "/users",

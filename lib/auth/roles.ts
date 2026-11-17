@@ -30,6 +30,7 @@ export const AREAS = [
   "setup",
   "invoices",
   "prices",
+  "trucks",
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -53,6 +54,7 @@ export const AREA_INFO: Record<Area, { label: string; sub: string }> = {
   setup: { label: "Setup", sub: "Products and parts. Only admins can change it" },
   invoices: { label: "Invoices", sub: "Invoices, payments, invoice codes and terms" },
   prices: { label: "Prices", sub: "Product prices (Setup > Prices)" },
+  trucks: { label: "Truck runs", sub: "Delivery runs: driver, stops, fuel" },
 };
 
 /** The most a non-admin can have in an area (the database caps it too). */
@@ -108,6 +110,7 @@ export const NAV: NavItem[] = [
   { href: "/freezer", label: "Freezer", short: "Freezer", icon: "❄", bottom: false, sub: "What's on hand, add or remove cuts", area: "freezer" },
   { href: "/customers", label: "Customers", short: "Customers", icon: "☺", bottom: false, sub: "Customer list and call days", area: "customers" },
   { href: "/setup", label: "Setup", short: "Setup", icon: "⚙", bottom: false, sub: "Parts per lamb and products", area: "setup" },
+  { href: "/truck-runs", label: "Truck runs", short: "Trucks", icon: "⛟", bottom: false, sub: "Delivery runs: driver, stops and fuel", area: "trucks" },
   { href: "/weigh-sheets", label: "Weigh sheets", short: "Weigh", icon: "⚖", bottom: false, sub: "Mohawk's kill log and what producers are paid", adminOnly: true },
   { href: "/pnl", label: "Weekly P&L", short: "P&L", icon: "∑", bottom: false, sub: "Income, costs and profit for the week", adminOnly: true },
   { href: "/users", label: "Users", short: "Users", icon: "☻", bottom: false, sub: "Who can log in", adminOnly: true },
