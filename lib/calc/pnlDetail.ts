@@ -606,6 +606,19 @@ function resultDetails(x: DetailInput): LineDetail[] {
       items: [],
     },
     {
+      key: "incomelb",
+      title: pj("Income per carcass lb"),
+      amount: p.incomePerCarcassLb != null ? `$${fixedRounded(p.incomePerCarcassLb, 4, 2)}` : null,
+      projected: p.projected,
+      how: [
+        "Income ÷ carcass lb on this week's weigh sheets.",
+        p.incomePerCarcassLb != null
+          ? `${centsText(p.incomeCents)} ÷ ${carcassText(x.pay.carcass)} lb = $${fixedRounded(p.incomePerCarcassLb, 4, 4)} a lb`
+          : `Not worked out: ${[!p.hasSheets && "no weigh sheet", !p.hasIncome && "no income"].filter(Boolean).join(" and ") || "no lambs this week"}.`,
+      ],
+      items: [],
+    },
+    {
       key: "costlb",
       title: pj("Cost per carcass lb"),
       amount: p.costPerCarcassLb != null ? `$${fixedRounded(p.costPerCarcassLb, 4, 2)}` : null,
@@ -635,39 +648,89 @@ export function pnlDetails(x: DetailInput): LineDetail[] {
 // What's missing before the week can be trusted.
 // ---------------------------------------------------------------------------
 
-export type PnlCheck = { key: string; text: string };
+/** One thing missing, in a line, with where it's fixed. */
+export type PnlCheck = {
+  key: string;
+  text: string;
+  /** Where it's fixed, and the link's words. */
+  href?: string;
+  link?: string;
+  /** The category it's about, if one (shown "Not entered" on the P&L). */
+  categoryId?: string;
+};
 
 export function pnlChecks(x: {
   p: WeekPnl;
   ii: InvoiceIncome;
   /** This week's lamb count (This week), or null when unknown. */
   lambCount: number | null;
+  /** The packing Monday, for the links. */
+  week?: string;
 }): PnlCheck[] {
   const out: PnlCheck[] = [];
   const { p, ii } = x;
-  if (ii.packedCount) out.push({ key: "invoices", text: `${plural(ii.packedCount, "invoice", "invoices")} not finalized.` });
-  if (ii.notPacked.length) out.push({ key: "notpacked", text: `${plural(ii.notPacked.length, "location", "locations")} with orders not packed: ${ii.notPacked.map((r) => r.name).join(", ")}.` });
-  for (const n of ii.priceNeeded) out.push({ key: `price:${n.product}`, text: `${n.product} is packed but has no price (${n.locations.join(", ")}).` });
+  const w = x.week ? `?week=${x.week}` : "";
+  if (ii.packedCount)
+    out.push({
+      key: "invoices",
+      text: `${plural(ii.packedCount, "invoice", "invoices")} not finalized: income below is projected from packed weights.`,
+      href: "/invoices",
+      link: "Invoices",
+    });
+  if (ii.notPacked.length)
+    out.push({
+      key: "notpacked",
+      text: `${plural(ii.notPacked.length, "location", "locations")} with orders not packed: ${ii.notPacked.map((r) => r.name).join(", ")}.`,
+      href: "/packing",
+      link: "Packing",
+    });
+  for (const n of ii.priceNeeded)
+    out.push({ key: `price:${n.product}`, text: `Price needed: ${n.product} (${n.locations.join(", ")}).`, href: "/setup/prices", link: "Prices" });
+  if (!p.hasSheets && !p.noProcessing)
+    out.push({ key: "sheet", text: "No weigh sheet entered for this week's kill.", href: "/weigh-sheets", link: "Weigh sheets" });
+  if (p.hasSheets && x.lambCount != null && p.head !== x.lambCount)
+    out.push({
+      key: "lambs",
+      text: `The weigh sheets have ${p.head} lambs; This week's lamb count is ${x.lambCount}.`,
+      href: "/weigh-sheets",
+      link: "Weigh sheets",
+    });
+  const mohawk = p.categories.filter((l) => /mohawk/i.test(l.name) && l.method === "entered");
+  if (p.hasSheets && mohawk.length && mohawk.every((l) => l.entries === 0 && l.adj === BigInt(0)))
+    out.push({ key: "butcher", text: `No ${mohawk[0].name} cost entered.`, href: `/pnl/entries${w}`, link: "Add it", categoryId: mohawk[0].categoryId });
   // How it ships: each pallet is covered by a freight carrier or is on a truck run.
   const nameOf = new Map(ii.rows.map((r) => [r.customerId, r.name]));
   const names = (ids: string[]) => ids.map((id) => nameOf.get(id) ?? "a location").join(", ");
-  for (const pl of p.shipping.pallets.filter((x) => !x.byFreight && !x.byTruck))
-    out.push({ key: `ship:${pl.id}`, text: `Pallet ${pl.tag} (${names(pl.customerIds)}) is on no truck run, and no freight carrier covers it.` });
+  const driverPay = p.categories.find((l) => l.method === "per_truck_run" && l.active && l.total === BigInt(0) && p.runs.length === 0);
+  for (const pl of p.shipping.pallets.filter((s) => !s.byFreight && !s.byTruck))
+    out.push({
+      key: `ship:${pl.id}`,
+      text: `Pallet ${pl.tag} (${names(pl.customerIds)}): no truck run, and no freight carrier covers it.`,
+      href: `/truck-runs${w}`,
+      link: "Truck runs",
+      categoryId: driverPay?.categoryId,
+    });
   if (p.shipping.pallets.length === 0) {
     const loose = p.shipping.locations.filter((l) => !l.byFreight && !l.byTruck).map((l) => l.customerId);
-    if (loose.length) out.push({ key: "truckrun", text: `Boxes packed for ${names(loose)} are on no truck run, and no freight carrier covers them.` });
+    if (loose.length)
+      out.push({
+        key: "truckrun",
+        text: `Boxes packed for ${names(loose)}: no truck run, and no freight carrier covers them.`,
+        href: `/truck-runs${w}`,
+        link: "Truck runs",
+        categoryId: driverPay?.categoryId,
+      });
   }
+  for (const r of p.runs.filter((s) => s.fuel == null))
+    out.push({ key: `fuel:${r.run.id}`, text: `The truck run on ${short(r.run.run_date)} (${r.driverName}) has no fuel entered.`, href: `/truck-runs${w}`, link: "Truck runs" });
   for (const l of p.categories.filter((c) => c.freight && c.freight.offPallet > 0))
-    out.push({ key: `offpallet:${l.categoryId}`, text: `${l.name}: ${plural(l.freight!.offPallet, "box isn't", "boxes aren't")} on a pallet, so not counted.` });
-  for (const r of p.runs.filter((x) => x.fuel == null))
-    out.push({ key: `fuel:${r.run.id}`, text: `The truck run on ${short(r.run.run_date)} (${r.driverName}) has no fuel entered.` });
-  if (!p.hasSheets && !p.noProcessing) out.push({ key: "sheet", text: "No weigh sheet entered for this week's kill." });
-  if (p.hasSheets && x.lambCount != null && p.head !== x.lambCount)
-    out.push({ key: "lambs", text: `The weigh sheets have ${p.head} lambs; This week's lamb count is ${x.lambCount}.` });
-  const mohawk = p.categories.filter((l) => /mohawk/i.test(l.name) && l.method === "entered");
-  if (p.hasSheets && mohawk.length && mohawk.every((l) => l.entries === 0 && l.adj === BigInt(0)))
-    out.push({ key: "butcher", text: `A kill this week, but no ${mohawk[0].name} cost entered.` });
+    out.push({
+      key: `offpallet:${l.categoryId}`,
+      text: `${l.name}: ${plural(l.freight!.offPallet, "box isn't", "boxes aren't")} on a pallet, so not counted.`,
+      href: "/packing",
+      link: "Packing",
+    });
   for (const l of p.categories.filter((c) => c.active && c.waiting === "No rate for this week (P&L Setup)."))
-    out.push({ key: `rate:${l.categoryId}`, text: `${l.name} has no rate for this week (P&L Setup).` });
+    out.push({ key: `rate:${l.categoryId}`, text: `${l.name} has no rate for this week.`, href: "/setup/lamb-cost", link: "P&L Setup" });
   return out;
 }

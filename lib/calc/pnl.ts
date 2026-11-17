@@ -460,6 +460,8 @@ export type WeekPnl = {
   profitPerHead: bigint | null;
   /** Total expense per carcass lb, in ten-thousandths of a dollar (4 decimals); null unless both. */
   costPerCarcassLb: bigint | null;
+  /** Income per carcass lb, in ten-thousandths of a dollar; null without income or a weigh sheet. */
+  incomePerCarcassLb: bigint | null;
   /** Every adjustment and one-off line of the week, voided ones too (for the detail). */
   adjustments: PnlAdjustment[];
 };
@@ -754,6 +756,8 @@ export function weekPnl(input: {
     profitPerHead: profit != null && head > 0 ? divRound(profit, BigInt(head)) : null,
     // total cents / carcass (2 decimals) = $/lb; x 10^4 keeps 4 decimals
     costPerCarcassLb: both && carcass > ZERO ? divRound(totalExpense * BigInt(10000), carcass) : null,
+    // income cents / carcass (2 decimals) = $/lb; × 10^4 keeps 4 decimals
+    incomePerCarcassLb: hasIncome && carcass > ZERO ? divRound(incomeCents * BigInt(10000), carcass) : null,
     adjustments,
   };
 }
