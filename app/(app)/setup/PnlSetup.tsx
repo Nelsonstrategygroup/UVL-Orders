@@ -28,6 +28,7 @@ import {
 } from "@/lib/calc/pnl";
 import { niceDate, packingMonday, todayISO, weekName } from "@/lib/dates";
 import { deleteRate, loadClosedWeeks, loadPnlSetup, saveCategory, saveRate, type PnlSetup } from "@/lib/db/pnl";
+import OwnersSetup from "./OwnersSetup";
 import TruckDrivers from "./TruckDrivers";
 
 const TABLES = ["expense_categories", "expense_category_rates"];
@@ -80,6 +81,7 @@ export default function PnlSetupCards() {
     <>
       <Categories data={data} after={after} />
       <TruckDrivers />
+      <OwnersSetup />
     </>
   );
 }

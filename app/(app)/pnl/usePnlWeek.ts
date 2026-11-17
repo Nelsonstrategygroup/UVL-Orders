@@ -191,7 +191,7 @@ export function usePnlWeek(week: string) {
     expenseFiles: data.expenseFiles,
   });
   const lambCount = weekData ? weekCalc(weekData, catalog).c.final : null;
-  const checks = pnlChecks({ p, ii, lambCount });
+  const checks = pnlChecks({ p, ii, lambCount, week });
   // What closing the week saves (and the closed week shows).
   const snapshot = () =>
     toSnapshot({

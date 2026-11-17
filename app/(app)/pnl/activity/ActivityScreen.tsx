@@ -46,7 +46,7 @@ export default function ActivityScreen() {
   const load = useCallback((d: SupabaseClient) => loadActivity(d, which), [which]);
   const { data, error } = useLive(`pnl-activity:${which ?? "all"}`, load, TABLES);
   const loadN = useCallback((d: SupabaseClient) => loadNames(d), []);
-  const { data: nm } = useLive("pnl-activity-names", loadN, ["producers", "expense_categories", "profiles"]);
+  const { data: nm } = useLive("pnl-activity-names", loadN, ["producers", "expense_categories"]);
   const { customers, catalog } = useStaffData();
   // Every week: older pages, added on "Show older".
   const [olderBy, setOlder] = useState<{ which: string | null; pages: Activity[] }>({ which: null, pages: [] });

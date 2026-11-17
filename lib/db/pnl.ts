@@ -259,14 +259,37 @@ export type WeekEvent = {
   by_name: string;
   at: string;
 };
-export type WeekStatus = { closed: ClosedWeek | null; reviews: WeekReview[]; events: WeekEvent[]; admins: { id: string; name: string }[] };
+/** An owner: reviews the P&L. profile_id: their user (null: no login yet). */
+export type Owner = { id: string; name: string; profile_id: string | null; sort: number };
+export type WeekStatus = { closed: ClosedWeek | null; reviews: WeekReview[]; events: WeekEvent[]; owners: Owner[] };
+
+export async function loadOwners(db: SupabaseClient): Promise<Owner[]> {
+  const { data, error } = await db.from("pnl_owners").select("id, name, profile_id, sort").order("sort").order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Owner[];
+}
+
+/** Add an owner (no id) or change one: their name, and their user once they have a login. */
+export async function saveOwner(db: SupabaseClient, o: { id?: string; name: string; profileId: string | null; sort?: number }): Promise<string | null> {
+  const row = { name: o.name.trim(), profile_id: o.profileId, ...(o.sort != null ? { sort: o.sort } : {}) };
+  const { error } = o.id
+    ? await withSource(db.from("pnl_owners").update(row).eq("id", o.id), "P&L Setup")
+    : await withSource(db.from("pnl_owners").insert(row), "P&L Setup");
+  if (error?.code === "23505") return "That user is already an owner.";
+  return plain(error);
+}
+
+export async function deleteOwner(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await withSource(db.from("pnl_owners").delete().eq("id", id), "P&L Setup");
+  return plain(error);
+}
 
 export async function loadWeekStatus(db: SupabaseClient, week: string): Promise<WeekStatus> {
   const [c, r, e, a] = await Promise.all([
     db.from("pnl_closed_weeks").select("week_id, closed_at, closed_by_name, snapshot, missing").eq("week_id", week).maybeSingle(),
     db.from("pnl_week_reviews").select("user_id, name, reviewed_at").eq("week_id", week).order("reviewed_at"),
     db.from("pnl_week_events").select("id, action, reason, missing, by_name, at").eq("week_id", week).order("at"),
-    db.from("profiles").select("id, display_name").eq("role", "admin").order("display_name"),
+    db.from("pnl_owners").select("id, name, profile_id, sort").order("sort").order("name"),
   ]);
   const err = c.error ?? r.error ?? e.error ?? a.error;
   if (err) throw new Error(err.message);
@@ -274,7 +297,7 @@ export async function loadWeekStatus(db: SupabaseClient, week: string): Promise<
     closed: (c.data as ClosedWeek | null) ?? null,
     reviews: (r.data ?? []) as WeekReview[],
     events: (e.data ?? []) as WeekEvent[],
-    admins: ((a.data ?? []) as { id: string; display_name: string }[]).map((x) => ({ id: x.id, name: x.display_name })),
+    owners: (a.data ?? []) as Owner[],
   };
 }
 

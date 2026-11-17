@@ -215,9 +215,9 @@ describe("P&L checks", () => {
     expect(pnlChecks({ p: none, ii: priced, lambCount: null }).map((c) => c.key)).toEqual(["invoices", "price:Racks", "sheet"]);
     const early = weekPnl({ week: "2026-09-28", pay, income: [], expenses: [{ ...expenses[0], category_id: "c1" }], categories, rates, invoices: ii });
     expect(pnlChecks({ p: early, ii, lambCount: 2 }).map((c) => c.text).slice(-3)).toEqual([
-      "Truck, insurance has no rate for this week (P&L Setup).",
-      "Marketing has no rate for this week (P&L Setup).",
-      "ALB/OSC assessments has no rate for this week (P&L Setup).",
+      "Truck, insurance has no rate for this week.",
+      "Marketing has no rate for this week.",
+      "ALB/OSC assessments has no rate for this week.",
     ]);
   });
 });
