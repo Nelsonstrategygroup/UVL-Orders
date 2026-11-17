@@ -16,6 +16,8 @@ insert into public.profiles (id, display_name, role) values
   ('00000000-0000-4000-8000-00000000f5a2', 'CW Packer', 'packing'),
   ('00000000-0000-4000-8000-00000000f5a3', 'CW Office', 'office');
 insert into public.customers (id, name) values ('00000000-0000-4000-8000-00000000f5c1', 'CW Market');
+-- Reviewing is for owners (20261121000100).
+insert into public.pnl_owners (name, profile_id) values ('CW Admin', '00000000-0000-4000-8000-00000000f5a1');
 insert into public.customer_billing (customer_id, invoice_code) values ('00000000-0000-4000-8000-00000000f5c1', 'CWM');
 insert into public.weeks (id, invoice_number) values ('2099-11-02', 99701), ('2099-11-09', 99702);
 insert into public.products (id, name, unit, group_name, price_unit) values ('cw-chops', 'CW chops', 'lb', 'Other', 'lb');
