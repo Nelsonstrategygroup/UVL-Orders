@@ -4,6 +4,7 @@
 // the page, its line detail and the printed P&L detail always agree: income
 // from invoices and packing, producer cost, charges, expenses, results, every
 // line's "how this was calculated", and the checks on what's missing.
+// A closed week (stage C) shows the P&L saved when it was closed instead.
 
 import { useCallback } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -13,12 +14,13 @@ import { useWeekData } from "@/components/data/useWeekData";
 import { displayName } from "@/lib/calc/customers";
 import { sheetPay, weekPay } from "@/lib/calc/lambCost";
 import { groupLead } from "@/lib/calc/packTogether";
-import { invoiceIncome, weekPnl } from "@/lib/calc/pnl";
+import { invoiceIncome, weekPnl, type ExpenseCategory } from "@/lib/calc/pnl";
 import { pnlChecks, pnlDetails } from "@/lib/calc/pnlDetail";
+import { fromSnapshot, toSnapshot } from "@/lib/calc/pnlSnapshot";
 import { loadWeekBoxes } from "@/lib/db/invoices";
 import { loadCharges, loadPrices } from "@/lib/db/invoicing";
 import { loadLambCostSetup } from "@/lib/db/lambCost";
-import { loadPnlSetup, loadWeekAdjustments, loadWeekEntries, loadWeekExpenseFiles, loadWeekInvoiceData } from "@/lib/db/pnl";
+import { loadPnlSetup, loadWeekAdjustments, loadWeekEntries, loadWeekExpenseFiles, loadWeekInvoiceData, loadWeekStatus } from "@/lib/db/pnl";
 import { loadWeekSheets } from "@/lib/db/weighSheets";
 import { weekCalc } from "@/lib/weekCalc";
 
@@ -40,6 +42,8 @@ const TABLES = [
   "pnl_expense_files",
 ];
 const SETUP_TABLES = ["pnl_lamb_charges", "pnl_percent_charges", "expense_categories"];
+
+const STATUS_TABLES = ["pnl_closed_weeks", "pnl_week_reviews", "pnl_week_events"];
 
 async function loadWeek(db: SupabaseClient, week: string) {
   const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles] = await Promise.all([
@@ -75,12 +79,38 @@ export function usePnlWeek(week: string) {
   const { data: setup } = useLive("pnl-setup", loadSetup, SETUP_TABLES);
   const loadProducers = useCallback((d: SupabaseClient) => loadLambCostSetup(d), []);
   const { data: lc } = useLive("lamb-cost-setup", loadProducers, ["producers", "lamb_cost_settings", "producer_rates"]);
+  const loadStatus = useCallback((d: SupabaseClient) => loadWeekStatus(d, week), [week]);
+  const { data: status, error: statusError, refresh: refreshStatus } = useLive(`pnl-status:${week}`, loadStatus, STATUS_TABLES);
   const { customers, catalog } = useStaffData();
   // This week's lamb count (the number This week shows), for the checks.
   const { data: weekData } = useWeekData(week);
 
-  if (error) return { ready: false, error, refresh } as const;
-  if (!data || !setup || !lc || !customers || !catalog) return { ready: false, error: null, refresh } as const;
+  if (error || statusError) return { ready: false, error: error ?? statusError, refresh } as const;
+  if (!data || !setup || !lc || !customers || !catalog || !status) return { ready: false, error: null, refresh } as const;
+  const refreshAll = () => {
+    refresh();
+    refreshStatus();
+  };
+
+  // Closed: everything as it was saved when the week was closed.
+  if (status.closed) {
+    const s = fromSnapshot<Snapshot>(status.closed.snapshot);
+    return {
+      ready: true,
+      data: { ...data, inv: s.inv, income: s.income, expenses: s.expenses, expenseFiles: s.expenseFiles },
+      setup: { ...setup, categories: s.categories },
+      pays: s.pays,
+      pay: s.pay,
+      ii: s.ii,
+      p: s.p,
+      details: s.details,
+      checks: s.checks,
+      producerName: (id: string) => s.producerNames[id] ?? "Unknown producer",
+      refresh: refreshAll,
+      status,
+      snapshot: null,
+    } as const;
+  }
 
   const pays = data.sheets.sheets.map((s) => sheetPay(s, data.sheets.lambs, data.sheets.adjustments));
   const pay = weekPay(pays);
@@ -134,5 +164,40 @@ export function usePnlWeek(week: string) {
   });
   const lambCount = weekData ? weekCalc(weekData, catalog).c.final : null;
   const checks = pnlChecks({ p, ii, lambCount, categories: setup.categories, expenses: data.expenses });
-  return { ready: true, data, setup, pays, pay, ii, p, details, checks, producerName, refresh } as const;
+  // What closing the week saves (and the closed week shows).
+  const snapshot = () =>
+    toSnapshot({
+      version: 1,
+      inv: data.inv,
+      income: data.income,
+      expenses: data.expenses,
+      expenseFiles: data.expenseFiles,
+      categories: setup.categories,
+      pays,
+      pay,
+      ii,
+      p,
+      details,
+      checks,
+      producerNames: Object.fromEntries(pay.producers.map((r) => [r.producerId, producerName(r.producerId)])),
+    } satisfies Snapshot);
+  return { ready: true, data, setup, pays, pay, ii, p, details, checks, producerName, refresh: refreshAll, status, snapshot } as const;
 }
+
+type Loaded = Awaited<ReturnType<typeof loadWeek>>;
+/** A closed week's P&L, as saved. */
+type Snapshot = {
+  version: 1;
+  inv: Loaded["inv"];
+  income: Loaded["income"];
+  expenses: Loaded["expenses"];
+  expenseFiles: Loaded["expenseFiles"];
+  categories: ExpenseCategory[];
+  pays: ReturnType<typeof sheetPay>[];
+  pay: ReturnType<typeof weekPay>;
+  ii: ReturnType<typeof invoiceIncome>;
+  p: ReturnType<typeof weekPnl>;
+  details: ReturnType<typeof pnlDetails>;
+  checks: ReturnType<typeof pnlChecks>;
+  producerNames: Record<string, string>;
+};

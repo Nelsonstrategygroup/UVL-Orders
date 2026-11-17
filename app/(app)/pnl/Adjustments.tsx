@@ -189,11 +189,14 @@ export function AdjustmentsPanel({
   p,
   categories,
   refresh,
+  closed = false,
 }: {
   week: string;
   p: WeekPnl;
   categories: ExpenseCategory[];
   refresh: () => void;
+  /** A closed week: shown, not changed. */
+  closed?: boolean;
 }) {
   const db = getDb();
   const toast = useToast();
@@ -231,7 +234,7 @@ export function AdjustmentsPanel({
                   {a.kind === "adjustment" && cents(a.amount) > BigInt(0) ? "+" : ""}
                   {cents(a.amount) < BigInt(0) ? `-${centsText(-cents(a.amount))}` : centsText(cents(a.amount))}
                 </span>
-                {!a.voided_at && (
+                {!a.voided_at && !closed && (
                   <button type="button" className="copy noprint min-h-[44px] px-2" onClick={() => void voidIt(a)}>
                     Void
                   </button>
@@ -251,6 +254,7 @@ export function AdjustmentsPanel({
           ))}
         </ul>
       )}
+      {!closed && (
       <div className="noprint mt-2 flex flex-wrap gap-2">
         <button type="button" className={form === "adjust" ? "btn" : "btn ghost"} onClick={() => setForm(form === "adjust" ? "" : "adjust")}>
           Adjust a line
@@ -259,7 +263,8 @@ export function AdjustmentsPanel({
           Add a one-off line
         </button>
       </div>
-      {form && (
+      )}
+      {form && !closed && (
         <div className="noprint mt-2 border-t border-line pt-2">
           <AdjustForm key={form} week={week} options={options} oneOff={form === "oneoff"} onSaved={refresh} />
         </div>
