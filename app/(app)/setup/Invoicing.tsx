@@ -25,6 +25,7 @@ import {
   updateInvoiceSettings,
   type InvoiceSettings,
 } from "@/lib/db/invoicing";
+import FreightSetup from "./FreightSetup";
 
 export default function Invoicing() {
   const canEdit = useCan("invoices").change;
@@ -33,6 +34,7 @@ export default function Invoicing() {
       <Business canEdit={canEdit} />
       <WeekNumbers canEdit={canEdit} />
       <Locations canEdit={canEdit} />
+      <FreightSetup canEdit={canEdit} />
     </>
   );
 }

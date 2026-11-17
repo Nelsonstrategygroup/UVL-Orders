@@ -7,7 +7,7 @@
 
 import type { PriceUnit } from "../db/types";
 import { addDays } from "../dates";
-import { priceLines, type InvoiceLineRow, type InvoiceStatus, type PricedLine } from "./invoice";
+import { freightLine, freightRateFor, priceLines, type FreightChargeRow, type InvoiceLineRow, type InvoiceStatus, type PricedLine } from "./invoice";
 import { roundToCents, type WeekPay } from "./lambCost";
 import { stopsMade, type RunPay } from "./truck";
 import { toFixedInt, type ChargeRow, type PriceRow } from "./prices";
@@ -143,6 +143,8 @@ export type InvoiceIncome = {
   notPacked: LocationIncome[];
   /** Every packed product with no price, and where. */
   priceNeeded: { product: string; locations: string[] }[];
+  /** Freight charged on the invoices (finalized and projected), part of the totals above. */
+  freightCents: bigint;
 };
 
 export function invoiceIncome(input: {
@@ -154,6 +156,9 @@ export function invoiceIncome(input: {
   prices: PriceRow[];
   charges: ChargeRow[];
   productName: (id: string) => string;
+  /** Freight per location or chain (Setup > Invoicing), and the week's boxes, for a draft's Freight line. */
+  freight?: FreightChargeRow[];
+  boxes?: { customer_id: string; weight: number | string; pallet_id?: string | null }[];
 }): InvoiceIncome {
   const tuesday = addDays(input.week, 1); // a new draft's invoice date
   const rows: LocationIncome[] = input.locations.map((loc) => {
@@ -186,7 +191,13 @@ export function invoiceIncome(input: {
       sort: l.sort,
       detail: l.detail ?? "",
     }));
-    const priced = priceLines(lines, input.prices, loc.id, inv?.invoice_date ?? tuesday, loc.chainId, input.charges);
+    const date = inv?.invoice_date ?? tuesday;
+    const fl = freightLine(
+      freightRateFor(input.freight ?? [], loc.id, date, loc.chainId),
+      (input.boxes ?? []).filter((b) => b.customer_id === loc.id),
+      inv?.id ?? loc.id,
+    );
+    const priced = priceLines(fl ? [...lines, fl] : lines, input.prices, loc.id, date, loc.chainId, input.charges);
     const sum = priced.reduce((s, l) => s + (l.totalCents ?? ZERO), ZERO);
     const missing = [...new Set(priced.filter((l) => l.priceNeeded && l.product_id).map((l) => input.productName(l.product_id!)))];
     return { customerId: loc.id, name: loc.name, status: "packed", cents: sum, unpackedLines, priceNeeded: missing, ...base, lines: priced };
@@ -197,6 +208,12 @@ export function invoiceIncome(input: {
   const packedCount = rows.filter((r) => r.status === "packed").length;
   return {
     rows,
+    // Freight lines: stored on finalized invoices, worked out on packed ones.
+    freightCents: rows
+      .filter((r) => r.status !== "not_packed")
+      .flatMap((r) => r.lines)
+      .filter((l) => l.kind === "freight")
+      .reduce((t, l) => t + (l.totalCents ?? ZERO), ZERO),
     finalizedCents: sum("finalized"),
     packedCents: sum("packed"),
     projected: packedCount > 0,
@@ -392,7 +409,7 @@ export type WeekPnl = {
   oneOffIncomeCents: bigint;
   /** All income: calculated + adjustments + one-off lines. */
   incomeCents: bigint;
-  /** Invoice income only (finalized + packed), for a percent of sales. */
+  /** Invoice income only (finalized + packed), less freight, for a percent of sales. */
   salesCents: bigint;
   hasIncome: boolean;
   /** Income entered by hand. */
@@ -411,8 +428,10 @@ export type WeekPnl = {
   oneOffExpenseCents: bigint;
   /** Every category + one-off expenses. Null without a weigh sheet (unless no processing). */
   totalExpense: bigint | null;
-  /** Delivery total − freight income (none yet). */
+  /** Delivery total − freight income. */
   netDelivery: bigint;
+  /** Freight charged on invoices (part of income). */
+  freightIncome: bigint;
   /** The week's truck runs, with pay and fuel. */
   runs: RunPay[];
   /** Truck categories (delivery_kind truck) added up. */
@@ -505,8 +524,9 @@ export function weekPnl(input: {
   const income = [...byCustomer.values()].sort((a, b) => a.name.localeCompare(b.name));
   const otherCents = income.reduce((s, r) => s + r.cents, ZERO);
   const inv = input.invoices;
-  const salesCents = inv ? inv.finalizedCents + inv.packedCents : ZERO;
-  const incomeCalc = otherCents + salesCents;
+  const freightIncome = inv?.freightCents ?? ZERO;
+  const salesCents = inv ? inv.finalizedCents + inv.packedCents - freightIncome : ZERO;
+  const incomeCalc = otherCents + salesCents + freightIncome;
   const incomeAdj = adj("income");
   const oneOffIncome = live.filter((a) => a.kind === "one_off" && a.side === "income");
   const oneOffIncomeCents = oneOffIncome.reduce((s, a) => s + cents(a.amount), ZERO);
@@ -661,7 +681,7 @@ export function weekPnl(input: {
   const producerKnown = categories.filter((l) => l.method === "weigh_sheets").every((l) => l.total != null);
   const totalExpense = producerKnown && lambsKnown ? groups.reduce((s, g) => s + g.total, ZERO) + oneOffExpenseCents : null;
 
-  const netDelivery = groups.find((g) => g.name === "Delivery")!.total;
+  const netDelivery = groups.find((g) => g.name === "Delivery")!.total - freightIncome;
   const runs = input.runs ?? [];
   const truckCents = categories.filter((l) => input.categories.find((x) => x.id === l.categoryId)?.delivery_kind === "truck").reduce((t, l) => t + (l.total ?? ZERO), ZERO);
   const truckStops = runs.reduce((t, r) => t + stopsMade(r), 0);
@@ -718,6 +738,7 @@ export function weekPnl(input: {
     oneOffExpenseCents,
     totalExpense,
     netDelivery,
+    freightIncome,
     runs,
     truckCents,
     truckStops,

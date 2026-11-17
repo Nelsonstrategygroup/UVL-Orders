@@ -2,7 +2,7 @@
 // name, bill-to, terms and due date, and its boxes when it has box detail.
 
 import { displayName } from "@/lib/calc/customers";
-import { dueDate, invoiceTotals, lineBoxWeights, priceLines, termsFor } from "@/lib/calc/invoice";
+import { dueDate, freightLine, freightRateFor, invoiceTotals, lineBoxWeights, priceLines, termsFor } from "@/lib/calc/invoice";
 import { groupLead } from "@/lib/calc/packTogether";
 import type { Catalog, CustomersData } from "@/lib/db/types";
 import type { InvoiceRow } from "@/lib/db/invoices";
@@ -44,7 +44,23 @@ export function sheetFor(data: InvoiceWeek, inv: InvoiceRow, customers: Customer
   const b = data.billing.get(inv.customer_id);
   const terms = termsFor(b?.terms_days, data.settings?.default_terms_days ?? 15);
   // A draft's Mohawk charge lines are worked out from today's charges; a finalized one has them stored.
-  const lines = priceLines(inv.invoice_lines, data.prices, inv.customer_id, inv.invoice_date, c?.parent_customer_id ?? null, inv.status === "draft" ? data.charges : []);
+  // A draft's Freight line too (finalizing stores it), when the location has freight set.
+  const freight =
+    inv.status === "draft"
+      ? freightLine(
+          freightRateFor(data.freight, inv.customer_id, inv.invoice_date, c?.parent_customer_id ?? null),
+          data.boxes.filter((x) => x.customer_id === inv.customer_id),
+          inv.id,
+        )
+      : null;
+  const lines = priceLines(
+    freight ? [...inv.invoice_lines, freight] : inv.invoice_lines,
+    data.prices,
+    inv.customer_id,
+    inv.invoice_date,
+    c?.parent_customer_id ?? null,
+    inv.status === "draft" ? data.charges : [],
+  );
   return {
     invoice: inv,
     lines,

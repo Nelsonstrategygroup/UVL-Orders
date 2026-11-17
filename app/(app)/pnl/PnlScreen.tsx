@@ -304,6 +304,14 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
             ) : (
               total("Total income", p.incomeCents, true)
             )}
+            {p.freightIncome !== BigInt(0) && (
+              <tr>
+                <td colSpan={2} className="small muted">
+                  Freight charged on invoices (in the totals above; taken off Delivery as net delivery cost)
+                </td>
+                <td className="num text-right small">{centsText(p.freightIncome)}</td>
+              </tr>
+            )}
           </tbody>
         </table>
       )}
@@ -411,7 +419,9 @@ function Expenses({ p, onOpen }: { p: WeekPnl; onOpen: OnOpen }) {
                   <tr>
                     <td>
                       <Tap onClick={() => onOpen(["netdelivery"])}>Net delivery cost</Tap>
-                      <span className="small muted block">Delivery − freight income (none set up)</span>
+                      <span className="small muted block">
+                        {p.freightIncome ? `Delivery − ${centsText(p.freightIncome)} freight on invoices` : "Delivery − freight on invoices (none set up)"}
+                      </span>
                     </td>
                     <td className="num text-right">{centsText(p.netDelivery)}</td>
                   </tr>

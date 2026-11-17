@@ -18,7 +18,7 @@ import { invoiceIncome, weekPnl, type ExpenseCategory } from "@/lib/calc/pnl";
 import { pnlChecks, pnlDetails } from "@/lib/calc/pnlDetail";
 import { fromSnapshot, toSnapshot } from "@/lib/calc/pnlSnapshot";
 import { loadWeekBoxes } from "@/lib/db/invoices";
-import { loadCharges, loadPrices } from "@/lib/db/invoicing";
+import { loadCharges, loadFreight, loadPrices } from "@/lib/db/invoicing";
 import { loadLambCostSetup } from "@/lib/db/lambCost";
 import { loadPnlSetup, loadWeekAdjustments, loadWeekEntries, loadWeekExpenseFiles, loadWeekInvoiceData, loadWeekStatus } from "@/lib/db/pnl";
 import { loadWeekSheets } from "@/lib/db/weighSheets";
@@ -40,6 +40,7 @@ const TABLES = [
   "order_lines",
   "prices",
   "carcass_charges",
+  "freight_charges",
   "pnl_adjustments",
   "pnl_expense_files",
   "truck_runs",
@@ -54,13 +55,14 @@ const SETUP_TABLES = ["expense_categories", "expense_category_rates"];
 const STATUS_TABLES = ["pnl_closed_weeks", "pnl_week_reviews", "pnl_week_events"];
 
 async function loadWeek(db: SupabaseClient, week: string) {
-  const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles, weekRuns, drivers, pallets] = await Promise.all([
+  const [entries, sheets, inv, invoiceData, prices, charges, freight, boxes, people, adjustments, expenseFiles, weekRuns, drivers, pallets] = await Promise.all([
     loadWeekEntries(db, week),
     loadWeekSheets(db, week),
     db.from("weeks").select("invoice_number, no_processing").eq("id", week).maybeSingle(),
     loadWeekInvoiceData(db, week),
     loadPrices(db),
     loadCharges(db),
+    loadFreight(db),
     loadWeekBoxes(db, week),
     db.from("profiles").select("id, display_name"),
     loadWeekAdjustments(db, week),
@@ -77,6 +79,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     invoiceData,
     prices,
     charges,
+    freight,
     boxes,
     adjustments,
     expenseFiles,
@@ -142,6 +145,8 @@ export function usePnlWeek(week: string) {
     prices: data.prices,
     charges: data.charges,
     productName,
+    freight: data.freight,
+    boxes: data.boxes,
   });
   const p = weekPnl({
     week,
