@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { centsText, sheetPay, weekPay, type KillSheet } from "./lambCost";
-import { chargesOn, invoiceIncome, parseMoney, weekPnl, type PackedLine, type PnlAdjustment, type ExpenseCategory, type ExpenseEntry, type IncomeEntry, type LambCharge, type PercentCharge } from "./pnl";
+import {
+  invoiceIncome,
+  parseMoney,
+  rateOn,
+  weekPnl,
+  weeklyFromParts,
+  type CategoryRate,
+  type ExpenseCategory,
+  type ExpenseEntry,
+  type IncomeEntry,
+  type PackedLine,
+  type PnlAdjustment,
+} from "./pnl";
 
 const WEEK = "2026-11-16";
 const sheet: KillSheet = {
@@ -26,17 +38,49 @@ const pay = weekPay([
 ]);
 const noSheets = weekPay([]);
 
-const lambCharges: LambCharge[] = [
-  { id: "l1", name: "ALB/OSC", effective_from: "2026-10-01", per_lamb: "1.8000", note: "" },
-  { id: "l2", name: "ALB/OSC", effective_from: "2027-01-04", per_lamb: "2.0000", note: "" },
-  { id: "l3", name: "Old fee", effective_from: "2026-01-01", per_lamb: "5", note: "" },
-  { id: "l4", name: "Old fee", effective_from: "2026-10-01", per_lamb: "0", note: "stopped" },
-];
-const percentCharges: PercentCharge[] = [{ id: "p1", name: "Marketing", effective_from: "2026-10-01", percent: "4.0000", note: "" }];
+const cat = (id: string, name: string, group: ExpenseCategory["group_name"], method: ExpenseCategory["method"], sort: number, more: Partial<ExpenseCategory> = {}): ExpenseCategory => ({
+  id,
+  name,
+  active: true,
+  sort,
+  group_name: group,
+  method,
+  income_base: "all",
+  base_category_ids: [],
+  note: "",
+  ...more,
+});
 const categories: ExpenseCategory[] = [
-  { id: "c1", name: "Butcher (Mohawk)", active: true, sort: 1 },
-  { id: "c2", name: "Labor", active: true, sort: 2 },
-  { id: "c3", name: "Freight", active: false, sort: 3 },
+  cat("prod", "Producer pay", "Cost of product", "weigh_sheets", 10),
+  cat("c1", "Processing, Mohawk", "Cost of product", "entered", 20),
+  cat("ins", "Truck, insurance", "Delivery", "fixed_weekly", 140),
+  cat("mkt", "Marketing", "Operating", "percent_income", 300),
+  cat("alb", "ALB/OSC assessments", "Operating", "per_lamb", 310),
+  cat("c2", "Labor, other", "Operating", "entered", 320),
+  cat("c3", "Old freight", "Operating", "entered", 330, { active: false }),
+];
+const rate = (category_id: string, effective_from: string, r: Partial<CategoryRate>): CategoryRate => ({
+  id: `${category_id}-${effective_from}`,
+  category_id,
+  effective_from,
+  amount: null,
+  percent: null,
+  parts: [],
+  note: "",
+  ...r,
+});
+const rates: CategoryRate[] = [
+  rate("alb", "2026-10-01", { amount: "1.8000" }),
+  rate("alb", "2027-01-04", { amount: "2.0000" }),
+  rate("mkt", "2026-10-01", { percent: "4.0000" }),
+  rate("ins", "2026-10-08", {
+    parts: [
+      { label: "Weekly", amount: 60, per: "week" },
+      { label: "Weekly", amount: 15.69, per: "week" },
+      { label: "Yearly", amount: 1698, per: "year" },
+      { label: "Yearly", amount: 110, per: "year" },
+    ],
+  }),
 ];
 const exp = (id: string, category_id: string, amount: string): ExpenseEntry => ({ id, entry_date: "2026-11-13", week_id: WEEK, category_id, amount, note: "" });
 const inc = (id: string, customer_id: string | null, customer_name: string, amount: string): IncomeEntry => ({
@@ -48,6 +92,7 @@ const inc = (id: string, customer_id: string | null, customer_name: string, amou
   amount,
   note: "",
 });
+const line = (p: ReturnType<typeof weekPnl>, id: string) => p.categories.find((l) => l.categoryId === id)!;
 
 describe("parseMoney", () => {
   it("reads typed amounts", () => {
@@ -65,11 +110,15 @@ describe("parseMoney", () => {
   });
 });
 
-describe("chargesOn", () => {
-  it("takes each charge's newest rate on or before the week, and drops ones set to 0", () => {
-    expect(chargesOn(lambCharges, WEEK, (r) => r.per_lamb).map((c) => `${c.name} ${c.per_lamb}`)).toEqual(["ALB/OSC 1.8000"]);
-    expect(chargesOn(lambCharges, "2027-01-04", (r) => r.per_lamb).map((c) => c.per_lamb)).toEqual(["2.0000"]);
-    expect(chargesOn(lambCharges, "2026-09-28", (r) => r.per_lamb).map((c) => c.name)).toEqual(["Old fee"]);
+describe("category rates", () => {
+  it("takes the newest rate on or before the week", () => {
+    expect(rateOn(rates, "alb", WEEK)!.amount).toBe("1.8000");
+    expect(rateOn(rates, "alb", "2027-01-04")!.amount).toBe("2.0000");
+    expect(rateOn(rates, "alb", "2026-09-28")).toBeNull();
+  });
+  it("builds a fixed weekly amount from weekly and yearly parts", () => {
+    // 60 + 15.69 + (1,698 + 110) / 52 = 75.69 + 34.769... = 110.46
+    expect(weeklyFromParts(rateOn(rates, "ins", WEEK)!.parts)).toEqual({ cents: BigInt(11046), weekly: BigInt(7569), yearly: BigInt(180800) });
   });
 });
 
@@ -80,8 +129,8 @@ describe("weekPnl", () => {
     income: [inc("i1", "k1", "PCC Fremont", "980.50"), inc("i2", "k1", "PCC Fremont", "100"), inc("i3", "k2", "Corfini", "0.01")],
     expenses: [exp("e1", "c1", "1250"), exp("e2", "c2", "150"), exp("e3", "c2", "50"), exp("e4", "c3", "10")],
     categories,
-    lambCharges,
-    percentCharges,
+    rates,
+    lbShipped: "250.00",
   });
 
   it("adds income up by customer", () => {
@@ -89,41 +138,83 @@ describe("weekPnl", () => {
     expect(centsText(full.incomeCents)).toBe("$1,080.51");
   });
 
-  it("works out each charge, with its math", () => {
-    expect(full.charges).toEqual([
-      { kind: "lamb", name: "ALB/OSC", rate: "1.8000", lambs: 2, cents: BigInt(360), adj: BigInt(0), total: BigInt(360) },
-      { kind: "percent", name: "Marketing", percent: "4.0000", income: BigInt(108051), cents: BigInt(4322), adj: BigInt(0), total: BigInt(4322) }, // 43.2204
+  it("works out each category by its method, retired ones with entries included", () => {
+    expect(full.categories.map((l) => `${l.name} ${l.total == null ? "-" : centsText(l.total)}`)).toEqual([
+      "Producer pay $751.44",
+      "Processing, Mohawk $1,250.00",
+      "Truck, insurance $110.46",
+      "Marketing $43.22", // 4% × 1,080.51 = 43.2204
+      "ALB/OSC assessments $3.60", // 2 lambs × 1.80
+      "Labor, other $200.00",
+      "Old freight $10.00",
     ]);
+    expect(line(full, "mkt")).toMatchObject({ base: BigInt(108051), rate: { percent: "4.0000" } });
   });
 
-  it("adds expenses up by category, retired ones included", () => {
-    expect(full.expenses.map((r) => `${r.name} ${centsText(r.cents)}`)).toEqual(["Butcher (Mohawk) $1,250.00", "Labor $200.00", "Freight $10.00"]);
+  it("totals each group", () => {
+    expect(full.groups.map((g) => `${g.name} ${centsText(g.total)}`)).toEqual(["Cost of product $2,001.44", "Delivery $110.46", "Operating $256.82"]);
   });
 
-  it("totals, profit, per head and per carcass lb", () => {
-    expect(centsText(full.producerCents)).toBe("$751.44");
-    // 751.44 + 3.60 + 43.22 + 1,460.00
-    expect(centsText(full.totalExpense!)).toBe("$2,258.26");
-    expect(centsText(full.profit!)).toBe("-$1,177.75");
-    expect(centsText(full.profitPerHead!)).toBe("-$588.88"); // -588.875 rounds away from zero
-    expect(full.costPerCarcassLb).toBe(BigInt(182118)); // 2,258.26 / 124 = 18.21177...
+  it("totals, profit, per head, per carcass lb, and delivery per lb", () => {
+    expect(centsText(full.totalExpense!)).toBe("$2,368.72");
+    expect(centsText(full.profit!)).toBe("-$1,288.21");
+    expect(centsText(full.profitPerHead!)).toBe("-$644.11"); // -644.105 rounds away from zero
+    expect(full.costPerCarcassLb).toBe(BigInt(191026)); // 2,368.72 / 124 = 19.10258...
+    expect(full.netDelivery).toBe(BigInt(11046));
+    expect(full.deliveryPerLb).toBe(BigInt(4418)); // 110.46 / 250 = 0.44184
   });
 
   it("says what's missing instead of showing a misleading number", () => {
-    const noIncome = weekPnl({ week: WEEK, pay, income: [], expenses: [], categories, lambCharges, percentCharges });
+    const noIncome = weekPnl({ week: WEEK, pay, income: [], expenses: [], categories, rates });
     expect(noIncome.hasIncome).toBe(false);
-    expect(noIncome.charges.find((c) => c.kind === "percent")!.cents).toBeNull();
+    expect(line(noIncome, "mkt")).toMatchObject({ calc: null, total: null, waiting: "No income yet." });
     expect(noIncome.totalExpense).not.toBeNull();
     expect(noIncome.profit).toBeNull();
     expect(noIncome.profitPerHead).toBeNull();
     expect(noIncome.costPerCarcassLb).toBeNull();
 
-    const noSheet = weekPnl({ week: WEEK, pay: noSheets, income: [inc("i1", "k1", "PCC", "100")], expenses: [], categories, lambCharges, percentCharges });
+    const noSheet = weekPnl({ week: WEEK, pay: noSheets, income: [inc("i1", "k1", "PCC", "100")], expenses: [], categories, rates });
     expect(noSheet.hasSheets).toBe(false);
-    expect(noSheet.charges.find((c) => c.kind === "lamb")!.cents).toBeNull();
-    expect(noSheet.charges.find((c) => c.kind === "percent")!.cents).toBe(BigInt(400));
+    expect(line(noSheet, "prod").total).toBeNull();
+    expect(line(noSheet, "alb").total).toBeNull();
+    expect(line(noSheet, "mkt").total).toBe(BigInt(400));
     expect(noSheet.totalExpense).toBeNull();
     expect(noSheet.profit).toBeNull();
+  });
+
+  it("counts fixed weekly amounts in a week with no processing", () => {
+    const off = weekPnl({ week: WEEK, pay: noSheets, income: [], expenses: [], categories, rates, noProcessing: true });
+    expect(line(off, "prod").total).toBe(BigInt(0));
+    expect(line(off, "alb").total).toBe(BigInt(0));
+    expect(off.totalExpense).toBe(BigInt(11046));
+    expect(off.profit).toBe(BigInt(-11046));
+    expect(off.profitPerHead).toBeNull();
+  });
+
+  it("uses sales only when the base is set to sales", () => {
+    const sales = categories.map((c) => (c.id === "mkt" ? { ...c, income_base: "sales" as const } : c));
+    expect(line(weekPnl({ week: WEEK, pay, income: [inc("i1", "k1", "PCC", "100")], expenses: [], categories: sales, rates }), "mkt")).toMatchObject({
+      base: BigInt(0),
+      total: BigInt(0),
+    });
+  });
+
+  it("works out a percent of other categories on their totals", () => {
+    const withTax = [...categories, cat("saif", "Truck, payroll taxes: SAIF", "Delivery", "percent_category", 110, { base_category_ids: ["c2"] })];
+    const p = weekPnl({
+      week: WEEK,
+      pay,
+      income: [],
+      expenses: [exp("e2", "c2", "150")],
+      categories: withTax,
+      rates: [...rates, rate("saif", "2026-10-08", { percent: "10" })],
+    });
+    expect(line(p, "saif")).toMatchObject({ base: BigInt(15000), calc: BigInt(1500), total: BigInt(1500) });
+  });
+
+  it("says when a category has no rate", () => {
+    const p = weekPnl({ week: "2026-09-28", pay, income: [], expenses: [], categories, rates });
+    expect(line(p, "alb")).toMatchObject({ calc: BigInt(0), waiting: "No rate for this week (P&L Setup)." });
   });
 });
 
@@ -202,8 +293,7 @@ describe("income from invoices and packing (Lucas, 11/15/26)", () => {
       income: [inc("o1", null, "Farm stand", "50")],
       expenses: [],
       categories,
-      lambCharges,
-      percentCharges,
+      rates,
       invoices: r,
     });
     expect(p.incomeCents).toBe(BigInt(100000 + 57200 + 5000));
@@ -222,11 +312,13 @@ describe("income from invoices and packing (Lucas, 11/15/26)", () => {
       productName: (id) => id,
     });
     expect(done.projected).toBe(false);
-    expect(weekPnl({ week: W, pay, income: [], expenses: [], categories, lambCharges, percentCharges, invoices: done }).projected).toBe(false);
+    expect(weekPnl({ week: W, pay, income: [], expenses: [], categories,
+      rates, invoices: done }).projected).toBe(false);
   });
   it("has no income before anything is packed", () => {
     const none = invoiceIncome({ week: W, locations: [locations[3]], invoices: [], packed: [packed("keycity", "racks", null, "shorted")], prices, charges, productName: (id) => id });
-    expect(weekPnl({ week: W, pay, income: [], expenses: [], categories, lambCharges, percentCharges, invoices: none }).hasIncome).toBe(false);
+    expect(weekPnl({ week: W, pay, income: [], expenses: [], categories,
+      rates, invoices: none }).hasIncome).toBe(false);
   });
 });
 
@@ -248,42 +340,41 @@ describe("adjustments and one-off lines (Lucas, 11/15/26)", () => {
     voided_by_name: voided ? "Kathy" : "",
     void_reason: voided ? "twice" : "",
   });
-  const base = { week: WEEK, pay, income: [inc("i1", "k1", "PCC Fremont", "1000")], expenses: [exp("e1", "c2", "100")], categories, lambCharges, percentCharges };
+  const base = { week: WEEK, pay, income: [inc("i1", "k1", "PCC Fremont", "1000")], expenses: [exp("e1", "c2", "100")], categories, rates };
   const p = weekPnl({
     ...base,
     adjustments: [
-      a("1", "adjustment", "producer", "expense", "-50"),
-      a("2", "adjustment", "producer", "expense", "-999", true), // voided: counts for nothing
+      a("1", "adjustment", "category:prod", "expense", "-50"),
+      a("2", "adjustment", "category:prod", "expense", "-999", true), // voided: counts for nothing
       a("3", "adjustment", "income", "income", "25"),
       a("4", "one_off", null, "income", "75"),
-      a("5", "adjustment", "charge:ALB/OSC", "expense", "1.80"),
+      a("5", "adjustment", "category:alb", "expense", "1.80"),
       a("6", "adjustment", "category:c1", "expense", "300"),
       a("7", "one_off", null, "expense", "412.50"),
+      a("8", "adjustment", "producer", "expense", "-10"), // made before categories: still producer pay
     ],
   });
   it("adds each line's adjustments to what's calculated, voided ones left out", () => {
-    expect(p).toMatchObject({ producerCalc: BigInt(75144), producerAdj: BigInt(-5000), producerCents: BigInt(70144) });
+    expect(line(p, "prod")).toMatchObject({ calc: BigInt(75144), adj: BigInt(-6000), total: BigInt(69144) });
     expect(p).toMatchObject({ incomeCalc: BigInt(100000), incomeAdj: BigInt(2500), oneOffIncomeCents: BigInt(7500), incomeCents: BigInt(110000) });
-    expect(p.charges[0]).toMatchObject({ cents: BigInt(360), adj: BigInt(180), total: BigInt(540) });
+    expect(line(p, "alb")).toMatchObject({ calc: BigInt(360), adj: BigInt(180), total: BigInt(540) });
   });
   it("works marketing out on income after adjustments and one-off income", () => {
-    expect(p.charges[1]).toMatchObject({ income: BigInt(110000), cents: BigInt(4400), total: BigInt(4400) });
+    expect(line(p, "mkt")).toMatchObject({ base: BigInt(110000), calc: BigInt(4400), total: BigInt(4400) });
   });
-  it("adjusts an expense category even with no entries, and adds one-off expenses", () => {
-    expect(p.expenses.map((r) => [r.name, r.cents, r.adj, r.total])).toEqual([
-      ["Butcher (Mohawk)", BigInt(0), BigInt(30000), BigInt(30000)],
-      ["Labor", BigInt(10000), BigInt(0), BigInt(10000)],
-    ]);
+  it("adjusts a category with no entries, and adds one-off expenses", () => {
+    expect(line(p, "c1")).toMatchObject({ entered: BigInt(0), adj: BigInt(30000), total: BigInt(30000) });
+    expect(line(p, "c2")).toMatchObject({ entered: BigInt(10000), total: BigInt(10000) });
     expect(p.oneOffExpenseCents).toBe(BigInt(41250));
-    expect(p.expenseCents).toBe(BigInt(30000 + 10000 + 41250));
   });
   it("carries the totals through to profit", () => {
-    expect(p.totalExpense).toBe(BigInt(70144 + 540 + 4400 + 81250));
-    expect(p.profit).toBe(BigInt(110000) - BigInt(70144 + 540 + 4400 + 81250));
+    const expected = BigInt(69144 + 30000 + 11046 + 4400 + 540 + 10000 + 41250);
+    expect(p.totalExpense).toBe(expected);
+    expect(p.profit).toBe(BigInt(110000) - expected);
   });
   it("is unchanged with no adjustments", () => {
     const q = weekPnl(base);
-    expect(q.producerCents).toBe(BigInt(75144));
+    expect(line(q, "prod").total).toBe(BigInt(75144));
     expect(q.incomeCents).toBe(BigInt(100000));
     expect(q.adjustments).toEqual([]);
   });

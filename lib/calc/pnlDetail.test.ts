@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sheetPay, weekPay, type KillSheet } from "./lambCost";
-import { invoiceIncome, weekPnl, type ExpenseCategory, type ExpenseEntry, type LambCharge, type PackedLine, type PercentCharge } from "./pnl";
+import { invoiceIncome, weekPnl, type CategoryRate, type ExpenseCategory, type ExpenseEntry, type PackedLine } from "./pnl";
 import { pnlChecks, pnlDetails, type DetailInput } from "./pnlDetail";
 
 const WEEK = "2026-11-16";
@@ -21,11 +21,47 @@ const lambs = [
 ];
 const pays = [sheetPay(sheet, lambs, [{ id: "x", sheet_id: "s1", lamb_id: "b", kind: "dollars", amount: "5", reason: "premium", note: "well finished" }])];
 const pay = weekPay(pays);
-const lambCharges: LambCharge[] = [{ id: "l1", name: "ALB/OSC", effective_from: "2026-10-01", per_lamb: "1.8000", note: "" }];
-const percentCharges: PercentCharge[] = [{ id: "p1", name: "Marketing", effective_from: "2026-10-01", percent: "4.0000", note: "" }];
+const cat = (id: string, name: string, group: ExpenseCategory["group_name"], method: ExpenseCategory["method"], sort: number, more: Partial<ExpenseCategory> = {}): ExpenseCategory => ({
+  id,
+  name,
+  active: true,
+  sort,
+  group_name: group,
+  method,
+  income_base: "all",
+  base_category_ids: [],
+  note: "",
+  ...more,
+});
 const categories: ExpenseCategory[] = [
-  { id: "c1", name: "Butcher (Mohawk)", active: true, sort: 1 },
-  { id: "c2", name: "Labor", active: true, sort: 2 },
+  cat("prod", "Producer pay", "Cost of product", "weigh_sheets", 10),
+  cat("c1", "Processing, Mohawk", "Cost of product", "entered", 20),
+  cat("ins", "Truck, insurance", "Delivery", "fixed_weekly", 140),
+  cat("mkt", "Marketing", "Operating", "percent_income", 300),
+  cat("alb", "ALB/OSC assessments", "Operating", "per_lamb", 310),
+  cat("c2", "Labor, other", "Operating", "entered", 320),
+];
+const rate = (category_id: string, effective_from: string, r: Partial<CategoryRate>): CategoryRate => ({
+  id: `${category_id}-${effective_from}`,
+  category_id,
+  effective_from,
+  amount: null,
+  percent: null,
+  parts: [],
+  note: "",
+  ...r,
+});
+const rates: CategoryRate[] = [
+  rate("alb", "2026-10-01", { amount: "1.8000" }),
+  rate("mkt", "2026-10-01", { percent: "4.0000" }),
+  rate("ins", "2026-10-08", {
+    parts: [
+      { label: "Weekly amount", amount: 60, per: "week" },
+      { label: "Weekly amount", amount: 15.69, per: "week" },
+      { label: "Yearly amount", amount: 1698, per: "year" },
+      { label: "Yearly amount", amount: 110, per: "year" },
+    ],
+  }),
 ];
 const expenses: ExpenseEntry[] = [
   { id: "e1", entry_date: "2026-11-16", week_id: WEEK, category_id: "c2", amount: "120", note: "Packing help", created_by: "u1", created_at: "2026-11-16T22:10:00Z" },
@@ -59,7 +95,7 @@ const ii = invoiceIncome({
   charges: [],
   productName: (id) => id,
 });
-const p = weekPnl({ week: WEEK, pay, income: [], expenses, categories, lambCharges, percentCharges, invoices: ii });
+const p = weekPnl({ week: WEEK, pay, income: [], expenses, categories, rates, invoices: ii, lbShipped: "20.50" });
 const input: DetailInput = {
   week: WEEK,
   p,
@@ -68,8 +104,6 @@ const input: DetailInput = {
   pay,
   settings: [{ id: "s", effective_from: "2026-10-01", base_rate: "3.0000", live_factor: "2.0200", note: "" }],
   rates: [],
-  lambCharges,
-  percentCharges,
   income: [],
   expenses,
   categories,
@@ -88,7 +122,7 @@ const line = (key: string) => d.find((x) => x.key === key)!;
 
 describe("P&L line detail", () => {
   it("shows a weigh sheet's pay step by step, with the rate and where it came from", () => {
-    const s = line("producer").items[0];
+    const s = line("category:prod").items[0];
     expect(s.label).toBe("Eric Freepons · kill Friday, Nov 13");
     expect(s.amount).toBe("$756.44");
     expect(s.math).toEqual([
@@ -104,7 +138,7 @@ describe("P&L line detail", () => {
   });
   it("says when a sheet keeps a rate Setup no longer gives", () => {
     const other = pnlDetails({ ...input, settings: [{ id: "s", effective_from: "2026-10-01", base_rate: "3.2500", live_factor: "2.0200", note: "" }] });
-    expect(other.find((x) => x.key === "producer")!.items[0].math!.at(-1)).toBe(
+    expect(other.find((x) => x.key === "category:prod")!.items[0].math!.at(-1)).toBe(
       "Rate $3.00 per live lb × 2.02, saved on the sheet (Setup from Oct 1, 2026 says otherwise; the sheet keeps its own).",
     );
   });
@@ -120,28 +154,46 @@ describe("P&L line detail", () => {
     expect(line("income").how.at(-1)).toBe("Finalized $0.00 + packed, not invoiced $331.08 = $331.08");
     expect(line("income").title).toBe("Income (projected)");
   });
-  it("shows per-lamb and percent charges with their numbers and dates", () => {
-    expect(line("charge:ALB/OSC").how).toEqual([
+  it("shows per-lamb and percent categories with their numbers and dates", () => {
+    expect(line("category:alb").how).toEqual([
       "Lambs on this week's weigh sheets × $1.80 a lamb (P&L Setup, from Oct 1, 2026).",
       "2 lambs × $1.80 = $3.60",
     ]);
-    expect(line("charge:Marketing").how[1]).toBe("4% × $331.08 projected income = $13.24");
+    expect(line("category:mkt").how[1]).toBe("4% × $331.08 projected income = $13.24");
+    expect(line("category:mkt").title).toBe("Marketing (projected)");
+  });
+  it("shows a fixed weekly amount from its parts", () => {
+    expect(line("category:ins").how).toEqual([
+      "The same amount every week, no-processing weeks too (P&L Setup, from Oct 8, 2026).",
+      "$60.00 + $15.69 + ($1,698.00 + $110.00) ÷ 52 = $110.46",
+    ]);
+    expect(line("category:ins").items.map((i) => `${i.label} ${i.amount} ${i.note}`)).toEqual([
+      "Weekly amount $60.00 a week",
+      "Weekly amount $15.69 a week",
+      "Yearly amount $1,698.00 a year, ÷ 52",
+      "Yearly amount $110.00 a year, ÷ 52",
+    ]);
   });
   it("lists each expense with who entered it", () => {
-    const labor = line("expenses").items[0];
-    expect(labor.label).toBe("Labor");
-    expect(labor.items![0].note).toBe("Packing help · Entered by Kathy Panner, Nov 16, 2:10 PM");
+    const labor = line("category:c2");
+    expect(labor.how).toEqual(["Expenses entered on the Weekly P&L, dated in this week.", "$120.00 = $120.00"]);
+    expect(labor.items[0].note).toBe("Packing help · Entered by Kathy Panner, Nov 16, 2:10 PM");
+  });
+  it("totals each group", () => {
+    expect(line("group:Cost of product").how[1]).toBe("$756.44 + $0.00 = $756.44");
+    expect(line("group:Operating").how[1]).toBe("$13.24 + $3.60 + $120.00 = $136.84");
   });
   it("works out the results with their numbers", () => {
-    expect(line("total").how[1]).toBe("$756.44 + $16.84 + $120.00 = $893.28");
-    expect(line("profit").how[1]).toBe("$331.08 − $893.28 = -$562.20");
-    expect(line("perhead").how[1]).toBe("-$562.20 ÷ 2 lambs = -$281.10");
+    expect(line("total").how[1]).toBe("$756.44 + $110.46 + $136.84 + $0.00 = $1,003.74");
+    expect(line("profit").how[1]).toBe("$331.08 − $1,003.74 = -$672.66");
+    expect(line("perhead").how[1]).toBe("-$672.66 ÷ 2 lambs = -$336.33");
+    expect(line("deliverylb").how[1]).toBe("$110.46 ÷ 20.50 lb = $5.3883 a lb");
   });
 });
 
 describe("P&L checks", () => {
   it("lists what's missing", () => {
-    expect(pnlChecks({ p, ii, lambCount: 3, categories, expenses }).map((c) => c.key)).toEqual(["invoices", "notpacked", "lambs", "butcher"]);
+    expect(pnlChecks({ p, ii, lambCount: 3 }).map((c) => c.key)).toEqual(["invoices", "notpacked", "lambs", "butcher"]);
   });
   it("is empty when nothing is missing", () => {
     const done = invoiceIncome({
@@ -154,14 +206,19 @@ describe("P&L checks", () => {
       productName: (id) => id,
     });
     const all = [...expenses, { ...expenses[0], id: "e2", category_id: "c1" }];
-    const pp = weekPnl({ week: WEEK, pay, income: [], expenses: all, categories, lambCharges, percentCharges, invoices: done });
-    expect(pnlChecks({ p: pp, ii: done, lambCount: 2, categories, expenses: all })).toEqual([]);
+    const pp = weekPnl({ week: WEEK, pay, income: [], expenses: all, categories, rates, invoices: done });
+    expect(pnlChecks({ p: pp, ii: done, lambCount: 2 })).toEqual([]);
   });
-  it("says when there's no weigh sheet, and a price is missing", () => {
-    const none = weekPnl({ week: WEEK, pay: weekPay([]), income: [], expenses, categories, lambCharges, percentCharges, invoices: ii });
+  it("says when there's no weigh sheet, a price is missing, or a category has no rate", () => {
+    const none = weekPnl({ week: WEEK, pay: weekPay([]), income: [], expenses, categories, rates, invoices: ii });
     const priced = invoiceIncome({ week: WEEK, locations: [{ id: "emerson", name: "Emerson", chainId: null }], invoices: [], packed, prices: [], charges: [], productName: () => "Racks" });
-    const keys = pnlChecks({ p: none, ii: priced, lambCount: null, categories, expenses }).map((c) => c.key);
-    expect(keys).toEqual(["invoices", "price:Racks", "sheet", "butcher"]);
+    expect(pnlChecks({ p: none, ii: priced, lambCount: null }).map((c) => c.key)).toEqual(["invoices", "price:Racks", "sheet"]);
+    const early = weekPnl({ week: "2026-09-28", pay, income: [], expenses: [{ ...expenses[0], category_id: "c1" }], categories, rates, invoices: ii });
+    expect(pnlChecks({ p: early, ii, lambCount: 2 }).map((c) => c.text).slice(-3)).toEqual([
+      "Truck, insurance has no rate for this week (P&L Setup).",
+      "Marketing has no rate for this week (P&L Setup).",
+      "ALB/OSC assessments has no rate for this week (P&L Setup).",
+    ]);
   });
 });
 
@@ -184,13 +241,13 @@ describe("adjustments in the line detail (stage B)", () => {
     void_reason: voided ? "Entered twice" : "",
   });
   const adjustments = [
-    adj("a1", "adjustment", "producer", "expense", "-50"),
-    adj("a2", "adjustment", "producer", "expense", "-50", true),
+    adj("a1", "adjustment", "category:prod", "expense", "-50"),
+    adj("a2", "adjustment", "category:prod", "expense", "-50", true),
     adj("a3", "one_off", null, "expense", "412.50"),
   ];
-  const pa = weekPnl({ week: WEEK, pay, income: [], expenses, categories, lambCharges, percentCharges, invoices: ii, adjustments });
+  const pa = weekPnl({ week: WEEK, pay, income: [], expenses, categories, rates, invoices: ii, adjustments });
   const da = pnlDetails({ ...input, p: pa });
-  const prod = da.find((x) => x.key === "producer")!;
+  const prod = da.find((x) => x.key === "category:prod")!;
   it("shows calculated + adjustments = total", () => {
     expect(prod.amount).toBe("$706.44");
     expect(prod.how.at(-1)).toBe("Calculated $756.44 − adjustments $50.00 = $706.44");
@@ -202,9 +259,9 @@ describe("adjustments in the line detail (stage B)", () => {
     expect(items[1]).toMatchObject({ tag: "Voided", voided: true });
     expect(items[1].note).toBe("Added by Kathy Panner, Nov 16, 2:10 PM · Voided by Lucas Nelson, Nov 17, 10:00 AM: Entered twice");
   });
-  it("lists one-off expense lines under expenses", () => {
-    const e = da.find((x) => x.key === "expenses")!;
+  it("lists one-off expense lines on their own", () => {
+    const e = da.find((x) => x.key === "oneoff-expense")!;
     expect(e.items.at(-1)).toMatchObject({ label: "Freight bill (Heritage)", tag: "One-off expense", amount: "$412.50", math: ["Reason: Bill #4471"] });
-    expect(e.how.at(-1)).toBe("$120.00 + one-off $412.50 = $532.50");
+    expect(e.amount).toBe("$412.50");
   });
 });
