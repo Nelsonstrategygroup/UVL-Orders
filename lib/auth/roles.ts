@@ -53,7 +53,7 @@ export const AREA_INFO: Record<Area, { label: string; sub: string }> = {
   freezer: { label: "Freezer", sub: "What's on hand" },
   customers: { label: "Customers", sub: "Customer list, contacts, standing notes" },
   callnotes: { label: "Call notes", sub: "The history of calls and follow-ups" },
-  downloads: { label: "Print and download", sub: "Order sheets, labels, spreadsheets (looking only)" },
+  downloads: { label: "Reports", sub: "Order sheets, labels, manifests, spreadsheets (looking only)" },
   setup: { label: "Operations setup", sub: "Products, parts per lamb, boxes, lamb sizes, box labels, Ships to" },
   invoices: { label: "Invoices", sub: "Invoices, payments, invoice codes and terms" },
   prices: { label: "Prices", sub: "Product prices (Setup > Prices)" },
@@ -98,7 +98,7 @@ export type NavItem = {
   /** Short label and symbol for the phone bottom bar. */
   short: string;
   icon: string;
-  /** On phones, This week, Orders and Packing sit in the bar; the rest go under "More". */
+  /** On phones, This week, Orders, Packing and Reports sit in the bar; the rest go under "More". */
   bottom: boolean;
   /** One line for the "More" menu. */
   sub: string;
@@ -170,6 +170,15 @@ export const TABS: TabDef[] = [
     ],
   },
   {
+    key: "reports",
+    label: "Reports",
+    short: "Reports",
+    icon: "☰",
+    bottom: true,
+    sub: "Order sheets, labels, manifests and spreadsheets, to open or download",
+    sections: [{ href: "/print", label: "Reports", area: "downloads" }],
+  },
+  {
     key: "setup",
     label: "Setup",
     short: "Setup",
@@ -183,8 +192,8 @@ export const TABS: TabDef[] = [
   },
 ];
 
-/** The Print page: in the header and the phone bar, not a tab. */
-export const PRINT: Section = { href: "/print", label: "Print", area: "downloads" };
+/** The Reports page (was Print and download; still at /print). */
+export const PRINT: Section = { href: "/print", label: "Reports", area: "downloads" };
 
 /**
  * Who may open a page, by its path (the longest match wins). Pages not
@@ -192,8 +201,7 @@ export const PRINT: Section = { href: "/print", label: "Print", area: "downloads
  */
 const ROUTES: Section[] = [
   ...TABS.flatMap((t) => t.sections),
-  PRINT,
-  { href: "/downloads", label: "Print", area: "downloads" },
+  { href: "/downloads", label: "Reports", area: "downloads" },
   { href: "/weigh-sheets", label: "Carcass weights", area: "carcass" },
   { href: "/pnl/activity", label: "P&L activity", adminOnly: true },
   { href: "/setup/prices", label: "Prices", area: "prices" },

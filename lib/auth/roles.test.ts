@@ -30,15 +30,16 @@ describe("the six tabs (Lucas, 11/17/26)", () => {
       "Orders: Orders",
       "Packing: Packing, Freezer",
       "Office: Invoices, Weekly P&L, Carcass weights, Truck runs",
+      "Reports: Reports",
       "Setup: Setup, Users",
     ]);
     expect(homeFor(ALL_ACCESS, "admin")).toBe("/week");
     expect(navFor(ALL_ACCESS, "admin").find((n) => n.key === "sales")!.href).toBe("/calls");
   });
 
-  it("phone bar: This week, Orders, Packing (and Print); the rest under More", () => {
+  it("phone bar: This week, Orders, Packing, Reports; the rest under More", () => {
     const nav = navFor(ALL_ACCESS, "admin");
-    expect(nav.filter((n) => n.bottom).map((n) => n.short)).toEqual(["Week", "Orders", "Packing"]);
+    expect(nav.filter((n) => n.bottom).map((n) => n.short)).toEqual(["Week", "Orders", "Packing", "Reports"]);
     expect(nav.filter((n) => !n.bottom).map((n) => n.label)).toEqual(["Sales", "Office", "Setup"]);
   });
 
@@ -49,6 +50,7 @@ describe("the six tabs (Lucas, 11/17/26)", () => {
       "Orders: Orders",
       "Packing: Packing, Freezer",
       "Office: Truck runs",
+      "Reports: Reports",
       "Setup: Setup",
     ]);
     for (const p of ["/pnl", "/pnl/entries", "/carcass-weights", "/weigh-sheets/abc", "/users", "/setup/lamb-cost", "/setup/records", "/invoices", "/setup/prices"])
@@ -58,7 +60,7 @@ describe("the six tabs (Lucas, 11/17/26)", () => {
   });
 
   it("gives an accountant orders, print, invoices, the P&L, carcass weights and truck runs; nothing operational", () => {
-    expect(tabs(accountant, "billing")).toEqual(["Orders: Orders", "Office: Invoices, Weekly P&L, Carcass weights, Truck runs", "Setup: Setup"]);
+    expect(tabs(accountant, "billing")).toEqual(["Orders: Orders", "Office: Invoices, Weekly P&L, Carcass weights, Truck runs", "Reports: Reports", "Setup: Setup"]);
     for (const p of ["/pnl", "/pnl/detail", "/carcass-weights/abc", "/print", "/invoices/x", "/setup/invoicing"]) expect(canOpen(accountant, "billing", p), p).toBe(true);
     for (const p of ["/half-whole", "/customers", "/customers/abc", "/calls", "/week", "/packing", "/freezer", "/setup/products", "/setup/prices", "/pnl/activity", "/users"])
       expect(canOpen(accountant, "billing", p), p).toBe(false);
@@ -86,7 +88,7 @@ describe("the six tabs (Lucas, 11/17/26)", () => {
 
   it("shows a viewer everything but Setup, Users and the money screens", () => {
     const keys = navFor(viewer, "viewer").map((n) => n.key);
-    expect(keys).toEqual(["week", "sales", "orders", "packing", "office"]);
+    expect(keys).toEqual(["week", "sales", "orders", "packing", "office", "reports"]);
     expect(navFor(viewer, "viewer").find((n) => n.key === "office")!.sections.map((s) => s.label)).toEqual(["Truck runs"]);
     expect(canOpen(viewer, "viewer", "/setup")).toBe(false);
   });
@@ -100,6 +102,8 @@ describe("the six tabs (Lucas, 11/17/26)", () => {
     expect(tabFor("/users")).toBe("setup");
     expect(canOpen(ALL_ACCESS, "admin", "/downloads")).toBe(true);
     expect(canOpen(accountant, "billing", "/downloads")).toBe(true);
+    expect(tabFor("/print")).toBe("reports");
+    expect(navFor({ ...accountant, downloads: 0 }, "billing").some((n) => n.key === "reports")).toBe(false);
   });
 
   it("reads permissions from the database safely", () => {

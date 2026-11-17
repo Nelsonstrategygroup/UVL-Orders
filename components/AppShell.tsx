@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useState } from "react";
-import { canSee, navFor, onlyPacking, PRINT, tabFor, type NavItem, type Perms, type Role } from "@/lib/auth/roles";
+import { navFor, onlyPacking, tabFor, type NavItem, type Perms, type Role } from "@/lib/auth/roles";
 import { logout } from "@/app/login/actions";
 import Sheet from "./Sheet";
 import { getLabelOffset, setLabelOffset } from "./labelOffset";
@@ -40,8 +40,6 @@ export default function AppShell({
   const tab = tabFor(pathname);
   const current = nav.find((n) => n.key === tab);
   const moreCurrent = more.some((n) => n.key === tab);
-  // Print (Lucas, 11/17/26): a button in the header on every page, for whoever may print.
-  const canPrint = !simple && canSee(perms, role, PRINT);
 
   // A sheet belongs to the screen it was opened on, so it closes after moving to another screen.
   const [opened, setOpened] = useState<{ kind: "more" | "account"; path: string } | null>(null);
@@ -66,11 +64,6 @@ export default function AppShell({
               </Link>
             ))}
           </nav>
-        )}
-        {canPrint && (
-          <Link href={PRINT.href} className="topbtn desk-only" aria-current={isCurrent(pathname, PRINT.href) ? "page" : undefined}>
-            Print
-          </Link>
         )}
         <button
           type="button"
@@ -116,12 +109,6 @@ export default function AppShell({
               {n.short}
             </Link>
           ))}
-          {canPrint && (
-            <Link href={PRINT.href} aria-current={isCurrent(pathname, PRINT.href) ? "page" : undefined}>
-              <b aria-hidden="true">⎙</b>
-              Print
-            </Link>
-          )}
           {more.length > 0 && (
             <button type="button" onClick={() => setSheet("more")} aria-current={moreCurrent ? "page" : undefined}>
               <b aria-hidden="true">&#8943;</b>More
