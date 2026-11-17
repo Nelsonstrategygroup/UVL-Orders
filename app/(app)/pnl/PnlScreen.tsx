@@ -96,6 +96,9 @@ export default function PnlScreen() {
           <Link href={`/pnl/detail?week=${week}`} className="btn ghost">
             P&amp;L detail
           </Link>
+          <Link href={`/pnl/activity?week=${week}`} className="btn ghost">
+            Activity
+          </Link>
           <button type="button" className="btn ghost" onClick={() => window.print()}>
             Print
           </button>
