@@ -9,13 +9,13 @@
 import { useCallback } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useLive } from "@/components/data/useLive";
-import { loadCharges, loadCustomerBilling, loadInvoiceSettings, loadPriceChecks, loadPrices } from "@/lib/db/invoicing";
+import { loadCharges, loadCustomerBilling, loadFreight, loadInvoiceSettings, loadPriceChecks, loadPrices } from "@/lib/db/invoicing";
 import { loadFingerprints, loadWeekBoxes, loadWeekInvoices, loadWeekPacking, syncDrafts } from "@/lib/db/invoices";
 
 async function loadWeek(db: SupabaseClient, week: string) {
   // Live drafts: every packed location gets one, each following packing.
   await syncDrafts(db, week);
-  const [invoices, fingerprints, prices, charges, priceChecks, billing, settings, weekRow, boxes, packing] = await Promise.all([
+  const [invoices, fingerprints, prices, charges, priceChecks, billing, settings, weekRow, boxes, packing, freight] = await Promise.all([
     loadWeekInvoices(db, week),
     loadFingerprints(db, week),
     loadPrices(db),
@@ -26,6 +26,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
     loadWeekBoxes(db, week),
     loadWeekPacking(db, week),
+    loadFreight(db),
   ]);
   if (weekRow.error) throw new Error(weekRow.error.message);
   return {
@@ -37,6 +38,8 @@ async function loadWeek(db: SupabaseClient, week: string) {
     prices,
     /** Per-carcass charges (Mohawk), for drafts. */
     charges,
+    /** Freight per location or chain, for drafts. */
+    freight,
     /** Locations whose prices are confirmed (Setup > Prices); an invoice for any other warns before it's printed or sent. */
     pricesConfirmed: new Set([...priceChecks.values()].filter((c) => c.confirmed).map((c) => c.customer_id)),
     billing,
@@ -59,6 +62,7 @@ export function useInvoiceWeek(week: string) {
     "prices",
     "customer_price_checks",
     "carcass_charges",
+    "freight_charges",
     "customer_billing",
     "invoice_settings",
     "weeks",

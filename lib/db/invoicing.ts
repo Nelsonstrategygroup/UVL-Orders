@@ -3,7 +3,9 @@
 // numbers. Money goes to the database as decimal strings, never floats.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { FreightChargeRow, FreightMethod } from "../calc/invoice";
 import type { ChargeRow, PriceRow } from "../calc/prices";
+import { withSource } from "./source";
 
 const msg = (e: { message: string } | null) => (e ? e.message : null);
 
@@ -79,6 +81,38 @@ export async function setCharge(
 
 export async function deleteCharge(db: SupabaseClient, id: string): Promise<string | null> {
   const { error } = await db.from("carcass_charges").delete().eq("id", id);
+  return msg(error);
+}
+
+/** Freight charged to locations or chains (Setup > Invoicing; Lucas, 11/16/26). No row: no freight. */
+export async function loadFreight(db: SupabaseClient): Promise<FreightChargeRow[]> {
+  const { data, error } = await db
+    .from("freight_charges")
+    .select("id, customer_id, method, amount, effective_from, note")
+    .order("effective_from", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as FreightChargeRow[];
+}
+
+/** A location's or chain's freight from a date on (one starting that day is replaced). */
+export async function setFreight(
+  db: SupabaseClient,
+  f: { customerId: string; method: FreightMethod; amount: string; from: string; note: string },
+): Promise<string | null> {
+  const { error } = await withSource(
+    db
+      .from("freight_charges")
+      .upsert(
+        { customer_id: f.customerId, method: f.method, amount: f.method === "none" ? 0 : f.amount, effective_from: f.from, note: f.note.trim() },
+        { onConflict: "customer_id,effective_from" },
+      ),
+    "Setup > Invoicing",
+  );
+  return plain(error);
+}
+
+export async function deleteFreight(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await withSource(db.from("freight_charges").delete().eq("id", id), "Setup > Invoicing");
   return msg(error);
 }
 

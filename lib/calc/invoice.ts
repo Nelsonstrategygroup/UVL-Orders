@@ -11,7 +11,69 @@ import { chargeFor, lineTotalCents, priceFor, toFixedInt, type ChargeRow, type P
 
 export type InvoiceStatus = "draft" | "finalized" | "sent" | "void";
 /** charge: a per-carcass Mohawk charge under its product (Lucas, 11/15/26). */
-export type LineKind = "packed" | "shorted" | "manual" | "inventory" | "charge";
+/** freight: the location's freight charge, one line at the end (Lucas, 11/16/26). */
+export type LineKind = "packed" | "shorted" | "manual" | "inventory" | "charge" | "freight";
+
+export type FreightMethod = "none" | "per_pallet" | "per_delivery" | "per_box" | "per_lb";
+export const FREIGHT_LABEL: Record<FreightMethod, string> = {
+  none: "No freight",
+  per_pallet: "Per pallet",
+  per_delivery: "Per delivery",
+  per_box: "Per box",
+  per_lb: "Per lb",
+};
+/** Freight charged to a location, or a chain's stores, from a date on. */
+export type FreightChargeRow = { id: string; customer_id: string; method: FreightMethod; amount: string | number; effective_from: string; note: string };
+
+/** The location's own newest freight setting on or before the date, else its chain's (as freight_on()). */
+export function freightRateFor(rows: FreightChargeRow[], customerId: string, date: string, chainId: string | null): FreightChargeRow | null {
+  const newest = (id: string | null) =>
+    id == null
+      ? null
+      : rows.filter((r) => r.customer_id === id && r.effective_from <= date).sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0] ?? null;
+  return newest(customerId) ?? newest(chainId);
+}
+
+/**
+ * A draft's Freight line, as finalize_invoice() will store it: pallets
+ * carrying the location's boxes, its boxes, their weight, or one delivery,
+ * × the rate. None when there's no freight set, it's 0, or nothing's packed.
+ */
+export function freightLine(
+  rate: FreightChargeRow | null,
+  boxes: { weight: number | string; pallet_id?: string | null }[],
+  invoiceId: string,
+): InvoiceLineRow | null {
+  if (!rate || rate.method === "none" || !(Number(rate.amount) > 0)) return null;
+  const qty =
+    rate.method === "per_delivery"
+      ? "1"
+      : rate.method === "per_box"
+        ? String(boxes.length)
+        : rate.method === "per_pallet"
+          ? String(new Set(boxes.map((b) => b.pallet_id).filter(Boolean)).size)
+          : (Number(boxes.reduce((t, b) => t + toFixedInt(b.weight, 2), BigInt(0))) / 100).toFixed(2);
+  if (!(Number(qty) > 0)) return null;
+  return {
+    id: `${invoiceId}:freight`,
+    invoice_id: invoiceId,
+    kind: "freight",
+    product_id: null,
+    description: "Freight",
+    ordered_qty: null,
+    ordered_unit: "",
+    boxes: 0,
+    quantity: qty,
+    price_unit: rate.method === "per_lb" ? "lb" : "each",
+    unit_price: String(rate.amount),
+    discount_kind: null,
+    discount: null,
+    not_on_order: false,
+    note: "",
+    sort: 100000,
+    detail: "",
+  };
+}
 export type DiscountKind = "amount" | "percent";
 
 /** An invoice line as stored. Numbers from the database may be numbers or decimal strings. */

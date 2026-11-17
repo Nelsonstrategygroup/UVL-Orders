@@ -151,10 +151,12 @@ function lineItem(x: DetailInput, l: PricedLine, loc: { customerId: string; chai
   if (l.kind === "shorted") return { label: l.description, note: "Ordered, not packed: nothing billed" };
   if (l.priceNeeded) return { label: l.description, tag: "Price needed", math: [`${quantityText(l.quantity, l.price_unit)} × no price`], note: "Left out of the total until it has a price (Setup > Prices)." };
   if (l.countNeeded) return { label: l.description, tag: "Count needed", note: "Left out of the total until it's counted on Packing." };
-  const qty = l.kind === "charge" || l.kind === "manual" ? String(Number(l.quantity)) : quantityText(l.quantity, l.price_unit);
+  const qty = l.kind === "charge" || l.kind === "manual" || (l.kind === "freight" && l.price_unit !== "lb") ? String(Number(l.quantity)) : quantityText(l.quantity, l.price_unit);
   const where =
     l.kind === "charge"
       ? "Mohawk charge per carcass"
+      : l.kind === "freight"
+        ? "freight, Setup > Invoicing"
       : l.kind === "manual"
         ? `added by hand: ${l.note}`
         : loc.status === "finalized"
@@ -162,7 +164,7 @@ function lineItem(x: DetailInput, l: PricedLine, loc: { customerId: string; chai
           : l.product_id
             ? priceFrom(x, loc.customerId, loc.chainId, l.product_id, loc.date)
             : "";
-  const math = [`${qty} × ${priceText(l.price!)}${l.kind === "charge" || l.kind === "manual" ? "" : unit} = ${centsText(l.grossCents ?? BigInt(0))}${where ? ` (${where})` : ""}`];
+  const math = [`${qty} × ${priceText(l.price!)}${l.kind === "charge" || l.kind === "manual" || (l.kind === "freight" && l.price_unit !== "lb") ? "" : unit} = ${centsText(l.grossCents ?? BigInt(0))}${where ? ` (${where})` : ""}`];
   if (l.discountCents > BigInt(0)) math.push(`less discount ${centsText(l.discountCents)}${l.note ? `: ${l.note}` : ""} = ${centsText(l.totalCents ?? BigInt(0))}`);
   const boxes =
     loc.status === "packed" && l.kind === "packed" && l.product_id && l.price_unit === "lb"
@@ -533,8 +535,13 @@ function resultDetails(x: DetailInput): LineDetail[] {
       title: "Net delivery cost",
       amount: centsText(p.netDelivery),
       projected: false,
-      how: ["Delivery total − freight income. No freight income is set up yet.", `${centsText(delivery.total)} − $0.00 = ${centsText(p.netDelivery)}`],
-      items: [],
+      how: [
+        "Delivery total − freight charged on invoices (Setup > Invoicing; part of income).",
+        `${centsText(delivery.total)} − ${centsText(p.freightIncome)} = ${centsText(p.netDelivery)}`,
+      ],
+      items: x.ii.rows
+        .flatMap((r) => r.lines.filter((l) => l.kind === "freight").map((l) => ({ r, l })))
+        .map(({ r, l }) => ({ label: r.name, tag: r.status === "finalized" ? "Finalized" : "Packed", amount: l.totalCents != null ? centsText(l.totalCents) : undefined })),
     },
     {
       key: "perpallet",
