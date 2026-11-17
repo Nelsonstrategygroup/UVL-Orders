@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ALL_ACCESS, isRole, permsFrom, type Perms, type Role } from "./roles";
+import { ALL_ACCESS, isRole, permsFrom, type Area, type Perms, type Role } from "./roles";
 
 export type CurrentUser = {
   id: string;
@@ -41,6 +41,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  return user;
+}
+
+/** For a page in an area: the current person, or "You don't have access to this" without View. */
+export async function requireArea(area: Area): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (user.perms[area] < 1) redirect("/no-access");
   return user;
 }
 

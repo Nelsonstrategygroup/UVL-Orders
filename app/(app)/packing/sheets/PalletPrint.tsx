@@ -2,7 +2,7 @@
 // columns, a block per store in the usual order with Ships to, Pallet and
 // Initials once, then a line per product: a checkbox, the product as on the
 // label, what was ordered, and how many boxes. No weight blanks (those are
-// on the Weigh Sheet). Laid out in lib/packSheets.ts with these sizes.
+// on the Box weight sheet). Laid out in lib/packSheets.ts with these sizes.
 
 import PrintHeader from "@/components/PrintHeader";
 import { weekName } from "@/lib/dates";

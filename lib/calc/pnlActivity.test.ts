@@ -7,7 +7,7 @@ const names: Names = {
   producer: (id) => ({ eric: "Eric Freepons" })[id] ?? id,
   category: (id) => ({ c1: "Butcher (Mohawk)" })[id] ?? id,
   user: (id) => ({ u1: "Kathy Panner" })[id ?? ""] ?? "someone",
-  sheet: (id) => (id === "s1" ? { label: "Eric Freepons, kill Nov 13", week: "2026-11-16" } : { label: "a weigh sheet", week: null }),
+  sheet: (id) => (id === "s1" ? { label: "Eric Freepons, kill Nov 13", week: "2026-11-16" } : { label: "a carcass weights sheet", week: null }),
   expenseWeek: (id) => (id === "x1" ? "2026-11-16" : null),
 };
 
@@ -95,7 +95,7 @@ describe("P&L activity", () => {
     expect(e.fields).toEqual([{ label: "Voided because", old: "", new: "Entered twice" }]);
   });
 
-  it("a lamb weight belongs to its weigh sheet's week", () => {
+  it("a lamb weight belongs to its carcass weights sheet's week", () => {
     const e = describeRow(row({ table_name: "kill_lambs", action: "delete", old_data: { sheet_id: "s1", position: 4, carcass_lb: "71.5" } }), names, [])!;
     expect(e.title).toBe("Lamb weight: Eric Freepons, kill Nov 13");
     expect(e.action).toBe("Deleted");
@@ -120,7 +120,7 @@ describe("P&L activity", () => {
 
   it("groups a run of the same change by the same person", () => {
     const lamb = (i: number, at: string) =>
-      describeRow(row({ table_name: "kill_lambs", new_data: { sheet_id: "s1", position: i, carcass_lb: "70" }, at, source: "weigh sheet" }), names, [])!;
+      describeRow(row({ table_name: "kill_lambs", new_data: { sheet_id: "s1", position: i, carcass_lb: "70" }, at, source: "carcass weights sheet" }), names, [])!;
     const other = describeRow(row({ table_name: "pnl_income", new_data: { customer_name: "Farm stand", amount: "50", week_id: "2026-11-16" }, at: "2026-11-15T19:00:00Z" }), names, [])!;
     const groups = groupEntries([lamb(1, "2026-11-15T18:00:00Z"), lamb(2, "2026-11-15T18:01:00Z"), lamb(3, "2026-11-15T18:02:00Z"), other, lamb(4, "2026-11-15T20:00:00Z")]);
     expect(groups.map((g) => g.entries.length)).toEqual([1, 1, 3]);

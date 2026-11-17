@@ -1,4 +1,4 @@
-// The Weigh Sheet as printed pages (Lucas, 11/1/26): Letter landscape, two
+// The Box weight sheet as printed pages (Lucas, 11/1/26): Letter landscape, two
 // columns, a section per product A to Z with its name large, a row per store
 // with a cell per box and Total lbs. Page 1 has a one-line index of which
 // page each product is on; every page has the INV#, the packing date and
@@ -20,9 +20,9 @@ export default function WeighPrint({ layout, inv, week, preview = false }: { lay
     <div className={`sheetpages ${preview ? "preview" : "print-only"}`} style={{ "--pw": inch(WEIGH.pageW), "--ph": inch(WEIGH.pageH), "--rowh": inch(WEIGH.rowH) } as React.CSSProperties}>
       {!preview && <style>{`@media print { @page { size: letter landscape; margin: 0.4in; } }`}</style>}
       {pages.map((pg, i) => (
-        <section key={i} className="sp-page" aria-label={`Weigh Sheet page ${i + 1} of ${total}`}>
+        <section key={i} className="sp-page" aria-label={`Box weight sheet page ${i + 1} of ${total}`}>
           <div className="sp-head" style={{ height: inch(WEIGH.pageHead) }}>
-            <PrintHeader inv={inv} title="Weigh Sheet" when={`Packing ${weekName(week)} · Page ${i + 1} of ${total}`} footer={false} />
+            <PrintHeader inv={inv} title="Box weight sheet" when={`Packing ${weekName(week)} · Page ${i + 1} of ${total}`} footer={false} />
           </div>
           {i === 0 && (
             <p className="ws-index" style={{ height: inch(WEIGH.index) }}>

@@ -121,7 +121,7 @@ const d = pnlDetails(input);
 const line = (key: string) => d.find((x) => x.key === key)!;
 
 describe("P&L line detail", () => {
-  it("shows a weigh sheet's pay step by step, with the rate and where it came from", () => {
+  it("shows a carcass weights sheet's pay step by step, with the rate and where it came from", () => {
     const s = line("category:prod").items[0];
     expect(s.label).toBe("Eric Freepons · kill Friday, Nov 13");
     expect(s.amount).toBe("$756.44");
@@ -134,7 +134,7 @@ describe("P&L line detail", () => {
       "Rounded once to the cent: $756.44",
       "Rate $3.00 per live lb × 2.02: Setup from Oct 1, 2026.",
     ]);
-    expect(s.links).toEqual([{ label: "Weigh sheet and photo", href: "/weigh-sheets/s1" }]);
+    expect(s.links).toEqual([{ label: "Carcass weights and photo", href: "/carcass-weights/s1" }]);
   });
   it("says when a sheet keeps a rate Setup no longer gives", () => {
     const other = pnlDetails({ ...input, settings: [{ id: "s", effective_from: "2026-10-01", base_rate: "3.2500", live_factor: "2.0200", note: "" }] });
@@ -156,7 +156,7 @@ describe("P&L line detail", () => {
   });
   it("shows per-lamb and percent categories with their numbers and dates", () => {
     expect(line("category:alb").how).toEqual([
-      "Lambs on this week's weigh sheets × $1.80 a lamb (P&L Setup, from Oct 1, 2026).",
+      "Lambs on this week's carcass weights × $1.80 a lamb (P&L Setup, from Oct 1, 2026).",
       "2 lambs × $1.80 = $3.60",
     ]);
     expect(line("category:mkt").how[1]).toBe("4% × $331.08 projected income = $13.24");
@@ -209,7 +209,7 @@ describe("P&L checks", () => {
     const pp = weekPnl({ week: WEEK, pay, income: [], expenses: all, categories, rates, invoices: done });
     expect(pnlChecks({ p: pp, ii: done, lambCount: 2 })).toEqual([]);
   });
-  it("says when there's no weigh sheet, a price is missing, or a category has no rate", () => {
+  it("says when there's no carcass weights, a price is missing, or a category has no rate", () => {
     const none = weekPnl({ week: WEEK, pay: weekPay([]), income: [], expenses, categories, rates, invoices: ii });
     const priced = invoiceIncome({ week: WEEK, locations: [{ id: "emerson", name: "Emerson", chainId: null }], invoices: [], packed, prices: [], charges: [], productName: () => "Racks" });
     expect(pnlChecks({ p: none, ii: priced, lambCount: null }).map((c) => c.key)).toEqual(["invoices", "price:Racks", "sheet"]);

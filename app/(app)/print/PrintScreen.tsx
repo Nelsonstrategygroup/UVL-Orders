@@ -281,7 +281,7 @@ export default function PrintScreen() {
               </Item>
             )}
             {seePacking && (
-              <Item key="weigh" title="Weigh Sheet" action={<PackSheetButtons week={week} kind="weigh" fileType={fileType} />}>
+              <Item key="weigh" title="Box weight sheet" action={<PackSheetButtons week={week} kind="weigh" fileType={fileType} />}>
                 Each store&apos;s boxes by product, with room to write each weight.
               </Item>
             )}

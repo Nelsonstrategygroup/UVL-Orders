@@ -1,6 +1,6 @@
 "use client";
 
-// Open and Download for the Weigh Sheet and the Pallet Sheet on Print and
+// Open and Download for the Box weight sheet and the Pallet Sheet on Print and
 // download (Lucas, 11/1/26). The download is the same rows as the printout,
 // built from the week's packing data (as on Packing).
 
@@ -23,7 +23,7 @@ export default function PackSheetButtons({ week, kind, fileType }: { week: strin
     const labels = sheetLabels(b.packing, b.boxes);
     const inv = b.packing.invNumber;
     try {
-      if (kind === "weigh") await downloadTable(invFileName(inv, "Weigh Sheet", week), weighTable(weighSections(b.packing, labels), inv, week), "Weigh Sheet", fileType);
+      if (kind === "weigh") await downloadTable(invFileName(inv, "Box weight sheet", week), weighTable(weighSections(b.packing, labels), inv, week), "Box weight sheet", fileType);
       else await downloadTable(invFileName(inv, "Pallet Sheet", week), palletTable(palletCustomers(b.packing, labels), inv, week), "Pallet Sheet", fileType);
     } catch {
       toast("Couldn't download. Try again.");

@@ -221,7 +221,7 @@ export default function PackingScreen() {
       {data.orders.length > 0 && (
         <div className="screen-only mt-5 flex flex-wrap gap-2">
           <Link href="/packing/weigh" className="btn ghost">
-            Weigh Sheet (no internet)
+            Box weight sheet (no internet)
           </Link>
           <Link href="/packing/print" className="btn ghost">
             Pallet Sheet

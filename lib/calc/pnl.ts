@@ -275,7 +275,7 @@ export const METHOD_LABEL: Record<CategoryMethod, string> = {
   entered: "Entered",
   per_lamb: "Per lamb",
   percent_income: "Percent of income",
-  weigh_sheets: "Weigh sheets (producer pay)",
+  weigh_sheets: "Carcass weights (producer pay)",
   fixed_weekly: "Fixed weekly",
   percent_category: "Percent of other categories",
   per_truck_run: "Per truck run",
@@ -416,17 +416,17 @@ export type WeekPnl = {
   otherCents: bigint;
   /** Some of the income (so marketing, profit and per head) is projected from packing. */
   projected: boolean;
-  /** Lambs on the week's weigh sheets; 0 means no weigh sheet (or no weights yet). */
+  /** Lambs on the week's carcass weights; 0 means no carcass weights (or no weights yet). */
   head: number;
   hasSheets: boolean;
-  /** No processing this week (a holiday): no weigh sheet is expected. */
+  /** No processing this week (a holiday): no carcass weights is expected. */
   noProcessing: boolean;
   /** Every category shown this week, in order. */
   categories: CategoryLine[];
   groups: GroupTotal[];
   oneOffExpense: PnlAdjustment[];
   oneOffExpenseCents: bigint;
-  /** Every category + one-off expenses. Null without a weigh sheet (unless no processing). */
+  /** Every category + one-off expenses. Null without a carcass weights sheet (unless no processing). */
   totalExpense: bigint | null;
   /** Delivery total − freight income. */
   netDelivery: bigint;
@@ -455,12 +455,12 @@ export type WeekPnl = {
   lbShipped: bigint;
   /** Net delivery ÷ lb shipped, in ten-thousandths of a dollar; null with nothing shipped. */
   deliveryPerLb: bigint | null;
-  /** Null unless there's both income and a weigh sheet (or no processing). */
+  /** Null unless there's both income and a carcass weights sheet (or no processing). */
   profit: bigint | null;
   profitPerHead: bigint | null;
   /** Total expense per carcass lb, in ten-thousandths of a dollar (4 decimals); null unless both. */
   costPerCarcassLb: bigint | null;
-  /** Income per carcass lb, in ten-thousandths of a dollar; null without income or a weigh sheet. */
+  /** Income per carcass lb, in ten-thousandths of a dollar; null without income or a carcass weights sheet. */
   incomePerCarcassLb: bigint | null;
   /** Every adjustment and one-off line of the week, voided ones too (for the detail). */
   adjustments: PnlAdjustment[];
@@ -569,10 +569,10 @@ export function weekPnl(input: {
     switch (c.method) {
       case "weigh_sheets":
         if (hasSheets) calc = input.pay.cents;
-        else if (!noProcessing) [calc, waiting] = [null, "No weigh sheet for this week."];
+        else if (!noProcessing) [calc, waiting] = [null, "No carcass weights for this week."];
         break;
       case "per_lamb":
-        if (!lambsKnown) [calc, waiting] = [null, "No weigh sheet for this week."];
+        if (!lambsKnown) [calc, waiting] = [null, "No carcass weights for this week."];
         else calc = rate?.amount != null ? roundToCents(toFixedInt(rate.amount, 4) * BigInt(head), 4) : ZERO;
         break;
       case "percent_income":

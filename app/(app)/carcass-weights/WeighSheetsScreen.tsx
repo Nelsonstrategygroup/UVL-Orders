@@ -1,10 +1,12 @@
 "use client";
 
-// Weigh sheets, the week (SPEC 16.3-16.5, Lamb cost stage 2): the week's
-// sheets from Mohawk's kill log (one per producer per kill date), then each
+// Carcass weights (was Weigh sheets; renamed 11/17/26), the week: the week's
+// sheets of Mohawk's carcass weights (one per producer per kill date), then each
 // producer's lambs, weights and pay, then the week total. Warns, never
 // blocks, when the lambs on the sheets don't match This week's lamb count.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,6 +34,7 @@ import { weekCalc } from "@/lib/weekCalc";
 const TABLES = ["kill_sheets", "kill_lambs", "kill_adjustments", "kill_sheet_photos", "producers"];
 
 export default function WeighSheetsScreen() {
+  const canEdit = useCan("carcass").change;
   const { week } = useWeek();
   const { catalog } = useStaffData();
   const loadSheets = useCallback((d: SupabaseClient) => loadWeekSheets(d, week), [week]);
@@ -41,7 +44,7 @@ export default function WeighSheetsScreen() {
   // The week's ONE lamb count, the number This week shows (read only).
   const { data: weekData } = useWeekData(week);
 
-  if (error) return <p className="note bad">Couldn&apos;t load weigh sheets: {error}</p>;
+  if (error) return <p className="note bad">Couldn&apos;t load carcass weights: {error}</p>;
   if (!data || !setup || !catalog) return (
     <>
       <WeekBar />
@@ -61,9 +64,9 @@ export default function WeighSheetsScreen() {
   return (
     <div className="max-w-[960px]">
       <WeekBar />
-      <h2 className="mt-2 mb-1">Weigh sheets</h2>
+      <h2 className="mt-2 mb-1">Carcass weights</h2>
       <p className="small muted mt-0">
-        Mohawk&apos;s kill log: one sheet for each producer and kill date. Only admins can see this.
+        Mohawk&apos;s carcass weights: one sheet for each producer and kill date. They feed producer pay and the Weekly P&amp;L.
       </p>
 
       {lambCount != null && data.sheets.length > 0 && total.head !== lambCount && (
@@ -102,7 +105,7 @@ export default function WeighSheetsScreen() {
                   <td className="num text-right">{carcassText(p.carcass)}</td>
                   <td className="num text-right">{centsText(p.cents)}</td>
                   <td className="text-right">
-                    <Link className="btn ghost" href={`/weigh-sheets/${p.sheet.id}`}>
+                    <Link className="btn ghost" href={`/carcass-weights/${p.sheet.id}`}>
                       Open
                     </Link>
                   </td>
@@ -111,7 +114,7 @@ export default function WeighSheetsScreen() {
             </tbody>
           </table>
         )}
-        <NewSheet producers={setup.producers} days={weekDays(week)} hasRate={setup.settings.length > 0} />
+        {canEdit ? <NewSheet producers={setup.producers} days={weekDays(week)} hasRate={setup.settings.length > 0} /> : <ViewOnly what="carcass weights" />}
       </section>
 
       {data.sheets.length > 0 && (
@@ -204,7 +207,7 @@ function NewSheet({ producers, days, hasRate }: { producers: Producer[]; days: s
     const { id, error } = await createSheet(db, producerId, killDate);
     setBusy(false);
     if (error || !id) return toast(`Couldn't start the sheet: ${error ?? "no answer"}`);
-    router.push(`/weigh-sheets/${id}`);
+    router.push(`/carcass-weights/${id}`);
   };
 
   return (

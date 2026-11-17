@@ -6,13 +6,13 @@
 // it: who of the owners has reviewed it, and the week's history.
 //
 // Closing saves the P&L as shown; while closed, the week's orders, packing,
-// invoices, weigh sheets, expenses and adjustments can't change. Closing
+// invoices, carcass weights, expenses and adjustments can't change. Closing
 // with checks still failing asks first and records what was missing.
 
 import Link from "next/link";
 import { useState } from "react";
 import { getDb } from "@/components/data/StaffData";
-import { useMe } from "@/components/CurrentUser";
+import { useCan, useMe } from "@/components/CurrentUser";
 import { useToast } from "@/components/Toast";
 import type { PnlCheck } from "@/lib/calc/pnlDetail";
 import { stamp } from "@/lib/calc/pnlDetail";
@@ -50,6 +50,9 @@ export function WeekHeader({
   const [busy, setBusy] = useState(false);
   const closed = status.closed;
   const isOwner = status.owners.some((o) => o.profile_id === me.id);
+  // Closing and reopening: admins. Entries and adjustments: Change on the Weekly P&L.
+  const isAdmin = me.role === "admin";
+  const canChange = useCan("pnl").change;
   const mine = status.reviews.some((r) => r.user_id === me.id);
   const reviewed = status.owners.filter((o) => o.profile_id && status.reviews.some((r) => r.user_id === o.profile_id));
   const label = closed ? "Closed" : reviewed.length ? "Reviewed" : "Open";
@@ -66,7 +69,7 @@ export function WeekHeader({
     const missing = checks.map((c) => c.text);
     const ask = missing.length
       ? `These still need attention:\n\n${missing.map((m) => `• ${m}`).join("\n")}\n\nClose the week anyway? What's missing will be recorded with the close.`
-      : "Close this week? Its P&L is saved as it is now, and its orders, packing, invoices, weigh sheets, expenses and adjustments can't change until it's reopened.";
+      : "Close this week? Its P&L is saved as it is now, and its orders, packing, invoices, carcass weights, expenses and adjustments can't change until it's reopened.";
     if (!confirm(ask)) return;
     void run(() => closeWeek(db, week, snapshot(), missing), "Week closed");
   };
@@ -97,7 +100,7 @@ export function WeekHeader({
               {mine ? "Take back review" : "Review"}
             </button>
           )}
-          {closed ? (
+          {!isAdmin ? null : closed ? (
             <button type="button" className="btn ghost" disabled={busy} onClick={reopen}>
               Reopen week
             </button>
@@ -106,7 +109,7 @@ export function WeekHeader({
               Close week
             </button>
           )}
-          {!closed && (
+          {!closed && canChange && (
             <Link href={`/pnl/entries?week=${week}`} className="btn ghost">
               Add / adjust
             </Link>
@@ -115,9 +118,11 @@ export function WeekHeader({
             <Link href={`/pnl/detail?week=${week}`} className="btn ghost">
               P&amp;L detail
             </Link>
-            <Link href={`/pnl/activity?week=${week}`} className="btn ghost">
-              Activity
-            </Link>
+            {isAdmin && (
+              <Link href={`/pnl/activity?week=${week}`} className="btn ghost">
+                Activity
+              </Link>
+            )}
             <button type="button" className="btn ghost" onClick={() => window.print()}>
               Print
             </button>
@@ -128,9 +133,11 @@ export function WeekHeader({
               <Link href={`/pnl/detail?week=${week}`} className="btn ghost">
                 P&amp;L detail
               </Link>
-              <Link href={`/pnl/activity?week=${week}`} className="btn ghost">
-                Activity
-              </Link>
+              {isAdmin && (
+                <Link href={`/pnl/activity?week=${week}`} className="btn ghost">
+                  Activity
+                </Link>
+              )}
             </div>
           </details>
         </span>

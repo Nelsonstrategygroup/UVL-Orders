@@ -580,7 +580,7 @@ function RoleDefaultsEditor({ defaults }: { defaults: RoleDefaults }) {
       </summary>
       <p className="small muted mt-0">
         Changing a default changes it for everyone with that role, except where someone has their own setting. Admins can
-        always do everything. Only admins can change Setup, add people, or export all data.
+        always do everything. Owner setup (P&amp;L Setup, producers, owners, users, export all data) is for admins only.
       </p>
       <div className="overflow-x-auto">
         <table className="simple">
@@ -619,6 +619,12 @@ function RoleDefaultsEditor({ defaults }: { defaults: RoleDefaults }) {
                 ))}
               </tr>
             ))}
+            <tr>
+              <td>Owner setup</td>
+              <td colSpan={roles.length} className="small muted">
+                Admins only: P&amp;L Setup, producers, owners, users, export all data
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

@@ -102,7 +102,7 @@ export function factorText(v: string | number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Stage 2: weigh sheets (SPEC 16.3-16.5). Each lamb is worked out exactly
+// Stage 2: carcass weights (SPEC 16.3-16.5). Each lamb is worked out exactly
 // (BigInt fixed point): carcass lb has 2 decimals, the factor and rates 4,
 // so live lb has 6 and money 10. Only a sheet's total and the week's totals
 // are rounded, half up to the cent.

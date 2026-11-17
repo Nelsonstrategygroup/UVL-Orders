@@ -44,7 +44,7 @@ export async function saveCategory(
   const { error } = id
     ? await withSource(db.from("expense_categories").update(row).eq("id", id), "P&L Setup")
     : await withSource(db.from("expense_categories").insert(row), "P&L Setup");
-  if (error?.code === "23505" && /one_weigh_sheets/.test(error.message)) return "Only one category can come from the weigh sheets.";
+  if (error?.code === "23505" && /one_weigh_sheets/.test(error.message)) return "Only one category can come from the carcass weights.";
   return plain(error);
 }
 

@@ -1,12 +1,12 @@
 "use client";
 
-// Type in from paper: after weighing on the Weigh Sheet (Lucas, 11/1/26),
+// Type in from paper: after weighing on the Box weight sheet (Lucas, 11/1/26),
 // the weights are typed in here, laid out like the sheet: the same products
 // A to Z, the same stores in the same order, the same boxes, and the blank
 // rows at the end for boxes that weren't on the sheet. Totals add up per row,
 // per product and per store. "+ Add a box" gives a row another box. Each
 // box's weight is saved on its own under its store and product (no label
-// number: the Weigh Sheet doesn't print them); like the rest of Packing it's
+// number: the Box weight sheet doesn't print them); like the rest of Packing it's
 // saved on the phone first.
 
 import Link from "next/link";
@@ -78,14 +78,14 @@ export default function PaperEntryScreen() {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Type in from paper</h2>
         <Link href="/packing/weigh" className="btn ghost">
-          Weigh Sheet
+          Box weight sheet
         </Link>
         <Link href="/packing" className="btn ghost">
           &larr; Packing
         </Link>
       </div>
       <p className="small muted">
-        The same order as the Weigh Sheet: products A to Z, then each store. Type each box&apos;s weight in a box on its row. Tab
+        The same order as the Box weight sheet: products A to Z, then each store. Type each box&apos;s weight in a box on its row. Tab
         moves to the next box. Totals add up as you go.
       </p>
       {!canPack && <ViewOnly what="packing" />}
@@ -236,7 +236,7 @@ function Blank({ o, productId, b, save, label }: { o: PackOrder; productId: stri
               box_no: null,
               at: new Date().toISOString(),
               slot: b.slot,
-              // The Weigh Sheet has no label numbers (Lucas, 11/1/26).
+              // The Box weight sheet has no label numbers (Lucas, 11/1/26).
               label_no: null,
             });
           }
@@ -252,7 +252,7 @@ function Blank({ o, productId, b, save, label }: { o: PackOrder; productId: stri
 type SpareProduct = { id: string; name: string; label_name: string };
 
 /**
- * The blank rows at the end of the Weigh Sheet: boxes that weren't on it.
+ * The blank rows at the end of the Box weight sheet: boxes that weren't on it.
  * Pick the product and the store, type the weight. A store not ordering this
  * week: the box is saved unassigned, for Kathy to put on a pallet (Pallets).
  */
@@ -294,7 +294,7 @@ function SpareRows({
   return (
     <section className="pe-sec panel mt-4" aria-label="Boxes not on the sheet">
       <h3 className="m-0 text-[1.35rem]!">Boxes not on the sheet</h3>
-      <p className="small muted mt-1">From the blank rows at the end of the Weigh Sheet. Pick the product and the store, then type the weight.</p>
+      <p className="small muted mt-1">From the blank rows at the end of the Box weight sheet. Pick the product and the store, then type the weight.</p>
       {rows.map((r, i) => (
         <div key={r.key} className="pe-spare">
           <select className="field" aria-label={`Blank row ${i + 1}: product`} value={r.product} onChange={(e) => set(i, { product: e.target.value })}>

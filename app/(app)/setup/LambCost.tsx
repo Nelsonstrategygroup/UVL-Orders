@@ -284,7 +284,7 @@ function ProducerForm({ producer, after, onDone }: { producer: Producer | null; 
       {producer && (
         <label className="flex min-h-[44px] items-center gap-2">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          <span>On (shows on the weigh sheet)</span>
+          <span>On (shows on carcass weights)</span>
         </label>
       )}
       <div className="flex gap-2">

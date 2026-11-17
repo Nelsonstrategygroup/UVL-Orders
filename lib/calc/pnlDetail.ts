@@ -38,7 +38,7 @@ import type { RunPay } from "./truck";
 import { priceFor, priceSource, priceText, PRICE_UNIT_SHORT, type ChargeRow, type PriceRow } from "./prices";
 import { longDate, niceDate } from "../dates";
 
-/** One record under a line: a location, a weigh sheet, an entry, an invoice line. */
+/** One record under a line: a location, a carcass weights sheet, an entry, an invoice line. */
 export type DetailItem = {
   label: string;
   /** Finalized, Packed, Price needed ... */
@@ -243,7 +243,7 @@ function rateOrigin(x: DetailInput, s: SheetPay["sheet"]): string {
   return matches ? `Rate ${rate} per live lb × ${factor}: ${from}.` : `Rate ${rate} per live lb × ${factor}, saved on the sheet${from ? ` (${from} says otherwise; the sheet keeps its own)` : ""}.`;
 }
 
-/** Each weigh sheet with its pay worked out. */
+/** Each carcass weights sheet with its pay worked out. */
 function sheetItems(x: DetailInput): DetailItem[] {
   return x.pays.map((sp) => {
     const s = sp.sheet;
@@ -256,7 +256,7 @@ function sheetItems(x: DetailInput): DetailItem[] {
     return {
       label: `${x.producerName(s.producer_id)} · kill ${longDate(s.kill_date)}`,
       amount: centsText(sp.cents),
-      links: [{ label: "Weigh sheet and photo", href: `/weigh-sheets/${s.id}` }],
+      links: [{ label: "Carcass weights and photo", href: `/carcass-weights/${s.id}` }],
       math: [
         `${plural(sp.count, "lamb", "lambs")} · ${carcassText(sp.carcass)} carcass lb`,
         `× ${factorText(s.live_factor)} live factor = ${liveText(sp.live)} live lb`,
@@ -269,12 +269,12 @@ function sheetItems(x: DetailInput): DetailItem[] {
   });
 }
 
-/** The weigh sheets, by lamb count (for a per-lamb category). */
+/** The carcass weights, by lamb count (for a per-lamb category). */
 function lambItems(x: DetailInput): DetailItem[] {
   return x.pays.map((sp) => ({
     label: `${x.producerName(sp.sheet.producer_id)} · kill ${longDate(sp.sheet.kill_date)}`,
     amount: plural(sp.count, "lamb", "lambs"),
-    links: [{ label: "Weigh sheet", href: `/weigh-sheets/${sp.sheet.id}` }],
+    links: [{ label: "Carcass weights", href: `/carcass-weights/${sp.sheet.id}` }],
   }));
 }
 
@@ -304,7 +304,7 @@ function categoryDetail(x: DetailInput, l: CategoryLine): LineDetail {
   switch (l.method) {
     case "weigh_sheets":
       how.push(
-        "From the weigh sheets with a kill date in this week (Thursday to Wednesday).",
+        "From the carcass weights with a kill date in this week (Thursday to Wednesday).",
         "Each lamb: carcass lb × live factor = live lb; live lb × the rate = its pay. Premiums and docks are added, then each sheet is rounded once to the cent.",
         l.calc == null
           ? (l.waiting ?? "")
@@ -315,7 +315,7 @@ function categoryDetail(x: DetailInput, l: CategoryLine): LineDetail {
       items.push(...sheetItems(x));
       break;
     case "per_lamb":
-      how.push(`Lambs on this week's weigh sheets × ${l.rate?.amount != null ? rateText(l.rate.amount) : "the rate"} a lamb${from(l.rate)}.`);
+      how.push(`Lambs on this week's carcass weights × ${l.rate?.amount != null ? rateText(l.rate.amount) : "the rate"} a lamb${from(l.rate)}.`);
       how.push(l.calc == null ? (l.waiting ?? "") : l.rate ? `${p.head} lambs × ${rateText(l.rate.amount ?? 0)} = ${centsText(l.calc)}` : (l.waiting ?? ""));
       items.push(...lambItems(x));
       break;
@@ -514,7 +514,7 @@ function oneOffExpenseDetail(x: DetailInput): LineDetail {
 function resultDetails(x: DetailInput): LineDetail[] {
   const { p } = x;
   const pj = (t: string) => (p.projected ? `${t} (projected)` : t);
-  const waits = [!p.hasSheets && !p.noProcessing && "no weigh sheet", !p.hasIncome && !p.noProcessing && "no income"].filter(Boolean).join(" and ");
+  const waits = [!p.hasSheets && !p.noProcessing && "no carcass weights", !p.hasIncome && !p.noProcessing && "no income"].filter(Boolean).join(" and ");
   const delivery = p.groups.find((g) => g.name === "Delivery")!;
   return [
     {
@@ -526,7 +526,7 @@ function resultDetails(x: DetailInput): LineDetail[] {
         "Cost of product + Delivery + Operating + one-off expenses.",
         p.totalExpense != null
           ? `${[...p.groups.map((g) => centsText(g.total)), centsText(p.oneOffExpenseCents)].join(" + ")} = ${centsText(p.totalExpense)}`
-          : "Not worked out: no weigh sheet for this week.",
+          : "Not worked out: no carcass weights for this week.",
       ],
       items: [],
     },
@@ -600,7 +600,7 @@ function resultDetails(x: DetailInput): LineDetail[] {
       amount: p.profitPerHead != null ? centsText(p.profitPerHead) : null,
       projected: p.projected,
       how: [
-        "Profit ÷ lambs on this week's weigh sheets, rounded to the cent.",
+        "Profit ÷ lambs on this week's carcass weights, rounded to the cent.",
         p.profitPerHead != null ? `${centsText(p.profit!)} ÷ ${p.head} lambs = ${centsText(p.profitPerHead)}` : `Not worked out: ${waits || "no lambs this week"}.`,
       ],
       items: [],
@@ -611,10 +611,10 @@ function resultDetails(x: DetailInput): LineDetail[] {
       amount: p.incomePerCarcassLb != null ? `$${fixedRounded(p.incomePerCarcassLb, 4, 2)}` : null,
       projected: p.projected,
       how: [
-        "Income ÷ carcass lb on this week's weigh sheets.",
+        "Income ÷ carcass lb on this week's carcass weights.",
         p.incomePerCarcassLb != null
           ? `${centsText(p.incomeCents)} ÷ ${carcassText(x.pay.carcass)} lb = $${fixedRounded(p.incomePerCarcassLb, 4, 4)} a lb`
-          : `Not worked out: ${[!p.hasSheets && "no weigh sheet", !p.hasIncome && "no income"].filter(Boolean).join(" and ") || "no lambs this week"}.`,
+          : `Not worked out: ${[!p.hasSheets && "no carcass weights", !p.hasIncome && "no income"].filter(Boolean).join(" and ") || "no lambs this week"}.`,
       ],
       items: [],
     },
@@ -624,7 +624,7 @@ function resultDetails(x: DetailInput): LineDetail[] {
       amount: p.costPerCarcassLb != null ? `$${fixedRounded(p.costPerCarcassLb, 4, 2)}` : null,
       projected: p.projected,
       how: [
-        "Total expense ÷ carcass lb on this week's weigh sheets.",
+        "Total expense ÷ carcass lb on this week's carcass weights.",
         p.costPerCarcassLb != null
           ? `${centsText(p.totalExpense!)} ÷ ${carcassText(x.pay.carcass)} lb = $${fixedRounded(p.costPerCarcassLb, 4, 4)} a lb`
           : `Not worked out: ${waits || "no lambs this week"}.`,
@@ -687,13 +687,13 @@ export function pnlChecks(x: {
   for (const n of ii.priceNeeded)
     out.push({ key: `price:${n.product}`, text: `Price needed: ${n.product} (${n.locations.join(", ")}).`, href: "/setup/prices", link: "Prices" });
   if (!p.hasSheets && !p.noProcessing)
-    out.push({ key: "sheet", text: "No weigh sheet entered for this week's kill.", href: "/weigh-sheets", link: "Weigh sheets" });
+    out.push({ key: "sheet", text: "No carcass weights entered for this week's kill.", href: "/carcass-weights", link: "Carcass weights" });
   if (p.hasSheets && x.lambCount != null && p.head !== x.lambCount)
     out.push({
       key: "lambs",
-      text: `The weigh sheets have ${p.head} lambs; This week's lamb count is ${x.lambCount}.`,
-      href: "/weigh-sheets",
-      link: "Weigh sheets",
+      text: `The carcass weights have ${p.head} lambs; This week's lamb count is ${x.lambCount}.`,
+      href: "/carcass-weights",
+      link: "Carcass weights",
     });
   const mohawk = p.categories.filter((l) => /mohawk/i.test(l.name) && l.method === "entered");
   if (p.hasSheets && mohawk.length && mohawk.every((l) => l.entries === 0 && l.adj === BigInt(0)))
