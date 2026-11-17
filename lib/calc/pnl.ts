@@ -28,6 +28,10 @@ export type ExpenseCategory = {
   truck_part?: "driver_pay" | "fuel" | "maintenance" | null;
   /** Delivery: truck (UVL's own, counts toward cost per stop) or freight. */
   delivery_kind?: "truck" | "freight" | null;
+  /** Freight: the carrier, the locations covered (a chain covers its stores), gross or net weight. */
+  carrier?: string;
+  customer_ids?: string[];
+  weight_basis?: "gross" | "net";
   note: string;
 };
 export type ExpenseEntry = {
@@ -270,6 +274,9 @@ export type CategoryRate = {
   amount: number | string | null;
   percent: number | string | null;
   parts: RatePart[];
+  /** Freight by weight, gross: lb added per box and per pallet. */
+  per_box_lb?: number | string | null;
+  per_pallet_lb?: number | string | null;
   note: string;
 };
 
@@ -311,9 +318,67 @@ export type CategoryLine = {
   /** Worked out from projected income. */
   projected: boolean;
   waiting: string | null;
+  /** Freight: the pallets and boxes it was worked out from. */
+  freight?: FreightCalc;
 };
 
-export type GroupTotal = { name: GroupName; lines: CategoryLine[]; total: bigint; complete: boolean };
+/** A box for freight: whose it is, its meat weight, its pallet. */
+export type FreightBox = { customer_id: string; weight: number | string; pallet_id: string | null };
+/** The week's pallets (Packing > Pallets). */
+export type FreightPallet = { id: string; tag: string };
+export type FreightInput = {
+  boxes: FreightBox[];
+  pallets: FreightPallet[];
+  /** Each location's chain (customer with locations), if any. */
+  chainOf: Record<string, string | null>;
+};
+
+export type FreightCalc = {
+  basis: "gross" | "net";
+  /** The pallets carrying covered boxes, with those boxes' count and meat weight (hundredths of a lb). */
+  pallets: { id: string; tag: string; boxes: number; lb: bigint; customerIds: string[] }[];
+  boxes: number;
+  /** Meat weight of the covered boxes on pallets (hundredths of a lb). */
+  netLb: bigint;
+  /** What the rate is charged on: net, or net + lb per box + lb per pallet (hundredths of a lb). */
+  lb: bigint;
+  /** Covered boxes not on a pallet (not counted). */
+  offPallet: number;
+};
+
+/** Does a freight category cover this location (it, or its chain)? */
+export function covers(c: Pick<ExpenseCategory, "customer_ids">, customerId: string, chainOf: Record<string, string | null>): boolean {
+  const ids = c.customer_ids ?? [];
+  const chain = chainOf[customerId];
+  return ids.includes(customerId) || (!!chain && ids.includes(chain));
+}
+
+/** The pallets and boxes a freight category covers this week, and the weight it's charged on. */
+export function freightFor(c: ExpenseCategory, rate: CategoryRate | null, f: FreightInput): FreightCalc {
+  const mine = f.boxes.filter((b) => covers(c, b.customer_id, f.chainOf));
+  const on = mine.filter((b) => b.pallet_id);
+  const byPallet = new Map<string, { boxes: number; lb: bigint; customerIds: Set<string> }>();
+  for (const b of on) {
+    const p = byPallet.get(b.pallet_id!) ?? { boxes: 0, lb: ZERO, customerIds: new Set<string>() };
+    p.boxes += 1;
+    p.lb += toFixedInt(b.weight, 2);
+    p.customerIds.add(b.customer_id);
+    byPallet.set(b.pallet_id!, p);
+  }
+  const tagOf = new Map(f.pallets.map((p) => [p.id, p.tag]));
+  const pallets = [...byPallet]
+    .map(([id, p]) => ({ id, tag: tagOf.get(id) || "Pallet", boxes: p.boxes, lb: p.lb, customerIds: [...p.customerIds] }))
+    .sort((a, b) => a.tag.localeCompare(b.tag, undefined, { numeric: true }));
+  const netLb = pallets.reduce((t, p) => t + p.lb, ZERO);
+  const basis = c.weight_basis ?? "gross";
+  const extra =
+    basis === "gross"
+      ? toFixedInt(rate?.per_box_lb ?? 0, 2) * BigInt(on.length) + toFixedInt(rate?.per_pallet_lb ?? 0, 2) * BigInt(pallets.length)
+      : ZERO;
+  return { basis, pallets, boxes: on.length, netLb, lb: netLb + extra, offPallet: mine.length - on.length };
+}
+
+export type GroupTotal ={ name: GroupName; lines: CategoryLine[]; total: bigint; complete: boolean };
 
 export type WeekPnl = {
   /** Income entered by hand (Other income), by customer. */
@@ -356,6 +421,17 @@ export type WeekPnl = {
   truckStops: number;
   /** Truck cost ÷ stops made; null with no stops. */
   costPerStop: bigint | null;
+  /** Freight categories (delivery_kind freight) added up. */
+  freightCents: bigint;
+  /** Pallets carrying boxes a freight category covers. */
+  freightPallets: number;
+  /** Freight ÷ those pallets; null with none. */
+  freightPerPallet: bigint | null;
+  /** How each pallet and each packed location ships: by a freight category, on a truck run, or neither yet. */
+  shipping: {
+    pallets: { id: string; tag: string; customerIds: string[]; byFreight: boolean; byTruck: boolean }[];
+    locations: { customerId: string; byFreight: boolean; byTruck: boolean }[];
+  };
   /** Box lb shipped this week (2 decimals, as hundredths). */
   lbShipped: bigint;
   /** Net delivery ÷ lb shipped, in ten-thousandths of a dollar; null with nothing shipped. */
@@ -408,11 +484,14 @@ export function weekPnl(input: {
   lbShipped?: number | string;
   /** The week's truck runs (runPay). */
   runs?: RunPay[];
+  /** The week's boxes and pallets, for freight. */
+  freight?: FreightInput;
 }): WeekPnl {
   const adjustments = input.adjustments ?? [];
   const live = adjustments.filter((a) => !a.voided_at);
   const adj = (key: string) => adjustmentsTo(adjustments, key);
   const noProcessing = !!input.noProcessing;
+  const freightIn: FreightInput = input.freight ?? { boxes: [], pallets: [], chainOf: {} };
 
   // Income by customer (the id when there is one, else the name).
   const byCustomer = new Map<string, { key: string; name: string; entries: number; cents: bigint }>();
@@ -464,6 +543,7 @@ export function weekPnl(input: {
     let base: bigint | null = null;
     let waiting: string | null = null;
     let isProjected = false;
+    let freight: FreightCalc | undefined;
     switch (c.method) {
       case "weigh_sheets":
         if (hasSheets) calc = input.pay.cents;
@@ -502,12 +582,18 @@ export function weekPnl(input: {
       }
       case "freight_weight":
       case "freight_pallet":
-        waiting = "Comes with freight from pallets.";
+        freight = freightFor(c, rate, freightIn);
+        if (rate?.amount != null)
+          calc =
+            c.method === "freight_pallet"
+              ? cents(rate.amount) * BigInt(freight.pallets.length)
+              : // lb (2 decimals) × $/lb (4 decimals) = dollars with 6 decimals
+                roundToCents(freight.lb * toFixedInt(rate.amount, 4), 6);
         break;
       case "entered":
         break;
     }
-    if (rate == null && ["per_lamb", "percent_income", "fixed_weekly", "percent_category"].includes(c.method) && waiting == null)
+    if (rate == null && ["per_lamb", "percent_income", "fixed_weekly", "percent_category", "freight_weight", "freight_pallet"].includes(c.method) && waiting == null)
       waiting = "No rate for this week (P&L Setup).";
     return {
       categoryId: c.id,
@@ -524,6 +610,7 @@ export function weekPnl(input: {
       total: calc == null ? null : calc + entered + a,
       projected: isProjected,
       waiting,
+      ...(freight ? { freight } : {}),
     };
   };
   const categories = shown.map(line);
@@ -578,6 +665,35 @@ export function weekPnl(input: {
   const runs = input.runs ?? [];
   const truckCents = categories.filter((l) => input.categories.find((x) => x.id === l.categoryId)?.delivery_kind === "truck").reduce((t, l) => t + (l.total ?? ZERO), ZERO);
   const truckStops = runs.reduce((t, r) => t + stopsMade(r), 0);
+  const kindOf = (l: CategoryLine) => input.categories.find((x) => x.id === l.categoryId)?.delivery_kind;
+  const freightCents = categories.filter((l) => kindOf(l) === "freight").reduce((t, l) => t + (l.total ?? ZERO), ZERO);
+  // How each pallet and location ships: covered by an active freight category, or a stop on a truck run.
+  const freightCats = input.categories.filter((c) => c.active && (c.method === "freight_weight" || c.method === "freight_pallet"));
+  const byFreight = (customerId: string) => freightCats.some((c) => covers(c, customerId, freightIn.chainOf));
+  const onRuns = new Set(runs.flatMap((r) => r.stops.filter((s) => s.kind !== "skipped" && s.customer_id).map((s) => s.customer_id!)));
+  const byTruck = (customerId: string) => onRuns.has(customerId) || (!!freightIn.chainOf[customerId] && onRuns.has(freightIn.chainOf[customerId]!));
+  const palletCustomers = new Map<string, Set<string>>();
+  for (const b of freightIn.boxes) {
+    if (!b.pallet_id) continue;
+    const set = palletCustomers.get(b.pallet_id) ?? new Set<string>();
+    set.add(b.customer_id);
+    palletCustomers.set(b.pallet_id, set);
+  }
+  const tagOf = new Map(freightIn.pallets.map((p) => [p.id, p.tag]));
+  const shipping = {
+    pallets: [...palletCustomers]
+      .map(([id, set]) => {
+        const ids = [...set];
+        return { id, tag: tagOf.get(id) || "Pallet", customerIds: ids, byFreight: ids.some(byFreight), byTruck: ids.some(byTruck) };
+      })
+      .sort((a, b) => a.tag.localeCompare(b.tag, undefined, { numeric: true })),
+    locations: [...new Set(freightIn.boxes.map((b) => b.customer_id))].map((customerId) => ({
+      customerId,
+      byFreight: byFreight(customerId),
+      byTruck: byTruck(customerId),
+    })),
+  };
+  const freightPallets = shipping.pallets.filter((p) => p.byFreight).length;
   const lbShipped = toFixedInt(input.lbShipped ?? 0, 2);
   const both = totalExpense != null && (hasIncome || noProcessing);
   const profit = both ? incomeCents - totalExpense : null;
@@ -606,6 +722,10 @@ export function weekPnl(input: {
     truckCents,
     truckStops,
     costPerStop: truckStops > 0 ? divRound(truckCents, BigInt(truckStops)) : null,
+    freightCents,
+    freightPallets,
+    freightPerPallet: freightPallets > 0 ? divRound(freightCents, BigInt(freightPallets)) : null,
+    shipping,
     lbShipped,
     // cents / lb (2 decimals) = $/lb; × 10^4 keeps 4 decimals
     deliveryPerLb: lbShipped > ZERO ? divRound(netDelivery * BigInt(10000), lbShipped) : null,

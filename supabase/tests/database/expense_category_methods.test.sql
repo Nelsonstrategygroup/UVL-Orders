@@ -6,7 +6,7 @@ begin;
 select plan(9);
 
 select is((select string_agg(group_name || ': ' || name || ' (' || method || ')', '; ' order by sort) from public.expense_categories
-  where method not in ('per_truck_run', 'percent_category')), -- (the truck categories came later: 20261118000100)
+  where method not in ('per_truck_run', 'percent_category', 'freight_weight', 'freight_pallet')), -- (truck and freight came later)
   'Cost of product: Producer pay (weigh_sheets); Cost of product: Processing, Mohawk (entered); '
   || 'Delivery: Truck, insurance (fixed_weekly); Delivery: Truck, depreciation (fixed_weekly); Delivery: Truck, repairs (entered); '
   || 'Delivery: Freight, other carriers (entered); Operating: Marketing (percent_income); Operating: ALB/OSC assessments (per_lamb); '

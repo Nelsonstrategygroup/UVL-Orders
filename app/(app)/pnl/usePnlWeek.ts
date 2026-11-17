@@ -47,13 +47,14 @@ const TABLES = [
   "truck_drivers",
   "truck_driver_rates",
   "weeks",
+  "pallets",
 ];
 const SETUP_TABLES = ["expense_categories", "expense_category_rates"];
 
 const STATUS_TABLES = ["pnl_closed_weeks", "pnl_week_reviews", "pnl_week_events"];
 
 async function loadWeek(db: SupabaseClient, week: string) {
-  const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles, weekRuns, drivers] = await Promise.all([
+  const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles, weekRuns, drivers, pallets] = await Promise.all([
     loadWeekEntries(db, week),
     loadWeekSheets(db, week),
     db.from("weeks").select("invoice_number, no_processing").eq("id", week).maybeSingle(),
@@ -66,6 +67,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     loadWeekExpenseFiles(db, week),
     loadWeekRuns(db, week),
     loadDrivers(db),
+    db.from("pallets").select("id, tag, number").eq("week_id", week),
   ]);
   return {
     ...entries,
@@ -79,6 +81,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     adjustments,
     expenseFiles,
     runs: weekRuns.runs.map((r) => runPay(r, weekRuns.stops, drivers.drivers, drivers.rates)),
+    pallets: ((pallets.data ?? []) as { id: string; tag: string | null; number: number | null }[]).map((p) => ({ id: p.id, tag: p.tag || (p.number ? `Pallet ${p.number}` : "Pallet") })),
     people: new Map(((people.data ?? []) as { id: string; display_name: string }[]).map((x) => [x.id, x.display_name])),
   };
 }
@@ -151,6 +154,11 @@ export function usePnlWeek(week: string) {
     adjustments: data.adjustments,
     noProcessing: data.noProcessing,
     runs: data.runs,
+    freight: {
+      boxes: data.boxes.map((b) => ({ customer_id: b.customer_id, weight: b.weight, pallet_id: b.pallet_id ?? null })),
+      pallets: data.pallets,
+      chainOf: Object.fromEntries(customers.list.map((c) => [c.id, c.parent_customer_id ?? null])),
+    },
     lbShipped: data.boxes.reduce((s, b) => s + Number(b.weight), 0).toFixed(2),
   });
   const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";
@@ -169,6 +177,10 @@ export function usePnlWeek(week: string) {
     charges: data.charges,
     boxes: data.boxes,
     producerName,
+    customerName: (id) => {
+      const c = customers.byId.get(id);
+      return c ? displayName(c, customers.byId) : "a customer no longer listed";
+    },
     lead: (id) => groupLead(id, catalog.products),
     userName: (id) => (id ? (data.people.get(id) ?? "someone no longer listed") : "unknown"),
     expenseFiles: data.expenseFiles,

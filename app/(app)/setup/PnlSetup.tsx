@@ -9,7 +9,8 @@
 
 import { Fragment, useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getDb } from "@/components/data/StaffData";
+import { getDb, useStaffData } from "@/components/data/StaffData";
+import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { useLive } from "@/components/data/useLive";
 import { useToast } from "@/components/Toast";
 import { centsText, factorText, parseRate, rateText } from "@/lib/calc/lambCost";
@@ -31,16 +32,34 @@ import TruckDrivers from "./TruckDrivers";
 
 const TABLES = ["expense_categories", "expense_category_rates"];
 const dateText = (d: string) => `${niceDate(d)}, ${d.slice(0, 4)}`;
-/** Methods that can be picked today; the others come with the truck run log and freight from pallets. */
-const PICKABLE: CategoryMethod[] = ["entered", "per_lamb", "percent_income", "fixed_weekly", "percent_category", "per_truck_run", "weigh_sheets"];
-const HAS_RATE: CategoryMethod[] = ["per_lamb", "percent_income", "fixed_weekly", "percent_category"];
+/** Methods that can be picked. */
+const PICKABLE: CategoryMethod[] = [
+  "entered",
+  "per_lamb",
+  "percent_income",
+  "fixed_weekly",
+  "percent_category",
+  "per_truck_run",
+  "freight_weight",
+  "freight_pallet",
+  "weigh_sheets",
+];
+const HAS_RATE: CategoryMethod[] = ["per_lamb", "percent_income", "fixed_weekly", "percent_category", "freight_weight", "freight_pallet"];
 /** A category with rates: these methods, and truck maintenance (per run). */
 const hasRate = (c: ExpenseCategory) => HAS_RATE.includes(c.method) || (c.method === "per_truck_run" && c.truck_part === "maintenance");
+/** A typed amount that may be 0. */
+const amountOk = (t: string) => (t.trim() === "" || Number(t) === 0 ? "0" : parseRate(t));
 
 /** A rate in words: "$1.80 per lamb", "4%", "$110.46 a week". */
 function rateWords(method: CategoryMethod, r: CategoryRate): string {
   if (method === "per_lamb") return `${rateText(r.amount ?? 0)} per lamb`;
   if (method === "per_truck_run") return `${rateText(r.amount ?? 0)} per run`;
+  if (method === "freight_pallet") return `${rateText(r.amount ?? 0)} per pallet`;
+  if (method === "freight_weight") {
+    const box = Number(r.per_box_lb ?? 0);
+    const pallet = Number(r.per_pallet_lb ?? 0);
+    return `$${Number(r.amount ?? 0)} per lb${box || pallet ? ` (gross: + ${box} lb a box, + ${pallet} lb a pallet)` : ""}`;
+  }
   if (method === "percent_income" || method === "percent_category") return `${factorText(r.percent ?? 0)}%`;
   if (method === "fixed_weekly") return `${centsText(weeklyFromParts(r.parts ?? []).cents)} a week`;
   return r.amount != null ? rateText(r.amount) : "";
@@ -178,6 +197,19 @@ function CategoryForm({ c, data, after }: { c: ExpenseCategory; data: PnlSetup; 
   const [sort, setSort] = useState(String(c.sort));
   const [part, setPart] = useState(c.truck_part ?? "driver_pay");
   const [kind, setKind] = useState(c.delivery_kind ?? "");
+  const [carrier, setCarrier] = useState(c.carrier ?? "");
+  const [ids, setIds] = useState<string[]>(c.customer_ids ?? []);
+  const [basis, setBasis] = useState<"gross" | "net">(c.weight_basis ?? "gross");
+  const { customers } = useStaffData();
+  const isFreight = method === "freight_weight" || method === "freight_pallet";
+  // Chains (customers with locations) and every location, for what a carrier covers.
+  const chainIds = new Set((customers?.list ?? []).map((x) => x.parent_customer_id).filter(Boolean) as string[]);
+  const choices = customers
+    ? sortByDisplayName(
+        customers.list.filter((x) => x.active || ids.includes(x.id)),
+        customers.byId,
+      ).map((x) => ({ id: x.id, label: chainIds.has(x.id) ? `${x.name} (all its stores)` : displayName(x, customers.byId), chain: chainIds.has(x.id) }))
+    : [];
   const methods = PICKABLE.includes(c.method) ? PICKABLE : [c.method, ...PICKABLE];
   const others = data.categories.filter((x) => x.id !== c.id && x.method !== "percent_category");
 
@@ -194,6 +226,9 @@ function CategoryForm({ c, data, after }: { c: ExpenseCategory; data: PnlSetup; 
         sort: Number.isFinite(Number(sort)) ? Math.round(Number(sort)) : c.sort,
         truck_part: method === "per_truck_run" ? (part as "driver_pay" | "fuel" | "maintenance") : null,
         delivery_kind: group === "Delivery" && kind ? (kind as "truck" | "freight") : null,
+        carrier: carrier.trim(),
+        customer_ids: ids,
+        weight_basis: basis,
       }),
       `Saved ${name.trim()}`,
     );
@@ -235,6 +270,36 @@ function CategoryForm({ c, data, after }: { c: ExpenseCategory; data: PnlSetup; 
           <input className="field num w-20!" inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value)} />
         </label>
       </div>
+      {isFreight && (
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="grid min-w-[10rem] gap-1">
+              <span className="lbl m-0">Carrier</span>
+              <input className="field" value={carrier} onChange={(e) => setCarrier(e.target.value)} />
+            </label>
+            {method === "freight_weight" && (
+              <label className="grid gap-1">
+                <span className="lbl m-0">Weight</span>
+                <select className="field" value={basis} onChange={(e) => setBasis(e.target.value as "gross" | "net")}>
+                  <option value="gross">Gross: meat + lb per box + lb per pallet (set with the rate)</option>
+                  <option value="net">Net: the boxes&apos; meat weight only</option>
+                </select>
+              </label>
+            )}
+          </div>
+          <fieldset className="m-0 border-0 p-0">
+            <legend className="lbl m-0">Locations it carries (a chain covers all its stores)</legend>
+            <div className="flex flex-wrap gap-x-4">
+              {choices.map((x) => (
+                <label key={x.id} className={`flex min-h-[44px] items-center gap-2 ${x.chain ? "font-semibold" : ""}`}>
+                  <input type="checkbox" checked={ids.includes(x.id)} onChange={(e) => setIds(e.target.checked ? [...ids, x.id] : ids.filter((id) => id !== x.id))} />
+                  {x.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+      )}
       {(method === "per_truck_run" || group === "Delivery") && (
         <div className="flex flex-wrap items-end gap-2">
           {method === "per_truck_run" && (
@@ -303,6 +368,8 @@ function Rates({ c, rates, now, after }: { c: ExpenseCategory; rates: CategoryRa
   const toast = useToast();
   const [from, setFrom] = useState(todayISO());
   const [value, setValue] = useState("");
+  const [boxLb, setBoxLb] = useState(now?.per_box_lb != null ? String(Number(now.per_box_lb)) : "0");
+  const [palletLb, setPalletLb] = useState(now?.per_pallet_lb != null ? String(Number(now.per_pallet_lb)) : "0");
   const [note, setNote] = useState("");
   const [parts, setParts] = useState<{ label: string; amount: string; per: "week" | "year" }[]>(
     (now?.parts ?? []).map((q) => ({ label: q.label, amount: String(q.amount), per: q.per })),
@@ -334,7 +401,15 @@ function Rates({ c, rates, now, after }: { c: ExpenseCategory; rates: CategoryRa
       )
     )
       return;
-    if (after(await saveRate(db, { categoryId: c.id, from, amount, percent, parts: list, note }), `Saved from ${niceDate(from)}`)) {
+    if (after(await saveRate(db, {
+          categoryId: c.id,
+          from,
+          amount,
+          percent,
+          parts: list,
+          note,
+          ...(c.method === "freight_weight" ? { perBoxLb: amountOk(boxLb), perPalletLb: amountOk(palletLb) } : {}),
+        }), `Saved from ${niceDate(from)}`)) {
       setValue("");
       setNote("");
     }
@@ -415,9 +490,31 @@ function Rates({ c, rates, now, after }: { c: ExpenseCategory; rates: CategoryRa
           </label>
           {!fixed && (
             <label className="grid gap-1">
-              <span className="lbl m-0">{isPercent ? "Percent" : c.method === "per_truck_run" ? "$ per run" : "$ per lamb"}</span>
+              <span className="lbl m-0">
+                {isPercent
+                  ? "Percent"
+                  : c.method === "per_truck_run"
+                    ? "$ per run"
+                    : c.method === "freight_weight"
+                      ? "$ per lb"
+                      : c.method === "freight_pallet"
+                        ? "$ per pallet"
+                        : "$ per lamb"}
+              </span>
               <input className="field num w-24!" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
+          )}
+          {c.method === "freight_weight" && (
+            <>
+              <label className="grid gap-1">
+                <span className="lbl m-0">+ lb a box (gross)</span>
+                <input className="field num w-20!" inputMode="decimal" value={boxLb} onChange={(e) => setBoxLb(e.target.value)} />
+              </label>
+              <label className="grid gap-1">
+                <span className="lbl m-0">+ lb a pallet (gross)</span>
+                <input className="field num w-20!" inputMode="decimal" value={palletLb} onChange={(e) => setPalletLb(e.target.value)} />
+              </label>
+            </>
           )}
           <label className="grid min-w-[8rem] flex-1 gap-1">
             <span className="lbl m-0">Note (optional)</span>
