@@ -51,26 +51,26 @@ select ok(public.week_is_closed('2099-11-02') and not public.week_is_closed('209
 
 -- The closed week's rows can't change.
 select throws_ok($$ update public.order_lines set qty = 25 where order_id = '00000000-0000-4000-8000-00000000f5b1' $$,
-  '42501', null, 'an order line');
+  '55000', null, 'an order line');
 select throws_ok($$ update public.orders set status = 'callback' where id = '00000000-0000-4000-8000-00000000f5b1' $$,
-  '42501', null, 'an order');
+  '55000', null, 'an order');
 select throws_ok($$ insert into public.pnl_expenses (entry_date, category_id, amount)
-  values ('2099-11-03', '00000000-0000-4000-8000-00000000f5e1', 20) $$, '42501', null, 'a new expense dated in the week');
+  values ('2099-11-03', '00000000-0000-4000-8000-00000000f5e1', 20) $$, '55000', null, 'a new expense dated in the week');
 select throws_ok($$ update public.pnl_expenses set entry_date = '2099-11-09' where id = '00000000-0000-4000-8000-00000000f5e2' $$,
-  '42501', null, 'an expense moved out of the week');
+  '55000', null, 'an expense moved out of the week');
 select throws_ok($$ insert into public.pnl_adjustments (week_id, kind, line_key, side, amount, reason)
-  values ('2099-11-02', 'adjustment', 'producer', 'expense', -10, 'x') $$, '42501', null, 'an adjustment');
+  values ('2099-11-02', 'adjustment', 'producer', 'expense', -10, 'x') $$, '55000', null, 'an adjustment');
 select throws_ok($$ insert into public.kill_lambs (sheet_id, position, carcass_lb) values ('00000000-0000-4000-8000-00000000f5f2', 1, 70) $$,
-  '42501', null, 'a weigh sheet lamb');
+  '55000', null, 'a weigh sheet lamb');
 select throws_ok($$ update public.kill_sheets set notes = 'x' where id = '00000000-0000-4000-8000-00000000f5f2' $$,
-  '42501', null, 'a weigh sheet');
+  '55000', null, 'a weigh sheet');
 select lives_ok($$ insert into public.pnl_expenses (entry_date, category_id, amount)
   values ('2099-11-10', '00000000-0000-4000-8000-00000000f5e1', 20) $$, 'the next week is open');
 
 -- Packing can't add a box to a closed week; the next week is fine.
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000f5a2","role":"authenticated"}';
 select throws_ok($$ insert into public.packing_weights (order_id, product_id, weight)
-  values ('00000000-0000-4000-8000-00000000f5b1', 'cw-chops', 9) $$, '42501', null, 'packing a box in a closed week');
+  values ('00000000-0000-4000-8000-00000000f5b1', 'cw-chops', 9) $$, '55000', null, 'packing a box in a closed week');
 select lives_ok($$ insert into public.packing_weights (order_id, product_id, weight)
   values ('00000000-0000-4000-8000-00000000f5b2', 'cw-chops', 9) $$, 'packing the next week');
 select is((select count(*)::int from public.pnl_closed_weeks), 0, 'packing doesn''t see closed weeks');

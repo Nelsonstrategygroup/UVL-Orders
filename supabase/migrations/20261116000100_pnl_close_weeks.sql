@@ -130,7 +130,7 @@ begin
     end;
     if v_week is not null and public.week_is_closed(v_week) then
       raise exception 'The week of % is closed on the Weekly P&L. Reopen it there to make changes.',
-        to_char(v_week, 'FMMon FMDD, YYYY') using errcode = '42501';
+        to_char(v_week, 'FMMon FMDD, YYYY') using errcode = '55000';
     end if;
   end loop;
   return null;
