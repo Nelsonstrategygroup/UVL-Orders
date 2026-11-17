@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ACTIVITY_TABLES,
+  OLD_RATE_TABLES,
   RATE_TABLES,
   SHEET_TABLES,
   WEEK_TABLES,
@@ -94,7 +95,7 @@ export async function loadActivity(db: SupabaseClient, week: string | null, befo
   // files on its expenses, and the rates and prices that apply to it.
   const [weekRes, rateRes, evRes] = await Promise.all([
     db.from("audit_log").select(COLS).in("table_name", [...WEEK_TABLES]).or(`new_data->>week_id.eq.${week},old_data->>week_id.eq.${week}`),
-    db.from("audit_log").select(COLS).in("table_name", [...RATE_TABLES]),
+    db.from("audit_log").select(COLS).in("table_name", [...RATE_TABLES, ...OLD_RATE_TABLES]),
     db.from("pnl_week_events").select("id, week_id, action, reason, missing, by_name, at").eq("week_id", week),
   ]);
   const weekRows = ok(weekRes as { data: AuditRow[] | null; error: { message: string } | null });

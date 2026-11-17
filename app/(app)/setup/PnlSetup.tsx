@@ -1,216 +1,397 @@
 "use client";
 
-// P&L Setup, stage 3 cards (SPEC 16.6): charges worked out each week (per
-// lamb, like ALB/OSC; percent of income, like Marketing), each from a date
-// on, and the expense categories. Admins only.
+// P&L Setup: expense categories (Lucas, 11/16/26). One list in three groups
+// (Cost of product, Delivery, Operating). Each category has a calculation
+// method and rates with start dates: per lamb, percent of income (all income
+// or sales only), fixed weekly (built from weekly and yearly parts), percent
+// of other categories, weigh sheets (producer pay), or entered by hand.
+// Everything here is editable without code. Admins only.
 
-import { useCallback, useState } from "react";
+import { Fragment, useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
 import { useToast } from "@/components/Toast";
-import { factorText, parseRate, rateText } from "@/lib/calc/lambCost";
-import { chargesOn, type ExpenseCategory } from "@/lib/calc/pnl";
-import { niceDate, todayISO, packingMonday } from "@/lib/dates";
-import { addLambCharge, addPercentCharge, deleteCharge, loadPnlSetup, saveCategory, type PnlSetup } from "@/lib/db/pnl";
+import { centsText, factorText, parseRate, rateText } from "@/lib/calc/lambCost";
+import {
+  GROUPS,
+  METHOD_LABEL,
+  parseMoney,
+  rateOn,
+  weeklyFromParts,
+  type CategoryMethod,
+  type CategoryRate,
+  type ExpenseCategory,
+  type GroupName,
+  type RatePart,
+} from "@/lib/calc/pnl";
+import { niceDate, packingMonday, todayISO, weekName } from "@/lib/dates";
+import { deleteRate, loadClosedWeeks, loadPnlSetup, saveCategory, saveRate, type PnlSetup } from "@/lib/db/pnl";
 
-const TABLES = ["pnl_lamb_charges", "pnl_percent_charges", "expense_categories"];
+const TABLES = ["expense_categories", "expense_category_rates"];
 const dateText = (d: string) => `${niceDate(d)}, ${d.slice(0, 4)}`;
+/** Methods that can be picked today; the others come with the truck run log and freight from pallets. */
+const PICKABLE: CategoryMethod[] = ["entered", "per_lamb", "percent_income", "fixed_weekly", "percent_category", "weigh_sheets"];
+const HAS_RATE: CategoryMethod[] = ["per_lamb", "percent_income", "fixed_weekly", "percent_category"];
+
+/** A rate in words: "$1.80 per lamb", "4%", "$110.46 a week". */
+function rateWords(method: CategoryMethod, r: CategoryRate): string {
+  if (method === "per_lamb") return `${rateText(r.amount ?? 0)} per lamb`;
+  if (method === "percent_income" || method === "percent_category") return `${factorText(r.percent ?? 0)}%`;
+  if (method === "fixed_weekly") return `${centsText(weeklyFromParts(r.parts ?? []).cents)} a week`;
+  return r.amount != null ? rateText(r.amount) : "";
+}
 
 export default function PnlSetupCards() {
   const load = useCallback((d: SupabaseClient) => loadPnlSetup(d), []);
   const { data, refresh, error } = useLive("pnl-setup", load, TABLES);
   const toast = useToast();
-  if (error) return <p className="note bad mt-3">Couldn&apos;t load the P&amp;L charges: {error}</p>;
+  if (error) return <p className="note bad mt-3">Couldn&apos;t load the expense categories: {error}</p>;
   if (!data) return <p className="small muted mt-3">Loading...</p>;
   const after = (err: string | null, ok: string) => {
     toast(err ? `Couldn't save: ${err}` : ok);
     refresh();
     return !err;
   };
-  return (
-    <>
-      <Charges data={data} kind="lamb" after={after} />
-      <Charges data={data} kind="percent" after={after} />
-      <Categories categories={data.categories} after={after} />
-    </>
-  );
+  return <Categories data={data} after={after} />;
 }
 
 type After = (err: string | null, ok: string) => boolean;
 
-/** "$1.80 per lamb" or "4%". */
-const amountText = (kind: "lamb" | "percent", v: string | number) => (kind === "lamb" ? `${rateText(v)} per lamb` : `${factorText(v)}%`);
-
-function Charges({ data, kind, after }: { data: PnlSetup; kind: "lamb" | "percent"; after: After }) {
+function Categories({ data, after }: { data: PnlSetup; after: After }) {
   const db = getDb();
-  const toast = useToast();
-  type Row = { id: string; name: string; effective_from: string; note: string; value: string | number };
-  const rows: Row[] =
-    kind === "lamb"
-      ? data.lambCharges.map((r) => ({ id: r.id, name: r.name, effective_from: r.effective_from, note: r.note, value: r.per_lamb }))
-      : data.percentCharges.map((r) => ({ id: r.id, name: r.name, effective_from: r.effective_from, note: r.note, value: r.percent }));
-  const names = [...new Set(rows.map((r) => r.name))].sort();
   const thisWeek = packingMonday(todayISO());
-  const current = new Map(chargesOn(rows, thisWeek, (r) => r.value).map((r) => [r.name, r]));
   const [name, setName] = useState("");
-  const [from, setFrom] = useState(todayISO());
-  const [value, setValue] = useState("");
-  const [note, setNote] = useState("");
-  const title = kind === "lamb" ? "Charges per lamb" : "Charges as a percent of income";
-  const help =
-    kind === "lamb"
-      ? "Times the week's lambs on the weigh sheets (ALB/OSC: 103 lambs × $1.80)."
-      : "Times the week's income (Marketing: 4% of the week's income).";
+  const [group, setGroup] = useState<GroupName>("Operating");
+  const [method, setMethod] = useState<CategoryMethod>("entered");
+  const ordered = [...data.categories].sort((a, b) => GROUPS.indexOf(a.group_name) - GROUPS.indexOf(b.group_name) || a.sort - b.sort || a.name.localeCompare(b.name));
 
   const add = async () => {
-    const v = parseRate(value);
-    if (!name.trim()) return toast("Type the charge's name");
-    if (v == null) return toast(kind === "lamb" ? "Type the amount like 1.80" : "Type the percent like 4");
-    if (kind === "percent" && Number(v) > 100) return toast("A percent is from 0 to 100");
-    const err =
-      kind === "lamb"
-        ? await addLambCharge(db, { name, from, perLamb: v, note })
-        : await addPercentCharge(db, { name, from, percent: v, note });
-    if (after(err, `Saved: ${name.trim()} ${amountText(kind, v)} from ${niceDate(from)}`)) {
-      setValue("");
-      setNote("");
-    }
+    if (!name.trim()) return;
+    const sort = data.categories.filter((c) => c.group_name === group).reduce((m, c) => Math.max(m, c.sort), (GROUPS.indexOf(group) + 1) * 100) + 10;
+    if (after(await saveCategory(db, { name, group_name: group, method, active: true, sort }), `Added ${name.trim()}`)) setName("");
   };
-  const remove = async (id: string, label: string) => {
-    if (!confirm(`Delete ${label}?`)) return;
-    after(await deleteCharge(db, kind === "lamb" ? "pnl_lamb_charges" : "pnl_percent_charges", id), "Deleted");
-  };
-
-  return (
-    <section className="panel mt-3" aria-labelledby={`pnl-${kind}`}>
-      <h3 id={`pnl-${kind}`}>{title}</h3>
-      <p className="small muted mt-1">
-        {help} Each change applies from its start date on. To stop a charge, add 0 from a date.
-      </p>
-      {names.length === 0 && <p className="small m-0">None yet.</p>}
-      <ul className="m-0 list-none p-0">
-        {names.map((n) => {
-          const now = current.get(n);
-          return (
-            <li key={n} className="border-t border-line py-1.5">
-              <b>{n}</b>
-              <span className="small muted"> · {now ? `this week ${amountText(kind, now.value)}` : "not charged this week"}</span>
-              <ul className="small m-0 list-none p-0">
-                {rows
-                  .filter((r) => r.name === n)
-                  .map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-center gap-x-3">
-                      <span className="num">{amountText(kind, r.value)}</span>
-                      <span className="muted">from {dateText(r.effective_from)}</span>
-                      {r.note && <span className="muted">{r.note}</span>}
-                      <button type="button" className="copy min-h-[44px] px-2" onClick={() => void remove(r.id, `${n} from ${dateText(r.effective_from)}`)}>
-                        Delete
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            </li>
-          );
-        })}
-      </ul>
-      <form
-        className="mt-2 flex flex-wrap items-end gap-2 border-t border-line pt-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void add();
-        }}
-      >
-        <label className="grid gap-1">
-          <span className="lbl m-0">Name</span>
-          <input className="field w-40!" list={`pnl-names-${kind}`} value={name} onChange={(e) => setName(e.target.value)} />
-          <datalist id={`pnl-names-${kind}`}>
-            {names.map((n) => (
-              <option key={n} value={n} />
-            ))}
-          </datalist>
-        </label>
-        <label className="grid gap-1">
-          <span className="lbl m-0">Starts on</span>
-          <input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </label>
-        <label className="grid gap-1">
-          <span className="lbl m-0">{kind === "lamb" ? "$ per lamb" : "Percent"}</span>
-          <input className="field num w-24!" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
-        </label>
-        <label className="grid min-w-[8rem] flex-1 gap-1">
-          <span className="lbl m-0">Note (optional)</span>
-          <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
-        <button type="submit" className="btn ghost" disabled={!name.trim() || !value.trim()}>
-          Add
-        </button>
-      </form>
-    </section>
-  );
-}
-
-function Categories({ categories, after }: { categories: ExpenseCategory[]; after: After }) {
-  const db = getDb();
-  const [adding, setAdding] = useState("");
-  const on = categories.filter((c) => c.active);
-  const off = categories.filter((c) => !c.active);
-  const nextSort = categories.reduce((m, c) => Math.max(m, c.sort), 0) + 1;
-
-  const row = (c: ExpenseCategory) => (
-    <li key={c.id} className="flex flex-wrap items-center gap-2 border-t border-line py-1.5">
-      <input
-        className="field min-w-[12rem] flex-1"
-        aria-label={`Name of ${c.name}`}
-        defaultValue={c.name}
-        key={c.name}
-        onBlur={(e) => {
-          const v = e.target.value.trim();
-          if (!v) e.target.value = c.name;
-          else if (v !== c.name) void saveCategory(db, { id: c.id, name: v, active: c.active }).then((err) => after(err, `Renamed to ${v}`));
-        }}
-      />
-      <button
-        type="button"
-        className="btn ghost"
-        onClick={() => void saveCategory(db, { id: c.id, name: c.name, active: !c.active }).then((err) => after(err, c.active ? `${c.name} retired` : `${c.name} back in use`))}
-      >
-        {c.active ? "Retire" : "Use again"}
-      </button>
-    </li>
-  );
 
   return (
     <section className="panel mt-3" aria-labelledby="pnl-cats">
       <h3 id="pnl-cats">Expense categories</h3>
       <p className="small muted mt-1">
-        What expenses are entered under on the weekly P&amp;L. Retire one you no longer use; its past expenses still show.
+        Every expense on the weekly P&amp;L, in three groups. Each category is worked out by its method, with rates that apply
+        from a start date on. Tap one to change it. Retire one you no longer use; its past weeks still show it.
       </p>
-      <ul className="m-0 list-none p-0">{on.map(row)}</ul>
-      {off.length > 0 && (
-        <details className="mt-2">
-          <summary className="copy">Retired ({off.length})</summary>
-          <ul className="m-0 list-none p-0">{off.map(row)}</ul>
-        </details>
-      )}
+      {GROUPS.map((g) => (
+        <Fragment key={g}>
+          <h4 className="mb-1 mt-3">{g}</h4>
+          <ul className="m-0 list-none p-0">
+            {ordered
+              .filter((c) => c.group_name === g)
+              .map((c) => (
+                <CategoryRow key={c.id} c={c} data={data} thisWeek={thisWeek} after={after} />
+              ))}
+          </ul>
+        </Fragment>
+      ))}
       <form
-        className="mt-2 flex flex-wrap items-end gap-2 border-t border-line pt-2"
+        className="mt-3 flex flex-wrap items-end gap-2 border-t border-line pt-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!adding.trim()) return;
-          void saveCategory(db, { name: adding, active: true, sort: nextSort }).then((err) => {
-            if (after(err, `Added ${adding.trim()}`)) setAdding("");
-          });
+          void add();
         }}
       >
         <label className="grid min-w-[12rem] flex-1 gap-1">
           <span className="lbl m-0">New category</span>
-          <input className="field" value={adding} onChange={(e) => setAdding(e.target.value)} />
+          <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <button type="submit" className="btn ghost" disabled={!adding.trim()}>
+        <label className="grid gap-1">
+          <span className="lbl m-0">Group</span>
+          <select className="field" value={group} onChange={(e) => setGroup(e.target.value as GroupName)}>
+            {GROUPS.map((x) => (
+              <option key={x}>{x}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">Method</span>
+          <select className="field" value={method} onChange={(e) => setMethod(e.target.value as CategoryMethod)}>
+            {PICKABLE.filter((m) => m !== "weigh_sheets").map((m) => (
+              <option key={m} value={m}>
+                {METHOD_LABEL[m]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="btn ghost" disabled={!name.trim()}>
           Add
         </button>
       </form>
     </section>
+  );
+}
+
+function CategoryRow({ c, data, thisWeek, after }: { c: ExpenseCategory; data: PnlSetup; thisWeek: string; after: After }) {
+  const now = rateOn(data.rates, c.id, thisWeek);
+  const rates = data.rates.filter((r) => r.category_id === c.id).sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+  const summary = [
+    METHOD_LABEL[c.method],
+    c.method === "percent_income" ? (c.income_base === "sales" ? "of sales" : "of all income") : "",
+    HAS_RATE.includes(c.method) ? (now ? `this week ${rateWords(c.method, now)}` : "no rate this week") : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <li className="border-t border-line py-1.5">
+      <details>
+        <summary className="cursor-pointer">
+          <b className={c.active ? "" : "muted"}>{c.name}</b>
+          {!c.active && <span className="tag ml-2">Retired</span>}
+          <span className="small muted"> · {summary}</span>
+        </summary>
+        <div className="mt-2 grid gap-3 pl-4">
+          <CategoryForm c={c} data={data} after={after} />
+          {HAS_RATE.includes(c.method) && <Rates c={c} rates={rates} now={now} after={after} />}
+          {c.method === "weigh_sheets" && (
+            <p className="small m-0">The rate and live factor are under Pricing and the producers above; each weigh sheet keeps its own.</p>
+          )}
+          {c.method === "entered" && <p className="small m-0">Amounts are typed in on the Weekly P&amp;L, with a photo or PDF if wanted.</p>}
+        </div>
+      </details>
+    </li>
+  );
+}
+
+function CategoryForm({ c, data, after }: { c: ExpenseCategory; data: PnlSetup; after: After }) {
+  const db = getDb();
+  const [name, setName] = useState(c.name);
+  const [group, setGroup] = useState<GroupName>(c.group_name);
+  const [method, setMethod] = useState<CategoryMethod>(c.method);
+  const [base, setBase] = useState<"all" | "sales">(c.income_base);
+  const [of, setOf] = useState<string[]>(c.base_category_ids);
+  const [sort, setSort] = useState(String(c.sort));
+  const methods = PICKABLE.includes(c.method) ? PICKABLE : [c.method, ...PICKABLE];
+  const others = data.categories.filter((x) => x.id !== c.id && x.method !== "percent_category");
+
+  const save = async () => {
+    if (!name.trim()) return;
+    after(
+      await saveCategory(db, {
+        id: c.id,
+        name,
+        group_name: group,
+        method,
+        income_base: base,
+        base_category_ids: method === "percent_category" ? of : c.base_category_ids,
+        sort: Number.isFinite(Number(sort)) ? Math.round(Number(sort)) : c.sort,
+      }),
+      `Saved ${name.trim()}`,
+    );
+  };
+
+  return (
+    <form
+      className="grid gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+    >
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="grid min-w-[12rem] flex-1 gap-1">
+          <span className="lbl m-0">Name</span>
+          <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">Group</span>
+          <select className="field" value={group} onChange={(e) => setGroup(e.target.value as GroupName)}>
+            {GROUPS.map((x) => (
+              <option key={x}>{x}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">Method</span>
+          <select className="field" value={method} onChange={(e) => setMethod(e.target.value as CategoryMethod)}>
+            {methods.map((m) => (
+              <option key={m} value={m}>
+                {METHOD_LABEL[m]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">Order</span>
+          <input className="field num w-20!" inputMode="numeric" value={sort} onChange={(e) => setSort(e.target.value)} />
+        </label>
+      </div>
+      {method === "percent_income" && (
+        <label className="grid gap-1">
+          <span className="lbl m-0">Percent of</span>
+          <select className="field max-w-[20rem]" value={base} onChange={(e) => setBase(e.target.value as "all" | "sales")}>
+            <option value="all">All income (invoices, other income, adjustments)</option>
+            <option value="sales">Sales only (invoices)</option>
+          </select>
+        </label>
+      )}
+      {method === "percent_category" && (
+        <fieldset className="m-0 border-0 p-0">
+          <legend className="lbl m-0">Percent of these categories</legend>
+          <div className="flex flex-wrap gap-x-4">
+            {others.map((x) => (
+              <label key={x.id} className="flex min-h-[44px] items-center gap-2">
+                <input type="checkbox" checked={of.includes(x.id)} onChange={(e) => setOf(e.target.checked ? [...of, x.id] : of.filter((id) => id !== x.id))} />
+                {x.name}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" className="btn ghost" disabled={!name.trim()}>
+          Save
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => void saveCategory(db, { id: c.id, active: !c.active }).then((err) => after(err, c.active ? `${c.name} retired` : `${c.name} back in use`))}
+        >
+          {c.active ? "Retire" : "Use again"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** A category's rates, newest first, and a form to add one from a date. */
+function Rates({ c, rates, now, after }: { c: ExpenseCategory; rates: CategoryRate[]; now: CategoryRate | null; after: After }) {
+  const db = getDb();
+  const toast = useToast();
+  const [from, setFrom] = useState(todayISO());
+  const [value, setValue] = useState("");
+  const [note, setNote] = useState("");
+  const [parts, setParts] = useState<{ label: string; amount: string; per: "week" | "year" }[]>(
+    (now?.parts ?? []).map((q) => ({ label: q.label, amount: String(q.amount), per: q.per })),
+  );
+  const fixed = c.method === "fixed_weekly";
+  const isPercent = c.method === "percent_income" || c.method === "percent_category";
+
+  const add = async () => {
+    let amount: string | null = null;
+    let percent: string | null = null;
+    let list: RatePart[] = [];
+    if (fixed) {
+      const bad = parts.find((q) => parseMoney(q.amount) == null);
+      if (!parts.length || bad) return toast("Type each amount like 60.00");
+      list = parts.map((q) => ({ label: q.label.trim() || (q.per === "week" ? "Weekly amount" : "Yearly amount"), amount: Number(parseMoney(q.amount)), per: q.per }));
+    } else {
+      const v = parseRate(value);
+      if (v == null) return toast(isPercent ? "Type the percent like 4" : "Type the amount like 1.80");
+      if (isPercent && Number(v) > 100) return toast("A percent is from 0 to 100");
+      if (isPercent) percent = v;
+      else amount = v;
+    }
+    // A rate reaching back into a week closed on the Weekly P&L: say so first.
+    const closed = (await loadClosedWeeks(db)).filter((w) => w >= packingMonday(from)).sort();
+    if (
+      closed.length &&
+      !confirm(
+        `This rate starts ${niceDate(from)}, which reaches back into ${closed.length === 1 ? "a week" : "weeks"} closed on the Weekly P&L: ${closed.map(weekName).join(", ")}.\n\nA closed week's P&L stays as it was when closed. Save anyway?`,
+      )
+    )
+      return;
+    if (after(await saveRate(db, { categoryId: c.id, from, amount, percent, parts: list, note }), `Saved from ${niceDate(from)}`)) {
+      setValue("");
+      setNote("");
+    }
+  };
+  const remove = async (r: CategoryRate) => {
+    if (!confirm(`Delete the ${rateWords(c.method, r)} rate starting ${dateText(r.effective_from)}?`)) return;
+    after(await deleteRate(db, r.id), "Deleted");
+  };
+  const preview = fixed && parts.every((q) => parseMoney(q.amount) != null) ? weeklyFromParts(parts.map((q) => ({ ...q, amount: Number(parseMoney(q.amount)) }))) : null;
+
+  return (
+    <div>
+      <div className="lbl m-0">Rates</div>
+      {rates.length === 0 && <p className="small m-0">None yet.</p>}
+      <ul className="small m-0 list-none p-0">
+        {rates.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-center gap-x-3">
+            <span className="num">{rateWords(c.method, r)}</span>
+            <span className="muted">from {dateText(r.effective_from)}</span>
+            {fixed && (
+              <span className="muted">
+                ({(r.parts ?? []).map((q) => `${q.label} ${centsText(BigInt(Math.round(Number(q.amount) * 100)))}${q.per === "year" ? " a year ÷ 52" : " a week"}`).join(" + ")})
+              </span>
+            )}
+            {r.note && <span className="muted">{r.note}</span>}
+            <button type="button" className="copy min-h-[44px] px-2" onClick={() => void remove(r)}>
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="mt-2 grid gap-2 border-t border-line pt-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void add();
+        }}
+      >
+        {fixed && (
+          <div className="grid gap-1">
+            <span className="lbl m-0">Parts</span>
+            {parts.map((q, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2">
+                <input
+                  className="field min-w-[10rem] flex-1"
+                  aria-label="What it is"
+                  value={q.label}
+                  onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                />
+                <input
+                  className="field num w-28!"
+                  aria-label="Amount"
+                  inputMode="decimal"
+                  value={q.amount}
+                  onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
+                />
+                <select className="field" aria-label="Each week or year" value={q.per} onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, per: e.target.value as "week" | "year" } : x)))}>
+                  <option value="week">a week</option>
+                  <option value="year">a year (÷ 52)</option>
+                </select>
+                <button type="button" className="copy min-h-[44px] px-2" onClick={() => setParts(parts.filter((_, j) => j !== i))}>
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" className="copy min-h-[44px] px-2" onClick={() => setParts([...parts, { label: "", amount: "", per: "week" }])}>
+                Add a part
+              </button>
+              {preview && <span className="small">= {centsText(preview.cents)} a week</span>}
+            </div>
+          </div>
+        )}
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="grid gap-1">
+            <span className="lbl m-0">Starts on</span>
+            <input type="date" className="field" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+          {!fixed && (
+            <label className="grid gap-1">
+              <span className="lbl m-0">{isPercent ? "Percent" : "$ per lamb"}</span>
+              <input className="field num w-24!" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
+            </label>
+          )}
+          <label className="grid min-w-[8rem] flex-1 gap-1">
+            <span className="lbl m-0">Note (optional)</span>
+            <input className="field" value={note} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <button type="submit" className="btn ghost" disabled={!fixed && !value.trim()}>
+            Add rate
+          </button>
+        </div>
+        <p className="small muted m-0">A rate applies from its start date on. A rate on the same start date replaces it. To stop, add 0 from a date.</p>
+      </form>
+    </div>
   );
 }

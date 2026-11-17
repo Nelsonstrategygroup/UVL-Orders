@@ -9,26 +9,27 @@ import { useState } from "react";
 import { getDb } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
 import { centsText } from "@/lib/calc/lambCost";
-import { cents, parseMoney, type ExpenseCategory, type PnlAdjustment, type WeekPnl } from "@/lib/calc/pnl";
+import { categoryKey, cents, parseMoney, type ExpenseCategory, type PnlAdjustment, type WeekPnl } from "@/lib/calc/pnl";
 import { stamp } from "@/lib/calc/pnlDetail";
 import { addAdjustment, fileLink, voidAdjustment } from "@/lib/db/pnl";
 import { shrinkPhoto } from "@/lib/shrinkPhoto";
 
 /** The lines an adjustment can be made to, as the P&L names them. */
 export function lineOptions(p: WeekPnl, categories: ExpenseCategory[]): { key: string; label: string }[] {
+  const shown = new Set(p.categories.map((l) => l.categoryId));
   return [
     { key: "income", label: "Income" },
-    { key: "producer", label: "Producer cost" },
-    ...p.charges.map((c) => ({ key: `charge:${c.name}`, label: `Charge: ${c.name}` })),
-    ...categories
-      .filter((c) => c.active || p.expenses.some((r) => r.categoryId === c.id))
-      .map((c) => ({ key: `category:${c.id}`, label: `Expense: ${c.name}` })),
+    ...p.categories.map((l) => ({ key: categoryKey(l.categoryId), label: `${l.group}: ${l.name}` })),
+    // Retired categories, so an old adjustment still has a name.
+    ...categories.filter((c) => !shown.has(c.id)).map((c) => ({ key: categoryKey(c.id), label: `${c.group_name}: ${c.name}` })),
   ];
 }
 
 /** What an adjustment adjusts, in words. */
 export function lineLabel(a: PnlAdjustment, options: { key: string; label: string }[]): string {
   if (a.kind === "one_off") return a.side === "income" ? "One-off income" : "One-off expense";
+  if (a.line_key === "producer") return "Producer pay";
+  if (a.line_key?.startsWith("charge:")) return a.line_key.slice(7);
   return options.find((o) => o.key === a.line_key)?.label ?? a.line_key ?? "";
 }
 

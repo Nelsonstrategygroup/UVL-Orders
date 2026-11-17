@@ -41,7 +41,7 @@ const TABLES = [
   "pnl_adjustments",
   "pnl_expense_files",
 ];
-const SETUP_TABLES = ["pnl_lamb_charges", "pnl_percent_charges", "expense_categories"];
+const SETUP_TABLES = ["expense_categories", "expense_category_rates"];
 
 const STATUS_TABLES = ["pnl_closed_weeks", "pnl_week_reviews", "pnl_week_events"];
 
@@ -49,7 +49,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
   const [entries, sheets, inv, invoiceData, prices, charges, boxes, people, adjustments, expenseFiles] = await Promise.all([
     loadWeekEntries(db, week),
     loadWeekSheets(db, week),
-    db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
+    db.from("weeks").select("invoice_number, no_processing").eq("id", week).maybeSingle(),
     loadWeekInvoiceData(db, week),
     loadPrices(db),
     loadCharges(db),
@@ -62,6 +62,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     ...entries,
     sheets,
     inv: (inv.data as { invoice_number?: number | null } | null)?.invoice_number ?? null,
+    noProcessing: !!(inv.data as { no_processing?: boolean } | null)?.no_processing,
     invoiceData,
     prices,
     charges,
@@ -135,10 +136,11 @@ export function usePnlWeek(week: string) {
     income: data.income,
     expenses: data.expenses,
     categories: setup.categories,
-    lambCharges: setup.lambCharges,
-    percentCharges: setup.percentCharges,
+    rates: setup.rates,
     invoices: ii,
     adjustments: data.adjustments,
+    noProcessing: data.noProcessing,
+    lbShipped: data.boxes.reduce((s, b) => s + Number(b.weight), 0).toFixed(2),
   });
   const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";
   const details = pnlDetails({
@@ -149,8 +151,6 @@ export function usePnlWeek(week: string) {
     pay,
     settings: lc.settings,
     rates: lc.rates,
-    lambCharges: setup.lambCharges,
-    percentCharges: setup.percentCharges,
     income: data.income,
     expenses: data.expenses,
     categories: setup.categories,
@@ -163,7 +163,7 @@ export function usePnlWeek(week: string) {
     expenseFiles: data.expenseFiles,
   });
   const lambCount = weekData ? weekCalc(weekData, catalog).c.final : null;
-  const checks = pnlChecks({ p, ii, lambCount, categories: setup.categories, expenses: data.expenses });
+  const checks = pnlChecks({ p, ii, lambCount });
   // What closing the week saves (and the closed week shows).
   const snapshot = () =>
     toSnapshot({

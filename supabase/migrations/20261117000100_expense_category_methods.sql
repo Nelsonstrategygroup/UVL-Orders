@@ -13,8 +13,9 @@
 --   per_truck_run, freight_weight, freight_pallet: come with the truck run
 --                     log and freight from pallets (later stages)
 --
--- Moves every per-lamb and percent charge (with its dates) into categories
--- and rates, then removes pnl_lamb_charges and pnl_percent_charges. Renames
+-- Copies every per-lamb and percent charge (with its dates) into categories
+-- and rates. pnl_lamb_charges and pnl_percent_charges stay until the app
+-- no longer reads them (20261117000200 removes them, after deploying). Renames
 -- the four starting categories to the new list. No expense entries exist;
 -- any would keep their category (only the names change).
 --
@@ -129,7 +130,3 @@ begin
     on conflict (category_id, effective_from) do nothing;
   end loop;
 end $$;
-
--- The charges now live in the categories.
-drop table public.pnl_lamb_charges;
-drop table public.pnl_percent_charges;
