@@ -4,7 +4,7 @@
 // (Cost of product, Delivery, Operating). Each category has a calculation
 // method and rates with start dates: per lamb, percent of income (all income
 // or sales only), fixed weekly (built from weekly and yearly parts), percent
-// of other categories, weigh sheets (producer pay), or entered by hand.
+// of other categories, carcass weights (producer pay), or entered by hand.
 // Everything here is editable without code. Admins only.
 
 import { Fragment, useCallback, useState } from "react";
@@ -180,7 +180,7 @@ function CategoryRow({ c, data, thisWeek, after }: { c: ExpenseCategory; data: P
           <CategoryForm c={c} data={data} after={after} />
           {hasRate(c) && <Rates c={c} rates={rates} now={now} after={after} />}
           {c.method === "weigh_sheets" && (
-            <p className="small m-0">The rate and live factor are under Pricing and the producers above; each weigh sheet keeps its own.</p>
+            <p className="small m-0">The rate and live factor are under Pricing and the producers above; each carcass weights sheet keeps its own.</p>
           )}
           {c.method === "entered" && <p className="small m-0">Amounts are typed in on the Weekly P&amp;L, with a photo or PDF if wanted.</p>}
         </div>

@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
+import { useCan } from "@/components/CurrentUser";
 import { useWeek, WeekBar } from "@/components/Week";
 import { isISODate, weekName } from "@/lib/dates";
 import { AdjustmentsPanel } from "../Adjustments";
@@ -23,6 +24,7 @@ export default function EntriesScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asked]);
   const w = usePnlWeek(week);
+  const canChange = useCan("pnl").change;
   const head = (
     <div className="noprint">
       <WeekBar />
@@ -32,6 +34,7 @@ export default function EntriesScreen() {
   if (!w.ready) return <>{head}<p className="small muted">Loading...</p></>;
   const { data, setup, p, refresh, status } = w;
   const closed = !!status.closed;
+  const readOnly = closed || !canChange;
 
   return (
     <div className="max-w-[900px]">
@@ -47,7 +50,7 @@ export default function EntriesScreen() {
         expenses. Every entry counts toward the week that contains its date.
       </p>
       {closed && <p className="note">This week is closed. Reopen it on the Weekly P&amp;L to change anything.</p>}
-      <AdjustmentsPanel week={week} p={p} categories={setup.categories} refresh={refresh} closed={closed} />
+      <AdjustmentsPanel week={week} p={p} categories={setup.categories} refresh={refresh} closed={readOnly} />
       <Entries
         week={week}
         income={data.income}
@@ -55,7 +58,7 @@ export default function EntriesScreen() {
         files={data.expenseFiles}
         categories={setup.categories}
         refresh={refresh}
-        readOnly={closed}
+        readOnly={readOnly}
       />
     </div>
   );

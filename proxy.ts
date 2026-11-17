@@ -81,7 +81,16 @@ export async function proxy(request: NextRequest) {
     if (permErr) return response; // RLS still protects the data
     perms = permsFrom(data);
   }
-  if (onLogin || path === "/" || !canOpen(perms, role, path)) return redirectTo(homeFor(perms, role));
+  if (onLogin || path === "/") return redirectTo(homeFor(perms, role));
+  // A page they may not open: say so (Lucas, 11/17/26) instead of quietly sending them home.
+  if (!canOpen(perms, role, path)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/no-access";
+    url.search = `?from=${encodeURIComponent(path)}`;
+    const r = NextResponse.redirect(url);
+    for (const c of response.cookies.getAll()) r.cookies.set(c);
+    return r;
+  }
 
   return response;
 }

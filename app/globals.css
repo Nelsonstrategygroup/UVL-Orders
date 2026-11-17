@@ -198,6 +198,34 @@
     min-height: 44px;
   }
 
+  .topbtn.desk-only {
+    align-items: center;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .topbtn[aria-current="page"] {
+    background: #f4f2e6;
+    color: #2c4a1c;
+  }
+  /* A tab's sections (Lucas, 11/17/26): a row of links under the header. */
+  .seclink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0.2rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 0.92rem;
+  }
+  .seclink.on {
+    background: var(--forest);
+    border-color: var(--forest);
+    color: var(--on-forest);
+  }
+
   /* Wide screens get top tabs; phones get the bottom bar. */
   .desk-only {
     display: flex;

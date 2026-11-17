@@ -70,11 +70,11 @@ export default async function HelpPage() {
         up by themselves within a few seconds.
       </Step>
       <Step n={6} title="Paper copy">
-        If the internet is down, pack on the <Link href="/packing/weigh">Weigh Sheet</Link>: find the product, then the
+        If the internet is down, pack on the <Link href="/packing/weigh">Box weight sheet</Link>: find the product, then the
         store, and write each box&apos;s weight in a box on that row. The <Link href="/packing/print">Pallet Sheet</Link> lists
         each store&apos;s products to check off on the pallet. Print both before packing day. Afterwards, type the weights in on{" "}
         <Link href="/packing/paper">Type in from paper</Link>, which is laid out the same. Both are also under <b>More</b>,{" "}
-        <b>Print and download</b>.
+        <b>Reports</b>.
       </Step>
     </section>
   );
@@ -140,7 +140,7 @@ export default async function HelpPage() {
         <b>Half and whole</b> walks you through each cut. It says <b>In freezer</b> or <b>Cut fresh</b> for each, and anything
         the freezer can&apos;t cover is added to this week&apos;s order. Tap <b>Mark filled</b> when it&apos;s picked up.{" "}
         <b>Freezer</b> shows what&apos;s on hand. On a customer&apos;s page, <b>Log a contact</b> keeps notes and follow-ups.{" "}
-        <b>Print and download</b>, under <b>More</b>, has everything to print or download, by day of the week: order sheets,
+        <b>Reports</b> has everything to print or download, by day of the week: order sheets,
         the cut sheet, the Box Label Report, the paper packing copy, and spreadsheets of the week&apos;s orders, product totals,
         the packing record, customers, a customer&apos;s history, sales over a date range, and the freezer.
       </Step>

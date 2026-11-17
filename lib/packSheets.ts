@@ -1,7 +1,7 @@
 // The two packing printouts (Lucas, 11/1/26), replacing the paper packing
 // copy that ran about 13 pages:
 //
-// - Weigh Sheet: for writing each box's weight. Boxes come off the line on
+// - Box weight sheet: for writing each box's weight. Boxes come off the line on
 //   carts by box size, products and customers mixed, so it's by product (the
 //   name as on the box label, A to Z), then one row per store (as on the
 //   label, in the usual customer order): what was ordered, a cell per box, a
@@ -23,7 +23,7 @@ import { invLabel } from "./weekInv";
 
 // --- Sizes, in inches. The pages use these, so what's drawn matches what's counted. ---
 
-/** Weigh Sheet: Letter landscape, 0.4 in margins, two columns. */
+/** Box weight sheet: Letter landscape, 0.4 in margins, two columns. */
 export const WEIGH = {
   pageW: 10.2,
   pageH: 7.7,
@@ -50,7 +50,7 @@ export const PALLET = {
   lineH: 0.25,
 } as const;
 
-// --- Weigh Sheet ---
+// --- Box weight sheet ---
 
 export type WeighRow = {
   order: PackOrder;
@@ -87,7 +87,7 @@ export function shortGroup(text: string): string {
 }
 
 /**
- * The Weigh Sheet's sections: every product being packed, A to Z by the name
+ * The Box weight sheet's sections: every product being packed, A to Z by the name
  * on its label, and in each one a row per store in the usual customer order.
  * `extra` adds cells ("Add a box" on screen), by order|product.
  */
@@ -116,7 +116,7 @@ export function weighSections(data: PackingData, labels: SheetLabel[], extra: Re
 
 export type WeighLayout = { sections: WeighSection[]; pages: Page[]; /** Page each section starts on, by section; the spare rows are the last block. */ pageOf: number[] };
 
-/** The Weigh Sheet in pages: the sections, then the spare rows at the very end. */
+/** The Box weight sheet in pages: the sections, then the spare rows at the very end. */
 export function weighLayout(sections: WeighSection[]): WeighLayout {
   const colH = WEIGH.pageH - WEIGH.pageHead;
   const blocks: Block[] = [
@@ -180,7 +180,7 @@ export function palletLayout(customers: PalletCustomer[]): Page[] {
 
 // --- Downloads: the same rows as a spreadsheet, the INV# on top. ---
 
-/** The Weigh Sheet as rows: product, customer, ordered, boxes, each box's weight (blank to fill), total. */
+/** The Box weight sheet as rows: product, customer, ordered, boxes, each box's weight (blank to fill), total. */
 export function weighTable(sections: WeighSection[], inv: string | null, week: string): Table {
   const most = Math.max(1, ...sections.flatMap((s) => s.rows.map((r) => r.row.blanks.length)));
   const header = ["Product", "Customer", "Ordered", "Boxes", ...Array.from({ length: most }, (_, i) => `Box ${i + 1} (lb)`), "Total lbs"];
@@ -194,7 +194,7 @@ export function weighTable(sections: WeighSection[], inv: string | null, week: s
       r.row.total > 0 ? r.row.total : "",
     ]),
   );
-  return { header, rows, title: `${invLabel(inv)} · Weigh Sheet · Packing ${weekName(week)}` };
+  return { header, rows, title: `${invLabel(inv)} · Box weight sheet · Packing ${weekName(week)}` };
 }
 
 /** The Pallet Sheet as rows: customer, ships to, product, ordered, boxes. */

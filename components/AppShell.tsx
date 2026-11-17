@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useState } from "react";
-import { navFor, onlyPacking, type NavItem, type Perms, type Role } from "@/lib/auth/roles";
+import { navFor, onlyPacking, tabFor, type NavItem, type Perms, type Role } from "@/lib/auth/roles";
 import { logout } from "@/app/login/actions";
 import Sheet from "./Sheet";
 import { getLabelOffset, setLabelOffset } from "./labelOffset";
@@ -37,7 +37,9 @@ export default function AppShell({
   const nav = simple ? [] : navFor(perms, role);
   const bottom = nav.filter((n) => n.bottom);
   const more = nav.filter((n) => !n.bottom);
-  const moreCurrent = more.some((n) => isCurrent(pathname, n.href));
+  const tab = tabFor(pathname);
+  const current = nav.find((n) => n.key === tab);
+  const moreCurrent = more.some((n) => n.key === tab);
 
   // A sheet belongs to the screen it was opened on, so it closes after moving to another screen.
   const [opened, setOpened] = useState<{ kind: "more" | "account"; path: string } | null>(null);
@@ -57,7 +59,7 @@ export default function AppShell({
         {nav.length > 0 && (
           <nav className="toptabs desk-only ml-auto flex-wrap gap-1" aria-label="Sections">
             {nav.map((n) => (
-              <Link key={n.href} href={n.href} aria-current={isCurrent(pathname, n.href) ? "page" : undefined}>
+              <Link key={n.key} href={n.href} aria-current={n.key === tab ? "page" : undefined}>
                 {n.label}
               </Link>
             ))}
@@ -73,6 +75,20 @@ export default function AppShell({
       </header>
 
       <main className="mx-auto max-w-[1280px] px-4 pt-4 pb-24">
+        {current && current.sections.length > 1 && (
+          <nav className="noprint mb-3 flex flex-wrap gap-2" aria-label={`${current.label} sections`}>
+            {current.sections.map((s) => (
+              <Link
+                key={s.href}
+                href={s.href}
+                className={isCurrent(pathname, s.href) || (s.href === "/carcass-weights" && isCurrent(pathname, "/weigh-sheets")) ? "seclink on" : "seclink"}
+                aria-current={isCurrent(pathname, s.href) ? "page" : undefined}
+              >
+                {s.label}
+              </Link>
+            ))}
+          </nav>
+        )}
         <CurrentUserProvider me={{ id: userId, role, displayName, perms }}>
           <ToastProvider>
             <WeekProvider>
@@ -88,7 +104,7 @@ export default function AppShell({
       {nav.length > 0 && (
         <nav className="bottombar mob-only" aria-label="Sections">
           {bottom.map((n) => (
-            <Link key={n.href} href={n.href} aria-current={isCurrent(pathname, n.href) ? "page" : undefined}>
+            <Link key={n.key} href={n.href} aria-current={n.key === tab ? "page" : undefined}>
               <b aria-hidden="true">{n.icon}</b>
               {n.short}
             </Link>

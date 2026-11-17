@@ -1,6 +1,6 @@
 "use client";
 
-// The Weigh Sheet (Lucas, 11/1/26), opened from Print and download and from
+// The Box weight sheet (Lucas, 11/1/26), opened from Print and download and from
 // Packing: the printout for writing each box's weight, by product. Works with
 // no signal like the rest of Packing. Weights already in the app are filled
 // in; "Type in from paper" is laid out the same.
@@ -39,7 +39,7 @@ export default function WeighScreen() {
       <div className="screen-only">
         <WeekBar inv={data.invNumber} />
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="mr-auto">Weigh Sheet</h2>
+          <h2 className="mr-auto">Box weight sheet</h2>
           <Link href="/print" className="btn ghost">
             &larr; Print and download
           </Link>
@@ -51,7 +51,7 @@ export default function WeighScreen() {
             className="btn ghost"
             disabled={!rows}
             onClick={() =>
-              void downloadTable(invFileName(data.invNumber, "Weigh Sheet", week), weighTable(layout.sections, data.invNumber, week), "Weigh Sheet").catch(() =>
+              void downloadTable(invFileName(data.invNumber, "Box weight sheet", week), weighTable(layout.sections, data.invNumber, week), "Box weight sheet").catch(() =>
                 toast("Couldn't download. Try again."),
               )
             }

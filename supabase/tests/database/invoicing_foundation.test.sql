@@ -13,6 +13,13 @@ insert into public.profiles (id, display_name, role) values
   ('00000000-0000-4000-8000-00000000b1a1', 'Biller', 'billing'),
   ('00000000-0000-4000-8000-00000000b1a2', 'Packer', 'packing'),
   ('00000000-0000-4000-8000-00000000b1a3', 'Office', 'office');
+-- Since 11/17/26 an Accountant has no prices or setup by default, and an
+-- Operations lead no invoices: these test users get them as their own settings.
+insert into public.user_permissions (user_id, area, level) values
+  ('00000000-0000-4000-8000-00000000b1a1', 'prices', 2),
+  ('00000000-0000-4000-8000-00000000b1a1', 'setup', 1),
+  ('00000000-0000-4000-8000-00000000b1a3', 'invoices', 1),
+  ('00000000-0000-4000-8000-00000000b1a3', 'prices', 1);
 insert into public.customers (id, name) values
   ('00000000-0000-4000-8000-00000000b1c1', 'Inv Market'),
   ('00000000-0000-4000-8000-00000000b1c2', 'Inv Deli');

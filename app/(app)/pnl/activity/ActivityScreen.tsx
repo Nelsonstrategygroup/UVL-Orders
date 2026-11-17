@@ -92,7 +92,7 @@ export default function ActivityScreen() {
       const s = sheets.get(id);
       return s
         ? { label: `${names.producer(s.producer_id)}, kill ${niceDate(s.kill_date)}`, week: s.week_id }
-        : { label: "a weigh sheet no longer listed", week: null };
+        : { label: "a carcass weights sheet no longer listed", week: null };
     },
     expenseWeek: (id) => expenseWeeks.get(id) ?? null,
     driver: (id) => drivers.get(id) ?? "a driver no longer listed",
@@ -123,7 +123,7 @@ export default function ActivityScreen() {
     <div className="max-w-[900px]">
       {head}
       <p className="small muted mt-2">
-        Every change that affects the P&amp;L: rates, prices, Mohawk charges, weigh sheets, expenses, other income, adjustments,
+        Every change that affects the P&amp;L: rates, prices, Mohawk charges, carcass weights, expenses, other income, adjustments,
         and when a week was reviewed, closed or reopened. Newest first, with who made it and when.
         {!all && " A rate or price shows here when it applies to this week."}
       </p>

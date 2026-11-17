@@ -3,7 +3,7 @@
 // The Pallet Sheet (Lucas, 11/1/26), opened from Print and download and from
 // Packing: by store, a checkbox per product with what was ordered and how many
 // boxes, Pallet and Initials once per store. It replaces the paper packing
-// copy; box weights go on the Weigh Sheet.
+// copy; box weights go on the Box weight sheet.
 
 import Link from "next/link";
 import { useMemo } from "react";
@@ -45,7 +45,7 @@ export default function PackingPrintScreen() {
             &larr; Print and download
           </Link>
           <Link href="/packing/weigh" className="btn ghost">
-            Weigh Sheet
+            Box weight sheet
           </Link>
           <button
             type="button"
@@ -70,7 +70,7 @@ export default function PackingPrintScreen() {
         </p>
         <p className="small muted">
           By store, in the usual order: a box to check for each product, what was ordered and how many boxes. Pallet and
-          Initials once per store. Box weights go on the Weigh Sheet.
+          Initials once per store. Box weights go on the Box weight sheet.
         </p>
       </div>
       {lines > 0 && (

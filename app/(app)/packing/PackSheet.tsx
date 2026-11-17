@@ -1,6 +1,6 @@
 // A customer's notes on Packing: standing notes and this week's order notes,
 // so Chris sees them while packing. (The paper packing copy that lived here
-// was replaced by the Weigh Sheet and Pallet Sheet, 11/1/26: ./sheets.)
+// was replaced by the Box weight sheet and Pallet Sheet, 11/1/26: ./sheets.)
 
 import type { PackOrder } from "@/lib/db/packing";
 

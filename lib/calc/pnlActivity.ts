@@ -46,7 +46,7 @@ export type Names = {
   producer: (id: string) => string;
   category: (id: string) => string;
   user: (id: string | null) => string;
-  /** A weigh sheet by id: "Eric Freepons, kill Nov 13", and its week. */
+  /** A carcass weights sheet by id: "Eric Freepons, kill Nov 13", and its week. */
   sheet: (id: string) => { label: string; week: string | null };
   /** An expense by id: its week. */
   expenseWeek: (id: string) => string | null;
@@ -250,11 +250,11 @@ function title(table: string, d: Record<string, unknown>, n: Names): string {
     case "lamb_cost_settings":
       return "Base rate and live factor";
     case "kill_sheets":
-      return `Weigh sheet: ${n.producer(s(d.producer_id))}, kill ${date(d.kill_date)}`;
+      return `Carcass weights: ${n.producer(s(d.producer_id))}, kill ${date(d.kill_date)}`;
     case "kill_lambs":
       return `Lamb weight: ${n.sheet(s(d.sheet_id)).label}`;
     case "kill_adjustments":
-      return `Weigh sheet adjustment: ${n.sheet(s(d.sheet_id)).label}`;
+      return `Carcass weights adjustment: ${n.sheet(s(d.sheet_id)).label}`;
     case "pnl_expenses":
       return `Expense: ${n.category(s(d.category_id))}`;
     case "pnl_income":
@@ -331,7 +331,7 @@ export function rangeText({ from, to }: { from: string; to: string | null }): st
   return to ? `${niceDate(from)} to ${niceDate(to)}` : `From ${niceDate(from)} on`;
 }
 
-/** The days in a week a rate is looked up on (prices: the invoice date; weigh sheets: the kill days; charges: the Monday). */
+/** The days in a week a rate is looked up on (prices: the invoice date; carcass weights: the kill days; charges: the Monday). */
 export function weekRateDays(table: string, week: string): { from: string; to: string } {
   if (table === "prices" || table === "carcass_charges") return { from: addDays(week, 1), to: addDays(week, 1) };
   if (table === "producer_rates" || table === "lamb_cost_settings" || table === "truck_driver_rates") return { from: weekDays(week)[0], to: weekEnd(week) };
@@ -348,8 +348,8 @@ export function rateAppliesTo(table: string, d: Record<string, unknown>, current
 const APPLIES_NOTE: Record<string, string> = {
   prices: "invoices dated",
   carcass_charges: "invoices dated",
-  producer_rates: "new weigh sheets killed",
-  lamb_cost_settings: "new weigh sheets killed",
+  producer_rates: "carcass weights for kills",
+  lamb_cost_settings: "carcass weights for kills",
   pnl_lamb_charges: "weeks",
   pnl_percent_charges: "weeks",
   expense_category_rates: "weeks",

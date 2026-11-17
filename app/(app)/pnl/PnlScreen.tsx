@@ -10,6 +10,7 @@
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
+import { useCan } from "@/components/CurrentUser";
 import { useStaffData } from "@/components/data/StaffData";
 import { useWeek, WeekBar } from "@/components/Week";
 import { averageLbText, carcassText, centsText, factorText, fixedRounded, liveText, rateText } from "@/lib/calc/lambCost";
@@ -48,6 +49,7 @@ export default function PnlScreen() {
   const [open, setOpen] = useState<Open>(null);
   const [help, setHelp] = useState(false);
   const onOpen: OnOpen = (keys, only) => setOpen({ keys, only });
+  const canChange = useCan("pnl").change;
 
   const head = (
     <div className="noprint">
@@ -76,7 +78,7 @@ export default function PnlScreen() {
           p={p}
           categories={setup.categories}
           onSaved={refresh}
-          closed={closed}
+          closed={closed || !canChange}
           onClose={() => setOpen(null)}
         />
       )}
@@ -137,7 +139,7 @@ export default function PnlScreen() {
 
       <p className="small muted noprint mt-3">
         {counts.length ? counts.join(", ") : "No entries or adjustments this week"} ·{" "}
-        <Link href={`/pnl/entries?week=${week}`}>{counts.length ? "View" : closed ? "View" : "Add / adjust"}</Link>
+        <Link href={`/pnl/entries?week=${week}`}>{counts.length || closed || !canChange ? "View" : "Add / adjust"}</Link>
       </p>
     </div>
   );
@@ -171,7 +173,7 @@ function Checks({ checks }: { checks: PnlCheck[] }) {
   if (!checks.length)
     return (
       <p className="note mt-2 bg-ok" role="status">
-        <b>Complete.</b> Every invoice is finalized, every packed product has a price, the weigh sheets match the lamb count, and
+        <b>Complete.</b> Every invoice is finalized, every packed product has a price, the carcass weights match the lamb count, and
         the Mohawk cost is in.
       </p>
     );
@@ -207,7 +209,7 @@ function Summary({ p, onOpen }: { p: WeekPnl; onOpen: OnOpen }) {
     </tr>
   );
   const missing = <span className="muted">Not worked out</span>;
-  const waits = [!p.hasSheets && !p.noProcessing && "No weigh sheet for this week.", !p.hasIncome && !p.noProcessing && "No income yet."].filter(Boolean);
+  const waits = [!p.hasSheets && !p.noProcessing && "No carcass weights for this week.", !p.hasIncome && !p.noProcessing && "No income yet."].filter(Boolean);
   return (
     <section className="panel mt-3" aria-labelledby="pnl-summary">
       <h3 id="pnl-summary" className="flex items-center gap-2">
@@ -355,7 +357,7 @@ function OneOffRow({ a, onOpen }: { a: PnlAdjustment; onOpen: () => void }) {
   );
 }
 
-/** The weigh sheets category's detail key (producer pay). */
+/** The carcass weights category's detail key (producer pay). */
 const producerKeys = (p: WeekPnl) => p.categories.filter((l) => l.method === "weigh_sheets").map((l) => categoryKey(l.categoryId));
 
 /** What a category's number is, in a few words. */
@@ -366,7 +368,7 @@ function methodText(l: CategoryLine, p: WeekPnl): string {
   let s = "";
   switch (l.method) {
     case "weigh_sheets":
-      s = p.hasSheets ? `${p.head} lambs on the weigh sheets` : "No processing this week";
+      s = p.hasSheets ? `${p.head} lambs on the carcass weights` : "No processing this week";
       break;
     case "per_lamb":
       s = r?.amount != null ? `${p.head} lambs × ${rateText(r.amount)}` : "";

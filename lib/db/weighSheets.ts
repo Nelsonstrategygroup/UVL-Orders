@@ -18,7 +18,7 @@ export type SheetData = {
 };
 
 const SHEET_COLS = "id, producer_id, kill_date, week_id, base_rate, live_factor, rate_source, notes";
-const SRC = "weigh sheet";
+const SRC = "carcass weights sheet";
 
 /** Database errors in plain words. */
 export function plain(e: { message: string; code?: string; hint?: string } | null): string | null {
@@ -28,7 +28,7 @@ export function plain(e: { message: string; code?: string; hint?: string } | nul
   if (e.code === "23505" && /kill_sheets/.test(e.message)) return "That producer already has a sheet for that kill date.";
   if (e.code === "23505" && /kill_lambs/.test(e.message)) return "That place on the sheet already has a weight.";
   if (e.code === "23503" && /kill_adjustments/.test(e.message)) return "This lamb has an adjustment. Remove the adjustment first.";
-  if (e.code === "23503" && /producers/.test(e.message)) return "This producer has weigh sheets, so they can only be turned off.";
+  if (e.code === "23503" && /producers/.test(e.message)) return "This producer has carcass weights, so they can only be turned off.";
   if (e.code === "23514" && /note/.test(e.message)) return "Type a note for \"Other\".";
   if (e.code === "23514" && /carcass_lb/.test(e.message)) return "A weight is more than 0 and less than 500 lb.";
   if (e.code === "42501") return "Only an admin can change this.";

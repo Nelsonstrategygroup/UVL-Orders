@@ -77,7 +77,7 @@ const order = (id: string, customer: string, lines: Record<string, number>, over
   ...over,
 });
 
-describe("the Weigh Sheet and the Pallet Sheet (11/1/26)", () => {
+describe("the Box weight sheet and the Pallet Sheet (11/1/26)", () => {
   const products = new Map<string, PackProduct>([
     ["rack", product("rack", "Racks", 1, { label_name: "Single Pack Rack (Cap ON)" })],
     ["bis", product("bis", "BI Shoulder", 2)],
@@ -147,7 +147,7 @@ describe("the Weigh Sheet and the Pallet Sheet (11/1/26)", () => {
 
   it("downloads the same rows with the INV# on top", () => {
     const t = weighTable(sections, "3002", "2026-11-02");
-    expect(t.title).toBe("INV# 3002 · Weigh Sheet · Packing Mon Nov 2");
+    expect(t.title).toBe("INV# 3002 · Box weight sheet · Packing Mon Nov 2");
     expect(t.header).toEqual(["Product", "Customer", "Ordered", "Boxes", "Box 1 (lb)", "Box 2 (lb)", "Box 3 (lb)", "Total lbs"]);
     expect(t.rows.find((r) => r[1] === "Key City" && r[0] === "Single Pack Rack (Cap ON)")).toEqual(["Single Pack Rack (Cap ON)", "Key City", "2", 1, 21.5, "", "", 21.5]);
   });

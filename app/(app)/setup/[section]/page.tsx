@@ -13,5 +13,5 @@ export default async function SetupSectionPage({ params }: { params: Promise<{ s
   const { section } = await params;
   if (!isSetupSlug(section)) notFound();
   const user = await requireUser();
-  return <SetupScreen canEdit={user.role === "admin"} section={section} />;
+  return <SetupScreen canEdit={user.perms.setup >= 2} isAdmin={user.role === "admin"} section={section} />;
 }

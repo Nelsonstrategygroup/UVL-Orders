@@ -16,6 +16,7 @@ import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
+import { useMe } from "@/components/CurrentUser";
 import { fmt, num } from "@/lib/calc/num";
 import { drivesLambCount, needsChecking, partAmountRow } from "@/lib/calc/products";
 import { unitWord } from "@/lib/calc/units";
@@ -57,7 +58,20 @@ const USE_LABEL: Record<string, string> = {
 };
 
 /** Setup: the menu when no section is given, else that section's page. */
-export default function SetupScreen({ canEdit, section }: { canEdit: boolean; section?: SetupSlug }) {
+/**
+ * canEdit: Change on Operations setup. isAdmin: Owner setup (P&L Setup, export).
+ * The menu lists only the sections the person can open (Lucas, 11/17/26).
+ */
+export default function SetupScreen({
+  canEdit,
+  isAdmin = false,
+  section,
+}: {
+  canEdit: boolean;
+  isAdmin?: boolean;
+  section?: SetupSlug;
+}) {
+  const me = useMe();
   const { catalog, error, reloadCatalog } = useStaffData();
   const toast = useToast();
   const db = getDb();
@@ -167,7 +181,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
   const editNote = canEdit ? (
     <p className="note small">Numbers highlighted in yellow are starting guesses. Correct them here and every calculation updates.</p>
   ) : (
-    <p className="note small">Only an admin can change these. Ask Kathy or Eric if something looks wrong.</p>
+    <p className="note small">You can look at these, but not change them. Ask an admin if something looks wrong.</p>
   );
 
   // ----- The menu -----
@@ -177,7 +191,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
         <h2 className="mb-2">Setup</h2>
         {editNote}
         <ul className="setupmenu">
-          {SETUP_SECTIONS.filter((s) => !("adminOnly" in s && s.adminOnly) || canEdit).map((s) => {
+          {SETUP_SECTIONS.filter((s) => ("area" in s ? isAdmin || me.perms[s.area] >= 1 : isAdmin)).map((s) => {
             const n = badge[s.slug] ?? 0;
             return (
               <li key={s.slug}>
@@ -574,7 +588,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
                 id="pname"
                 className="field"
                 defaultValue={settings?.processor_name ?? "Mohawk"}
-                disabled={!canEdit}
+                disabled={!isAdmin}
                 onBlur={(e) => {
                   const v = e.target.value.trim() || "Mohawk";
                   if (v !== settings?.processor_name) void updateSettings(db, { processor_name: v }).then(done);
@@ -590,7 +604,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
                 className="field"
                 inputMode="email"
                 defaultValue={settings?.processor_email ?? ""}
-                disabled={!canEdit}
+                disabled={!isAdmin}
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (v !== (settings?.processor_email ?? "")) void updateSettings(db, { processor_email: v }).then(done);
@@ -607,7 +621,7 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
             rows={3}
             placeholder="One per line. Packaging, labels, anything they should always do"
             defaultValue={settings?.standing_instructions ?? ""}
-            disabled={!canEdit}
+            disabled={!isAdmin}
             onBlur={(e) => {
               const v = e.target.value.trim();
               if (v !== (settings?.standing_instructions ?? "")) void updateSettings(db, { standing_instructions: v }).then(done);
@@ -618,11 +632,11 @@ export default function SetupScreen({ canEdit, section }: { canEdit: boolean; se
 
     case "lamb-cost":
       // Admins only (SPEC 16); the tables' own security says the same.
-      if (!canEdit) return page(<p className="note">Only an admin can see P&amp;L Setup.</p>);
+      if (!isAdmin) return page(<p className="note">Only an admin can see P&amp;L Setup.</p>);
       return page(<LambCost />);
 
     case "records":
-      if (!canEdit) return page(<p className="note">Only an admin can export all data.</p>);
+      if (!isAdmin) return page(<p className="note">Only an admin can export all data.</p>);
       return page(
         <section className="panel">
           <p className="small muted mt-0">
@@ -1121,7 +1135,7 @@ function GtinMap({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-/** Weight boxes on the Weigh Sheet (10/26/26; 3 and 1 from 11/1/26): how many when a product's box count isn't known, spares after known boxes, and a number for any one product. */
+/** Weight boxes on the Box weight sheet (10/26/26; 3 and 1 from 11/1/26): how many when a product's box count isn't known, spares after known boxes, and a number for any one product. */
 function PackBlanks({ canEdit, onDone }: { canEdit: boolean; onDone: (err: string | null) => Promise<void> }) {
   const { catalog } = useStaffData();
   const db = getDb();
@@ -1132,7 +1146,7 @@ function PackBlanks({ canEdit, onDone }: { canEdit: boolean; onDone: (err: strin
   const whole = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(num(v))));
   return (
     <section className="panel mt-4">
-      <h3>Weight boxes on the Weigh Sheet</h3>
+      <h3>Weight boxes on the Box weight sheet</h3>
       <p className="small muted mt-1">
         Each store&apos;s row gets a box for each of its boxes, plus spares. When a product&apos;s box count isn&apos;t known (no box
         size), the row gets this many boxes instead.

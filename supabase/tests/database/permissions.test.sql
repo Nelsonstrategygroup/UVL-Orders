@@ -17,7 +17,7 @@ insert into public.profiles (id, display_name, role) values
   ('00000000-0000-4000-8000-0000000000a4', 'Packing lead', 'packing'),
   ('00000000-0000-4000-8000-0000000000a5', 'Admin', 'admin');
 -- The packing lead may see orders and the cut sheet; someone tried to give
--- the office user Setup change, and the admin an Off.
+-- the operations lead Setup change, and the admin an Off.
 insert into public.user_permissions (user_id, area, level) values
   ('00000000-0000-4000-8000-0000000000a4', 'orders', 1),
   ('00000000-0000-4000-8000-0000000000a4', 'cutsheet', 1),
@@ -32,17 +32,17 @@ insert into public.cut_sets (id, week_id, name, lambs) values ('00000000-0000-40
 insert into public.contact_log (customer_id, kind, summary, created_by)
   values ('00000000-0000-4000-8000-0000000000c1', 'call', 'Perm note', '00000000-0000-4000-8000-0000000000a1');
 
-select is((select count(*)::int from public.role_permissions), 56, 'four roles have a default for each of the 14 areas');
+select is((select count(*)::int from public.role_permissions), 64, 'four roles have a default for each of the 16 areas');
 
 set local role authenticated;
 
--- Office: what it had before. Setup stays View even with an override.
+-- Operations lead (office): changes orders and Operations setup (11/17/26: no longer capped at View).
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
 select is(public.perm('orders'), 2::smallint, 'office changes orders');
-select is(public.perm('setup'), 1::smallint, 'office sees Setup but cannot change it, even with an override');
+select is(public.perm('setup'), 2::smallint, 'an operations lead changes Operations setup');
 update public.parts set per_lamb = 9 where id = 'perm-part';
-select is((select per_lamb from public.parts where id = 'perm-part'), 1::numeric, 'office cannot change Setup numbers');
-select is((select count(*)::int from jsonb_object_keys(public.my_permissions())), 14, 'my_permissions lists every area');
+select is((select per_lamb from public.parts where id = 'perm-part'), 9::numeric, 'an operations lead changes a parts-per-lamb number');
+select is((select count(*)::int from jsonb_object_keys(public.my_permissions())), 16, 'my_permissions lists every area');
 
 -- Packing: the packing screen only.
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a2","role":"authenticated"}';
@@ -91,7 +91,7 @@ select is((select max(level)::int from public.role_permissions where role = 'vie
 -- Admin: always everything, whatever an override says.
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a5","role":"authenticated"}';
 select is(public.perm('orders'), 2::smallint, 'an admin keeps Change even with an Off override');
-select is(public.perm('setup'), 2::smallint, 'only admins change Setup');
+select is(public.perm('setup'), 2::smallint, 'an admin changes Setup');
 
 reset role;
 select * from finish();

@@ -1,6 +1,6 @@
 "use client";
 
-// Print and download (change request 10/21/26, stage 2; by job, Lucas
+// Reports (was Print and download; renamed 11/17/26) (change request 10/21/26, stage 2; by job, Lucas
 // 11/6/26): three tabs. This week (with the week picker): orders,
 // processing, packing, shipping, invoices. Reports: not about one week.
 // Setup checks: lists to check setup against. Every report opens as a
@@ -153,7 +153,7 @@ export default function PrintScreen() {
   const [qbTo, setQbTo] = useState(() => todayISO());
 
   const tabs = (
-    <div className="seg mb-2" role="tablist" aria-label="Print and download">
+    <div className="seg mb-2" role="tablist" aria-label="Reports">
       {TABS.map(([t, label]) => (
         <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}>
           {label}
@@ -220,7 +220,7 @@ export default function PrintScreen() {
   return (
     <div className="max-w-[760px]">
       {tab === "week" && <WeekBar />}
-      <h2 className="mb-1">Print and download</h2>
+      <h2 className="mb-1">Reports</h2>
       {tabs}
       {hasDownload && (
         <>
@@ -281,7 +281,7 @@ export default function PrintScreen() {
               </Item>
             )}
             {seePacking && (
-              <Item key="weigh" title="Weigh Sheet" action={<PackSheetButtons week={week} kind="weigh" fileType={fileType} />}>
+              <Item key="weigh" title="Box weight sheet" action={<PackSheetButtons week={week} kind="weigh" fileType={fileType} />}>
                 Each store&apos;s boxes by product, with room to write each weight.
               </Item>
             )}

@@ -1,11 +1,13 @@
 "use client";
 
-// One weigh sheet (SPEC 16.3-16.4, Lamb cost stage 2): one producer and kill
-// date from Mohawk's kill log. The grid matches the paper: columns of 20
+// One carcass weights sheet (SPEC 16.3-16.4; renamed 11/17/26): one producer and kill
+// date of Mohawk's carcass weights. The grid matches the paper: columns of 20
 // rows, a heavier line after row 10. Type a weight, press Enter, and the
 // cursor moves down, then to the top of the next column. Every change is in
 // the audit log. Pay is shown step by step; only the total is rounded.
 
+import { useCan } from "@/components/CurrentUser";
+import ViewOnly from "@/components/ViewOnly";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -58,6 +60,7 @@ import {
 const TABLES = ["kill_sheets", "kill_lambs", "kill_adjustments", "kill_sheet_photos"];
 
 export default function SheetScreen({ id }: { id: string }) {
+  const canEdit = useCan("carcass").change;
   const { catalog } = useStaffData();
   const load = useCallback((d: SupabaseClient) => loadSheet(d, id), [id]);
   const { data, error, refresh } = useLive(`kill-sheet:${id}`, load, TABLES);
@@ -71,7 +74,7 @@ export default function SheetScreen({ id }: { id: string }) {
   if (!sheet)
     return (
       <p className="note">
-        This sheet is gone. <Link href="/weigh-sheets">Back to weigh sheets</Link>
+        This sheet is gone. <Link href="/carcass-weights">Back to carcass weights</Link>
       </p>
     );
 
@@ -80,8 +83,8 @@ export default function SheetScreen({ id }: { id: string }) {
 
   return (
     <div className="max-w-[960px]">
-      <Link href="/weigh-sheets" className="copy" onClick={() => setWeek(sheet.week_id)}>
-        &larr; Weigh sheets, {weekName(sheet.week_id)}
+      <Link href="/carcass-weights" className="copy" onClick={() => setWeek(sheet.week_id)}>
+        &larr; Carcass weights, {weekName(sheet.week_id)}
       </Link>
       <h2 className="mt-1 mb-0">{producer?.name ?? "Unknown producer"}</h2>
       <p className="mt-0 mb-2 muted">
@@ -89,11 +92,18 @@ export default function SheetScreen({ id }: { id: string }) {
         {producer?.ranch_name ? ` · ${producer.ranch_name}` : ""}
       </p>
 
-      <Grid sheet={sheet} lambs={data.lambs} adjustments={data.adjustments} sizes={catalog.sizes} refresh={refresh} />
+      {!canEdit && <ViewOnly what="these carcass weights" />}
+      <fieldset disabled={!canEdit} className="m-0 min-w-0 border-0 p-0">
+        <Grid sheet={sheet} lambs={data.lambs} adjustments={data.adjustments} sizes={catalog.sizes} refresh={refresh} />
+      </fieldset>
       <PaySteps pay={pay} sizes={catalog.sizes} />
-      <Adjustments sheet={sheet} pay={pay} refresh={refresh} />
+      <fieldset disabled={!canEdit} className="m-0 min-w-0 border-0 p-0">
+        <Adjustments sheet={sheet} pay={pay} refresh={refresh} />
+      </fieldset>
       <Photos sheetId={sheet.id} photos={data.photos} refresh={refresh} />
-      <Details sheet={sheet} setup={setup} photoPaths={data.photos.map((p) => p.path)} lambs={pay.count} refresh={refresh} />
+      <fieldset disabled={!canEdit} className="m-0 min-w-0 border-0 p-0">
+        <Details sheet={sheet} setup={setup} photoPaths={data.photos.map((p) => p.path)} lambs={pay.count} refresh={refresh} />
+      </fieldset>
     </div>
   );
 }
@@ -625,7 +635,7 @@ function Details({
     const err = await deleteSheet(db, sheet.id, photoPaths);
     if (err) return toast(`Couldn't delete it: ${err}`);
     toast("Sheet deleted");
-    router.push("/weigh-sheets");
+    router.push("/carcass-weights");
   };
 
   return (
