@@ -3,7 +3,7 @@
 // Admins only (Row Level Security). Nothing else in the app reads these.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ExpenseCategory, ExpenseEntry, IncomeEntry, LambCharge, PackedLine, PercentCharge, PnlAdjustment, WeekInvoice } from "../calc/pnl";
+import type { CategoryRate, ExpenseCategory, ExpenseEntry, IncomeEntry, PackedLine, PnlAdjustment, RatePart, WeekInvoice } from "../calc/pnl";
 import { loadWeekInvoices } from "./invoices";
 import { withSource } from "./source";
 
@@ -11,7 +11,6 @@ const SRC = "weekly P&L";
 
 function plain(e: { message: string; code?: string } | null): string | null {
   if (!e) return null;
-  if (e.code === "23505" && /pnl_lamb_charges|pnl_percent_charges/.test(e.message)) return "That charge already has a rate starting that day.";
   if (e.code === "23505" && /expense_categories/.test(e.message)) return "There's already a category with that name.";
   if (e.code === "23503" && /expense_categories/.test(e.message)) return "This category has expenses, so it can only be turned off.";
   if (e.code === "23514" && /percent/.test(e.message)) return "A percent is from 0 to 100.";
@@ -21,50 +20,58 @@ function plain(e: { message: string; code?: string } | null): string | null {
   return e.message;
 }
 
-export type PnlSetup = { lambCharges: LambCharge[]; percentCharges: PercentCharge[]; categories: ExpenseCategory[] };
+export type PnlSetup = { categories: ExpenseCategory[]; rates: CategoryRate[] };
+
+const CAT_COLS = "id, name, active, sort, group_name, method, income_base, base_category_ids, note";
 
 export async function loadPnlSetup(db: SupabaseClient): Promise<PnlSetup> {
-  const [l, p, c] = await Promise.all([
-    db.from("pnl_lamb_charges").select("id, name, effective_from, per_lamb, note").order("name").order("effective_from", { ascending: false }),
-    db.from("pnl_percent_charges").select("id, name, effective_from, percent, note").order("name").order("effective_from", { ascending: false }),
-    db.from("expense_categories").select("id, name, active, sort").order("sort").order("name"),
+  const [c, r] = await Promise.all([
+    db.from("expense_categories").select(CAT_COLS).order("sort").order("name"),
+    db.from("expense_category_rates").select("id, category_id, effective_from, amount, percent, parts, note").order("effective_from", { ascending: false }),
   ]);
-  const err = l.error ?? p.error ?? c.error;
+  const err = c.error ?? r.error;
   if (err) throw new Error(err.message);
-  return {
-    lambCharges: (l.data ?? []) as LambCharge[],
-    percentCharges: (p.data ?? []) as PercentCharge[],
-    categories: (c.data ?? []) as ExpenseCategory[],
-  };
+  return { categories: (c.data ?? []) as ExpenseCategory[], rates: (r.data ?? []) as CategoryRate[] };
 }
 
-/** Add a per-lamb charge rate from a date on (a new name starts a new charge). */
-export async function addLambCharge(db: SupabaseClient, c: { name: string; from: string; perLamb: string; note: string }) {
-  const { error } = await withSource(
-    db.from("pnl_lamb_charges").insert({ name: c.name.trim(), effective_from: c.from, per_lamb: c.perLamb, note: c.note.trim() }),
-    "P&L Setup",
-  );
-  return plain(error);
-}
-
-export async function addPercentCharge(db: SupabaseClient, c: { name: string; from: string; percent: string; note: string }) {
-  const { error } = await withSource(
-    db.from("pnl_percent_charges").insert({ name: c.name.trim(), effective_from: c.from, percent: c.percent, note: c.note.trim() }),
-    "P&L Setup",
-  );
-  return plain(error);
-}
-
-export async function deleteCharge(db: SupabaseClient, table: "pnl_lamb_charges" | "pnl_percent_charges", id: string) {
-  const { error } = await withSource(db.from(table).delete().eq("id", id), "P&L Setup");
-  return plain(error);
-}
-
-export async function saveCategory(db: SupabaseClient, c: { id?: string; name: string; active: boolean; sort?: number }) {
-  const row = { name: c.name.trim(), active: c.active, ...(c.sort != null ? { sort: c.sort } : {}) };
-  const { error } = c.id
-    ? await withSource(db.from("expense_categories").update(row).eq("id", c.id), "P&L Setup")
+/** Add a category (no id) or change one: its name, group, method, base, order, in use or not. */
+export async function saveCategory(
+  db: SupabaseClient,
+  c: Partial<Omit<ExpenseCategory, "id">> & { id?: string },
+): Promise<string | null> {
+  const { id, ...rest } = c;
+  const row = { ...rest, ...(rest.name != null ? { name: rest.name.trim() } : {}) };
+  const { error } = id
+    ? await withSource(db.from("expense_categories").update(row).eq("id", id), "P&L Setup")
     : await withSource(db.from("expense_categories").insert(row), "P&L Setup");
+  if (error?.code === "23505" && /one_weigh_sheets/.test(error.message)) return "Only one category can come from the weigh sheets.";
+  return plain(error);
+}
+
+/** A category's rate from a date on (a rate already starting that day is replaced). */
+export async function saveRate(
+  db: SupabaseClient,
+  r: { categoryId: string; from: string; amount?: string | null; percent?: string | null; parts?: RatePart[]; note: string },
+): Promise<string | null> {
+  const { error } = await withSource(
+    db.from("expense_category_rates").upsert(
+      {
+        category_id: r.categoryId,
+        effective_from: r.from,
+        amount: r.amount ?? null,
+        percent: r.percent ?? null,
+        parts: r.parts ?? [],
+        note: r.note.trim(),
+      },
+      { onConflict: "category_id,effective_from" },
+    ),
+    "P&L Setup",
+  );
+  return plain(error);
+}
+
+export async function deleteRate(db: SupabaseClient, id: string): Promise<string | null> {
+  const { error } = await withSource(db.from("expense_category_rates").delete().eq("id", id), "P&L Setup");
   return plain(error);
 }
 

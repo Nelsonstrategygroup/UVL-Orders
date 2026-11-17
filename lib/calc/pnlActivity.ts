@@ -6,6 +6,7 @@
 
 import { addDays, niceDate, weekDays, weekEnd } from "../dates";
 import { factorText, rateText } from "./lambCost";
+import { METHOD_LABEL, type CategoryMethod } from "./pnl";
 import { priceText } from "./prices";
 
 export type AuditRow = {
@@ -21,10 +22,12 @@ export type AuditRow = {
 };
 
 /** The change log tables the activity page reads. */
-export const RATE_TABLES = ["prices", "carcass_charges", "pnl_lamb_charges", "pnl_percent_charges", "producer_rates", "lamb_cost_settings"] as const;
+export const RATE_TABLES = ["prices", "carcass_charges", "expense_category_rates", "producer_rates", "lamb_cost_settings"] as const;
+/** Rate tables that are gone (charges became expense categories, 11/16/26): their log rows still show. */
+export const OLD_RATE_TABLES = ["pnl_lamb_charges", "pnl_percent_charges"] as const;
 export const WEEK_TABLES = ["kill_sheets", "pnl_expenses", "pnl_income", "pnl_adjustments"] as const;
 export const SHEET_TABLES = ["kill_lambs", "kill_adjustments"] as const;
-export const ACTIVITY_TABLES = [...RATE_TABLES, ...WEEK_TABLES, ...SHEET_TABLES, "pnl_expense_files"] as const;
+export const ACTIVITY_TABLES = [...RATE_TABLES, ...OLD_RATE_TABLES, ...WEEK_TABLES, ...SHEET_TABLES, "pnl_expense_files", "expense_categories"] as const;
 
 /** Names for the ids in the log. */
 export type Names = {
@@ -86,6 +89,29 @@ function spec(table: string, n: Names): FieldSpec[] {
         ["name", "Line name"],
         ["effective_from", "From", date],
         ["note", "Note"],
+      ];
+    case "expense_category_rates":
+      return [
+        ["amount", "Amount", (v) => rateText(s(v))],
+        ["percent", "Percent", (v) => `${factorText(s(v))}%`],
+        [
+          "parts",
+          "Parts",
+          (v) =>
+            Array.isArray(v) && v.length
+              ? (v as { label: string; amount: number; per: string }[]).map((q) => `${q.label} ${money(q.amount)}${q.per === "year" ? " a year" : " a week"}`).join(" + ")
+              : "",
+        ],
+        ["effective_from", "From", date],
+        ["note", "Note"],
+      ];
+    case "expense_categories":
+      return [
+        ["name", "Name"],
+        ["group_name", "Group"],
+        ["method", "Method", (v) => METHOD_LABEL[s(v) as CategoryMethod] ?? s(v)],
+        ["income_base", "Percent of", (v, r) => (r.method === "percent_income" ? (v === "sales" ? "sales only" : "all income") : "")],
+        ["active", "In use", (v) => (v === false ? "retired" : "yes")],
       ];
     case "pnl_lamb_charges":
       return [
@@ -166,6 +192,10 @@ function title(table: string, d: Record<string, unknown>, n: Names): string {
       return `Price: ${n.product(s(d.product_id))} · ${n.customer((d.customer_id as string | null) ?? null)}`;
     case "carcass_charges":
       return `Mohawk charge: ${n.product(s(d.product_id))} · ${n.customer((d.customer_id as string | null) ?? null)}`;
+    case "expense_category_rates":
+      return `Rate: ${n.category(s(d.category_id))}`;
+    case "expense_categories":
+      return `Expense category: ${s(d.name)}`;
     case "pnl_lamb_charges":
       return `Per-lamb charge: ${s(d.name)}`;
     case "pnl_percent_charges":
@@ -217,6 +247,8 @@ export function rateKey(table: string, d: Record<string, unknown>): string {
       return s(d.name);
     case "producer_rates":
       return s(d.producer_id);
+    case "expense_category_rates":
+      return s(d.category_id);
     default:
       return "";
   }
@@ -264,6 +296,7 @@ const APPLIES_NOTE: Record<string, string> = {
   lamb_cost_settings: "new weigh sheets killed",
   pnl_lamb_charges: "weeks",
   pnl_percent_charges: "weeks",
+  expense_category_rates: "weeks",
 };
 
 /** One change log row in words. null: nothing the P&L shows changed. */
@@ -290,7 +323,7 @@ export function describe(row: AuditRow, n: Names, current: RateRow[]): Entry | n
   if (row.table_name === "pnl_adjustments" && row.action === "update" && !o.voided_at && nw.voided_at) action = "Voided";
   if (row.action === "update" && fields.length === 0) return null;
 
-  const isRate = (RATE_TABLES as readonly string[]).includes(row.table_name);
+  const isRate = [...RATE_TABLES, ...OLD_RATE_TABLES].includes(row.table_name as (typeof RATE_TABLES)[number]);
   const range = isRate ? rateRange(row.table_name, d, current) : null;
   const applies = range ? `${APPLIES_NOTE[row.table_name] ?? ""} ${rangeText(range).replace(/^From/, "from")}`.trim() : null;
   const parent = (SHEET_TABLES as readonly string[]).includes(row.table_name) ? s(d.sheet_id) : "";

@@ -22,14 +22,15 @@ import {
   type WeekPay,
 } from "./lambCost";
 import {
+  categoryKey,
   cents,
-  chargesOn,
+  type CategoryLine,
+  type CategoryRate,
   type ExpenseCategory,
   type ExpenseEntry,
   type IncomeEntry,
   type InvoiceIncome,
-  type LambCharge,
-  type PercentCharge,
+  type GroupTotal,
   type PnlAdjustment,
   type WeekPnl,
 } from "./pnl";
@@ -89,8 +90,6 @@ export type DetailInput = {
   pay: WeekPay;
   settings: LambCostSetting[];
   rates: ProducerRate[];
-  lambCharges: LambCharge[];
-  percentCharges: PercentCharge[];
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   categories: ExpenseCategory[];
@@ -238,8 +237,9 @@ function rateOrigin(x: DetailInput, s: SheetPay["sheet"]): string {
   return matches ? `Rate ${rate} per live lb × ${factor}: ${from}.` : `Rate ${rate} per live lb × ${factor}, saved on the sheet${from ? ` (${from} says otherwise; the sheet keeps its own)` : ""}.`;
 }
 
-function producerDetail(x: DetailInput): LineDetail {
-  const items: DetailItem[] = x.pays.map((sp) => {
+/** Each weigh sheet with its pay worked out. */
+function sheetItems(x: DetailInput): DetailItem[] {
+  return x.pays.map((sp) => {
     const s = sp.sheet;
     const adj = [
       ...sp.lambs.flatMap((l) =>
@@ -261,133 +261,206 @@ function producerDetail(x: DetailInput): LineDetail {
       ],
     };
   });
-  const prodAdj = adjustmentsOf(x.p, "producer");
-  items.push(...adjustmentItems(prodAdj));
-  return {
-    key: "producer",
-    lineKey: "producer",
-    title: "Producer cost",
-    amount: x.p.hasSheets ? centsText(x.p.producerCents) : null,
-    projected: false,
-    how: [
-      "From the weigh sheets with a kill date in this week (Thursday to Wednesday).",
-      "Each lamb: carcass lb × live factor = live lb; live lb × the rate = its pay. Premiums and docks are added, then each sheet is rounded once to the cent.",
-      x.p.hasSheets
-        ? `${x.pays.map((sp) => centsText(sp.cents)).join(" + ")} = ${centsText(x.p.producerCalc)} (${plural(x.pay.head, "lamb", "lambs")}, ${carcassText(x.pay.carcass)} carcass lb)`
-        : "No weigh sheet for this week yet.",
-      ...withAdjustments(x.p.producerCalc, x.p.producerAdj, x.p.producerCents, prodAdj.length > 0),
-    ],
-    items,
-  };
 }
 
-function chargeDetails(x: DetailInput): LineDetail[] {
-  const sheets: DetailItem[] = x.pays.map((sp) => ({
+/** The weigh sheets, by lamb count (for a per-lamb category). */
+function lambItems(x: DetailInput): DetailItem[] {
+  return x.pays.map((sp) => ({
     label: `${x.producerName(sp.sheet.producer_id)} · kill ${longDate(sp.sheet.kill_date)}`,
     amount: plural(sp.count, "lamb", "lambs"),
     links: [{ label: "Weigh sheet", href: `/weigh-sheets/${sp.sheet.id}` }],
   }));
-  const lamb = chargesOn(x.lambCharges, x.week, (r) => r.per_lamb).map((c): LineDetail => {
-    const line = x.p.charges.find((l) => l.kind === "lamb" && l.name === c.name);
-    const list = adjustmentsOf(x.p, `charge:${c.name}`);
-    return {
-      key: `charge:${c.name}`,
-      lineKey: `charge:${c.name}`,
-      title: c.name,
-      amount: line?.total != null ? centsText(line.total) : null,
-      projected: false,
-      how: [
-        `Lambs on this week's weigh sheets × ${rateText(c.per_lamb)} a lamb (P&L Setup, from ${short(c.effective_from)}).`,
-        line?.cents != null ? `${x.pay.head} lambs × ${rateText(c.per_lamb)} = ${centsText(line.cents)}` : "No weigh sheet for this week yet.",
-        ...(line?.cents != null ? withAdjustments(line.cents, line.adj, line.total!, list.length > 0) : []),
-      ],
-      items: [...sheets, ...adjustmentItems(list)],
-    };
-  });
-  const pct = chargesOn(x.percentCharges, x.week, (r) => r.percent).map((c): LineDetail => {
-    const line = x.p.charges.find((l) => l.kind === "percent" && l.name === c.name);
-    const list = adjustmentsOf(x.p, `charge:${c.name}`);
-    return {
-      key: `charge:${c.name}`,
-      lineKey: `charge:${c.name}`,
-      title: x.p.projected ? `${c.name} (projected)` : c.name,
-      amount: line?.total != null ? centsText(line.total) : null,
-      projected: x.p.projected,
-      how: [
-        `${factorText(c.percent)}% of the week's income (P&L Setup, from ${short(c.effective_from)}), rounded to the cent.`,
-        line?.cents != null
-          ? `${factorText(c.percent)}% × ${centsText(x.p.incomeCents)}${x.p.projected ? " projected" : ""} income = ${centsText(line.cents)}`
-          : "No income yet.",
-        ...(line?.cents != null ? withAdjustments(line.cents, line.adj, line.total!, list.length > 0) : []),
-      ],
-      items: [
-        ...adjustmentItems(list),
-        { label: "Finalized invoices", amount: centsText(x.ii.finalizedCents) },
-        ...(x.ii.packedCount ? [{ label: "Packed, not invoiced (projected)", amount: centsText(x.ii.packedCents) }] : []),
-        ...(x.p.otherCents ? [{ label: "Other income", amount: centsText(x.p.otherCents) }] : []),
-        ...(x.p.incomeAdj ? [{ label: "Income adjustments", amount: signed(x.p.incomeAdj) }] : []),
-        ...(x.p.oneOffIncomeCents ? [{ label: "One-off income", amount: centsText(x.p.oneOffIncomeCents) }] : []),
-      ],
-    };
-  });
-  return [...lamb, ...pct];
 }
 
-function expenseDetail(x: DetailInput): LineDetail {
-  const items: DetailItem[] = x.p.expenses.map((cat) => {
-    const list = adjustmentsOf(x.p, `category:${cat.categoryId}`);
-    return {
-      label: cat.name,
-      amount: centsText(cat.total),
-      math: list.length ? withAdjustments(cat.cents, cat.adj, cat.total, true) : undefined,
-      items: [
-        ...x.expenses
-          .filter((e) => e.category_id === cat.categoryId)
-          .map((e) => {
-            const files = (x.expenseFiles ?? []).filter((f) => f.expense_id === e.id);
-            return {
-              label: day(e.entry_date),
-              amount: centsText(cents(e.amount)),
-              note: [e.note, `Entered by ${x.userName(e.created_by)}${e.created_at ? `, ${stamp(e.created_at)}` : ""}`].filter(Boolean).join(" · "),
-              files: files.length ? files.map((f) => ({ path: f.path, name: f.name || "Attachment" })) : undefined,
-            };
-          }),
-        ...adjustmentItems(list),
-      ],
-    };
-  });
-  items.push(...adjustmentItems(x.p.adjustments.filter((a) => a.kind === "one_off" && a.side === "expense")));
+/** What the week's income is made of (for a percent of income). */
+function incomeItems(x: DetailInput, sales: boolean): DetailItem[] {
+  const { p, ii } = x;
+  return [
+    { label: "Finalized invoices", amount: centsText(ii.finalizedCents) },
+    ...(ii.packedCount ? [{ label: "Packed, not invoiced (projected)", amount: centsText(ii.packedCents) }] : []),
+    ...(!sales && p.otherCents ? [{ label: "Other income", amount: centsText(p.otherCents) }] : []),
+    ...(!sales && p.incomeAdj ? [{ label: "Income adjustments", amount: signed(p.incomeAdj) }] : []),
+    ...(!sales && p.oneOffIncomeCents ? [{ label: "One-off income", amount: centsText(p.oneOffIncomeCents) }] : []),
+  ];
+}
+
+const from = (r: CategoryRate | null) => (r ? ` (P&L Setup, from ${short(r.effective_from)})` : "");
+
+/** One category: its formula with the real numbers, its rate and date, and its records. */
+function categoryDetail(x: DetailInput, l: CategoryLine): LineDetail {
+  const { p } = x;
+  const key = categoryKey(l.categoryId);
+  const cat = x.categories.find((c) => c.id === l.categoryId);
+  const adjList = [...adjustmentsOf(p, key), ...(l.method === "weigh_sheets" ? adjustmentsOf(p, "producer") : [])];
+  const pct = l.rate?.percent != null ? `${factorText(l.rate.percent)}%` : "";
+  const how: string[] = [];
+  const items: DetailItem[] = [];
+  switch (l.method) {
+    case "weigh_sheets":
+      how.push(
+        "From the weigh sheets with a kill date in this week (Thursday to Wednesday).",
+        "Each lamb: carcass lb × live factor = live lb; live lb × the rate = its pay. Premiums and docks are added, then each sheet is rounded once to the cent.",
+        l.calc == null
+          ? (l.waiting ?? "")
+          : p.hasSheets
+            ? `${x.pays.map((sp) => centsText(sp.cents)).join(" + ")} = ${centsText(l.calc)} (${plural(x.pay.head, "lamb", "lambs")}, ${carcassText(x.pay.carcass)} carcass lb)`
+            : "No processing this week: nothing to pay.",
+      );
+      items.push(...sheetItems(x));
+      break;
+    case "per_lamb":
+      how.push(`Lambs on this week's weigh sheets × ${l.rate?.amount != null ? rateText(l.rate.amount) : "the rate"} a lamb${from(l.rate)}.`);
+      how.push(l.calc == null ? (l.waiting ?? "") : l.rate ? `${p.head} lambs × ${rateText(l.rate.amount ?? 0)} = ${centsText(l.calc)}` : (l.waiting ?? ""));
+      items.push(...lambItems(x));
+      break;
+    case "percent_income": {
+      const sales = cat?.income_base === "sales";
+      how.push(`${pct || "A percent"} of ${sales ? "sales (invoices only)" : "all income"}${from(l.rate)}, rounded to the cent.`);
+      how.push(
+        l.calc == null || l.base == null
+          ? (l.waiting ?? "")
+          : l.rate
+            ? `${pct} × ${centsText(l.base)}${l.projected ? " projected" : ""} ${sales ? "sales" : "income"} = ${centsText(l.calc)}`
+            : (l.waiting ?? ""),
+      );
+      items.push(...incomeItems(x, sales));
+      break;
+    }
+    case "fixed_weekly": {
+      const parts = l.rate?.parts ?? [];
+      const w = parts.filter((q) => q.per === "week");
+      const y = parts.filter((q) => q.per === "year");
+      how.push(`The same amount every week, no-processing weeks too${from(l.rate)}.`);
+      if (!l.rate) how.push(l.waiting ?? "");
+      else {
+        const terms = [
+          ...w.map((q) => centsText(cents(q.amount))),
+          ...(y.length ? [`(${y.map((q) => centsText(cents(q.amount))).join(" + ")}) ÷ 52`] : []),
+        ];
+        how.push(`${terms.join(" + ")} = ${centsText(l.calc ?? BigInt(0))}`);
+      }
+      items.push(
+        ...parts.map((q) => ({
+          label: q.label || (q.per === "week" ? "Weekly amount" : "Yearly amount"),
+          amount: centsText(cents(q.amount)),
+          note: q.per === "week" ? "a week" : "a year, ÷ 52",
+        })),
+      );
+      break;
+    }
+    case "percent_category": {
+      const of = p.categories.filter((c) => cat?.base_category_ids.includes(c.categoryId));
+      how.push(`${pct || "A percent"} of ${of.map((c) => c.name).join(" + ") || "(no categories picked)"}${from(l.rate)}, rounded to the cent.`);
+      how.push(l.calc == null || l.base == null ? (l.waiting ?? "") : l.rate ? `${pct} × ${centsText(l.base)} = ${centsText(l.calc)}` : (l.waiting ?? ""));
+      items.push(...of.map((c) => ({ label: c.name, amount: c.total != null ? centsText(c.total) : "Not worked out" })));
+      break;
+    }
+    case "entered":
+      how.push("Expenses entered on the Weekly P&L, dated in this week.");
+      break;
+    default:
+      how.push(l.waiting ?? "");
+  }
+  const entryItems: DetailItem[] = x.expenses
+    .filter((e) => e.category_id === l.categoryId)
+    .map((e) => {
+      const files = (x.expenseFiles ?? []).filter((f) => f.expense_id === e.id);
+      return {
+        label: day(e.entry_date),
+        tag: "Entered",
+        amount: centsText(cents(e.amount)),
+        note: [e.note, `Entered by ${x.userName(e.created_by)}${e.created_at ? `, ${stamp(e.created_at)}` : ""}`].filter(Boolean).join(" · "),
+        files: files.length ? files.map((f) => ({ path: f.path, name: f.name || "Attachment" })) : undefined,
+      };
+    });
+  items.push(...entryItems, ...adjustmentItems(adjList));
+  if (l.method === "entered") {
+    how.push(entryItems.length ? `${entryItems.map((i) => i.amount).join(" + ")} = ${centsText(l.entered)}` : "None entered yet.");
+    if (adjList.length) how.push(...withAdjustments(l.entered, l.adj, l.total ?? BigInt(0), true));
+  } else if (l.total != null && (l.entries || adjList.length)) {
+    const neg = l.adj < BigInt(0);
+    how.push(
+      `Calculated ${centsText(l.calc ?? BigInt(0))}${l.entries ? ` + entered ${centsText(l.entered)}` : ""}${
+        adjList.length ? ` ${neg ? "−" : "+"} adjustments ${centsText(neg ? -l.adj : l.adj)}` : ""
+      } = ${centsText(l.total)}`,
+    );
+  }
   return {
-    key: "expenses",
-    lineKey: "category",
-    title: "Entered expenses",
-    amount: centsText(x.p.expenseCents),
-    projected: false,
-    how: [
-      "Expenses entered on this page, by category, dated in this week, with their adjustments; then one-off expense lines.",
-      x.p.expenses.length || x.p.oneOffExpense.length
-        ? `${[...x.p.expenses.map((c) => centsText(c.total)), ...(x.p.oneOffExpenseCents ? [`one-off ${centsText(x.p.oneOffExpenseCents)}`] : [])].join(" + ")} = ${centsText(x.p.expenseCents)}`
-        : "None entered yet.",
-    ],
+    key,
+    lineKey: key,
+    title: l.projected ? `${l.name} (projected)` : l.name,
+    amount: l.total != null ? centsText(l.total) : null,
+    projected: l.projected,
+    how: how.filter(Boolean),
     items,
+  };
+}
+
+/** A group's subtotal: its categories added up. */
+function groupDetail(g: GroupTotal): LineDetail {
+  const shown = g.lines;
+  return {
+    key: `group:${g.name}`,
+    title: g.complete ? g.name : `${g.name} so far`,
+    amount: centsText(g.total),
+    projected: shown.some((l) => l.projected),
+    how: [
+      `The ${g.name.toLowerCase()} categories added up${g.complete ? "" : "; some aren't worked out yet and count as $0.00"}.`,
+      shown.length ? `${shown.map((l) => (l.total != null ? centsText(l.total) : "$0.00")).join(" + ")} = ${centsText(g.total)}` : "No categories in this group.",
+    ],
+    items: shown.map((l) => ({ label: l.name, amount: l.total != null ? centsText(l.total) : "Not worked out", note: l.waiting ?? undefined })),
+  };
+}
+
+function oneOffExpenseDetail(x: DetailInput): LineDetail {
+  const { p } = x;
+  return {
+    key: "oneoff-expense",
+    title: "One-off expenses",
+    amount: centsText(p.oneOffExpenseCents),
+    projected: false,
+    how: ["Expense lines with no category, added on this page with a reason (a freight bill, a credit)."],
+    items: adjustmentItems(p.adjustments.filter((a) => a.kind === "one_off" && a.side === "expense")),
   };
 }
 
 function resultDetails(x: DetailInput): LineDetail[] {
   const { p } = x;
   const pj = (t: string) => (p.projected ? `${t} (projected)` : t);
-  const waits = [!p.hasSheets && "no weigh sheet", !p.hasIncome && "no income"].filter(Boolean).join(" and ");
+  const waits = [!p.hasSheets && !p.noProcessing && "no weigh sheet", !p.hasIncome && !p.noProcessing && "no income"].filter(Boolean).join(" and ");
+  const delivery = p.groups.find((g) => g.name === "Delivery")!;
   return [
     {
       key: "total",
-      title: p.projected && p.charges.some((c) => c.kind === "percent") ? "Total expense (projected)" : "Total expense",
+      title: p.categories.some((l) => l.projected) ? "Total expense (projected)" : "Total expense",
       amount: p.totalExpense != null ? centsText(p.totalExpense) : null,
-      projected: p.projected,
+      projected: p.categories.some((l) => l.projected),
       how: [
-        "Producer cost + charges + entered expenses.",
+        "Cost of product + Delivery + Operating + one-off expenses.",
         p.totalExpense != null
-          ? `${centsText(p.producerCents)} + ${centsText(p.chargeCents)} + ${centsText(p.expenseCents)} = ${centsText(p.totalExpense)}`
+          ? `${[...p.groups.map((g) => centsText(g.total)), centsText(p.oneOffExpenseCents)].join(" + ")} = ${centsText(p.totalExpense)}`
           : "Not worked out: no weigh sheet for this week.",
+      ],
+      items: [],
+    },
+    {
+      key: "netdelivery",
+      title: "Net delivery cost",
+      amount: centsText(p.netDelivery),
+      projected: false,
+      how: ["Delivery total − freight income. No freight income is set up yet.", `${centsText(delivery.total)} − $0.00 = ${centsText(p.netDelivery)}`],
+      items: [],
+    },
+    {
+      key: "deliverylb",
+      title: "Delivery cost per lb shipped",
+      amount: p.deliveryPerLb != null ? `$${fixedRounded(p.deliveryPerLb, 4, 2)}` : null,
+      projected: false,
+      how: [
+        "Net delivery cost ÷ lb in the week's packed boxes.",
+        p.deliveryPerLb != null
+          ? `${centsText(p.netDelivery)} ÷ ${carcassText(p.lbShipped)} lb = $${fixedRounded(p.deliveryPerLb, 4, 4)} a lb`
+          : "Not worked out: nothing packed this week.",
       ],
       items: [],
     },
@@ -406,7 +479,7 @@ function resultDetails(x: DetailInput): LineDetail[] {
       projected: p.projected,
       how: [
         "Profit ÷ lambs on this week's weigh sheets, rounded to the cent.",
-        p.profitPerHead != null ? `${centsText(p.profit!)} ÷ ${p.head} lambs = ${centsText(p.profitPerHead)}` : `Not worked out: ${waits}.`,
+        p.profitPerHead != null ? `${centsText(p.profit!)} ÷ ${p.head} lambs = ${centsText(p.profitPerHead)}` : `Not worked out: ${waits || "no lambs this week"}.`,
       ],
       items: [],
     },
@@ -419,7 +492,7 @@ function resultDetails(x: DetailInput): LineDetail[] {
         "Total expense ÷ carcass lb on this week's weigh sheets.",
         p.costPerCarcassLb != null
           ? `${centsText(p.totalExpense!)} ÷ ${carcassText(x.pay.carcass)} lb = $${fixedRounded(p.costPerCarcassLb, 4, 4)} a lb`
-          : `Not worked out: ${waits}.`,
+          : `Not worked out: ${waits || "no lambs this week"}.`,
       ],
       items: [],
     },
@@ -428,7 +501,12 @@ function resultDetails(x: DetailInput): LineDetail[] {
 
 /** Every line's detail, in the order the P&L shows them. */
 export function pnlDetails(x: DetailInput): LineDetail[] {
-  return [incomeDetail(x), producerDetail(x), ...chargeDetails(x), expenseDetail(x), ...resultDetails(x)];
+  return [
+    incomeDetail(x),
+    ...x.p.groups.flatMap((g) => [...g.lines.map((l) => categoryDetail(x, l)), groupDetail(g)]),
+    oneOffExpenseDetail(x),
+    ...resultDetails(x),
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -442,19 +520,19 @@ export function pnlChecks(x: {
   ii: InvoiceIncome;
   /** This week's lamb count (This week), or null when unknown. */
   lambCount: number | null;
-  categories: ExpenseCategory[];
-  expenses: ExpenseEntry[];
 }): PnlCheck[] {
   const out: PnlCheck[] = [];
   const { p, ii } = x;
   if (ii.packedCount) out.push({ key: "invoices", text: `${plural(ii.packedCount, "invoice", "invoices")} not finalized.` });
   if (ii.notPacked.length) out.push({ key: "notpacked", text: `${plural(ii.notPacked.length, "location", "locations")} with orders not packed: ${ii.notPacked.map((r) => r.name).join(", ")}.` });
   for (const n of ii.priceNeeded) out.push({ key: `price:${n.product}`, text: `${n.product} is packed but has no price (${n.locations.join(", ")}).` });
-  if (!p.hasSheets) out.push({ key: "sheet", text: "No weigh sheet entered for this week's kill." });
+  if (!p.hasSheets && !p.noProcessing) out.push({ key: "sheet", text: "No weigh sheet entered for this week's kill." });
   if (p.hasSheets && x.lambCount != null && p.head !== x.lambCount)
     out.push({ key: "lambs", text: `The weigh sheets have ${p.head} lambs; This week's lamb count is ${x.lambCount}.` });
-  const butcher = x.categories.filter((c) => /mohawk|butcher/i.test(c.name)).map((c) => c.id);
-  if (butcher.length && !x.expenses.some((e) => butcher.includes(e.category_id)))
-    out.push({ key: "butcher", text: "No Butcher (Mohawk) cost entered." });
+  const mohawk = p.categories.filter((l) => /mohawk/i.test(l.name) && l.method === "entered");
+  if (p.hasSheets && mohawk.length && mohawk.every((l) => l.entries === 0 && l.adj === BigInt(0)))
+    out.push({ key: "butcher", text: `A kill this week, but no ${mohawk[0].name} cost entered.` });
+  for (const l of p.categories.filter((c) => c.active && c.waiting === "No rate for this week (P&L Setup)."))
+    out.push({ key: `rate:${l.categoryId}`, text: `${l.name} has no rate for this week (P&L Setup).` });
   return out;
 }

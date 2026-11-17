@@ -1,8 +1,8 @@
 // The weekly P&L (SPEC 16.6, Lamb cost stage 3). A P&L, not accounting:
-// income and expenses entered for the week, producer cost from the weigh
-// sheets, and charges worked out from the week (per lamb, percent of
-// income). Money is exact (BigInt cents); each charge is rounded to the
-// cent. Where something is missing the page says so instead of showing a
+// income from invoices and packing (and entered by hand), and expenses as
+// one list of categories in three groups, each worked out by its method
+// (Lucas, 11/16/26). Money is exact (BigInt cents); each category is
+// rounded to the cent. Where something is missing the page says so instead of showing a
 // misleading number.
 
 import type { PriceUnit } from "../db/types";
@@ -13,10 +13,18 @@ import { toFixedInt, type ChargeRow, type PriceRow } from "./prices";
 
 const ZERO = BigInt(0);
 
-/** A charge from a date on: per lamb (ALB/OSC) or percent of income (Marketing). */
-export type LambCharge = { id: string; name: string; effective_from: string; per_lamb: string | number; note: string };
-export type PercentCharge = { id: string; name: string; effective_from: string; percent: string | number; note: string };
-export type ExpenseCategory = { id: string; name: string; active: boolean; sort: number };
+/** An expense category: its group, how it's worked out, and (percent methods) its base. */
+export type ExpenseCategory = {
+  id: string;
+  name: string;
+  active: boolean;
+  sort: number;
+  group_name: GroupName;
+  method: CategoryMethod;
+  income_base: "all" | "sales";
+  base_category_ids: string[];
+  note: string;
+};
 export type ExpenseEntry = {
   id: string;
   entry_date: string;
@@ -39,17 +47,6 @@ export type IncomeEntry = {
   created_by?: string | null;
   created_at?: string;
 };
-
-/** Each charge name's newest row on or before the date (the week's packing Monday). Charges set to 0 drop out. */
-export function chargesOn<T extends { name: string; effective_from: string }>(rows: T[], date: string, amount: (r: T) => string | number): T[] {
-  const newest = new Map<string, T>();
-  for (const r of rows) {
-    if (r.effective_from > date) continue;
-    const cur = newest.get(r.name);
-    if (!cur || r.effective_from > cur.effective_from) newest.set(r.name, r);
-  }
-  return [...newest.values()].filter((r) => Number(amount(r)) !== 0).sort((a, b) => a.name.localeCompare(b.name));
-}
 
 /** A money amount as whole cents. */
 export const cents = (v: string | number) => toFixedInt(v, 2);
@@ -228,19 +225,90 @@ export type PnlAdjustment = {
   void_reason: string;
 };
 
-export type ChargeLine = (
-  | { kind: "lamb"; name: string; rate: string; lambs: number }
-  | { kind: "percent"; name: string; percent: string; income: bigint }
-) & {
-  /** Calculated; null when it can't be (no weigh sheet, no income). */
-  cents: bigint | null;
-  /** Adjustments to this charge. */
-  adj: bigint;
-  /** Calculated + adjustments; null while it can't be calculated. */
-  total: bigint | null;
+// ---------------------------------------------------------------------------
+// Expenses: one list of categories (Lucas, 11/16/26). Each category has a
+// group, a method and rates from dates on; expense entries add to any
+// category; adjustments add to any category (line key category:<id>).
+// ---------------------------------------------------------------------------
+
+export const GROUPS = ["Cost of product", "Delivery", "Operating"] as const;
+export type GroupName = (typeof GROUPS)[number];
+
+export type CategoryMethod =
+  | "entered"
+  | "per_lamb"
+  | "percent_income"
+  | "weigh_sheets"
+  | "fixed_weekly"
+  | "percent_category"
+  | "per_truck_run"
+  | "freight_weight"
+  | "freight_pallet";
+
+export const METHOD_LABEL: Record<CategoryMethod, string> = {
+  entered: "Entered",
+  per_lamb: "Per lamb",
+  percent_income: "Percent of income",
+  weigh_sheets: "Weigh sheets (producer pay)",
+  fixed_weekly: "Fixed weekly",
+  percent_category: "Percent of other categories",
+  per_truck_run: "Per truck run",
+  freight_weight: "Freight by weight",
+  freight_pallet: "Freight by pallet",
 };
 
-export type ExpenseRow = { categoryId: string; name: string; entries: number; cents: bigint; adj: bigint; total: bigint };
+export type RatePart = { label: string; amount: number | string; per: "week" | "year" };
+export type CategoryRate = {
+  id: string;
+  category_id: string;
+  effective_from: string;
+  amount: number | string | null;
+  percent: number | string | null;
+  parts: RatePart[];
+  note: string;
+};
+
+/** The newest rate for a category on or before the date. */
+export function rateOn(rates: CategoryRate[], categoryId: string, date: string): CategoryRate | null {
+  let best: CategoryRate | null = null;
+  for (const r of rates) {
+    if (r.category_id !== categoryId || r.effective_from > date) continue;
+    if (!best || r.effective_from > best.effective_from) best = r;
+  }
+  return best;
+}
+
+/** A fixed weekly amount from its parts: weekly amounts + yearly amounts ÷ 52, rounded once to the cent. */
+export function weeklyFromParts(parts: RatePart[]): { cents: bigint; weekly: bigint; yearly: bigint } {
+  const weekly = parts.filter((p) => p.per === "week").reduce((s, p) => s + cents(p.amount), ZERO);
+  const yearly = parts.filter((p) => p.per === "year").reduce((s, p) => s + cents(p.amount), ZERO);
+  return { cents: weekly + divRound(yearly, BigInt(52)), weekly, yearly };
+}
+
+export type CategoryLine = {
+  categoryId: string;
+  name: string;
+  group: GroupName;
+  method: CategoryMethod;
+  active: boolean;
+  /** The rate used this week (per lamb, percent, parts), if the method has one. */
+  rate: CategoryRate | null;
+  /** From the method; null when it can't be worked out yet (why: `waiting`). Entered: 0. */
+  calc: bigint | null;
+  /** The base a percent is taken of (income, or the other categories). */
+  base: bigint | null;
+  /** Expense entries in this category this week. */
+  entries: number;
+  entered: bigint;
+  adj: bigint;
+  /** calc + entered + adj; null while calc can't be worked out. */
+  total: bigint | null;
+  /** Worked out from projected income. */
+  projected: boolean;
+  waiting: string | null;
+};
+
+export type GroupTotal = { name: GroupName; lines: CategoryLine[]; total: bigint; complete: boolean };
 
 export type WeekPnl = {
   /** Income entered by hand (Other income), by customer. */
@@ -254,6 +322,8 @@ export type WeekPnl = {
   oneOffIncomeCents: bigint;
   /** All income: calculated + adjustments + one-off lines. */
   incomeCents: bigint;
+  /** Invoice income only (finalized + packed), for a percent of sales. */
+  salesCents: bigint;
   hasIncome: boolean;
   /** Income entered by hand. */
   otherCents: bigint;
@@ -262,21 +332,22 @@ export type WeekPnl = {
   /** Lambs on the week's weigh sheets; 0 means no weigh sheet (or no weights yet). */
   head: number;
   hasSheets: boolean;
-  /** From the weigh sheets. */
-  producerCalc: bigint;
-  producerAdj: bigint;
-  /** Calculated + adjustments. */
-  producerCents: bigint;
-  charges: ChargeLine[];
-  chargeCents: bigint;
-  expenses: ExpenseRow[];
+  /** No processing this week (a holiday): no weigh sheet is expected. */
+  noProcessing: boolean;
+  /** Every category shown this week, in order. */
+  categories: CategoryLine[];
+  groups: GroupTotal[];
   oneOffExpense: PnlAdjustment[];
   oneOffExpenseCents: bigint;
-  /** Entered expenses and their adjustments, plus one-off expense lines. */
-  expenseCents: bigint;
-  /** Producer cost + charges + entered expenses. Null without a weigh sheet. */
+  /** Every category + one-off expenses. Null without a weigh sheet (unless no processing). */
   totalExpense: bigint | null;
-  /** Null unless there's both income and a weigh sheet. */
+  /** Delivery total − freight income (none yet). */
+  netDelivery: bigint;
+  /** Box lb shipped this week (2 decimals, as hundredths). */
+  lbShipped: bigint;
+  /** Net delivery ÷ lb shipped, in ten-thousandths of a dollar; null with nothing shipped. */
+  deliveryPerLb: bigint | null;
+  /** Null unless there's both income and a weigh sheet (or no processing). */
   profit: bigint | null;
   profitPerHead: bigint | null;
   /** Total expense per carcass lb, in ten-thousandths of a dollar (4 decimals); null unless both. */
@@ -301,9 +372,12 @@ export function adjustmentsTo(adjustments: PnlAdjustment[], lineKey: string): bi
     .reduce((s, a) => s + cents(a.amount), ZERO);
 }
 
+/** A category's adjustment line key. */
+export const categoryKey = (id: string) => `category:${id}`;
+
 /**
- * The week's P&L. `week` is the packing Monday, used to pick which charge
- * rates apply. Income and expenses are the week's entries already (by week_id).
+ * The week's P&L. `week` is the packing Monday: rates are the newest on or
+ * before it. Income and expenses are the week's entries already (by week_id).
  */
 export function weekPnl(input: {
   week: string;
@@ -311,16 +385,19 @@ export function weekPnl(input: {
   income: IncomeEntry[];
   expenses: ExpenseEntry[];
   categories: ExpenseCategory[];
-  lambCharges: LambCharge[];
-  percentCharges: PercentCharge[];
+  rates: CategoryRate[];
   /** Income from the week's invoices and packing; none: entered income only. */
   invoices?: InvoiceIncome;
   /** The week's adjustments and one-off lines (voided ones count for nothing). */
   adjustments?: PnlAdjustment[];
+  noProcessing?: boolean;
+  /** Box lb shipped (the week's packed boxes). */
+  lbShipped?: number | string;
 }): WeekPnl {
   const adjustments = input.adjustments ?? [];
   const live = adjustments.filter((a) => !a.voided_at);
   const adj = (key: string) => adjustmentsTo(adjustments, key);
+  const noProcessing = !!input.noProcessing;
 
   // Income by customer (the id when there is one, else the name).
   const byCustomer = new Map<string, { key: string; name: string; entries: number; cents: bigint }>();
@@ -334,7 +411,8 @@ export function weekPnl(input: {
   const income = [...byCustomer.values()].sort((a, b) => a.name.localeCompare(b.name));
   const otherCents = income.reduce((s, r) => s + r.cents, ZERO);
   const inv = input.invoices;
-  const incomeCalc = otherCents + (inv ? inv.finalizedCents + inv.packedCents : ZERO);
+  const salesCents = inv ? inv.finalizedCents + inv.packedCents : ZERO;
+  const incomeCalc = otherCents + salesCents;
   const incomeAdj = adj("income");
   const oneOffIncome = live.filter((a) => a.kind === "one_off" && a.side === "income");
   const oneOffIncomeCents = oneOffIncome.reduce((s, a) => s + cents(a.amount), ZERO);
@@ -343,62 +421,136 @@ export function weekPnl(input: {
     input.income.length > 0 ||
     (!!inv && inv.finalizedCount + inv.packedCount > 0) ||
     live.some((a) => a.side === "income");
+  const projected = !!inv?.projected;
 
   const head = input.pay.head;
   const hasSheets = head > 0;
-  const producerCalc = input.pay.cents;
-  const producerAdj = adj("producer");
-  const producerCents = producerCalc + producerAdj;
+  const lambsKnown = hasSheets || noProcessing;
 
-  const withAdj = <T extends { name: string; cents: bigint | null }>(c: T) => {
-    const a = adj(`charge:${c.name}`);
-    return { ...c, adj: a, total: c.cents == null ? null : c.cents + a };
+  // Which categories show: the ones in use, and any retired one with entries or adjustments this week.
+  const used = new Set([
+    ...input.expenses.map((e) => e.category_id),
+    ...live.filter((a) => a.kind === "adjustment" && a.line_key?.startsWith("category:")).map((a) => a.line_key!.slice(9)),
+  ]);
+  const shown = input.categories
+    .filter((c) => c.active || used.has(c.id))
+    .sort((a, b) => GROUPS.indexOf(a.group_name) - GROUPS.indexOf(b.group_name) || a.sort - b.sort || a.name.localeCompare(b.name));
+  // Entries in a category that's gone from the list still count, under "Unknown category".
+  const known = new Set(input.categories.map((c) => c.id));
+  const orphans = [...new Set(input.expenses.map((e) => e.category_id).filter((id) => !known.has(id)))];
+
+  const line = (c: ExpenseCategory): CategoryLine => {
+    const list = input.expenses.filter((e) => e.category_id === c.id);
+    const entered = list.reduce((s, e) => s + cents(e.amount), ZERO);
+    // Producer pay also takes adjustments made to "Producer cost" before categories.
+    const a = adj(categoryKey(c.id)) + (c.method === "weigh_sheets" ? adj("producer") : ZERO);
+    const rate = c.method === "entered" || c.method === "weigh_sheets" ? null : rateOn(input.rates, c.id, input.week);
+    let calc: bigint | null = ZERO;
+    let base: bigint | null = null;
+    let waiting: string | null = null;
+    let isProjected = false;
+    switch (c.method) {
+      case "weigh_sheets":
+        if (hasSheets) calc = input.pay.cents;
+        else if (!noProcessing) [calc, waiting] = [null, "No weigh sheet for this week."];
+        break;
+      case "per_lamb":
+        if (!lambsKnown) [calc, waiting] = [null, "No weigh sheet for this week."];
+        else calc = rate?.amount != null ? roundToCents(toFixedInt(rate.amount, 4) * BigInt(head), 4) : ZERO;
+        break;
+      case "percent_income":
+        base = c.income_base === "sales" ? salesCents : incomeCents;
+        isProjected = projected;
+        if (!hasIncome) [calc, waiting] = [null, "No income yet."];
+        // cents (2 decimals) × percent (4 decimals) / 100 = dollars with 8 decimals
+        else calc = rate?.percent != null ? roundToCents(base * toFixedInt(rate.percent, 4), 8) : ZERO;
+        break;
+      case "fixed_weekly":
+        calc = rate ? weeklyFromParts(rate.parts ?? []).cents : ZERO;
+        break;
+      case "percent_category":
+        calc = ZERO; // after the others, below
+        break;
+      case "per_truck_run":
+        waiting = "Comes with the truck run log.";
+        break;
+      case "freight_weight":
+      case "freight_pallet":
+        waiting = "Comes with freight from pallets.";
+        break;
+      case "entered":
+        break;
+    }
+    if (rate == null && ["per_lamb", "percent_income", "fixed_weekly", "percent_category"].includes(c.method) && waiting == null)
+      waiting = "No rate for this week (P&L Setup).";
+    return {
+      categoryId: c.id,
+      name: c.name,
+      group: c.group_name,
+      method: c.method,
+      active: c.active,
+      rate,
+      calc,
+      base,
+      entries: list.length,
+      entered,
+      adj: a,
+      total: calc == null ? null : calc + entered + a,
+      projected: isProjected,
+      waiting,
+    };
   };
-  const charges: ChargeLine[] = [
-    ...chargesOn(input.lambCharges, input.week, (r) => r.per_lamb).map((c): ChargeLine => {
-      const rate = String(c.per_lamb);
-      return withAdj({ kind: "lamb" as const, name: c.name, rate, lambs: head, cents: hasSheets ? roundToCents(toFixedInt(rate, 4) * BigInt(head), 4) : null });
-    }),
-    ...chargesOn(input.percentCharges, input.week, (r) => r.percent).map((c): ChargeLine => {
-      const percent = String(c.percent);
-      // cents (2 decimals) x percent (4 decimals) / 100 = dollars with 8 decimals
-      return withAdj({
-        kind: "percent" as const,
-        name: c.name,
-        percent,
-        income: incomeCents,
-        cents: hasIncome ? roundToCents(incomeCents * toFixedInt(percent, 4), 8) : null,
-      });
-    }),
-  ];
-  const chargeCents = charges.reduce((s, c) => s + (c.total ?? ZERO), ZERO);
+  const categories = shown.map(line);
+  // Percent of other categories: worked out on their totals (not on another percent).
+  for (const l of categories) {
+    if (l.method !== "percent_category") continue;
+    const c = input.categories.find((x) => x.id === l.categoryId)!;
+    const of = categories.filter((x) => c.base_category_ids.includes(x.categoryId) && x.method !== "percent_category");
+    if (of.some((x) => x.total == null)) {
+      l.calc = null;
+      l.total = null;
+      l.waiting = "Waiting for the categories it's a percent of.";
+      continue;
+    }
+    l.base = of.reduce((s, x) => s + x.total!, ZERO);
+    l.projected = of.some((x) => x.projected);
+    l.calc = l.rate?.percent != null ? roundToCents(l.base * toFixedInt(l.rate.percent, 4), 8) : ZERO;
+    l.total = l.calc + l.entered + l.adj;
+  }
+  for (const id of orphans) {
+    const list = input.expenses.filter((e) => e.category_id === id);
+    const entered = list.reduce((s, e) => s + cents(e.amount), ZERO);
+    const a = adj(categoryKey(id));
+    categories.push({
+      categoryId: id,
+      name: "Unknown category",
+      group: "Operating",
+      method: "entered",
+      active: false,
+      rate: null,
+      calc: ZERO,
+      base: null,
+      entries: list.length,
+      entered,
+      adj: a,
+      total: entered + a,
+      projected: false,
+      waiting: null,
+    });
+  }
 
-  const catName = new Map(input.categories.map((c) => [c.id, c]));
-  const byCat = new Map<string, ExpenseRow>();
-  const row = (id: string) =>
-    byCat.get(id) ?? { categoryId: id, name: catName.get(id)?.name ?? "Unknown category", entries: 0, cents: ZERO, adj: ZERO, total: ZERO };
-  for (const e of input.expenses) {
-    const r = row(e.category_id);
-    r.entries += 1;
-    r.cents += cents(e.amount);
-    byCat.set(e.category_id, r);
-  }
-  // A category can be adjusted with no entries yet.
-  for (const a of live) {
-    if (a.kind === "adjustment" && a.line_key?.startsWith("category:")) byCat.set(a.line_key.slice(9), row(a.line_key.slice(9)));
-  }
-  for (const r of byCat.values()) {
-    r.adj = adj(`category:${r.categoryId}`);
-    r.total = r.cents + r.adj;
-  }
-  const order = (id: string) => catName.get(id)?.sort ?? 999;
-  const expenses = [...byCat.values()].sort((a, b) => order(a.categoryId) - order(b.categoryId) || a.name.localeCompare(b.name));
+  const groups: GroupTotal[] = GROUPS.map((name) => {
+    const lines = categories.filter((l) => l.group === name);
+    return { name, lines, total: lines.reduce((s, l) => s + (l.total ?? ZERO), ZERO), complete: lines.every((l) => l.total != null) };
+  });
   const oneOffExpense = live.filter((a) => a.kind === "one_off" && a.side === "expense");
   const oneOffExpenseCents = oneOffExpense.reduce((s, a) => s + cents(a.amount), ZERO);
-  const expenseCents = expenses.reduce((s, r) => s + r.total, ZERO) + oneOffExpenseCents;
+  const producerKnown = categories.filter((l) => l.method === "weigh_sheets").every((l) => l.total != null);
+  const totalExpense = producerKnown && lambsKnown ? groups.reduce((s, g) => s + g.total, ZERO) + oneOffExpenseCents : null;
 
-  const totalExpense = hasSheets ? producerCents + chargeCents + expenseCents : null;
-  const both = hasSheets && hasIncome && totalExpense != null;
+  const netDelivery = groups.find((g) => g.name === "Delivery")!.total;
+  const lbShipped = toFixedInt(input.lbShipped ?? 0, 2);
+  const both = totalExpense != null && (hasIncome || noProcessing);
   const profit = both ? incomeCents - totalExpense : null;
   const carcass = input.pay.carcass; // 2 decimals
   return {
@@ -408,23 +560,24 @@ export function weekPnl(input: {
     oneOffIncome,
     oneOffIncomeCents,
     incomeCents,
+    salesCents,
     hasIncome,
     otherCents,
-    projected: !!inv?.projected,
+    projected,
     head,
     hasSheets,
-    producerCalc,
-    producerAdj,
-    producerCents,
-    charges,
-    chargeCents,
-    expenses,
+    noProcessing,
+    categories,
+    groups,
     oneOffExpense,
     oneOffExpenseCents,
-    expenseCents,
     totalExpense,
+    netDelivery,
+    lbShipped,
+    // cents / lb (2 decimals) = $/lb; × 10^4 keeps 4 decimals
+    deliveryPerLb: lbShipped > ZERO ? divRound(netDelivery * BigInt(10000), lbShipped) : null,
     profit,
-    profitPerHead: profit != null ? divRound(profit, BigInt(head)) : null,
+    profitPerHead: profit != null && head > 0 ? divRound(profit, BigInt(head)) : null,
     // total cents / carcass (2 decimals) = $/lb; x 10^4 keeps 4 decimals
     costPerCarcassLb: both && carcass > ZERO ? divRound(totalExpense * BigInt(10000), carcass) : null,
     adjustments,

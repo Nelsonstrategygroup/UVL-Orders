@@ -12,7 +12,7 @@
 // (stage C): a closed week shows the P&L saved when it was closed, with no
 // entry forms.
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useToast } from "@/components/Toast";
@@ -20,7 +20,9 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { averageLbText, carcassText, centsText, factorText, fixedRounded, liveText, rateText } from "@/lib/calc/lambCost";
 import {
+  categoryKey,
   parseMoney,
+  type CategoryLine,
   type ExpenseCategory,
   type ExpenseEntry,
   type IncomeEntry,
@@ -70,7 +72,6 @@ export default function PnlScreen() {
   if (!w.ready) return <>{head}<p className="small muted">Loading...</p></>;
   const { data, setup, pay, ii, p, details, checks, producerName, refresh, status, snapshot } = w;
   const closed = !!status.closed;
-  const chargeKeys = details.filter((d) => d.key.startsWith("charge:")).map((d) => d.key);
 
   return (
     <div className="max-w-[900px]">
@@ -116,17 +117,15 @@ export default function PnlScreen() {
 
       {p.projected && <ProjectedBanner ii={ii} />}
 
-      <Summary p={p} chargeKeys={chargeKeys} onOpen={onOpen} />
+      <Summary p={p} onOpen={onOpen} />
 
       <Income p={p} ii={ii} onOpen={onOpen} />
 
-      <section className="panel mt-3" aria-labelledby="pnl-producers">
-        <h3 id="pnl-producers">Producer cost</h3>
-        {!p.hasSheets ? (
-          <p className="note mt-1 mb-0">
-            No weigh sheet for this week. <Link href="/weigh-sheets" className="noprint">Weigh sheets</Link>
-          </p>
-        ) : (
+      <Expenses p={p} onOpen={onOpen} />
+
+      {p.hasSheets && (
+        <section className="panel mt-3" aria-labelledby="pnl-producers">
+          <h3 id="pnl-producers">Producer pay by producer</h3>
           <div className="overflow-x-auto">
             <table className="simple mt-1">
               <thead>
@@ -143,7 +142,7 @@ export default function PnlScreen() {
                 {pay.producers.map((r) => (
                   <tr key={r.producerId}>
                     <td>
-                      <Tap onClick={() => onOpen(["producer"])}>{producerName(r.producerId)}</Tap>
+                      <Tap onClick={() => onOpen(producerKeys(p), producerName(r.producerId))}>{producerName(r.producerId)}</Tap>
                     </td>
                     <td className="num text-right">{r.head}</td>
                     <td className="num text-right">{carcassText(r.carcass)}</td>
@@ -153,101 +152,18 @@ export default function PnlScreen() {
                   </tr>
                 ))}
                 <tr className="font-bold">
-                  <td>{p.producerAdj ? "From the weigh sheets" : "Producer cost"}</td>
+                  <td>From the weigh sheets</td>
                   <td className="num text-right">{pay.head}</td>
                   <td className="num text-right">{carcassText(pay.carcass)}</td>
                   <td className="num text-right">{liveText(pay.live)}</td>
                   <td className="num text-right">{averageLbText(pay.carcass, pay.head)}</td>
                   <td className="num text-right">{centsText(pay.cents)}</td>
                 </tr>
-                {p.producerAdj !== BigInt(0) && (
-                  <>
-                    <tr>
-                      <td colSpan={5}>
-                        <Tap onClick={() => onOpen(["producer"])}>Adjustments</Tap>
-                      </td>
-                      <td className="num text-right">{signed(p.producerAdj)}</td>
-                    </tr>
-                    <tr className="font-bold">
-                      <td colSpan={5}>Producer cost</td>
-                      <td className="num text-right">{centsText(p.producerCents)}</td>
-                    </tr>
-                  </>
-                )}
               </tbody>
             </table>
           </div>
-        )}
-      </section>
-
-      <section className="panel mt-3" aria-labelledby="pnl-charges">
-        <h3 id="pnl-charges">Charges</h3>
-        {p.charges.length === 0 ? (
-          <p className="small muted mt-1 mb-0">No charges this week (P&amp;L Setup).</p>
-        ) : (
-          <table className="simple mt-1">
-            <tbody>
-              {p.charges.map((c) => (
-                <tr key={`${c.kind}:${c.name}`}>
-                  <td>
-                    <Tap onClick={() => onOpen([`charge:${c.name}`])}>
-                      <b>{c.name}</b>
-                    </Tap>
-                    <span className="block small">
-                      {c.kind === "lamb"
-                        ? c.cents == null
-                          ? "No weigh sheet for this week."
-                          : `${c.lambs} lambs × ${rateText(c.rate)}`
-                        : c.cents == null
-                          ? "No income yet."
-                          : `${factorText(c.percent)}% × ${centsText(c.income)} ${p.projected ? "projected " : ""}income`}
-                      {c.adj !== BigInt(0) && c.cents != null && ` = ${centsText(c.cents)}; ${signed(c.adj)} adjustments`}
-                    </span>
-                  </td>
-                  <td className="num text-right align-top">{c.total == null ? <span className="muted">Not worked out</span> : centsText(c.total)}</td>
-                </tr>
-              ))}
-              <tr className="font-bold">
-                <td>Charges{p.charges.some((c) => c.total == null) ? " so far" : ""}</td>
-                <td className="num text-right">{centsText(p.chargeCents)}</td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section className="panel mt-3" aria-labelledby="pnl-expenses">
-        <h3 id="pnl-expenses">Expenses by category</h3>
-        {p.expenses.length === 0 && p.oneOffExpense.length === 0 ? (
-          <p className="small muted mt-1 mb-0">No expenses entered.</p>
-        ) : (
-          <table className="simple mt-1">
-            <tbody>
-              {p.expenses.map((r) => (
-                <tr key={r.categoryId}>
-                  <td>
-                    <Tap onClick={() => onOpen(["expenses"], r.name)}>{r.name}</Tap>
-                    {r.entries > 1 && <span className="small muted"> · {r.entries} entries</span>}
-                    {r.adj !== BigInt(0) && (
-                      <span className="small block">
-                        Entered {centsText(r.cents)}; {signed(r.adj)} adjustments
-                      </span>
-                    )}
-                  </td>
-                  <td className="num text-right">{centsText(r.total)}</td>
-                </tr>
-              ))}
-              {p.oneOffExpense.map((a) => (
-                <OneOffRow key={a.id} a={a} onOpen={() => onOpen(["expenses"], a.label)} />
-              ))}
-              <tr className="font-bold">
-                <td>Entered expenses</td>
-                <td className="num text-right">{centsText(p.expenseCents)}</td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-      </section>
+        </section>
+      )}
 
       <AdjustmentsPanel week={week} p={p} categories={setup.categories} refresh={refresh} closed={closed} />
 
@@ -412,11 +328,117 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
   );
 }
 
-/** Income, total expense, profit, per head, per carcass lb: or what's missing. */
-function Summary({ p, chargeKeys, onOpen }: { p: WeekPnl; chargeKeys: string[]; onOpen: OnOpen }) {
-  const waits = [!p.hasSheets && "No weigh sheet for this week.", !p.hasIncome && "No income yet."].filter(Boolean) as string[];
+/** The weigh sheets category's detail key (producer pay). */
+const producerKeys = (p: WeekPnl) => p.categories.filter((l) => l.method === "weigh_sheets").map((l) => categoryKey(l.categoryId));
+
+/** What a category's number is, in a few words. */
+function methodText(l: CategoryLine, p: WeekPnl): string {
+  if (l.waiting) return l.waiting;
+  const entries = l.entries ? `${l.entries} ${l.entries === 1 ? "entry" : "entries"}` : "";
+  const r = l.rate;
+  let s = "";
+  switch (l.method) {
+    case "weigh_sheets":
+      s = p.hasSheets ? `${p.head} lambs on the weigh sheets` : "No processing this week";
+      break;
+    case "per_lamb":
+      s = r?.amount != null ? `${p.head} lambs × ${rateText(r.amount)}` : "";
+      break;
+    case "percent_income":
+    case "percent_category":
+      s = r?.percent != null && l.base != null ? `${factorText(r.percent)}% × ${centsText(l.base)}${l.projected ? " projected" : ""}` : "";
+      break;
+    case "fixed_weekly":
+      s = "Fixed weekly";
+      break;
+    case "entered":
+      s = entries || "None entered";
+      return l.adj ? `${s}; ${signed(l.adj)} adjustments` : s;
+  }
+  return [s, entries ? `+ ${entries}` : "", l.adj ? `${signed(l.adj)} adjustments` : ""].filter(Boolean).join("; ");
+}
+
+/** Every expense category by group, with subtotals; then one-off lines and the total. */
+function Expenses({ p, onOpen }: { p: WeekPnl; onOpen: OnOpen }) {
+  const missing = <span className="muted">Not worked out</span>;
+  return (
+    <section className="panel mt-3" aria-labelledby="pnl-expenses">
+      <h3 id="pnl-expenses">Expenses</h3>
+      <table className="simple mt-1">
+        <tbody>
+          {p.groups.map((g) => (
+            <Fragment key={g.name}>
+              <tr>
+                <th colSpan={2} className="pt-3 text-left">
+                  {g.name}
+                </th>
+              </tr>
+              {g.lines.map((l) => (
+                <tr key={l.categoryId}>
+                  <td>
+                    <Tap onClick={() => onOpen([categoryKey(l.categoryId)])}>{l.projected ? `${l.name} (projected)` : l.name}</Tap>
+                    {!l.active && <span className="tag ml-2">Retired</span>}
+                    <span className="small muted block">{methodText(l, p)}</span>
+                  </td>
+                  <td className="num text-right align-top">{l.total != null ? centsText(l.total) : missing}</td>
+                </tr>
+              ))}
+              <tr className="font-bold">
+                <td>
+                  <Tap onClick={() => onOpen([`group:${g.name}`])}>{g.complete ? g.name : `${g.name} so far`}</Tap>
+                </td>
+                <td className="num text-right">{centsText(g.total)}</td>
+              </tr>
+              {g.name === "Delivery" && (
+                <>
+                  <tr>
+                    <td>
+                      <Tap onClick={() => onOpen(["netdelivery"])}>Net delivery cost</Tap>
+                      <span className="small muted block">Delivery − freight income (none set up)</span>
+                    </td>
+                    <td className="num text-right">{centsText(p.netDelivery)}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <Tap onClick={() => onOpen(["deliverylb"])}>Delivery cost per lb shipped</Tap>
+                      <span className="small muted block">{p.lbShipped > BigInt(0) ? `${carcassText(p.lbShipped)} lb in packed boxes` : "Nothing packed"}</span>
+                    </td>
+                    <td className="num text-right">{p.deliveryPerLb != null ? `$${fixedRounded(p.deliveryPerLb, 4, 2)}` : missing}</td>
+                  </tr>
+                </>
+              )}
+            </Fragment>
+          ))}
+          {p.oneOffExpense.length > 0 && (
+            <>
+              <tr>
+                <th colSpan={2} className="pt-3 text-left">
+                  One-off expenses
+                </th>
+              </tr>
+              {p.oneOffExpense.map((a) => (
+                <OneOffRow key={a.id} a={a} onOpen={() => onOpen(["oneoff-expense"], a.label)} />
+              ))}
+            </>
+          )}
+          <tr className="font-bold">
+            <td className="pt-3">
+              <Tap onClick={() => onOpen(["total"])}>Total expense</Tap>
+            </td>
+            <td className="num pt-3 text-right">{p.totalExpense != null ? centsText(p.totalExpense) : missing}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+/** Income, expenses by group, total expense, profit, per head, per carcass lb: or what's missing. */
+function Summary({ p, onOpen }: { p: WeekPnl; onOpen: OnOpen }) {
+  const waits = [!p.hasSheets && !p.noProcessing && "No weigh sheet for this week.", !p.hasIncome && !p.noProcessing && "No income yet."].filter(Boolean) as string[];
   // While some income is projected, so is everything worked out from it.
   const pj = (label: string) => (p.projected ? `${label} (projected)` : label);
+  const anyProjected = (lines: CategoryLine[]) => lines.some((l) => l.projected);
   const row = (label: string, value: React.ReactNode, strong = false, keys: string[] = []) => (
     <tr className={strong ? "font-bold" : ""}>
       <td>{keys.length ? <Tap onClick={() => onOpen(keys)}>{label}</Tap> : label}</td>
@@ -427,6 +449,7 @@ function Summary({ p, chargeKeys, onOpen }: { p: WeekPnl; chargeKeys: string[]; 
   return (
     <section className="panel mt-3" aria-labelledby="pnl-summary">
       <h3 id="pnl-summary">This week</h3>
+      {p.noProcessing && <p className="note mt-1">No processing this week: fixed weekly costs still count.</p>}
       {waits.length > 0 && (
         <p className="note mt-1">
           {waits.join(" ")} Profit{p.hasSheets ? "" : ", total expense"}, profit per head and cost per carcass lb wait for
@@ -436,10 +459,13 @@ function Summary({ p, chargeKeys, onOpen }: { p: WeekPnl; chargeKeys: string[]; 
       <table className="simple mt-1">
         <tbody>
           {row(pj("Income"), p.hasIncome ? centsText(p.incomeCents) : missing, false, ["income"])}
-          {row("Producer cost", p.hasSheets ? centsText(p.producerCents) : missing, false, ["producer"])}
-          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Charges (projected)" : "Charges", centsText(p.chargeCents), false, chargeKeys)}
-          {row("Entered expenses", centsText(p.expenseCents), false, ["expenses"])}
-          {row(p.projected && p.charges.some((c) => c.kind === "percent") ? "Total expense (projected)" : "Total expense", p.totalExpense != null ? centsText(p.totalExpense) : missing, true, ["producer", ...chargeKeys, "expenses", "total"])}
+          {p.groups.map((g) => (
+            <Fragment key={g.name}>
+              {row(`${g.name}${anyProjected(g.lines) ? " (projected)" : ""}${g.complete ? "" : " so far"}`, centsText(g.total), false, [`group:${g.name}`])}
+            </Fragment>
+          ))}
+          {p.oneOffExpenseCents !== BigInt(0) && row("One-off expenses", centsText(p.oneOffExpenseCents), false, ["oneoff-expense"])}
+          {row(anyProjected(p.categories) ? "Total expense (projected)" : "Total expense", p.totalExpense != null ? centsText(p.totalExpense) : missing, true, ["total"])}
           {row(pj("Profit"), p.profit != null ? centsText(p.profit) : missing, true, ["profit"])}
           {row(pj("Profit per head"), p.profitPerHead != null ? `${centsText(p.profitPerHead)} (${p.head} head)` : missing, false, ["perhead"])}
           {row(pj("Cost per carcass lb"), p.costPerCarcassLb != null ? `$${fixedRounded(p.costPerCarcassLb, 4, 2)}` : missing, false, ["costlb"])}
@@ -529,7 +555,7 @@ function Entries({
         <EntryForm
           days={days}
           whatLabel="Category"
-          options={categories.filter((c) => c.active).map((c) => ({ id: c.id, label: c.name }))}
+          options={categories.filter((c) => c.active && c.method === "entered").map((c) => ({ id: c.id, label: c.name }))}
           onAdd={async (x) => {
             const err = await addExpense(db, { date: x.date, categoryId: x.whatId, amount: x.amount, note: x.note });
             toast(err ? `Couldn't save: ${err}` : "Expense saved");
