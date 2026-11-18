@@ -3505,6 +3505,38 @@ tr.zebra td,
   }
 }
 
+/* Boxes not assigned (11/17/26): at the top of Packing and Scan boxes, hard to miss. */
+.notassigned {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.9rem;
+  border: 3px solid var(--barn);
+  border-radius: 12px;
+  background: var(--bad);
+}
+.notassigned h2 {
+  margin: 0;
+  color: var(--barn);
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+.notassigned ul {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.notassigned li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--barn);
+  font-size: 1.1rem;
+}
+.notassigned li .btn {
+  min-height: 48px;
+}
+
 /* Packing: boxes for a product not on the order, to check (10/26/26). Never on the manifest. */
 .pextra {
   margin: 0.5rem 0 0;

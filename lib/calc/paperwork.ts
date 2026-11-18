@@ -310,17 +310,24 @@ function named(list: string[]): string {
 }
 
 /**
- * Before any pallet paperwork prints (Lucas, 11/10/26): every box of the
- * week on no pallet, by customer and product, since it isn't on any
- * manifest.
+ * Before any pallet paperwork prints (Lucas, 11/10/26): every box with no
+ * store (11/17/26), then every store's box on no pallet, by customer and
+ * product, since it isn't on any manifest.
  */
-export function looseBoxWarnings(boxes: (Pick<PwBox, "customer" | "product" | "boxId"> & { palletId: string | null })[]): string[] {
-  const loose = boxes.filter((b) => !b.palletId);
-  if (!loose.length) return [];
-  const n = loose.length;
-  return [
-    `${n} box${n === 1 ? " is" : "es are"} on no pallet, so not on any manifest: ${named(loose.map(boxRef))}. Put ${n === 1 ? "it" : "them"} on a pallet on the Pallets page.`,
-  ];
+export function looseBoxWarnings(boxes: (Pick<PwBox, "customerId" | "customer" | "product" | "boxId"> & { palletId: string | null })[]): string[] {
+  const noStore = boxes.filter((b) => !b.customerId);
+  const loose = boxes.filter((b) => b.customerId && !b.palletId);
+  const out: string[] = [];
+  if (noStore.length) {
+    const n = noStore.length;
+    const list = noStore.map((b) => `${b.product}${b.boxId && b.boxId !== NO_BOX_ID ? ` (${b.boxId})` : ""}`);
+    out.push(`${n} box${n === 1 ? "" : "es"} not assigned: ${named(list)}. Assign ${n === 1 ? "it" : "them"} at the top of Packing.`);
+  }
+  if (loose.length) {
+    const n = loose.length;
+    out.push(`${n} box${n === 1 ? " is" : "es are"} on no pallet, so not on any manifest: ${named(loose.map(boxRef))}. Put ${n === 1 ? "it" : "them"} on a pallet on the Pallets page.`);
+  }
+  return out;
 }
 
 /** A pallet as the count check needs it: the stores planned onto it (Plan pallets). */

@@ -76,6 +76,8 @@ type ActionBody =
       slot: number | null;
       label_no: number | null;
       off_order: boolean;
+      /** A box coming from an earlier week: not in this week's data, so it's shown from here until it uploads (11/18/26). */
+      box?: PackWeight;
     }
   /** A box for a product not on the order: checked as correct for the shipment (ok), or the check undone. The order isn't changed. */
   | { type: "weight-extra-ok"; order_id: string; weight_id?: string; client_id?: string; ok: boolean; by: string; by_name: string; at: string }
@@ -258,9 +260,11 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       const hit = (w: PackWeight) => (a.weight_id && w.id === a.weight_id) || (a.client_id && w.client_id === a.client_id);
       const from = a.from_order_id ? byId.get(a.from_order_id) : undefined;
       let moved: PackWeight | undefined = from ? from.weights.find(hit) : unassigned.find(hit);
+      if (moved) {
+        if (from) from.weights = from.weights.filter((w) => !hit(w));
+        else unassigned.splice(unassigned.indexOf(moved), 1);
+      } else moved = a.box;
       if (!moved) continue;
-      if (from) from.weights = from.weights.filter((w) => !hit(w));
-      else unassigned.splice(unassigned.indexOf(moved), 1);
       moved = { ...moved, pallet_id: a.pallet_id, slot: a.slot, label_no: a.label_no };
       const to = a.order_id ? byId.get(a.order_id) : undefined;
       if (to) to.weights.push(moved);

@@ -24,6 +24,8 @@ export type ScanContext = {
   lots: Map<string, string>;
   /** Boxes already recorded or waiting to upload: "GTIN:serial" -> who has it. */
   known: Map<string, string>;
+  /** Labels used in earlier weeks: "GTIN:serial" -> "Emerson, packing Mon Nov 9". The server would refuse them. */
+  usedBefore?: Map<string, string>;
   /** Product ids on the chosen customer's order; null when the app suggests the customer after the scan (routing). */
   onOrder: Set<string> | null;
   products: Map<string, ScanProduct>;
@@ -32,6 +34,7 @@ export type ScanContext = {
 export type ScanStep =
   | { kind: "misread"; message: string }
   | { kind: "duplicate"; message: string; box: Gs1Box }
+  | { kind: "used-before"; message: string; box: Gs1Box }
   | { kind: "unknown-gtin"; message: string; box: Gs1Box }
   | { kind: "off-order"; message: string; box: Gs1Box; productId: string }
   | { kind: "need-lot"; message: string; box: Gs1Box; productId: string }
@@ -73,6 +76,8 @@ export function decideScan(
   const who = key ? ctx.known.get(key) : undefined;
   if (who !== undefined)
     return { kind: "duplicate", message: `This box is already scanned${who ? ` for ${who}` : ""}. Don't pack it twice.`, box };
+  const earlier = key ? ctx.usedBefore?.get(key) : undefined;
+  if (earlier) return { kind: "used-before", message: `This label was already used for ${earlier}. This scan was not saved.`, box };
 
   const productId = ctx.gtinMap.get(box.gtin) ?? answers.productId;
   if (!productId)

@@ -33,24 +33,17 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { fmt, num } from "@/lib/calc/num";
 import { unitWord } from "@/lib/calc/units";
 import {
-  orderSheet,
-  packLines,
   sheetLabels,
-  sheetRowId,
-  type PackingData,
   type PackOrder,
   type PackProduct,
   type PackWeight,
 } from "@/lib/db/packing";
-import { blankWords, type SheetLabel } from "@/lib/calc/packSheet";
+import type { SheetLabel } from "@/lib/calc/packSheet";
 import {
   byStoreNumber,
   offeredText,
   overOrder,
-  stillNeeds,
-  type Need,
   candidates,
-  needFor,
   needWords,
   nextTag,
   palletFor,
@@ -60,7 +53,23 @@ import {
 } from "@/lib/calc/routing";
 import { isLocal } from "@/lib/offline/outbox";
 import { boxName, onOrderAs } from "@/lib/calc/packTogether";
+import { notAssignedBoxes } from "@/lib/calc/notAssigned";
 import { planBoxes, type BoxSetup } from "@/lib/calc/boxes";
+import {
+  boxFor,
+  earlierFound,
+  filledText,
+  findBox,
+  MoveSheet,
+  NotAssignedBanner,
+  NotSavedBanner,
+  orderedText,
+  routeOrder,
+  routePallets,
+  sendBoxMove,
+  type FoundBox,
+  type MoveTarget,
+} from "../MoveBox";
 import { setBoxLot, type BoxUpload } from "@/lib/db/scanning";
 import { badScan, goodScan, unlockSound } from "@/lib/scan/feedback";
 import {
@@ -71,8 +80,8 @@ import {
   type ScanStep,
 } from "@/lib/scan/flow";
 import type { Gs1Box } from "@/lib/scan/gs1";
-import { orderedWords } from "@/lib/calc/packing";
 import { qtyText } from "@/lib/orders";
+import { weekName } from "@/lib/dates";
 import { useLabelNumbers } from "../useLabelNumbers";
 
 type Shown = {
@@ -86,7 +95,7 @@ type Answers = { addOffOrder?: boolean; productId?: string; lot?: string };
 type Question = {
   step: Exclude<
     ScanStep,
-    { kind: "misread" } | { kind: "duplicate" } | { kind: "ready" }
+    { kind: "misread" } | { kind: "duplicate" } | { kind: "used-before" } | { kind: "ready" }
   >;
   raw: string;
   answers: Answers;
@@ -222,6 +231,12 @@ export default function ScanScreen() {
       gtinMap: new Map(data.gtins.map((g) => [g.gtin, g.product_id])),
       lots: new Map(data.lots.map((l) => [lotKey(l.gtin, l.pack_date), l.lot])),
       known,
+      usedBefore: new Map(
+        data.earlierBoxes.map((b) => [
+          `${b.gtin}:${b.serial}`,
+          `${b.customer ?? "unassigned boxes"}, packing ${weekName(b.week)}`,
+        ]),
+      ),
       onOrder: locked ? new Set(Object.keys(locked.lines)) : null,
       products: data.packing.products,
     };
@@ -239,6 +254,8 @@ export default function ScanScreen() {
     const { base } = p;
     const name = products ? boxName(base.productId, products) : "Box";
     if (p.pick == null) {
+      // Chris tapped this by accident on 11/16/26.
+      if (!window.confirm("Unassign this box? It will move to Not assigned at the top of Packing.")) return;
       try {
         if (base.photo)
           await enqueue({
@@ -424,6 +441,17 @@ export default function ScanScreen() {
         detail: step.message,
       });
     }
+    // A label from an earlier week: stopped before it looks saved (11/17/26). It may be
+    // the same box going to another store, such as one held in the freezer (11/18/26).
+    if (step.kind === "used-before") {
+      const earlier = data!.earlierBoxes.find((b) => b.gtin === step.box.gtin && b.serial === step.box.serial);
+      if (earlier) {
+        badScan();
+        setShown(null);
+        return setDup(earlierFound(earlier));
+      }
+      return show({ ok: false, title: "Label already used", detail: step.message });
+    }
     if (step.kind === "ready") {
       setQuestion(null);
       const b = step.box;
@@ -462,53 +490,21 @@ export default function ScanScreen() {
   async function moveBox(b: FoundBox, to: MoveTarget) {
     if (!data) return;
     const w = b.w;
-    const order = to.orderId
-      ? data.packing.orders.find((o) => o.id === to.orderId)
-      : undefined;
-    // Its box and label number at the new store; the same ones when only the pallet changes.
-    const sameStore = (to.orderId ?? null) === (b.orderId ?? null);
-    const slot = order
-      ? sameStore
-        ? { slot: w.slot, label_no: w.label_no }
-        : boxFor(order, w.product_id, data.packing, labels, new Set())
-      : { slot: null, label_no: null };
+    let moved;
     try {
-      if (
-        to.palletId &&
-        data.pallets.find((x) => x.id === to.palletId)?.status === "planned"
-      )
-        await enqueue({
-          type: "pallet-status",
-          id: to.palletId,
-          status: "open",
-        });
-      await enqueue({
-        type: "weight-move",
-        from_order_id: b.orderId,
-        ...(isLocal(w)
-          ? { client_id: w.client_id ?? "" }
-          : { weight_id: w.id }),
-        order_id: order?.id ?? null,
-        week_id: week,
-        pallet_id: order ? to.palletId : null,
-        slot: slot.slot ?? null,
-        label_no: slot.label_no ?? null,
-        off_order: !!order && !onOrderAs(w.product_id, order.lines, data.packing.products),
-        via: !order ? "taken off its store (Scan boxes)" : sameStore ? "moved to another pallet (Scan boxes)" : "moved to another store (Scan boxes)",
-      });
+      moved = await sendBoxMove(enqueue, data, labels, week, b, to, "Scan boxes");
     } catch {
       return toast("Couldn't save on this phone. Try again.");
     }
     setMoving(null);
     setDup(null);
-    const tag = data.pallets.find((x) => x.id === to.palletId)?.tag;
     show({
       ok: true,
       title: `${products?.get(w.product_id)?.name ?? "Box"} · ${fmt(w.weight)} lb`,
-      big: order ? `→ ${tag ?? "no pallet"}` : "Unassigned",
-      detail: order
-        ? `Now ${order.labelCustomer}${slot.label_no != null ? ` · label ${slot.label_no}` : ""}`
-        : "Now unassigned. To give it to the right store, scan it again and tap Wrong store.",
+      big: moved.order ? `→ ${moved.tag ?? "no pallet"}` : "Not assigned",
+      detail: moved.order
+        ? `Now ${moved.order.labelCustomer}${moved.labelNo != null ? ` · label ${moved.labelNo}` : ""}`
+        : "It's in Not assigned at the top of Packing and this page.",
     });
   }
 
@@ -553,6 +549,13 @@ export default function ScanScreen() {
     <>
       <WeekBar inv={data.packing.invNumber} />
       <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
+      <NotSavedBanner data={data} onChanged={refresh} />
+      <NotAssignedBanner
+        boxes={notAssignedBoxes(data.packing.orders, data.packing.unassigned)}
+        products={products}
+        canPack={canPack}
+        onAssign={(box) => setMoving({ box, focus: "store" })}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="mr-auto">Scan boxes</h2>
         {/* Plain links, so they open from the phone's copy with no signal. */}
@@ -639,7 +642,17 @@ export default function ScanScreen() {
           />
         )}
 
-        {dup && !moving && (
+        {dup?.earlier && !moving && (
+          <EarlierCard
+            b={dup}
+            products={products}
+            canPack={canPack}
+            onMove={() => setMoving({ box: dup, focus: "store" })}
+            onClose={() => setDup(null)}
+          />
+        )}
+
+        {dup && !dup.earlier && !moving && (
           <DupCard
             b={dup}
             data={data}
@@ -650,7 +663,7 @@ export default function ScanScreen() {
             onRemove={() => {
               if (
                 window.confirm(
-                  "Take this box off its store? It goes to Unassigned, and its pallet is cleared.",
+                  "Unassign this box? It will move to Not assigned at the top of Packing.",
                 )
               )
                 void moveBox(dup, { orderId: null, palletId: null });
@@ -1242,53 +1255,52 @@ function SuggestCard({
   );
 }
 
-/** "6 each", "45 lb", "1 case": what the store ordered of this product. */
-function orderedText(
-  o: PackOrder,
-  productId: string,
-  data: PackingBundle,
-): string {
-  const q = o.lines[productId];
-  if (!q) return "none of this";
-  // A piece product taken in pounds: its whole pieces, then the pounds (Lucas, 11/7/26).
-  const line = packLines(o, data.packing.products).find(([pid]) => pid === productId)?.[1];
-  if (line) return orderedWords(line);
-  return qtyText(
-    q,
-    o.units[productId] ?? data.packing.products.get(productId)?.unit ?? "each",
+/** A label recorded in an earlier week: where that box is now, and moving it here (11/18/26). */
+function EarlierCard({
+  b,
+  products,
+  canPack,
+  onMove,
+  onClose,
+}: {
+  b: FoundBox;
+  products: Map<string, PackProduct>;
+  canPack: boolean;
+  onMove: () => void;
+  onClose: () => void;
+}) {
+  const from = b.earlier!;
+  return (
+    <div className="route-card dup" role="alertdialog" aria-label="Label already used">
+      <h3 className="m-0 text-[1.4rem]">✕ Label already used</h3>
+      <dl className="dup-facts">
+        <dt>Product</dt>
+        <dd>{boxName(b.w.product_id, products)}</dd>
+        <dt>Weight</dt>
+        <dd>{fmt(b.w.weight)} lb</dd>
+        <dt>Lot</dt>
+        <dd>{b.w.lot ?? ""}</dd>
+        <dt>Case</dt>
+        <dd>{b.w.case_no ?? ""}</dd>
+        <dt>Now with</dt>
+        <dd>
+          <b>{from.customer ?? "Unassigned boxes"}</b>, packing {weekName(from.week)}
+        </dd>
+      </dl>
+      <p className="mt-3 mb-0 text-[1.05rem]">
+        Is this that same box, going to a store this week? Move it. It comes off {from.customer ?? "unassigned boxes"}.
+      </p>
+      <div className="mt-3 grid gap-2">
+        <button type="button" className="bigbtn mt-0!" disabled={!canPack} onClick={onMove}>
+          Move it to this week
+        </button>
+        <button type="button" className="bigbtn alt mt-0!" onClick={onClose}>
+          It&apos;s a different box
+        </button>
+      </div>
+      <p className="small mt-2 mb-0">A different box has the wrong label. Type it in with Label won&apos;t scan.</p>
+    </div>
   );
-}
-
-/** "1 of 1 box packed", "40 of 45 lb packed". */
-function filledText(n: Need): string {
-  if (n.kind === "boxes")
-    return `${n.done} of ${n.total} box${n.total === 1 ? "" : "es"} packed`;
-  if (n.kind === "lb")
-    return `${fmt(Math.round(n.done * 100) / 100)} of ${fmt(Math.round(n.total))} lb packed`;
-  return `${n.done} box${n.done === 1 ? "" : "es"} packed, and the line marked done`;
-}
-
-/** A box already recorded, and the order it's on (null: unassigned). */
-type FoundBox = { w: PackWeight; orderId: string | null };
-/** Where a box moves to: a store's order and a pallet, or Unassigned (both null). */
-type MoveTarget = { orderId: string | null; palletId: string | null };
-
-/** Find a recorded box by its barcode (GTIN and serial), or by id. */
-function findBox(
-  data: PackingBundle,
-  gtin: string | null,
-  serial: string | null,
-  id?: string,
-): FoundBox | null {
-  const hit = (w: PackWeight) =>
-    (id && w.id === id) ||
-    (!!gtin && !!serial && w.gtin === gtin && w.serial === serial);
-  for (const o of data.packing.orders) {
-    const w = o.weights.find(hit);
-    if (w) return { w, orderId: o.id };
-  }
-  const w = data.packing.unassigned.find(hit);
-  return w ? { w, orderId: null } : null;
 }
 
 /** A box scanned again: what's recorded, and big buttons to put it right (10/26/26). */
@@ -1374,169 +1386,6 @@ function DupCard({
   );
 }
 
-/**
- * Move a box: the store first (stores that still need this product, by PCC
- * number, or every store), then a pallet for that store's shipment (chosen
- * when there's only one). Going over the new store's order is warned about,
- * not blocked. Saved with the box's new box and label number; the audit log
- * keeps the old and new store (10/26/26).
- */
-function MoveSheet({
-  b,
-  focus,
-  data,
-  labels,
-  onClose,
-  onSave,
-}: {
-  b: FoundBox;
-  focus: "store" | "pallet";
-  data: PackingBundle;
-  labels: SheetLabel[];
-  onClose: () => void;
-  onSave: (to: MoveTarget) => void;
-}) {
-  const w = b.w;
-  const [orderId, setOrderId] = useState<string>(b.orderId ?? "");
-  const [all, setAll] = useState(false);
-  const [palletId, setPalletId] = useState<string | null>(null);
-  const pallets = routePallets(data);
-  const orders = data.packing.orders;
-  // Routing without this box, so a store isn't counted as having it already.
-  const without: PackingBundle = {
-    ...data,
-    packing: {
-      ...data.packing,
-      orders: orders.map((o) => ({
-        ...o,
-        weights: o.weights.filter((x) => x.id !== w.id),
-      })),
-    },
-  };
-  const needing = orders
-    .map((o) => routeOrder(o, w.product_id, without, labels))
-    .filter((r) => r.need && stillNeeds(r.need))
-    .map((r) => r.orderId);
-  const shown = [...orders]
-    .filter((o) => all || o.id === b.orderId || needing.includes(o.id))
-    .sort((x, y) =>
-      byStoreNumber({ name: x.labelCustomer }, { name: y.labelCustomer }),
-    );
-  const target = orders.find((o) => o.id === orderId);
-  const ro = target ? routeOrder(target, w.product_id, without, labels) : null;
-  const choices = ro ? shipmentPallets(ro, pallets) : [];
-  // The pallet: what Chris chose; else the box's own (same store), or the store's pallet.
-  const auto = target
-    ? orderId === b.orderId && w.pallet_id
-      ? w.pallet_id
-      : (palletFor(ro!, w.product_id, pallets)?.id ??
-        (choices.length === 1 ? choices[0].id : null))
-    : null;
-  const pallet =
-    palletId && choices.some((x) => x.id === palletId) ? palletId : auto;
-  const over =
-    !!target && orderId !== b.orderId && overOrder(ro!.need, w.weight);
-  const changed =
-    (orderId || null) !== b.orderId || pallet !== (w.pallet_id ?? null);
-  const name = boxName(w.product_id, data.packing.products, data.packing.orders.find((o) => o.id === b.orderId)?.lines);
-
-  return (
-    <Sheet title={`Move ${name}, ${fmt(w.weight)} lb`} onClose={onClose}>
-      <label className="lbl big mt-0!" htmlFor="mv-store">
-        Store
-      </label>
-      <select
-        id="mv-store"
-        className="field big"
-        value={orderId}
-        autoFocus={focus === "store"}
-        onChange={(e) => {
-          setOrderId(e.target.value);
-          setPalletId(null);
-        }}
-      >
-        {!b.orderId && <option value="">Unassigned</option>}
-        {shown.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.labelCustomer}
-            {o.id === b.orderId
-              ? " (now)"
-              : needing.includes(o.id)
-                ? ""
-                : " (doesn't need it)"}
-          </option>
-        ))}
-      </select>
-      <label className="mt-2 flex min-h-[44px] items-center gap-2">
-        <input
-          type="checkbox"
-          className="h-6 w-6 accent-forest"
-          checked={all}
-          onChange={(e) => setAll(e.target.checked)}
-        />
-        Show all stores
-      </label>
-      {over && target && (
-        <p className="route-over">
-          <b>Over the order.</b> {target.labelCustomer} ordered{" "}
-          {orderedText(target, w.product_id, data)}
-          {ro!.need ? ` and has ${filledText(ro!.need)}` : ""}. You can still
-          move it.
-        </p>
-      )}
-
-      {target && (
-        <>
-          <label className="lbl big" htmlFor="mv-pallet">
-            Pallet
-          </label>
-          {choices.length ? (
-            <select
-              id="mv-pallet"
-              className="field big"
-              value={pallet ?? ""}
-              autoFocus={focus === "pallet"}
-              onChange={(e) => setPalletId(e.target.value || null)}
-            >
-              {!pallet && <option value="">Choose a pallet</option>}
-              {choices.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.tag}
-                  {x.status === "planned" ? " (planned)" : ""}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="small m-0">
-              {ro!.shipName} has no open pallet. Start one on the Pallets page,
-              then move the box.
-            </p>
-          )}
-        </>
-      )}
-
-      <div className="mt-4 grid gap-2">
-        <button
-          type="button"
-          className="bigbtn mt-0!"
-          disabled={!changed || (!!target && choices.length > 0 && !pallet)}
-          onClick={() =>
-            onSave({
-              orderId: orderId || null,
-              palletId: target ? pallet : null,
-            })
-          }
-        >
-          Save
-        </button>
-        <button type="button" className="btn ghost" onClick={onClose}>
-          Cancel
-        </button>
-      </div>
-    </Sheet>
-  );
-}
-
 /** The pallet for the card: the one Chris chose, a new one ("new" gives null, so a tag is asked for), or the app's choice. */
 function chosenPallet(
   p: Pending,
@@ -1550,81 +1399,6 @@ function chosenPallet(
       palletFor(ro, p.base.productId, pallets)
     );
   return palletFor(ro, p.base.productId, pallets);
-}
-
-/** One order as routing sees it, for this product. */
-function routeOrder(
-  o: PackOrder,
-  productId: string,
-  data: PackingBundle,
-  labels: SheetLabel[],
-): RouteOrder {
-  const rows = orderSheet(o, data.packing, labels);
-  const lines = new Map(packLines(o, data.packing.products));
-  // A box packed together with others (Organs) fills whichever of them is on the order.
-  const asId =
-    onOrderAs(productId, o.lines, data.packing.products) ?? productId;
-  // Packed together (Organs): their row is under the group's first product.
-  const row = rows.find((r) => r.productId === sheetRowId(asId, data.packing));
-  const line = lines.get(asId);
-  const need =
-    row && line
-      ? needFor(
-          row,
-          line,
-          data.packing.products.get(asId)?.lb_per_unit ?? null,
-        )
-      : null;
-  // How far along the whole order is: boxes packed over boxes planned (pounds where boxes aren't known).
-  let done = 0;
-  let total = 0;
-  for (const r of rows) {
-    const l = lines.get(r.productId);
-    if (!l) continue;
-    if (r.known) {
-      done += Math.min(r.blanks.filter((b) => b.weight).length, r.boxCount);
-      total += r.boxCount;
-    }
-  }
-  const progress = total > 0 ? done / total : 0;
-  return {
-    orderId: o.id,
-    customerId: o.customerId,
-    name: o.labelCustomer,
-    shipKey: o.shipKey,
-    shipName: o.group ?? o.labelCustomer,
-    via: o.group,
-    shipDate: null,
-    need,
-    progress,
-  };
-}
-
-/** The week's pallets with the boxes on them, as routing sees them. */
-function routePallets(data: PackingBundle): RoutePallet[] {
-  const boxes = new Map<
-    string,
-    { customerId: string | null; productId: string }[]
-  >();
-  const add = (w: PackWeight, customerId: string | null) => {
-    if (!w.pallet_id) return;
-    const l = boxes.get(w.pallet_id) ?? [];
-    l.push({ customerId, productId: w.product_id });
-    boxes.set(w.pallet_id, l);
-  };
-  for (const o of data.packing.orders)
-    for (const w of o.weights) add(w, o.customerId);
-  for (const w of data.packing.unassigned) add(w, null);
-  return data.pallets.map((p) => ({
-    id: p.id,
-    tag: p.tag,
-    status: p.status,
-    shipKeys: p.shipKeys,
-    createdAt: p.created_at,
-    plan: p.plan,
-    boxes: boxes.get(p.id) ?? [],
-    customers: p.customers,
-  }));
 }
 
 /** "PCC distributor", "Key City". */
@@ -1910,7 +1684,8 @@ function RecentBoxes({
               {w.who && <>{w.who} · </>}
               {w.label_no != null ? <>Label {w.label_no} · </> : null}
               {boxName(w.product_id, products)} ·{" "}
-              {fmt(w.weight)} lb{w.source === "weigh" ? " · typed in" : <> · Lot {w.lot}</>}
+              {fmt(w.weight)} lb{w.source === "weigh" && " · typed in"}
+              {w.lot ? <> · Lot {w.lot}</> : <b> · no lot</b>}
               {!w.pallet_id && <b> · no pallet</b>}
               {w.case_no && (
                 <span className="small muted"> · case {w.case_no}</span>
@@ -1929,13 +1704,14 @@ function RecentBoxes({
                 Move
               </button>
             )}
-            {isAdmin && !isLocal(w) && w.source !== "weigh" && (
+            {/* Typed-in boxes too: they have no lot until someone sets one (11/17/26). */}
+            {isAdmin && !isLocal(w) && (
               <button
                 type="button"
                 className="copy text-[.9rem]"
                 onClick={() => {
                   const v = window.prompt(
-                    `New lot for this box (now ${w.lot}):`,
+                    `New lot for this box (now ${w.lot ?? "none"}):`,
                     w.lot ?? "",
                   );
                   if (v == null || v.trim() === (w.lot ?? "")) return;
@@ -2099,36 +1875,4 @@ async function shrink(file: File): Promise<Blob> {
   } catch {
     return file;
   }
-}
-
-/** The next empty box of a customer's product on the packing sheet, skipping ones filled moments ago. */
-function boxFor(
-  order: PackOrder,
-  productId: string,
-  data: PackingData,
-  labels: SheetLabel[],
-  filled: Set<string>,
-) {
-  const row = orderSheet(order, data, labels).find(
-    (r) => r.productId === sheetRowId(productId, data),
-  );
-  if (!row) return { slot: 1, label_no: null, boxTypeId: null, words: "Box 1" };
-  const b = row.blanks.find(
-    (x) => !x.weight && !filled.has(`${order.id}|${productId}|${x.slot}`),
-  );
-  const slot =
-    b?.slot ??
-    Math.max(
-      row.blanks.length,
-      ...[...filled]
-        .filter((k) => k.startsWith(`${order.id}|${productId}|`))
-        .map((k) => Number(k.split("|")[2])),
-    ) + 1;
-  return {
-    slot,
-    label_no: b?.planned ? b.labelNo : null,
-    boxTypeId:
-      b?.boxTypeId ?? row.blanks[row.blanks.length - 1]?.boxTypeId ?? null,
-    words: b ? blankWords(row, slot) : `Box ${slot}`,
-  };
 }

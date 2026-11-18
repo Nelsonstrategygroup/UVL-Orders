@@ -186,7 +186,7 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       const r = await withTimeout(recordBox(db, a.box, src));
       if (r.status === "saved" || r.status === "already") return { kind: "done" };
       if (r.status === "duplicate")
-        return { kind: "done", note: `A box was already packed for ${r.customer}, so it wasn't saved twice. Kathy will see it.` };
+        return { kind: "done", note: `A scan wasn't saved: its label was already used for ${r.customer}. It's listed at the top of Packing.` };
       if (r.status === "gone") return { kind: "done", note: "A box was for an order that no longer exists. Kathy will see it." };
       return classify({ message: r.message });
     }

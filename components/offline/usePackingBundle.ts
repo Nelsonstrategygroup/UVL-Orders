@@ -14,16 +14,26 @@ import { applyQueue } from "@/lib/offline/outbox";
 import { loadPacking, type PackingData } from "@/lib/db/packing";
 import type { BoxSetup } from "@/lib/calc/boxes";
 import { loadBoxSetup } from "@/lib/db/boxes";
-import { loadGtins, loadLots, loadPallets, type GtinRow, type LotRow, type PalletRow } from "@/lib/db/scanning";
+import { loadEarlierBoxes, loadGtins, loadLots, loadPallets, loadRefusedScans, type EarlierBox, type GtinRow, type LotRow, type PalletRow } from "@/lib/db/scanning";
+import type { DuplicateScanRow } from "@/lib/calc/notSaved";
 import { useOutbox } from "./OutboxProvider";
 
-export type PackingBundle = { packing: PackingData; gtins: GtinRow[]; lots: LotRow[]; pallets: PalletRow[]; boxes: BoxSetup };
+export type PackingBundle = {
+  packing: PackingData;
+  gtins: GtinRow[];
+  lots: LotRow[];
+  pallets: PalletRow[];
+  boxes: BoxSetup;
+  /** Labels used in earlier weeks, and scans refused for reusing one (11/17/26). */
+  earlierBoxes: EarlierBox[];
+  refusedScans: DuplicateScanRow[];
+};
 
 const TIMEOUT_MS = 10000;
 // Only tables the database sends live changes for (supabase_realtime): naming
 // one it doesn't made the whole subscription fail, so Packing stopped updating
 // live (found 10/23/26).
-const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "pallets", "pallet_shipments", "pallet_plan_lines", "pallet_customers"];
+const LIVE = ["orders", "order_lines", "packing_lines", "packing_weights", "packing_orders", "packing_conflicts", "pallets", "pallet_shipments", "pallet_plan_lines", "pallet_customers"];
 
 function timeout<T>(p: Promise<T>): Promise<T> {
   return Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error("The request timed out")), TIMEOUT_MS))]);
@@ -38,10 +48,20 @@ export function usePackingBundle(week: string) {
   const load = useCallback(
     async (d: SupabaseClient) => {
       try {
-        const [packing, gtins, lots, pallets, boxes] = await timeout(
-          Promise.all([loadPacking(d, week), loadGtins(d), loadLots(d), loadPallets(d, week), loadBoxSetup(d)]),
+        // The last two are safety checks: if one can't load, Packing still opens, with the phone's last copy of it.
+        const kept = await snapshotGet<PackingBundle>(key).catch(() => null);
+        const [packing, gtins, lots, pallets, boxes, earlierBoxes, refusedScans] = await timeout(
+          Promise.all([
+            loadPacking(d, week),
+            loadGtins(d),
+            loadLots(d),
+            loadPallets(d, week),
+            loadBoxSetup(d),
+            loadEarlierBoxes(d, week).catch(() => kept?.value.earlierBoxes ?? []),
+            loadRefusedScans(d).catch(() => kept?.value.refusedScans ?? []),
+          ]),
         );
-        const bundle: PackingBundle = { packing, gtins, lots, pallets, boxes };
+        const bundle: PackingBundle = { packing, gtins, lots, pallets, boxes, earlierBoxes, refusedScans };
         await snapshotSave(key, bundle).catch(() => undefined);
         reportOnline(true);
         return { bundle, savedAt: new Date().toISOString(), fromPhone: false };
@@ -56,6 +76,9 @@ export function usePackingBundle(week: string) {
           pallets: (snap.value.pallets ?? []).filter((p) => typeof p.tag === "string").map((p) => ({ ...p, customers: p.customers ?? [] })),
           // A copy kept before box limits existed.
           boxes: snap.value.boxes ?? { types: [], limits: new Map(), capLb: 45 },
+          // A copy kept before 11/17/26.
+          earlierBoxes: snap.value.earlierBoxes ?? [],
+          refusedScans: snap.value.refusedScans ?? [],
           // A copy kept before box weights (10/26/26).
           packing: {
             ...snap.value.packing,
@@ -136,6 +159,8 @@ export function usePackingBundle(week: string) {
       lots,
       pallets: pallets.sort((x, y) => x.created_at.localeCompare(y.created_at)),
       boxes: b.boxes,
+      earlierBoxes: b.earlierBoxes,
+      refusedScans: b.refusedScans,
     } satisfies PackingBundle;
   }, [live.data, outbox.queue]);
 

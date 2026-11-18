@@ -237,6 +237,12 @@ describe("warnings before pallet paperwork prints (11/10/26)", () => {
     expect(looseBoxWarnings(week.filter((b) => b.palletId))).toEqual([]);
   });
 
+  it("a box with no store is not assigned, on a pallet or not (11/17/26)", () => {
+    expect(looseBoxWarnings([bx(null, "Unassigned", "Racks", "2631310099", null), bx(null, "Unassigned", "Necks", "No label number", "p1")])).toEqual([
+      "2 boxes not assigned: Racks (2631310099); Necks. Assign them at the top of Packing.",
+    ]);
+  });
+
   it("names six, then counts the rest", () => {
     const many = Array.from({ length: 8 }, (_, i) => bx("x", "Emerson", "Racks", `S${i}`, null));
     expect(looseBoxWarnings(many)[0]).toContain("Emerson, Racks (S5); and 2 more.");

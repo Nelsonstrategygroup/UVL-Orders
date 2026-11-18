@@ -41,6 +41,9 @@ import WeighPrint from "./sheets/WeighPrint";
 import { weighLayout, weighSections } from "@/lib/packSheets";
 import { useLabelNumbers } from "./useLabelNumbers";
 import { typedBoxPallet } from "@/lib/calc/routing";
+import { notAssignedBoxes, nothingToPackWords } from "@/lib/calc/notAssigned";
+import { notSavedScans } from "@/lib/calc/notSaved";
+import { MoveSheet, NotAssignedBanner, NotSavedBanner, sendBoxMove, type FoundBox } from "./MoveBox";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
   ["done", "Done"],
@@ -72,6 +75,8 @@ export default function PackingScreen() {
   const keepIds = finished.key === finishedKey ? finished.ids : null;
   const [weighing, setWeighing] = useState<{ orderId: string; productId: string } | null>(null);
   const closeWeigh = useCallback(() => setWeighing(null), []);
+  // A box from the Not assigned banner, being given its store and pallet.
+  const [assigning, setAssigning] = useState<FoundBox | null>(null);
 
   if (error)
     return (
@@ -114,6 +119,8 @@ export default function PackingScreen() {
   const shown = withLines.filter(({ o, lines }) => showOrder(lines.map(([, l]) => l), filter) || !!keepIds?.has(o.id));
   // The week's box labels, worked out once: each store's expected boxes come from them.
   const labels = sheetLabels(data, boxSetup);
+  const notAssigned = notAssignedBoxes(data.orders, data.unassigned);
+  const notSaved = bundle.data ? notSavedScans(bundle.data.refusedScans, data.week, data.orders, data.unassigned).length : 0;
   // A shipment's boxes, from every store in it: expected against packed, as on each store's card (11/10/26).
   const groupBoxes = (g: string) => {
     const all = data.orders.filter((x) => x.group === g).map((x) => orderBoxCount(x, data, labels));
@@ -130,6 +137,8 @@ export default function PackingScreen() {
       <div className="screen-only">
         <WeekBar inv={data.invNumber} />
         <OfflineStatus savedAt={bundle.savedAt} fromPhone={bundle.fromPhone} />
+        {bundle.data && <NotSavedBanner data={bundle.data} onChanged={bundle.refresh} />}
+        <NotAssignedBanner boxes={notAssigned} products={data.products} canPack={canPack} onAssign={setAssigning} />
         {/* Box IDs used twice, boxes with no weight: fix before the paperwork prints (11/2/26). */}
         <PrintWarnings warnings={bundle.data ? paperworkWarnings(bundle.data) : []} />
 
@@ -181,7 +190,7 @@ export default function PackingScreen() {
         {!data.orders.length ? (
           <div className="empty">No orders for this week yet. They show up here as soon as they&apos;re entered.</div>
         ) : !shown.length ? (
-          <div className="empty">{filter === "todo" ? "Everything is packed." : "Nothing here yet."}</div>
+          <div className="empty">{filter === "todo" ? nothingToPackWords(notAssigned.length, notSaved) : "Nothing here yet."}</div>
         ) : (
           shown.map(({ o, lines }, i) => (
             <div key={o.id}>
@@ -232,6 +241,24 @@ export default function PackingScreen() {
         </div>
       )}
       {data.orders.length > 0 && <WeighPrint layout={weighLayout(weighSections(data, labels))} inv={data.invNumber} week={data.week} />}
+
+      {assigning && bundle.data && (
+        <MoveSheet
+          b={assigning}
+          focus="store"
+          data={bundle.data}
+          labels={labels}
+          onClose={() => setAssigning(null)}
+          onSave={(to) => {
+            void sendBoxMove(enqueue, bundle.data!, labels, week, assigning, to, "Packing")
+              .then((m) => {
+                setAssigning(null);
+                toast(m.order ? `Assigned to ${m.order.labelCustomer}${m.tag ? `, ${m.tag}` : ""}` : "Saved");
+              })
+              .catch(() => toast("Couldn't save on this phone. Try again."));
+          }}
+        />
+      )}
 
       {weighing && wOrder && wRow && (
         <WeighSheet

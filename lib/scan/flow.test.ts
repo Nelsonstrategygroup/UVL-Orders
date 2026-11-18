@@ -29,6 +29,12 @@ describe("a scan, step by step", () => {
     expect(s.kind === "duplicate" && s.message).toContain("PCC: Kirkland");
   });
 
+  it("a label used in an earlier week stops before any store is chosen (11/17/26)", () => {
+    const s = decideScan(RACK, ctx({ usedBefore: new Map([["10698746488816:2628710066", "Emerson, packing Mon Nov 9"]]) }));
+    expect(s.kind).toBe("used-before");
+    expect(s.kind === "used-before" && s.message).toBe("This label was already used for Emerson, packing Mon Nov 9. This scan was not saved.");
+  });
+
   it("an unknown GTIN warns first and offers a rescan", () => {
     const s = decideScan(FAT, ctx());
     expect(s.kind).toBe("unknown-gtin");

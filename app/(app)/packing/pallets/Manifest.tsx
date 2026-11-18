@@ -19,6 +19,7 @@ import {
   type Manifest,
 } from "@/lib/calc/manifest";
 import { crossDockGroups, customerManifests, looseBoxWarnings, palletCountWarnings } from "@/lib/calc/paperwork";
+import { notSavedScans, notSavedWarning } from "@/lib/calc/notSaved";
 import { weekBoxes, weekPallets, weekPoints } from "@/lib/paperworkData";
 import { CustomerPages, PalletCover, type PaperworkContext } from "./Paperwork";
 import { invFileName, invLabel } from "@/lib/weekInv";
@@ -183,6 +184,12 @@ export function paperworkWarnings(data: PackingBundle, pick: PalletPick = {}, op
   // Every box of the week on no pallet, and each of these pallets against its stores (11/10/26).
   const boxes = weekBoxes(data);
   out.push(...looseBoxWarnings(boxes));
+  // Scans refused for reusing a label: those boxes are on nothing (11/17/26).
+  out.push(
+    ...notSavedWarning(notSavedScans(data.refusedScans, data.packing.week, data.packing.orders, data.packing.unassigned), (id) =>
+      id ? boxName(id, data.packing.products) : "A box",
+    ),
+  );
   const ids = new Set(pallets.map((p) => p.id));
   out.push(
     ...palletCountWarnings(

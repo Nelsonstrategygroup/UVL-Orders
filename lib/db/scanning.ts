@@ -2,6 +2,7 @@
 // remembered per GTIN + pack date. Packing's scan screen and Setup use these.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DuplicateScanRow } from "../calc/notSaved";
 import { withSource } from "./source";
 
 export type GtinRow = { gtin: string; product_id: string; note: string; created_at: string };
@@ -144,6 +145,106 @@ export async function recordBox(db: SupabaseClient, box: BoxUpload, source = "sc
 /** Only an admin can change a box's lot (the database enforces it and logs the old one). */
 export async function setBoxLot(db: SupabaseClient, weightId: string, lot: string) {
   const { error } = await withSource(db.from("packing_weights").update({ lot }).eq("id", weightId), "lot changed (admin, Scan boxes)");
+  return err(error);
+}
+
+/** A label recorded in an earlier week. */
+export type EarlierBox = {
+  id: string;
+  gtin: string;
+  serial: string;
+  week: string;
+  customer: string | null;
+  productId: string;
+  weight: number;
+  lot: string | null;
+  caseNo: string | null;
+  at: string;
+};
+
+const EARLIER_DAYS = 56;
+const EARLIER_PAGE = 1000;
+const EARLIER_KEEP_MS = 30 * 60 * 1000;
+let earlierCache: { week: string; at: number; rows: EarlierBox[] } | null = null;
+
+/** Forget the loaded list: a box just moved out of an earlier week. */
+export function clearEarlierBoxes() {
+  earlierCache = null;
+}
+
+type EarlierRow = {
+  id: string;
+  product_id: string;
+  weight: number | string;
+  lot: string | null;
+  case_no: string | null;
+  created_at: string;
+  gtin: string | null;
+  serial: string | null;
+  week_id: string | null;
+  orders: { week_id: string; customers: { name: string } | null } | null;
+};
+
+/**
+ * Labels used in the 8 weeks before this one, kept with the phone's copy so a
+ * reused label is stopped at the scan, even with no signal (11/17/26). They
+ * rarely change, so they load once every half hour, not on every live update.
+ * An older label is still refused by the server and listed as not saved.
+ */
+export async function loadEarlierBoxes(db: SupabaseClient, week: string): Promise<EarlierBox[]> {
+  if (earlierCache?.week === week && Date.now() - earlierCache.at < EARLIER_KEEP_MS) return earlierCache.rows;
+  const since = new Date(Date.now() - EARLIER_DAYS * 86400000).toISOString();
+  const rows: EarlierBox[] = [];
+  for (let from = 0; ; from += EARLIER_PAGE) {
+    const { data, error } = await db
+      .from("packing_weights")
+      .select("id, product_id, weight, lot, case_no, created_at, gtin, serial, week_id, orders(week_id, customers(name))")
+      .not("serial", "is", null)
+      .gte("created_at", since)
+      .order("id")
+      .range(from, from + EARLIER_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as unknown as EarlierRow[];
+    for (const r of page) {
+      const boxWeek = r.orders?.week_id ?? r.week_id;
+      if (r.gtin && r.serial && boxWeek && boxWeek !== week)
+        rows.push({
+          id: r.id,
+          gtin: r.gtin,
+          serial: r.serial,
+          week: boxWeek,
+          customer: r.orders?.customers?.name ?? null,
+          productId: r.product_id,
+          weight: Number(r.weight),
+          lot: r.lot,
+          caseNo: r.case_no,
+          at: r.created_at,
+        });
+    }
+    if (page.length < EARLIER_PAGE) break;
+  }
+  earlierCache = { week, at: Date.now(), rows };
+  return rows;
+}
+
+/** Scans refused because their label was already used, not yet dealt with. */
+export async function loadRefusedScans(db: SupabaseClient): Promise<DuplicateScanRow[]> {
+  const { data, error } = await db
+    .from("packing_conflicts")
+    .select("id, message, order_id, product_id, gtin, serial, created_at, details")
+    .eq("kind", "duplicate-box")
+    .is("resolved_at", null)
+    .order("created_at");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DuplicateScanRow[];
+}
+
+/** Mark refused scans dealt with (Orders access or admin; the database checks). */
+export async function resolveRefusedScans(db: SupabaseClient, ids: string[], by: string) {
+  const { error } = await withSource(
+    db.from("packing_conflicts").update({ resolved_at: new Date().toISOString(), resolved_by: by, resolution: "dealt with" }).in("id", ids),
+    "scan not saved: dealt with",
+  );
   return err(error);
 }
 

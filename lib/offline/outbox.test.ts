@@ -61,6 +61,15 @@ describe("moving a box to another store (10/26/26)", () => {
     expect(gone.orders[0].weights).toHaveLength(0);
     expect(gone.unassigned[0]).toMatchObject({ id: "w1", pallet_id: null });
   });
+
+  it("a box from an earlier week shows on its new store while it waits to upload (11/18/26)", () => {
+    const box = { id: "old", product_id: "shanks", weight: 32.6, box_no: null, by: null, at: "t", source: "scan", gtin: "1", serial: "S9", lot: "110626", case_no: "10052", pallet_id: null, client_id: null, slot: null, label_no: null };
+    const moved = applyQueue(data([order({ id: "o2", weights: [] })]), [
+      q({ type: "weight-move", from_order_id: null, weight_id: "old", order_id: "o2", week_id: "2026-10-19", pallet_id: "p1", slot: 1, label_no: null, off_order: true, box }),
+    ]);
+    expect(moved.orders[0].weights[0]).toMatchObject({ id: "old", pallet_id: "p1", slot: 1, lot: "110626" });
+    expect(moved.unassigned).toEqual([]);
+  });
 });
 
 describe("what the packer sees while things wait on the phone", () => {
