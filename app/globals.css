@@ -3249,12 +3249,18 @@ tr.zebra td,
 .cm-table thead {
   display: table-header-group;
 }
-/* Box rows: black, the most prominent rows; light lines between, no boxes. */
+/* One row per product; light lines between, no boxes. Everything starts on the first line. */
 .cm-table th,
 .cm-table td {
   border-bottom: 0.5pt solid #bbb;
-  padding: 1pt 5pt;
+  padding: 2pt 5pt;
+  line-height: 13pt;
   text-align: left;
+  vertical-align: top;
+}
+.cm-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 .cm-table thead th {
   border-bottom: 1.5pt solid #000;
@@ -3266,13 +3272,56 @@ tr.zebra td,
   text-align: right;
   white-space: nowrap;
 }
-/* A product subtotal: no fill, gray and smaller, lined up under its boxes, a thin rule above only. */
-.cm-table tr.cm-sub td {
-  border-top: 0.75pt solid #000;
-  border-bottom: none;
-  color: #666;
-  font-weight: 400;
-  font-size: 9pt;
+@media print, screen and (min-width: 641px) {
+  .cm-table {
+    table-layout: fixed;
+  }
+  .cm-col-product {
+    width: 25%;
+  }
+  .cm-col-count {
+    width: 7%;
+  }
+  .cm-col-boxes {
+    width: 56%;
+  }
+  .cm-col-lb {
+    width: 12%;
+  }
+}
+.cm-table .cm-col-count,
+.cm-table .cm-count {
+  text-align: center;
+}
+/* A product that went out in 2 or more boxes stands out. */
+.cm-table tr.cm-multi td {
+  background: #f2f2ee;
+}
+.cm-table tr.cm-multi .cm-count,
+.cm-table tr.cm-multi .cm-lb {
+  font-weight: 700;
+}
+/* Up to 3 boxes a line, lined up from row to row; a wider entry takes the room it needs. */
+.cm-boxes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(min-content, 1fr));
+  column-gap: 4pt;
+  font-size: 9.5pt;
+}
+/* Entries with their own lot are wider: they take their natural width, and a lot wraps only when 3 won't fit. */
+.cm-boxes-lots {
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+}
+.cm-nowrap {
+  white-space: nowrap;
+}
+.cm-lot,
+.cm-box-lot {
+  font-size: 8pt;
+}
+.cm-lot {
+  white-space: nowrap;
 }
 .cm-store {
   font-size: 10pt;
@@ -3449,6 +3498,10 @@ tr.zebra td,
   }
   .cd-table .cd-notes {
     width: auto;
+  }
+  .cm-boxes,
+  .cm-boxes-lots {
+    grid-template-columns: 1fr;
   }
 }
 

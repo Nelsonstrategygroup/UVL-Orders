@@ -185,24 +185,58 @@ export function crossDockGroups(
 
 // --- The manifest, one customer per page ---
 
-export type ManifestRow =
-  | { kind: "box"; box: PwBox }
-  /** Under a product with 2 or more boxes: "Le Trim · 2 boxes · 61.90 lb". */
-  | { kind: "sub"; product: string; boxes: number; lb: number; missing: number };
+/** Box entries on one line of a manifest row; more wrap to the next line. */
+export const BOX_ENTRIES_PER_LINE = 3;
+/** About how many characters of product name fit on one line of its column. */
+const PRODUCT_CHARS_PER_LINE = 20;
+
+/** One box on a product row: "010167 - 42.30", with its lot only when the row needs it. */
+export type ManifestBoxEntry = { id: string; text: string; lot: string };
+
+/** One product on a customer's page, with every box of it. */
+export type ManifestProductRow = {
+  product: string;
+  boxes: number;
+  entries: ManifestBoxEntry[];
+  /** The product's total; null when none of its boxes has a weight. */
+  lb: number | null;
+  /** The lot, when it belongs on this row (not in the header, and the same on all its boxes). */
+  lot: string;
+};
 
 export type CustomerManifest = {
   customer: string;
   customerId: string | null;
-  rows: ManifestRow[];
+  rows: ManifestProductRow[];
+  /** The lot for the header, when every box has this same one; else "". */
+  lot: string;
   boxes: number;
   lb: number;
   missing: number;
 };
 
+/** The last 6 digits of a scanned box ID. "Label 38" and "No label number" stay whole. */
+export function shortBoxId(boxId: string): string {
+  const id = boxId.trim();
+  if (!id) return NO_BOX_ID;
+  return /^\d{7,}$/.test(id) ? id.slice(-6) : id;
+}
+
+/** "010167 - 42.30", or only the ID when the box has no weight. */
+export const boxEntryText = (b: Pick<PwBox, "boxId" | "lb">): string =>
+  b.lb == null ? shortBoxId(b.boxId) : `${shortBoxId(b.boxId)} - ${b.lb.toFixed(2)}`;
+
+/** The one lot all these boxes share; "" if they differ or any has none. */
+function sharedLot(boxes: PwBox[]): string {
+  const lots = new Set(boxes.map((b) => b.lot.trim()));
+  return lots.size === 1 ? [...lots][0] : "";
+}
+
 /**
  * A pallet's boxes, one customer each (in `order`, the week's customer
- * order), a row per box by product then box ID, a subtotal under any product
- * with 2 or more boxes.
+ * order), one row per product with its boxes by box ID (Raven, 11/17/26).
+ * One lot for the whole customer goes in the header. Otherwise a product's
+ * shared lot goes on its row, and a product with mixed lots shows each box's.
  */
 export function customerManifests(boxes: PwBox[], order?: string[]): CustomerManifest[] {
   const byCustomer = byCustomerOrder(order);
@@ -212,34 +246,50 @@ export function customerManifests(boxes: PwBox[], order?: string[]): CustomerMan
     .sort(([a], [b]) => byCustomer(a, b))
     .map(([customer, list]) => {
       const sorted = [...list].sort((a, b) => byName(a.product, b.product) || byName(a.boxId, b.boxId));
-      const rows: ManifestRow[] = [];
-      for (let i = 0; i < sorted.length; ) {
-        const product = sorted[i].product;
-        let j = i;
-        while (j < sorted.length && sorted[j].product === product) j++;
-        const same = sorted.slice(i, j);
-        for (const box of same) rows.push({ kind: "box", box });
-        if (same.length > 1) rows.push({ kind: "sub", product, boxes: same.length, lb: boxesLb(same), missing: same.filter((x) => x.lb == null).length });
-        i += same.length;
-      }
-      return { customer, customerId: sorted[0]?.customerId ?? null, rows, boxes: sorted.length, lb: boxesLb(sorted), missing: sorted.filter((x) => x.lb == null).length };
+      const headerLot = sharedLot(sorted);
+      const byProduct = new Map<string, PwBox[]>();
+      for (const b of sorted) byProduct.set(b.product, [...(byProduct.get(b.product) ?? []), b]);
+      const rows = [...byProduct.entries()].map(([product, same]): ManifestProductRow => {
+        const rowLot = headerLot ? "" : sharedLot(same);
+        const lotOnEntries = !headerLot && !rowLot;
+        return {
+          product,
+          boxes: same.length,
+          entries: same.map((b) => ({ id: b.id, text: boxEntryText(b), lot: lotOnEntries ? b.lot.trim() : "" })),
+          lb: same.some((b) => b.lb != null) ? boxesLb(same) : null,
+          lot: rowLot,
+        };
+      });
+      return { customer, customerId: sorted[0]?.customerId ?? null, rows, lot: headerLot, boxes: sorted.length, lb: boxesLb(sorted), missing: sorted.filter((x) => x.lb == null).length };
     });
 }
 
+/** How many printed lines a product row takes: its box entries, or a long product name. */
+export function manifestRowLines(row: Pick<ManifestProductRow, "product" | "entries" | "lot">): number {
+  const name = row.product.length + (row.lot ? ` · Lot ${row.lot}`.length : 0);
+  return Math.max(1, Math.ceil(row.entries.length / BOX_ENTRIES_PER_LINE), Math.ceil(name / PRODUCT_CHARS_PER_LINE));
+}
+
 /**
- * A customer's rows split into printed pages: up to `perPage` rows a page,
+ * A customer's rows split into printed pages: up to `perPage` lines a page,
  * and the last page leaves room for the total, signature and footer
- * (`lastPage` rows). A product's subtotal stays with its last box.
+ * (`lastPage` lines). A row is never split.
  */
-export function manifestPages(rows: ManifestRow[], perPage: number, lastPage: number): ManifestRow[][] {
-  if (rows.length <= lastPage) return [rows];
-  const pages: ManifestRow[][] = [];
+export function manifestPages(rows: ManifestProductRow[], perPage: number, lastPage: number): ManifestProductRow[][] {
+  const linesFrom = (start: number) => rows.slice(start).reduce((s, r) => s + manifestRowLines(r), 0);
+  if (linesFrom(0) <= lastPage) return [rows];
+  const pages: ManifestProductRow[][] = [];
   let i = 0;
-  while (rows.length - i > lastPage) {
-    let end = Math.min(i + perPage, rows.length);
-    // Don't start the next page with a subtotal: keep it with its boxes.
-    if (rows[end]?.kind === "sub") end -= 1;
-    // What's left must fit the last page; if this page would leave too much, it's simply full.
+  while (linesFrom(i) > lastPage) {
+    let end = i;
+    let used = 0;
+    while (end < rows.length) {
+      const lines = manifestRowLines(rows[end]);
+      // A row taller than a whole page still gets a page of its own.
+      if (end > i && used + lines > perPage) break;
+      used += lines;
+      end++;
+    }
     pages.push(rows.slice(i, end));
     i = end;
   }

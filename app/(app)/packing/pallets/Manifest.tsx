@@ -2,11 +2,10 @@
 // page since 11/2/26), one component for every entry point: the manifest
 // page (opened from Pallets, and from Print and download) draws it, and the
 // CSV download (one row per box) uses the same boxes. Each customer gets its
-// own Letter page: a row per box by product, a subtotal under any product
-// with 2 or more boxes, the customer's total, Received by / Date. Printing
-// all for a ship date puts each distributor's cross dock sheet first, then
-// its pallets' customer pages (./Paperwork.tsx). A box ID used twice in the
-// week is flagged on each customer it touches.
+// own Letter page: a row per product with its boxes, the customer's total,
+// Received by / Date. Printing all for a ship date puts each distributor's
+// cross dock sheet first, then its pallets' customer pages (./Paperwork.tsx).
+// A box ID used twice in the week is flagged on each customer it touches.
 
 import type { PackingBundle } from "@/components/offline/usePackingBundle";
 import {

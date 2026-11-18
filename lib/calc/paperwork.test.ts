@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { lineBoxWeights } from "./invoice";
 import {
+  boxEntryText,
   crossDockGroups,
   customerManifests,
   customersLine,
@@ -8,8 +9,10 @@ import {
   looseBoxWarnings,
   palletCountWarnings,
   manifestPages,
+  manifestRowLines,
   palletPoint,
   palletPointProblem,
+  shortBoxId,
   type PwBox,
   type PwDistributor,
   type PwPallet,
@@ -91,31 +94,98 @@ describe("the pallet paperwork (11/2/26)", () => {
     expect([p2.name, p2.n, p2.of]).toEqual(["Plymouth 2", 2, 3]);
   });
 
-  it("the manifest: one customer each, a row per box by product then box ID, a subtotal under 2 or more boxes", () => {
+  it("the manifest: one customer each, one row per product, its boxes by box ID, with count and total", () => {
     const [bv] = customerManifests([
       box("PCC #20 Bellevue", "Racks", 35.25, { boxId: "2630610044" }),
-      box("PCC #20 Bellevue", "Jalapeno Honey Pepper Sticks", 10, { boxId: "2628720009", lot: "092426" }),
+      box("PCC #20 Bellevue", "Sticks", 10, { boxId: "2628720009" }),
       box("PCC #20 Bellevue", "Racks", 14.7, { boxId: "2630610081" }),
       box("PCC #20 Bellevue", "Racks", 34.85, { boxId: "2630610049" }),
     ]);
-    expect(bv.rows.map((r) => (r.kind === "box" ? `${r.box.product} ${r.box.boxId}` : `SUB ${r.product} · ${r.boxes} boxes · ${lbWords(r.lb)}`))).toEqual([
-      "Jalapeno Honey Pepper Sticks 2628720009",
-      "Racks 2630610044",
-      "Racks 2630610049",
-      "Racks 2630610081",
-      "SUB Racks · 3 boxes · 84.80 lb",
+    expect(bv.rows.map((r) => [r.product, r.boxes, r.entries.map((e) => e.text), r.lb])).toEqual([
+      ["Racks", 3, ["610044 - 35.25", "610049 - 34.85", "610081 - 14.70"], 84.8],
+      ["Sticks", 1, ["720009 - 10.00"], 10],
     ]);
+    // The footer still counts boxes, not product rows.
     expect([bv.boxes, bv.lb]).toEqual([4, 94.8]);
   });
 
-  it("a long customer splits into pages, the last leaving room for the total, a subtotal kept with its boxes", () => {
-    const rows = customerManifests(Array.from({ length: 12 }, (_, i) => box("PCC #20 Bellevue", i < 6 ? "A" : "B", 1))).flatMap((c) => c.rows);
-    expect(rows).toHaveLength(14);
-    const pages = manifestPages(rows, 6, 4);
-    expect(pages.map((p) => p.length).reduce((a, b) => a + b, 0)).toBe(14);
-    expect(pages.at(-1)!.length).toBeLessThanOrEqual(4);
-    for (const p of pages.slice(1)) expect(p[0].kind).toBe("box");
-    expect(manifestPages(rows.slice(0, 3), 6, 4)).toHaveLength(1);
+  it("box entries: last 6 digits of a scanned ID, other IDs whole, no weight shows the ID alone", () => {
+    expect(shortBoxId("2631310167")).toBe("310167");
+    expect(shortBoxId("123456")).toBe("123456");
+    expect(shortBoxId("Label 38")).toBe("Label 38");
+    expect(shortBoxId("Case 1234567")).toBe("Case 1234567");
+    expect(shortBoxId("")).toBe("No label number");
+    expect(boxEntryText({ boxId: "No label number", lb: 32.6 })).toBe("No label number - 32.60");
+    expect(boxEntryText({ boxId: "2631310167", lb: null })).toBe("310167");
+  });
+
+  it("a product whose boxes have no weight has no total; one missing weight still totals the rest", () => {
+    const [c] = customerManifests([
+      box("Emerson", "Necks", null),
+      box("Emerson", "Racks", 12.5),
+      box("Emerson", "Racks", null),
+    ]);
+    expect(c.rows.map((r) => [r.product, r.boxes, r.lb])).toEqual([
+      ["Necks", 1, null],
+      ["Racks", 2, 12.5],
+    ]);
+  });
+
+  it("one lot for the customer goes in the header only", () => {
+    const [c] = customerManifests([box("Emerson", "Racks", 1, { lot: " 111326" }), box("Emerson", "Necks", 1, { lot: "111326" })]);
+    expect(c.lot).toBe("111326");
+    expect(c.rows.map((r) => r.lot)).toEqual(["", ""]);
+    expect(c.rows.flatMap((r) => r.entries.map((e) => e.lot))).toEqual(["", ""]);
+  });
+
+  it("more than one lot: on the product row when its boxes share it, else on each box", () => {
+    const [c] = customerManifests([
+      box("Emerson", "Necks", 1, { lot: "111326", boxId: "2631310001" }),
+      box("Emerson", "Necks", 1, { lot: "111326", boxId: "2631310002" }),
+      box("Emerson", "Racks", 1, { lot: "111326", boxId: "2631310003" }),
+      box("Emerson", "Racks", 1, { lot: "110926", boxId: "2631310004" }),
+    ]);
+    expect(c.lot).toBe("");
+    expect(c.rows.map((r) => [r.product, r.lot, r.entries.map((e) => e.lot)])).toEqual([
+      ["Necks", "111326", ["", ""]],
+      ["Racks", "", ["111326", "110926"]],
+    ]);
+  });
+
+  it("a box with no lot: nothing in the header, and the other boxes keep theirs", () => {
+    const [c] = customerManifests([
+      box("Emerson", "Necks", 1, { lot: "111326" }),
+      box("Emerson", "Racks", 1, { lot: "", boxId: "2631310003" }),
+      box("Emerson", "Racks", 1, { lot: "111326", boxId: "2631310004" }),
+    ]);
+    expect(c.lot).toBe("");
+    expect(c.rows.map((r) => [r.product, r.lot, r.entries.map((e) => e.lot)])).toEqual([
+      ["Necks", "111326", [""]],
+      ["Racks", "", ["", "111326"]],
+    ]);
+    const [none] = customerManifests([box("Key City", "Racks", 1, { lot: "" })]);
+    expect([none.lot, none.rows[0].lot, none.rows[0].entries[0].lot]).toEqual(["", "", ""]);
+  });
+
+  it("a row takes one line per 3 boxes, and more for a long product name", () => {
+    const row = (product: string, n: number, lot = "") => ({ product, lot, entries: Array.from({ length: n }, (_, i) => ({ id: String(i), text: "x", lot: "" })) });
+    expect([1, 3, 4, 6, 7].map((n) => manifestRowLines(row("Racks", n)))).toEqual([1, 1, 2, 2, 3]);
+    expect(manifestRowLines(row("Jalapeno Honey Pepper Sticks", 1))).toBe(2);
+    expect(manifestRowLines(row("Racks and Shanks", 1, "111326"))).toBe(2);
+  });
+
+  it("a long customer splits into pages by lines, the last leaving room for the total, no row split", () => {
+    // Products A to F, 4 boxes each: 2 lines a row, 12 lines in all.
+    const boxes = Array.from({ length: 24 }, (_, i) => box("PCC #20 Bellevue", "ABCDEF"[Math.floor(i / 4)], 1));
+    const [{ rows }] = customerManifests(boxes);
+    expect(rows).toHaveLength(6);
+    const pages = manifestPages(rows, 5, 4);
+    expect(pages.map((p) => p.map((r) => r.product).join(""))).toEqual(["AB", "CD", "EF"]);
+    expect(manifestPages(rows.slice(0, 2), 5, 4)).toHaveLength(1);
+    // Fits a full page but not the last one: the total goes on a page of its own.
+    expect(manifestPages(rows.slice(0, 2), 5, 3).map((p) => p.length)).toEqual([2, 0]);
+    // A row taller than a page still prints.
+    expect(manifestPages(rows.slice(0, 1), 1, 1).map((p) => p.length)).toEqual([1, 0]);
   });
 });
 

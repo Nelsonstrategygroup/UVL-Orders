@@ -6,10 +6,10 @@
 // - PalletLabel: Letter landscape for the outside of a pallet: the carrier
 //   "to" the distributor, the stores on it, "Pallet 1 of 3" and the cases,
 //   and the pallet numbered among all the distributor's pallets that week.
-// - CustomerPages: the manifest, one customer per page: a row per box by
-//   product, a shaded subtotal under any product with 2 or more boxes, the
-//   customer's total, Received by / Date. A long customer carries on to a
-//   second page with the header repeated ("page 2 of 2").
+// - CustomerPages: the manifest, one customer per page: a row per product
+//   with its boxes (shaded when there are 2 or more), the customer's total,
+//   Received by / Date. A long customer carries on to a second page with the
+//   header repeated ("page 2 of 2").
 // Counts and weights all come from the scanned box records. Warnings (a box
 // ID used twice, a box with no weight) never print: they're on screen only,
 // above the preview, and asked about before printing (components/PrintGuard).
@@ -174,7 +174,7 @@ export function PalletLabel({ row, group, ctx }: { row: CrossDockPallet; group: 
 // The manifest: a cover page per pallet, then one page per customer
 // ---------------------------------------------------------------------------
 
-/** Rows on a customer page: fixed heights (in), so a long customer splits into pages the app can number. */
+/** Lines on a customer page: fixed heights (in), so a long customer splits into pages the app can number. */
 export const CM = { rowH: 0.24, pageH: 10.2, head: 2.3, colHead: 0.3, pageOf: 0.25, foot: 1.35 } as const;
 
 /**
@@ -281,10 +281,6 @@ export function CustomerPages({
   return (
     <>
       {pages.map((rows, i) => {
-        // One lot on this page: once in the header, no Lot column (Lucas, 11/2/26).
-        const lots = new Set(rows.flatMap((r) => (r.kind === "box" ? [r.box.lot.trim()] : [])));
-        const oneLot = lots.size === 1 ? [...lots][0] : "";
-        const lotCol = !oneLot;
         return (
           <section key={i} className="pw-page cm" style={colorVars(point?.color ?? "#333333")}>
             <div className="cm-head">
@@ -311,9 +307,9 @@ export function CustomerPages({
               <span>
                 <b>Ship date</b> {longDate(shipDate ?? shipDay(ctx.week))}
               </span>
-              {oneLot && (
+              {cm.lot && (
                 <span>
-                  <b>Lot</b> {oneLot}
+                  <b>Lot</b> {cm.lot}
                 </span>
               )}
             </div>
@@ -341,32 +337,46 @@ export function CustomerPages({
             <table className="cm-table">
               <thead>
                 <tr>
-                  <th>Box ID</th>
-                  {lotCol && <th>Lot</th>}
-                  <th>Product</th>
-                  <th className="num">Net weight</th>
+                  <th className="cm-col-product">Product</th>
+                  <th className="cm-col-count">Boxes</th>
+                  <th className="cm-col-boxes">Box ID (last 6) - net weight</th>
+                  <th className="cm-col-lb num">Net weight</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) =>
-                  r.kind === "box" ? (
-                    <tr key={r.box.id} style={{ height: `${CM.rowH}in` }}>
-                      <td>{r.box.boxId}</td>
-                      {lotCol && <td>{r.box.lot}</td>}
-                      <td>{r.box.product}</td>
-                      <td className="num">{r.box.lb == null ? "" : lbWords(r.box.lb)}</td>
-                    </tr>
-                  ) : (
-                    // The product's subtotal: gray and small, lined up under its boxes; a thin rule above only.
-                    <tr key={`sub:${r.product}`} className="cm-sub" style={{ height: `${CM.rowH}in` }}>
-                      <td colSpan={lotCol ? 2 : 1} />
-                      <td>
-                        {r.product} · {r.boxes} boxes
-                      </td>
-                      <td className="num">{lbWords(r.lb)}</td>
-                    </tr>
-                  ),
-                )}
+                {rows.map((r) => (
+                  <tr key={r.product} className={r.boxes > 1 ? "cm-multi" : undefined} style={{ height: `${CM.rowH}in` }}>
+                    <td>
+                      {r.product}
+                      {r.lot && <span className="cm-lot"> · Lot {r.lot}</span>}
+                    </td>
+                    <td className="cm-count">{r.boxes}</td>
+                    <td>
+                      <div className={r.entries.some((e) => e.lot) ? "cm-boxes cm-boxes-lots" : "cm-boxes"}>
+                        {r.entries.map((e, n) => {
+                          const comma = n < r.entries.length - 1 ? "," : "";
+                          return (
+                            <span key={e.id}>
+                              <span className="cm-nowrap">
+                                {e.text}
+                                {!e.lot && comma}
+                              </span>
+                              {e.lot && (
+                                <>
+                                  {" "}
+                                  <span className="cm-nowrap cm-box-lot">
+                                    ({e.lot}){comma}
+                                  </span>
+                                </>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td className="cm-lb num">{r.lb == null ? "" : lbWords(r.lb)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
             {i === pages.length - 1 && (
