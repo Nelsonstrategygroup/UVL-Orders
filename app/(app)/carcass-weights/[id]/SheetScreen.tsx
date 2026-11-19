@@ -26,8 +26,10 @@ import {
   liveText,
   moneyText,
   parseCarcass,
+  parseFactor,
   parseRate,
   rateFor,
+  rateOriginText,
   rateText,
   REASON_LABEL,
   sheetPay,
@@ -54,6 +56,8 @@ import {
   setWeight,
   updateSheet,
   applySetupRates,
+  setSheetOverride,
+  weekIsClosed,
   type KillSheetPhoto,
 } from "@/lib/db/weighSheets";
 
@@ -266,7 +270,7 @@ function Grid({
 
 function PaySteps({ pay, sizes }: { pay: SheetPay; sizes: SizeClass[] }) {
   const s = pay.sheet;
-  const rateWord = s.rate_source === "producer" ? "this producer's own rate" : "base rate";
+  const rateWord = s.rate_source === "override" ? "override" : s.rate_source === "producer" ? "this producer's own rate" : "base rate";
   return (
     <section className="panel mt-3" aria-labelledby="ws-pay">
       <h3 id="ws-pay">Pay</h3>
@@ -614,9 +618,16 @@ function Details({
   const router = useRouter();
   const choices = setup.producers.filter((p) => p.active || p.id === sheet.producer_id);
   const setupNow = rateFor(setup.settings, setup.rates, sheet.producer_id, sheet.kill_date);
+  const isOverride = sheet.rate_source === "override";
   const differs =
+    !isOverride &&
     setupNow != null &&
     (Number(setupNow.rate) !== Number(sheet.base_rate) || Number(setupNow.factor) !== Number(sheet.live_factor));
+  const loadClosed = useCallback((d: SupabaseClient) => weekIsClosed(d, sheet.week_id), [sheet.week_id]);
+  const { data: closed } = useLive(`week-closed:${sheet.week_id}`, loadClosed, ["pnl_closed_weeks"]);
+  const [rate, setRate] = useState("");
+  const [factor, setFactor] = useState("");
+  const [reason, setReason] = useState("");
 
   const change = async (c: Partial<{ producer_id: string; kill_date: string; notes: string }>, ok: string) => {
     const err = await updateSheet(db, sheet.id, c);
@@ -625,9 +636,24 @@ function Details({
   };
   const takeSetupRates = async () => {
     if (!setupNow) return;
-    if (!confirm(`Use ${rateText(setupNow.rate)} per lb live and factor ${factorText(setupNow.factor)} on this sheet?`)) return;
+    if (!confirm(`Use the setting: ${rateText(setupNow.rate)} per lb live and factor ${factorText(setupNow.factor)} on this kill?`)) return;
     const err = await applySetupRates(db, sheet.id);
-    toast(err ? `Couldn't change it: ${err}` : "Rates updated from Setup");
+    toast(err ? `Couldn't change it: ${err}` : "This kill now uses the setting");
+    refresh();
+  };
+  const saveOverride = async () => {
+    const r = parseRate(rate);
+    const f = parseFactor(factor);
+    if (r == null) return toast("Type the rate like 3.00");
+    if (f == null) return toast("Type the factor like 2.02");
+    if (!reason.trim()) return toast("Type why this kill is different");
+    const err = await setSheetOverride(db, sheet.id, r, f, reason.trim());
+    toast(err ? `Couldn't save: ${err}` : "Override saved");
+    if (!err) {
+      setRate("");
+      setFactor("");
+      setReason("");
+    }
     refresh();
   };
   const remove = async () => {
@@ -642,17 +668,51 @@ function Details({
     <section className="panel mt-3" aria-labelledby="ws-details">
       <h3 id="ws-details">Sheet details</h3>
       <p className="mt-1">
-        Paid at <b className="num">{rateText(sheet.base_rate)}</b> per lb live (
-        {sheet.rate_source === "producer" ? "this producer's own rate" : "base rate"}), live weight factor{" "}
-        <b className="num">{factorText(sheet.live_factor)}</b>, stored on this sheet.
+        Paid at <b className="num">{rateText(sheet.base_rate)}</b> per lb live, live weight factor{" "}
+        <b className="num">{factorText(sheet.live_factor)}</b>
+        {isOverride ? <span className="tag short ml-1">Override</span> : <span className="muted"> · {rateOriginText(sheet, setup)}</span>}
       </p>
-      {differs && setupNow && (
+      {isOverride && (
         <p className="note small">
-          Setup now says {rateText(setupNow.rate)} and factor {factorText(setupNow.factor)} for {longDate(sheet.kill_date)}.{" "}
+          This kill has its own rate and factor: {sheet.override_reason}.
+          {!closed && setupNow && (
+            <button type="button" className="btn ghost ml-1" onClick={() => void takeSetupRates()}>
+              Go back to the setting
+            </button>
+          )}
+        </p>
+      )}
+      {closed && <p className="note small">This week is closed, so this kill keeps its rate and factor.</p>}
+      {!closed && differs && setupNow && (
+        <p className="note small">
+          The setting says {rateText(setupNow.rate)} and factor {factorText(setupNow.factor)} for {longDate(sheet.kill_date)}.{" "}
           <button type="button" className="btn ghost ml-1" onClick={() => void takeSetupRates()}>
-            Use today&apos;s Setup rates
+            Use the setting
           </button>
         </p>
+      )}
+      {!closed && !isOverride && (
+        <details className="mt-2">
+          <summary className="copy">Give this kill its own rate (special case)</summary>
+          <p className="small muted mt-1">Changes to the settings won&apos;t reach this kill while it has its own rate.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="grid gap-1">
+              <span className="lbl m-0">Rate ($ per lb live)</span>
+              <input className="field num w-28!" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} />
+            </label>
+            <label className="grid gap-1">
+              <span className="lbl m-0">Live weight factor</span>
+              <input className="field num w-28!" inputMode="decimal" value={factor} onChange={(e) => setFactor(e.target.value)} />
+            </label>
+            <label className="grid min-w-[12rem] flex-1 gap-1">
+              <span className="lbl m-0">Why</span>
+              <input className="field" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </label>
+            <button type="button" className="btn ghost" disabled={!rate.trim() || !factor.trim() || !reason.trim()} onClick={() => void saveOverride()}>
+              Save override
+            </button>
+          </div>
+        </details>
       )}
       <div className="mt-2 flex flex-wrap items-end gap-3">
         <label className="grid gap-1">

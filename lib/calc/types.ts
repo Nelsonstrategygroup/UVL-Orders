@@ -43,10 +43,12 @@ export type Product = {
   /**
    * Parts this product may be cut from, any of them (Mixed Shanks: front and
    * hind shank; 11/11/26). It uses none of them in the balance; it gets its
-   * own row against what those parts have left. Which is used first isn't
-   * decided (to confirm with Kathy).
+   * own row against what those parts have left, the first in this list first
+   * (front shanks, Kathy's rule, 11/18/26; changed in Setup > Products).
    */
   draws_from?: string[];
+  /** A box of this also counts toward that product (Front and Hind Shanks: Mixed Shanks; 11/18/26). */
+  fills_product_id?: string | null;
   /** Pieces in a pack (shanks: 2). */
   pieces_per_pack?: number | null;
 };

@@ -3,7 +3,8 @@
 // Setup > P&L Setup (SPEC 16; "Lamb cost" until stage 3): producers, the
 // base rate and live weight factor from a date on, a producer's own rate
 // from a date on, and (stage 3) the P&L charges and expense categories.
-// Admins only. A change applies from its date on; past weeks never change.
+// Admins only. A change reaches every kill it covers, entered or not, unless
+// the kill's week is closed; what changes is shown before saving (11/18/26).
 
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -16,9 +17,11 @@ import {
   parseFactor,
   parseRate,
   producerRateFor,
+  rateImpactLines,
   rateText,
   settingFor,
   type Producer,
+  type RateBook,
 } from "@/lib/calc/lambCost";
 import { niceDate, todayISO } from "@/lib/dates";
 import {
@@ -30,10 +33,31 @@ import {
   saveProducer,
   type LambCostSetup,
 } from "@/lib/db/lambCost";
+import { previewRateChange } from "@/lib/db/weighSheets";
 import PnlSetupCards from "./PnlSetup";
 
 /** "Oct 19, 2026" */
 const dateText = (d: string) => `${niceDate(d)}, ${d.slice(0, 4)}`;
+
+/**
+ * Before a rate or factor change saves: which kills it changes and by how
+ * much, and which stay because their week is closed. `plain` is asked when no
+ * kill is touched (a delete still checks). False: don't save.
+ */
+async function okToChange(db: SupabaseClient, data: LambCostSetup, next: RateBook, toast: (m: string) => void, plain?: string): Promise<boolean> {
+  try {
+    const name = (id: string) => data.producers.find((p) => p.id === id)?.name ?? "Unknown producer";
+    const lines = rateImpactLines(await previewRateChange(db, next), name);
+    if (!lines.length) return plain ? confirm(plain) : true;
+    return confirm(`${lines.join("\n")}\n\nSave this change?`);
+  } catch (e) {
+    toast(`Couldn't check the kills: ${e instanceof Error ? e.message : "try again"}`);
+    return false;
+  }
+}
+
+/** A row not saved yet, for working out what it would change. */
+const draftId = "draft";
 
 export default function LambCost() {
   const load = useCallback((d: SupabaseClient) => loadLambCostSetup(d), []);
@@ -54,7 +78,8 @@ export default function LambCost() {
     <>
       <p className="small muted mt-0">
         What UVL pays producers for lambs, and the charges and expense categories on the weekly P&amp;L. Only admins can see
-        this. A change applies from its start date on, so past weeks keep what they were.
+        this. A rate or factor applies to every kill from its start date on, including kills already entered, unless the
+        week is closed. You see what changes before it saves.
       </p>
       <Pricing data={data} after={after} />
       <Producers data={data} after={after} />
@@ -87,6 +112,8 @@ function Pricing({ data, after }: { data: LambCostSetup; after: After }) {
     if (r == null) return toast("Type the rate like 3.00");
     if (f == null) return toast("Type the factor like 2.02");
     if (!from) return toast("Pick the date it starts");
+    const draft = { id: draftId, effective_from: from, base_rate: r, live_factor: f, note };
+    if (!(await okToChange(db, data, { settings: [...data.settings, draft], rates: data.rates }, toast))) return;
     const ok = after(
       await addLambCostSetting(db, { from, baseRate: r, liveFactor: f, note }),
       `Saved: ${rateText(r)} per lb live, factor ${factorText(f)}, from ${niceDate(from)}`,
@@ -98,7 +125,8 @@ function Pricing({ data, after }: { data: LambCostSetup; after: After }) {
     }
   };
   const remove = async (id: string, label: string) => {
-    if (!confirm(`Delete the setting starting ${label}?`)) return;
+    const next = { settings: data.settings.filter((s) => s.id !== id), rates: data.rates };
+    if (!(await okToChange(db, data, next, toast, `Delete the setting starting ${label}?`))) return;
     after(await deleteLambCostSetting(db, id), "Deleted");
   };
 
@@ -317,6 +345,8 @@ function ProducerRates({ data, after }: { data: LambCostSetup; after: After }) {
     if (!producerId) return toast("Pick a producer");
     if (r == null) return toast("Type the rate like 3.25");
     if (!from) return toast("Pick the date it starts");
+    const draft = { id: draftId, producer_id: producerId, effective_from: from, rate: r, note };
+    if (!(await okToChange(db, data, { settings: data.settings, rates: [...data.rates, draft] }, toast))) return;
     const ok = after(
       await addProducerRate(db, { producerId, from, rate: r, note }),
       `Saved: ${nameOf(producerId)} ${rateText(r)} per lb live from ${niceDate(from)}`,
@@ -327,7 +357,8 @@ function ProducerRates({ data, after }: { data: LambCostSetup; after: After }) {
     }
   };
   const remove = async (id: string, label: string) => {
-    if (!confirm(`Delete ${label}?`)) return;
+    const next = { settings: data.settings, rates: data.rates.filter((r) => r.id !== id) };
+    if (!(await okToChange(db, data, next, toast, `Delete ${label}?`))) return;
     after(await deleteProducerRate(db, id), "Deleted");
   };
 

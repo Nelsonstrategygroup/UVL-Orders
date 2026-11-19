@@ -44,6 +44,7 @@ import { typedBoxPallet } from "@/lib/calc/routing";
 import { notAssignedBoxes, nothingToPackWords } from "@/lib/calc/notAssigned";
 import { notSavedScans } from "@/lib/calc/notSaved";
 import { MoveSheet, NotAssignedBanner, NotSavedBanner, sendBoxMove, type FoundBox } from "./MoveBox";
+import CorrectBoxSheet, { BoxLabelNote } from "./CorrectBox";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
   ["done", "Done"],
@@ -77,6 +78,8 @@ export default function PackingScreen() {
   const closeWeigh = useCallback(() => setWeighing(null), []);
   // A box from the Not assigned banner, being given its store and pallet.
   const [assigning, setAssigning] = useState<FoundBox | null>(null);
+  // A box whose product is being corrected by hand (11/18/26).
+  const [correcting, setCorrecting] = useState<PackWeight | null>(null);
 
   if (error)
     return (
@@ -208,6 +211,7 @@ export default function PackingScreen() {
                 onOpen={(pid) => setWeighing({ orderId: o.id, productId: pid })}
                 pallets={bundle.data?.pallets ?? []}
                 canPack={canPack}
+                onCorrect={setCorrecting}
                 onExtraOk={(w, ok) =>
                   void save(
                     enqueue({
@@ -260,6 +264,8 @@ export default function PackingScreen() {
         />
       )}
 
+      {correcting && <CorrectBoxSheet w={correcting} data={data} onClose={() => setCorrecting(null)} onSaved={bundle.refresh} />}
+
       {weighing && wOrder && wRow && (
         <WeighSheet
           order={wOrder}
@@ -267,6 +273,10 @@ export default function PackingScreen() {
           productId={weighing.productId}
           data={data}
           canPack={canPack}
+          onCorrect={(w) => {
+            closeWeigh();
+            setCorrecting(w);
+          }}
           onClose={closeWeigh}
           onAdd={async (weight) => {
             keep(wOrder.id);
@@ -321,6 +331,7 @@ function CustomerCard({
   pallets,
   canPack,
   onExtraOk,
+  onCorrect,
 }: {
   order: PackOrder;
   lines: [string, PackLine][];
@@ -332,6 +343,8 @@ function CustomerCard({
   canPack: boolean;
   /** Check a box not on the order as correct for the shipment, or undo that. */
   onExtraOk: (w: PackWeight, ok: boolean) => void;
+  /** Change a mislabeled box's product. */
+  onCorrect: (w: PackWeight) => void;
 }) {
   // One row per line; products packed in one box (Heart, Liver, Kidney) are one row (11/10/26).
   const rows = packRows(lines, (pid) => packedWith(pid, data.products), (pid) => data.products.get(pid)?.name ?? pid);
@@ -416,7 +429,13 @@ function CustomerCard({
                 <span className="flex-1">
                   {boxName(w.product_id, data.products)} · {fmt(w.weight)} lb
                   {w.serial ? <span className="small muted"> · {w.serial}</span> : null}
+                  <BoxLabelNote w={w} data={data} />
                 </span>
+                {canPack && !isLocal(w) && (
+                  <button type="button" className="copy min-h-[44px]" onClick={() => onCorrect(w)}>
+                    Change product
+                  </button>
+                )}
                 {w.extra_ok_at ? (
                   <>
                     <span className="small">
@@ -466,6 +485,7 @@ function WeighSheet({
   productId,
   data,
   canPack,
+  onCorrect,
   onClose,
   onAdd,
   onRemove,
@@ -476,6 +496,7 @@ function WeighSheet({
   productId: string;
   data: PackingData;
   canPack: boolean;
+  onCorrect: (w: PackWeight) => void;
   onClose: () => void;
   onAdd: (weight: number) => Promise<void>;
   onRemove: (id: string) => void;
@@ -547,10 +568,17 @@ function WeighSheet({
         {mine.length > 0 && (
           <ul className="m-0 mb-3 grid list-none gap-1 p-0">
             {mine.map((w) => (
-              <li key={w.id} className="flex items-center gap-3 border-b border-line py-1 text-[1.05rem]">
+              <li key={w.id} className="flex flex-wrap items-center gap-x-3 border-b border-line py-1 text-[1.05rem]">
                 <span className="num">{fmt(w.weight)} lb</span>
                 <span className="small muted">{slotOf(w.id) ? blankWords(row, slotOf(w.id)!) : "No box"}</span>
-                <span className="flex-1" />
+                <span className="min-w-0 flex-1">
+                  <BoxLabelNote w={w} data={data} />
+                </span>
+                {!isLocal(w) && (
+                  <button type="button" className="copy min-h-[44px]" onClick={() => onCorrect(w)}>
+                    Change product
+                  </button>
+                )}
                 <button type="button" className="copy min-h-[44px]" onClick={() => onRemove(w.id)}>
                   Remove
                 </button>

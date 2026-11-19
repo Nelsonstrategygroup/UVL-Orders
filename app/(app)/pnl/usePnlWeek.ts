@@ -12,7 +12,7 @@ import { useStaffData } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
 import { useWeekData } from "@/components/data/useWeekData";
 import { displayName } from "@/lib/calc/customers";
-import { sheetPay, weekPay } from "@/lib/calc/lambCost";
+import { sheetPay, weekPay, type WeekPay } from "@/lib/calc/lambCost";
 import { groupLead } from "@/lib/calc/packTogether";
 import { invoiceIncome, weekPnl, type ExpenseCategory } from "@/lib/calc/pnl";
 import { pnlChecks, pnlDetails } from "@/lib/calc/pnlDetail";
@@ -123,6 +123,8 @@ export function usePnlWeek(week: string) {
       details: s.details,
       checks: s.checks,
       producerName: (id: string) => s.producerNames[id] ?? "Unknown producer",
+      // What if: a closed week is as saved, so only the pay difference moves its profit.
+      profitWith: (other: WeekPay) => (s.p.profit == null ? null : s.p.profit - (other.cents - s.pay.cents)),
       refresh: refreshAll,
       status,
       snapshot: null,
@@ -148,9 +150,9 @@ export function usePnlWeek(week: string) {
     freight: data.freight,
     boxes: data.boxes,
   });
-  const p = weekPnl({
+  const pnlFor = (forPay: WeekPay) => weekPnl({
     week,
-    pay,
+    pay: forPay,
     income: data.income,
     expenses: data.expenses,
     categories: setup.categories,
@@ -166,6 +168,7 @@ export function usePnlWeek(week: string) {
     },
     lbShipped: data.boxes.reduce((s, b) => s + Number(b.weight), 0).toFixed(2),
   });
+  const p = pnlFor(pay);
   const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";
   const details = pnlDetails({
     week,
@@ -209,7 +212,8 @@ export function usePnlWeek(week: string) {
       checks,
       producerNames: Object.fromEntries(pay.producers.map((r) => [r.producerId, producerName(r.producerId)])),
     } satisfies Snapshot);
-  return { ready: true, data, setup, pays, pay, ii, p, details, checks, producerName, refresh: refreshAll, status, snapshot } as const;
+  const profitWith = (other: WeekPay) => pnlFor(other).profit;
+  return { ready: true, data, setup, pays, pay, ii, p, details, checks, producerName, profitWith, refresh: refreshAll, status, snapshot } as const;
 }
 
 type Loaded = Awaited<ReturnType<typeof loadWeek>>;

@@ -16,7 +16,7 @@ import { clearEarlierBoxes, resolveRefusedScans, type EarlierBox } from "@/lib/d
 import { weekName } from "@/lib/dates";
 import { orderedWords } from "@/lib/calc/packing";
 import { blankWords, type SheetLabel } from "@/lib/calc/packSheet";
-import { boxName, onOrderAs } from "@/lib/calc/packTogether";
+import { boxLabelProduct, boxName, onOrderAs } from "@/lib/calc/packTogether";
 import {
   byStoreNumber,
   needFor,
@@ -412,10 +412,13 @@ export async function sendBoxMove(
   const order = to.orderId ? data.packing.orders.find((o) => o.id === to.orderId) : undefined;
   // Its box and label number at the new store; the same ones when only the pallet changes.
   const sameStore = (to.orderId ?? null) === (b.orderId ?? null);
+  // A shank box counts as Mixed Shanks at a store that ordered those (11/18/26).
+  const label = boxLabelProduct(w);
+  const countsAs = order ? (w.correction_reason ? w.product_id : (onOrderAs(label, order.lines, data.packing.products) ?? label)) : label;
   const slot = order
     ? sameStore
       ? { slot: w.slot, label_no: w.label_no }
-      : boxFor(order, w.product_id, data.packing, labels, new Set())
+      : boxFor(order, countsAs, data.packing, labels, new Set())
     : { slot: null, label_no: null };
   if (to.palletId && data.pallets.find((x) => x.id === to.palletId)?.status === "planned")
     await enqueue({ type: "pallet-status", id: to.palletId, status: "open" });
@@ -428,7 +431,7 @@ export async function sendBoxMove(
     pallet_id: order ? to.palletId : null,
     slot: slot.slot ?? null,
     label_no: slot.label_no ?? null,
-    off_order: !!order && !onOrderAs(w.product_id, order.lines, data.packing.products),
+    off_order: !!order && !onOrderAs(countsAs, order.lines, data.packing.products),
     ...(b.earlier ? { box: w } : {}),
     via: !order
       ? `unassigned (${from}), tapped ${new Date().toISOString()}`

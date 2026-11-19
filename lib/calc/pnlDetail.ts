@@ -12,6 +12,7 @@ import {
   fixedRounded,
   liveText,
   moneyText,
+  killMathText,
   producerRateFor,
   rateText,
   REASON_LABEL,
@@ -233,6 +234,7 @@ function incomeDetail(x: DetailInput): LineDetail {
 function rateOrigin(x: DetailInput, s: SheetPay["sheet"]): string {
   const rate = rateText(s.base_rate);
   const factor = factorText(s.live_factor);
+  if (s.rate_source === "override") return `Rate ${rate} per live lb × ${factor}: an override on this kill (${s.override_reason ?? "no reason given"}).`;
   const set = settingFor(x.settings, s.kill_date);
   const own = s.rate_source === "producer" ? producerRateFor(x.rates, s.producer_id, s.kill_date) : null;
   const from = own ? `${x.producerName(s.producer_id)}'s own rate in Setup from ${short(own.effective_from)}` : set ? `Setup from ${short(set.effective_from)}` : "";
@@ -258,6 +260,7 @@ function sheetItems(x: DetailInput): DetailItem[] {
       amount: centsText(sp.cents),
       links: [{ label: "Carcass weights and photo", href: `/carcass-weights/${s.id}` }],
       math: [
+        killMathText(sp, { settings: x.settings, rates: x.rates }),
         `${plural(sp.count, "lamb", "lambs")} · ${carcassText(sp.carcass)} carcass lb`,
         `× ${factorText(s.live_factor)} live factor = ${liveText(sp.live)} live lb`,
         `× ${rateText(s.base_rate)} per live lb = ${moneyText(sp.base)}`,

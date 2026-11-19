@@ -52,7 +52,7 @@ import {
   type RoutePallet,
 } from "@/lib/calc/routing";
 import { isLocal } from "@/lib/offline/outbox";
-import { boxName, onOrderAs } from "@/lib/calc/packTogether";
+import { boxName, onOrderAs, productsOnOrder } from "@/lib/calc/packTogether";
 import { notAssignedBoxes } from "@/lib/calc/notAssigned";
 import { planBoxes, type BoxSetup } from "@/lib/calc/boxes";
 import {
@@ -237,7 +237,8 @@ export default function ScanScreen() {
           `${b.customer ?? "unassigned boxes"}, packing ${weekName(b.week)}`,
         ]),
       ),
-      onOrder: locked ? new Set(Object.keys(locked.lines)) : null,
+      // Includes a Front Shanks box for a store that ordered Mixed Shanks (11/18/26).
+      onOrder: locked ? productsOnOrder(locked.lines, data.packing.products) : null,
       products: data.packing.products,
     };
   };
@@ -328,9 +329,11 @@ export default function ScanScreen() {
         // Its first box: a planned pallet is now open.
         await enqueue({ type: "pallet-status", id: pallet.id, status: "open" });
       }
+      // The row it goes in: a Front Shanks box for a store that ordered Mixed Shanks counts there (11/18/26).
+      const countsAs = onOrderAs(base.productId, order.lines, data.packing.products) ?? base.productId;
       const box = boxFor(
         order,
-        base.productId,
+        countsAs,
         data.packing,
         labels,
         filledHere.current,
@@ -360,7 +363,7 @@ export default function ScanScreen() {
       );
       if (base.serialKey)
         savedHere.current.set(base.serialKey, order.customerName);
-      filledHere.current.add(`${order.id}|${base.productId}|${box.slot}`);
+      filledHere.current.add(`${order.id}|${countsAs}|${box.slot}`);
     } catch {
       return show({
         ok: false,

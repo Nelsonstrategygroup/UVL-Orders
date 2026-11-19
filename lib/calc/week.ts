@@ -66,7 +66,7 @@ export type PartRow = {
  * hind shanks; Chris, 11/11/26: its orders weren't counted against the shanks
  * and the week came up short). It takes what those parts have left over
  * after their own orders, in the order of `draws_from`: Mixed Shanks use
- * hind shanks first, then front (Lucas, 11/12/26, to start with). What it
+ * front shanks first, then hind (Lucas, 11/18/26; set in Setup). What it
  * takes is added to those parts' rows (need and left over); what they can't
  * give is its own shortfall, on its own row. It never sets the lamb count.
  */
@@ -316,7 +316,7 @@ export function calcWeek(input: {
   }
 
   // Products drawn from more than one part (Mixed Shanks): they take what
-  // those parts have left over, in draws_from order (hind first, then front),
+  // those parts have left over, in draws_from order (set in Setup > Products),
   // and that's added to those rows. What's left uncovered is their own
   // shortfall, on their own row. They never set the lamb count.
   const shared: SharedRow[] = [];

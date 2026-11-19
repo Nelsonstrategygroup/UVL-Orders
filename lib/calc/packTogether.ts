@@ -4,7 +4,13 @@
 // (Setup > Products, "Packed in one box with"). Billed as one invoice line
 // under the group's first product, by weight, at one price.
 
-export type TogetherProduct = { id: string; sort: number; packed_with?: string | null };
+export type TogetherProduct = {
+  id: string;
+  sort: number;
+  packed_with?: string | null;
+  /** A box of this also counts toward that product (Front and Hind Shanks: Mixed Shanks; 11/18/26). */
+  fills_product_id?: string | null;
+};
 
 const groupName = (p: TogetherProduct | undefined) => (p?.packed_with ?? "").trim();
 
@@ -28,11 +34,30 @@ export const isTogether = <P extends TogetherProduct>(productId: string, product
 export const groupLead = <P extends TogetherProduct>(productId: string, products: Map<string, P> | P[]) =>
   packedWith(productId, products)[0];
 
-/** On this order: the product itself, or another packed in the same box. Returns which one, or null. */
+/**
+ * On this order: the product itself, another packed in the same box, or the
+ * product its boxes count toward (a Front Shanks box on an order for Mixed
+ * Shanks; Kathy's rule, 11/18/26). Returns which one, or null. When a store
+ * has both lines the database decides once the product's own line is filled.
+ */
 export function onOrderAs<P extends TogetherProduct>(productId: string, lines: Record<string, number>, products: Map<string, P> | P[]): string | null {
   if ((lines[productId] ?? 0) > 0) return productId;
-  return packedWith(productId, products).find((id) => (lines[id] ?? 0) > 0) ?? null;
+  const inBox = packedWith(productId, products).find((id) => (lines[id] ?? 0) > 0);
+  if (inBox) return inBox;
+  const list = Array.isArray(products) ? products : [...products.values()];
+  const fills = list.find((p) => p.id === productId)?.fills_product_id;
+  return fills && (lines[fills] ?? 0) > 0 ? fills : null;
 }
+
+/** Every product a box of which belongs on this order. */
+export function productsOnOrder<P extends TogetherProduct>(lines: Record<string, number>, products: Map<string, P> | P[]): Set<string> {
+  const list = Array.isArray(products) ? products : [...products.values()];
+  return new Set([...Object.keys(lines).filter((id) => (lines[id] ?? 0) > 0), ...list.filter((p) => onOrderAs(p.id, lines, list)).map((p) => p.id)]);
+}
+
+/** The product a box goes back to when it changes store: what its label says, unless someone corrected it by hand. */
+export const boxLabelProduct = (w: { product_id: string; label_product_id?: string | null; correction_reason?: string | null }): string =>
+  w.correction_reason ? w.product_id : (w.label_product_id ?? w.product_id);
 
 /** The group's own name from Setup ("HLK"), for places with no room for the products; "" when packed on its own. */
 export const groupShort = <P extends TogetherProduct>(productId: string, products: Map<string, P> | P[]): string => {

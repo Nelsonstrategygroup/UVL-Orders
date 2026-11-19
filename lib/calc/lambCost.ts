@@ -3,6 +3,7 @@
 // producer's own rate from a date on. A kill date uses the newest of each
 // dated on or before it. Values stay decimal strings, never floats.
 
+import { niceDate } from "../dates";
 import { centsText, parsePrice, toFixedInt } from "./prices";
 
 /** Base $ per lb live and the live weight factor, from a date on. */
@@ -113,7 +114,11 @@ const MONEY = 10; // money decimals before rounding
 const TEN = (p: number) => BigInt(10) ** BigInt(p);
 const ZERO = BigInt(0);
 
-/** A sheet as stored: the rate and factor were copied onto it when it was made. */
+/**
+ * A sheet as stored. The rate and factor follow the dated settings while its
+ * week is open (the database keeps them up to date); a closed week keeps its
+ * numbers; an override is the sheet's own, with a reason (11/18/26).
+ */
 export type KillSheet = {
   id: string;
   producer_id: string;
@@ -121,8 +126,9 @@ export type KillSheet = {
   week_id: string;
   base_rate: string | number;
   live_factor: string | number;
-  rate_source: "base" | "producer";
+  rate_source: "base" | "producer" | "override";
   notes: string;
+  override_reason?: string | null;
 };
 
 export type KillLamb = { id: string; sheet_id: string; position: number; carcass_lb: string | number };
@@ -291,6 +297,88 @@ export function liveText(v: bigint): string {
 
 /** Whole cents as "$1,234.56". */
 export { centsText };
+
+// ----- Where a kill's rate comes from, and what changing it does (11/18/26) -----
+
+/** The dated settings and producer rates. */
+export type RateBook = { settings: LambCostSetting[]; rates: ProducerRate[] };
+
+const sameNumber = (a: string | number, b: string | number) => toFixedInt(a, 4) === toFixedInt(b, 4);
+
+/** The sheet with another rate and factor (nothing is saved). */
+export const withRates = (sheet: KillSheet, r: { rate?: string | number; factor?: string | number }): KillSheet => ({
+  ...sheet,
+  base_rate: r.rate ?? sheet.base_rate,
+  live_factor: r.factor ?? sheet.live_factor,
+});
+
+/** A sheet's pay worked out again at another rate and factor, same weights and adjustments. */
+export function repay(sp: SheetPay, r: { rate?: string | number; factor?: string | number }): SheetPay {
+  return sheetPay(
+    withRates(sp.sheet, r),
+    sp.lambs.map((l) => l.lamb),
+    [...sp.lambs.flatMap((l) => l.adjustments.map((a) => a.adj)), ...sp.sheetAdjustments.map((a) => a.adj)],
+  );
+}
+
+/** "setting from Nov 1", "own rate from Nov 1", or "override: premium lot". */
+export function rateOriginText(sheet: KillSheet, book: RateBook): string {
+  if (sheet.rate_source === "override") return `override: ${sheet.override_reason ?? ""}`.trim();
+  const used = rateFor(book.settings, book.rates, sheet.producer_id, sheet.kill_date);
+  const set = settingFor(book.settings, sheet.kill_date);
+  if (!used || !set || !sameNumber(used.rate, sheet.base_rate) || !sameNumber(used.factor, sheet.live_factor)) return "kept from before; the setting now differs";
+  const own = used.source === "override" ? producerRateFor(book.rates, sheet.producer_id, sheet.kill_date) : null;
+  return own ? `own rate from ${niceDate(own.effective_from)}` : `setting from ${niceDate(set.effective_from)}`;
+}
+
+/** "7,185 lb × 2.00 × $3.00 = $43,110.00, setting from Nov 1". Before adjustments. */
+export function killMathText(sp: SheetPay, book: RateBook): string {
+  const lb = carcassText(sp.carcass).replace(/\.00$/, "");
+  return `${lb} lb × ${rateText(sp.sheet.live_factor).slice(1)} × ${rateText(sp.sheet.base_rate)} = ${moneyText(sp.base)}, ${rateOriginText(sp.sheet, book)}`;
+}
+
+/** Sheets whose rate or factor would change under these settings (overrides never do), and any no setting would cover. */
+export function sheetsToChange(sheets: KillSheet[], next: RateBook): { sheet: KillSheet; rate: string; factor: string }[] {
+  return sheets.flatMap((sheet) => {
+    if (sheet.rate_source === "override") return [];
+    const r = rateFor(next.settings, next.rates, sheet.producer_id, sheet.kill_date);
+    if (!r || (sameNumber(r.rate, sheet.base_rate) && sameNumber(r.factor, sheet.live_factor))) return [];
+    return [{ sheet, rate: r.rate, factor: r.factor }];
+  });
+}
+
+export type KillChange = { sheet: KillSheet; before: bigint; after: bigint };
+export type RateImpact = { changes: KillChange[]; closed: KillChange[] };
+
+/** What a change to the settings does to existing kills, in cents. Kills in closed weeks are listed apart: they stay. */
+export function rateChangeImpact(
+  sheets: KillSheet[],
+  lambs: KillLamb[],
+  adjustments: KillAdjustment[],
+  next: RateBook,
+  closedWeeks: Set<string>,
+): RateImpact {
+  const out: RateImpact = { changes: [], closed: [] };
+  for (const c of sheetsToChange(sheets, next)) {
+    const row: KillChange = {
+      sheet: c.sheet,
+      before: sheetPay(c.sheet, lambs, adjustments).cents,
+      after: sheetPay(withRates(c.sheet, c), lambs, adjustments).cents,
+    };
+    (closedWeeks.has(c.sheet.week_id) ? out.closed : out.changes).push(row);
+  }
+  return out;
+}
+
+/** The words shown before saving; empty when no kill is touched. */
+export function rateImpactLines(i: RateImpact, producerName: (id: string) => string): string[] {
+  const row = (c: KillChange) => `${producerName(c.sheet.producer_id)}, ${niceDate(c.sheet.kill_date)}: ${centsText(c.before)} → ${centsText(c.after)}`;
+  const n = i.changes.length;
+  return [
+    ...(n ? [`This changes ${n} kill${n === 1 ? "" : "s"}:`, ...i.changes.map(row)] : []),
+    ...(i.closed.length ? [`${n ? "\n" : ""}In closed weeks, so these stay as they are:`, ...i.closed.map(row)] : []),
+  ];
+}
 
 // ----- Sizes -----
 
