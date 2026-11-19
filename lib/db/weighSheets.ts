@@ -5,7 +5,7 @@
 // and lambs). Nothing else in the app reads these tables.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AdjustmentKind, AdjustmentReason, KillAdjustment, KillLamb, KillSheet } from "../calc/lambCost";
+import { rateChangeImpact, sheetsToChange, type AdjustmentKind, type AdjustmentReason, type KillAdjustment, type KillLamb, type KillSheet, type RateBook, type RateImpact } from "../calc/lambCost";
 import { withSource } from "./source";
 
 export type KillSheetPhoto = { id: string; sheet_id: string; path: string; created_at: string };
@@ -17,7 +17,7 @@ export type SheetData = {
   photos: KillSheetPhoto[];
 };
 
-const SHEET_COLS = "id, producer_id, kill_date, week_id, base_rate, live_factor, rate_source, notes";
+const SHEET_COLS = "id, producer_id, kill_date, week_id, base_rate, live_factor, rate_source, notes, override_reason";
 const SRC = "carcass weights sheet";
 
 /** Database errors in plain words. */
@@ -67,7 +67,7 @@ export async function loadSheet(db: SupabaseClient, id: string): Promise<SheetDa
   return { sheets: [data as KillSheet], ...(await rowsFor(db, [id])) };
 }
 
-/** A new sheet; the database stores the rate and factor for its kill date. Returns its id. */
+/** A new sheet; the database gives it the rate and factor for its kill date. Returns its id. */
 export async function createSheet(db: SupabaseClient, producerId: string, killDate: string): Promise<{ id?: string; error: string | null }> {
   const { data, error } = await withSource(
     db.from("kill_sheets").insert({ producer_id: producerId, kill_date: killDate }).select("id").single(),
@@ -86,10 +86,52 @@ export async function updateSheet(
   return plain(error);
 }
 
-/** Take the rates again from Setup for the sheet's kill date. Logged. */
+/** Go back to the setting for the sheet's kill date (also ends an override). Logged. */
 export async function applySetupRates(db: SupabaseClient, id: string): Promise<string | null> {
   const { error } = await db.rpc("use_setup_rates", { p_sheet: id });
   return plain(error);
+}
+
+/** This kill's own rate and factor, with the reason. Logged. */
+export async function setSheetOverride(db: SupabaseClient, id: string, rate: string, factor: string, reason: string): Promise<string | null> {
+  const { error } = await db.rpc("set_sheet_override", { p_sheet: id, p_rate: rate, p_factor: factor, p_reason: reason });
+  if (error?.code === "55000") return "This week is closed.";
+  return plain(error);
+}
+
+/** What a change to the settings would do to the kills already entered. Saves nothing. */
+export async function previewRateChange(db: SupabaseClient, next: RateBook): Promise<RateImpact> {
+  const [s, c] = await Promise.all([db.from("kill_sheets").select(SHEET_COLS), db.from("pnl_closed_weeks").select("week_id")]);
+  const err = s.error ?? c.error;
+  if (err) throw new Error(err.message);
+  const sheets = (s.data ?? []) as KillSheet[];
+  const hit = sheetsToChange(sheets, next).map((x) => x.sheet);
+  // A sheet at a time: a query returns at most 1,000 rows.
+  const rows = await Promise.all(
+    hit.map(async (x) => {
+      const [l, a] = await Promise.all([
+        db.from("kill_lambs").select("id, sheet_id, position, carcass_lb").eq("sheet_id", x.id),
+        db.from("kill_adjustments").select("id, sheet_id, lamb_id, kind, amount, reason, note").eq("sheet_id", x.id),
+      ]);
+      const e = l.error ?? a.error;
+      if (e) throw new Error(e.message);
+      return { lambs: (l.data ?? []) as KillLamb[], adjustments: (a.data ?? []) as KillAdjustment[] };
+    }),
+  );
+  return rateChangeImpact(
+    hit,
+    rows.flatMap((r) => r.lambs),
+    rows.flatMap((r) => r.adjustments),
+    next,
+    new Set(((c.data ?? []) as { week_id: string }[]).map((w) => w.week_id)),
+  );
+}
+
+/** Whether a week is closed on the Weekly P&L. */
+export async function weekIsClosed(db: SupabaseClient, week: string): Promise<boolean> {
+  const { data, error } = await db.rpc("week_is_closed", { p_week: week });
+  if (error) throw new Error(error.message);
+  return !!data;
 }
 
 /** Delete a sheet with its weights, adjustments and photos (files first). Everything is in the audit log. */

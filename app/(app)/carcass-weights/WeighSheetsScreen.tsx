@@ -20,7 +20,10 @@ import {
   averageLbText,
   carcassText,
   centsText,
+  factorText,
   liveText,
+  rateOriginText,
+  rateText,
   sheetPay,
   sizeCounts,
   weekPay,
@@ -30,6 +33,7 @@ import { longDate, weekDays } from "@/lib/dates";
 import { loadLambCostSetup } from "@/lib/db/lambCost";
 import { createSheet, loadWeekSheets } from "@/lib/db/weighSheets";
 import { weekCalc } from "@/lib/weekCalc";
+import WhatIf from "./WhatIf";
 
 const TABLES = ["kill_sheets", "kill_lambs", "kill_adjustments", "kill_sheet_photos", "producers"];
 
@@ -88,6 +92,7 @@ export default function WeighSheetsScreen() {
                 <th>Kill date</th>
                 <th className="text-right">Lambs</th>
                 <th className="text-right">Carcass lb</th>
+                <th>Factor × rate</th>
                 <th className="text-right">Pay</th>
                 <th>
                   <span className="sr-only">Open</span>
@@ -103,6 +108,13 @@ export default function WeighSheetsScreen() {
                   <td className="whitespace-nowrap">{longDate(p.sheet.kill_date)}</td>
                   <td className="num text-right">{p.count}</td>
                   <td className="num text-right">{carcassText(p.carcass)}</td>
+                  <td>
+                    <span className="num whitespace-nowrap">
+                      {factorText(p.sheet.live_factor)} × {rateText(p.sheet.base_rate)}
+                    </span>
+                    {p.sheet.rate_source === "override" && <span className="tag short ml-1">Override</span>}
+                    <span className="small muted block">{rateOriginText(p.sheet, setup)}</span>
+                  </td>
                   <td className="num text-right">{centsText(p.cents)}</td>
                   <td className="text-right">
                     <Link className="btn ghost" href={`/carcass-weights/${p.sheet.id}`}>
@@ -163,6 +175,8 @@ export default function WeighSheetsScreen() {
           </p>
         </section>
       )}
+
+      {data.sheets.length > 0 && <WhatIf week={week} />}
 
       {total.head > 0 && (
         <section className="panel mt-3" aria-labelledby="ws-sizes">

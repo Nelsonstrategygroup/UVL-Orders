@@ -39,13 +39,13 @@ select is((select base_rate::text || ' ' || rate_source from public.kill_sheets 
 select is((select week_id::text from public.kill_sheets where id = '00000000-0000-4000-8000-00000000d0c2'), '2026-11-09',
   'a Wednesday kill belongs to that week''s Monday');
 
--- A later Setup change never alters a sheet; "Use today's Setup rates" does, on purpose.
+-- A setting covering the kill date reaches the sheet (11/18/26; producer_pay_settings.test.sql has the rest).
 insert into public.lamb_cost_settings (effective_from, base_rate, live_factor) values ('2026-10-15', 3.10, 2.05);
-select is((select base_rate::text from public.kill_sheets where id = '00000000-0000-4000-8000-00000000d0c1'), '3.0000',
-  'a setting added later doesn''t change the sheet');
+select is((select base_rate::text from public.kill_sheets where id = '00000000-0000-4000-8000-00000000d0c1'), '3.1000',
+  'a setting covering the kill date reaches the sheet');
 select lives_ok($$ update public.kill_sheets set notes = 'checked' where id = '00000000-0000-4000-8000-00000000d0c1' $$, 'a note can be added');
-select is((select base_rate::text from public.kill_sheets where id = '00000000-0000-4000-8000-00000000d0c1'), '3.0000',
-  'changing the note keeps the stored rate');
+select is((select base_rate::text from public.kill_sheets where id = '00000000-0000-4000-8000-00000000d0c1'), '3.1000',
+  'changing the note keeps the rate');
 select lives_ok($$ select public.use_setup_rates('00000000-0000-4000-8000-00000000d0c1') $$, 'use today''s Setup rates');
 select is((select base_rate::text || ' ' || live_factor::text from public.kill_sheets where id = '00000000-0000-4000-8000-00000000d0c1'),
   '3.1000 2.0500', 'the sheet now has the Setup rates for its date');

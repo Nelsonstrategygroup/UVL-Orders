@@ -126,6 +126,7 @@ describe("P&L line detail", () => {
     expect(s.label).toBe("Eric Freepons · kill Friday, Nov 13");
     expect(s.amount).toBe("$756.44");
     expect(s.math).toEqual([
+      "124 lb × 2.02 × $3.00 = $751.44, setting from Oct 1",
       "2 lambs · 124.00 carcass lb",
       "× 2.02 live factor = 250.48 live lb",
       "× $3.00 per live lb = $751.44",

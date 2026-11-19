@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  killMathText,
+  rateChangeImpact,
+  rateImpactLines,
+  rateOriginText,
+  repay,
+  type RateBook,
   averageLbText,
   carcassText,
   centsText,
@@ -266,5 +272,58 @@ describe("typing and showing values", () => {
   });
   it("lists newest first", () => {
     expect(newestFirst(settings).map((s) => s.id)).toEqual(["s2", "s1"]);
+  });
+});
+
+describe("pay follows the dated settings (11/18/26)", () => {
+  const setting = (id: string, from: string, factor: string): LambCostSetting => ({ id, effective_from: from, base_rate: "3", live_factor: factor, note: "" });
+  const kill = (id: string, date: string, week: string, extra: Partial<KillSheet> = {}): KillSheet => ({
+    id,
+    producer_id: "eric",
+    kill_date: date,
+    week_id: week,
+    base_rate: "3",
+    live_factor: "2.02",
+    rate_source: "base",
+    notes: "",
+    ...extra,
+  });
+  const lb = (sheet: string, n: string): KillLamb => ({ id: `${sheet}-l`, sheet_id: sheet, position: 1, carcass_lb: n });
+  const now: RateBook = { settings: [setting("a", "2026-10-01", "2.02")], rates: [] };
+  const next: RateBook = { settings: [...now.settings, setting("b", "2026-11-01", "2")], rates: [] };
+  const sheets = [kill("oct", "2026-10-23", "2026-10-26"), kill("nov6", "2026-11-06", "2026-11-09"), kill("nov13", "2026-11-13", "2026-11-16")];
+  const lambs = [lb("oct", "400"), lb("nov6", "470.5"), lb("nov13", "450")];
+  const name = () => "Eric Freepons";
+
+  it("lists the kills a new setting changes, old pay to new", () => {
+    const i = rateChangeImpact(sheets, lambs, [], next, new Set());
+    expect(i.changes.map((c) => c.sheet.id)).toEqual(["nov6", "nov13"]);
+    expect(rateImpactLines(i, name)).toEqual(["This changes 2 kills:", "Eric Freepons, Nov 6: $2,851.23 → $2,823.00", "Eric Freepons, Nov 13: $2,727.00 → $2,700.00"]);
+  });
+  it("kills in closed weeks are listed apart and stay", () => {
+    const i = rateChangeImpact(sheets, lambs, [], next, new Set(["2026-11-09"]));
+    expect(i.changes.map((c) => c.sheet.id)).toEqual(["nov13"]);
+    expect(i.closed.map((c) => c.sheet.id)).toEqual(["nov6"]);
+    expect(rateImpactLines(i, name)[2]).toBe("\nIn closed weeks, so these stay as they are:");
+  });
+  it("an override never changes, and nothing to say when nothing changes", () => {
+    const over = [kill("nov13", "2026-11-13", "2026-11-16", { rate_source: "override", override_reason: "Premium" })];
+    expect(rateImpactLines(rateChangeImpact(over, lambs, [], next, new Set()), name)).toEqual([]);
+  });
+  it("says where the rate came from, and shows the math", () => {
+    const s = kill("nov13", "2026-11-13", "2026-11-16", { live_factor: "2" });
+    const pay = sheetPay(s, [lb("nov13", "7185")].map((l) => ({ ...l, carcass_lb: "99.99" })), []);
+    expect(rateOriginText(s, next)).toBe("setting from Nov 1");
+    expect(rateOriginText(kill("x", "2026-11-13", "2026-11-16"), next)).toBe("kept from before; the setting now differs");
+    expect(rateOriginText(kill("x", "2026-11-13", "2026-11-16", { rate_source: "override", override_reason: "Premium" }), next)).toBe("override: Premium");
+    expect(killMathText(pay, next)).toBe("99.99 lb × 2.00 × $3.00 = $599.94, setting from Nov 1");
+  });
+  it("what if: the same weights at another factor, nothing else changes", () => {
+    const pay = sheetPay(kill("nov13", "2026-11-13", "2026-11-16"), [lb("nov13", "450")], [
+      { id: "a", sheet_id: "nov13", lamb_id: null, kind: "dollars", amount: "10", reason: "premium", note: "" },
+    ]);
+    expect(centsText(pay.cents)).toBe("$2,737.00");
+    expect(centsText(repay(pay, { factor: "2" }).cents)).toBe("$2,710.00");
+    expect(centsText(repay(pay, { rate: "3.10" }).cents)).toBe("$2,827.90");
   });
 });

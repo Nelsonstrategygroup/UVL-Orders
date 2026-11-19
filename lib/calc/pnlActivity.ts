@@ -161,6 +161,7 @@ function spec(table: string, n: Names): FieldSpec[] {
         ["kill_date", "Kill date", date],
         ["base_rate", "Rate per live lb", (v) => rateText(s(v))],
         ["live_factor", "Live factor", (v) => factorText(s(v))],
+        ["override_reason", "Override because"],
         ["notes", "Notes"],
       ];
     case "kill_lambs":
