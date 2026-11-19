@@ -6,6 +6,7 @@
 // Every action carries an id made on the phone, so sending it twice (a retry
 // after the signal dropped mid-upload) saves it once.
 
+import { boxLabelProduct, onOrderAs } from "../calc/packTogether";
 import type { LineMark, PackingData, PackWeight } from "../db/packing";
 import type { BoxUpload } from "../db/scanning";
 
@@ -267,6 +268,8 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       if (!moved) continue;
       moved = { ...moved, pallet_id: a.pallet_id, slot: a.slot, label_no: a.label_no };
       const to = a.order_id ? byId.get(a.order_id) : undefined;
+      // What it counts as at its new store, as the database will decide (11/18/26).
+      if (!moved.correction_reason) moved = { ...moved, ...countedAs(boxLabelProduct(moved), to?.lines, data) };
       if (to) to.weights.push(moved);
       else unassigned.push(moved);
     } else if (a.type === "weight-remove") {
@@ -311,7 +314,7 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
         blankWeight({
           id: localId(b.client_id),
           client_id: b.client_id,
-          product_id: b.product_id,
+          ...countedAs(b.product_id, o.lines, data),
           weight: b.weight,
           box_no: nextBox,
           slot: b.slot ?? null,
@@ -330,6 +333,12 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
     }
   }
   return { ...data, orders, unassigned };
+}
+
+/** A box's product at a store: a Front Shanks box counts as Mixed Shanks there, keeping its label. */
+function countedAs(label: string, lines: Record<string, number> | undefined, data: PackingData) {
+  const product_id = lines ? (onOrderAs(label, lines, data.products) ?? label) : label;
+  return { product_id, label_product_id: product_id === label ? null : label };
 }
 
 function blankWeight(w: Partial<PackWeight> & Pick<PackWeight, "id" | "product_id" | "weight" | "box_no">): PackWeight {

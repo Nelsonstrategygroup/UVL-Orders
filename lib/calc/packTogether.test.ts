@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { boxName, groupLead, groupShort, isTogether, onOrderAs, packedWith } from "./packTogether";
+import { boxLabelProduct, boxName, groupLead, groupShort, isTogether, onOrderAs, packedWith, productsOnOrder } from "./packTogether";
+
+describe("shank boxes count toward Mixed Shanks (11/18/26)", () => {
+  const shanks = [
+    { id: "front", sort: 1, fills_product_id: "mixed" },
+    { id: "hind", sort: 2, fills_product_id: "mixed" },
+    { id: "labeled", sort: 3 },
+    { id: "mixed", sort: 4 },
+  ];
+  it("a Front or Hind box is on an order that has Mixed Shanks", () => {
+    expect(onOrderAs("front", { mixed: 30 }, shanks)).toBe("mixed");
+    expect(onOrderAs("hind", { mixed: 30 }, shanks)).toBe("mixed");
+  });
+  it("its own line comes first", () => {
+    expect(onOrderAs("front", { front: 4, mixed: 30 }, shanks)).toBe("front");
+  });
+  it("not on an order with neither, and Labeled Hind Shanks stay separate", () => {
+    expect(onOrderAs("front", { hind: 4 }, shanks)).toBeNull();
+    expect(onOrderAs("labeled", { mixed: 30 }, shanks)).toBeNull();
+  });
+  it("lists every product that belongs on the order", () => {
+    expect([...productsOnOrder({ mixed: 30 }, shanks)].sort()).toEqual(["front", "hind", "mixed"]);
+  });
+  it("a box goes back to its label product, unless corrected by hand", () => {
+    expect(boxLabelProduct({ product_id: "mixed", label_product_id: "front" })).toBe("front");
+    expect(boxLabelProduct({ product_id: "letrim", label_product_id: "trim5", correction_reason: "Mislabeled" })).toBe("letrim");
+    expect(boxLabelProduct({ product_id: "front" })).toBe("front");
+  });
+});
 
 const products = [
   { id: "kidney", sort: 3, packed_with: "Organs" },

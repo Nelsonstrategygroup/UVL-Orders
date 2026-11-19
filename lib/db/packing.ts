@@ -30,6 +30,8 @@ export type PackProduct = {
   group_name: string;
   /** Packed in one box with the products of the same name (Organs); blank or missing: on its own. */
   packed_with?: string;
+  /** A box of this also counts toward that product (Front Shanks: Mixed Shanks). Missing on a copy kept before 11/18/26. */
+  fills_product_id?: string | null;
   /** Normal box weight in lb; a scanned box outside it gets a warning. */
   box_lb_min: number | null;
   box_lb_max: number | null;
@@ -64,6 +66,12 @@ export type PackWeight = Weight & {
   off_order?: boolean;
   extra_ok_at?: string | null;
   extra_ok_by_name?: string | null;
+  /** What Mohawk's label says, when the box counts as another product (11/18/26). */
+  label_product_id?: string | null;
+  /** The product was changed by hand: why, when and by whom (11/18/26). */
+  correction_reason?: string | null;
+  corrected_at?: string | null;
+  corrected_by_name?: string | null;
 };
 
 export type PackOrder = {
@@ -216,7 +224,14 @@ type WeightRow = {
   case_no: string | null;
   pallet_id: string | null;
   client_id: string | null;
+  label_product_id?: string | null;
+  corrected_at?: string | null;
+  corrected_by?: string | null;
+  correction_reason?: string | null;
 };
+
+const WEIGHT_COLS =
+  "id, product_id, weight, box_no, slot, label_no, box_type_id, off_order, extra_ok_by, extra_ok_at, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id, label_product_id, corrected_at, corrected_by, correction_reason";
 
 export async function loadPacking(db: SupabaseClient, week: string): Promise<PackingData> {
   const [weekRow, orders, customers, groups, products, people, sheet, labels, settings, loose] = await Promise.all([
@@ -224,13 +239,13 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db
       .from("orders")
       .select(
-        "id, customer_id, notes, order_lines(product_id, qty, unit, only_if_extra, fill_qty), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(id, product_id, weight, box_no, slot, label_no, box_type_id, off_order, extra_ok_by, extra_ok_at, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id), packing_orders(pallet, updated_by, updated_at, created_at)",
+        `id, customer_id, notes, order_lines(product_id, qty, unit, only_if_extra, fill_qty), packing_lines(product_id, packed_qty, shorted, flagged, flag_note, packed_by, packed_at), packing_weights(${WEIGHT_COLS}), packing_orders(pallet, updated_by, updated_at, created_at)`,
       )
       .eq("week_id", week),
     db.from("customers").select("id, name, active, call_day, parent_customer_id, notes, ships_to_point_id"),
     // Everything, so the paperwork's fields (short name, code, color) can't break Packing before their migration runs.
     db.from("consolidation_points").select("*"),
-    db.from("products").select("id, name, unit, sort, lb_per_unit, pieces_per_pack, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks, packed_with").order("sort"),
+    db.from("products").select("id, name, unit, sort, lb_per_unit, pieces_per_pack, per_box, active, group_name, box_lb_min, box_lb_max, label_name, pack_blanks, packed_with, fills_product_id").order("sort"),
     db.from("profiles").select("id, display_name"),
     // The INV#: the week's invoice number (the same on the cut sheet, manifest and invoices).
     db.from("weeks").select("invoice_number").eq("id", week).maybeSingle(),
@@ -239,7 +254,7 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     db.from("app_settings").select("*").maybeSingle(),
     db
       .from("packing_weights")
-      .select("id, product_id, weight, box_no, slot, label_no, box_type_id, off_order, extra_ok_by, extra_ok_at, created_by, created_at, source, gtin, serial, lot, case_no, pallet_id, client_id")
+      .select(WEIGHT_COLS)
       .eq("week_id", week)
       .is("order_id", null),
   ]);
@@ -278,6 +293,10 @@ export async function loadPacking(db: SupabaseClient, week: string): Promise<Pac
     case_no: w.case_no,
     pallet_id: w.pallet_id,
     client_id: w.client_id,
+    label_product_id: w.label_product_id ?? null,
+    correction_reason: w.correction_reason ?? null,
+    corrected_at: w.corrected_at ?? null,
+    corrected_by_name: w.corrected_by ? (names.get(w.corrected_by) ?? "Someone") : null,
   });
 
   type Row = {
@@ -530,6 +549,16 @@ export function sheetRowText(o: PackOrder, data: PackingData, pid: string): { na
     ordered: on.length ? on.map((id) => `${qtyText(o.lines[id], o.units[id] ?? data.products.get(id)?.unit ?? "each")} ${nameOf(id)}`).join(", ") : null,
     members,
   };
+}
+
+/**
+ * Change a mislabeled box's product, with the reason (11/18/26). Needs signal:
+ * the database keeps the label's product, who and when. Picking the label's
+ * product again undoes it.
+ */
+export async function correctBoxProduct(db: SupabaseClient, weightId: string, productId: string, reason: string): Promise<string | null> {
+  const { error } = await db.rpc("correct_box_product", { p_box: weightId, p_product: productId, p_reason: reason });
+  return error ? error.message : null;
 }
 
 /** Give an unassigned box to a customer's order (Pallets, by Kathy). */

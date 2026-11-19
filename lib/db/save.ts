@@ -201,9 +201,11 @@ export type ProductInput = {
   uses: { part_id: string; qty: number }[];
   /**
    * Parts it may be cut from, any of them, in the order they're used (Mixed
-   * Shanks: hind shanks first, then front; 11/12/26). Undefined leaves it as is.
+   * Shanks: front shanks first, then hind; 11/18/26). Undefined leaves it as is.
    */
   draws_from?: string[];
+  /** A box of this also counts toward that product (Front Shanks: Mixed Shanks). Undefined leaves it as is. */
+  fills_product_id?: string | null;
   /** Where it goes in the list (placeProduct). Undefined: "keep". */
   after?: Placement;
   /** Mohawk lines: units_per_cut of this product's unit per line. */
@@ -265,6 +267,7 @@ export async function saveProduct(db: SupabaseClient, p: ProductInput): Promise<
     active: p.active,
     note: p.note,
     ...(p.draws_from ? { draws_from: p.draws_from } : {}),
+    ...(p.fills_product_id !== undefined ? { fills_product_id: p.fills_product_id } : {}),
   };
   // Its place in the list: kept, or at the end of its group, or after the product chosen (11/12/26).
   const { data: all, error: listErr } = await db.from("products").select("id, name, sort, group_name, active");

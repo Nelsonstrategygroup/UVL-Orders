@@ -41,6 +41,7 @@ const blank = {
   note: "",
   uses: [] as { part_id: string; qty: number }[],
   draws_from: [] as string[],
+  fills_product_id: null as string | null,
   links: [] as { cut_spec_id: string; units_per_cut: number }[],
 };
 
@@ -130,6 +131,7 @@ export default function EditProduct({
       note: f.note.trim(),
       uses,
       draws_from: f.not_lamb ? [] : f.draws,
+      fills_product_id: f.fills_product_id ?? null,
       after: f.after,
       links: f.linkRows.map((l) => ({ cut_spec_id: l.cut_spec_id, units_per_cut: num(l.units_per_cut) || 1 })),
     });
@@ -373,7 +375,7 @@ export default function EditProduct({
 
           <p className="lbl">Or can be cut from any of these</p>
           <p className="small muted mt-0">
-            For a product made from more than one part, either one (Mixed Shanks: hind or front shanks). Each one ordered
+            For a product made from more than one part, either one (Mixed Shanks: front or hind shanks). Each one ordered
             takes from the first part in this list that has some left over, then the next. Use this instead of
             &quot;Comes from&quot;. It never changes the lamb count.
           </p>
@@ -418,6 +420,27 @@ export default function EditProduct({
               counted twice. Remove one of them.
             </p>
           )}
+
+          <label className="lbl" htmlFor="pr-fills">
+            Its boxes can also fill
+          </label>
+          <select
+            id="pr-fills"
+            className="field"
+            value={f.fills_product_id ?? ""}
+            onChange={(e) => set("fills_product_id", e.target.value || null)}
+          >
+            <option value="">Nothing else</option>
+            {inOrder.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <p className="small muted mt-1">
+            For example Front Shanks boxes fill Mixed Shanks. A store&apos;s own line for this product is filled first; after
+            that the box counts and bills as the product picked here.
+          </p>
 
           <label className="mt-2 flex min-h-[44px] items-center gap-3">
             <input
