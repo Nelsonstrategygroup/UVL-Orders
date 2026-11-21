@@ -149,6 +149,10 @@ export function usePnlWeek(week: string) {
     productName,
     freight: data.freight,
     boxes: data.boxes,
+    nameOf: (id: string) => {
+      const c = customers.byId.get(id);
+      return c ? displayName(c, customers.byId) : "Unknown customer";
+    },
   });
   const pnlFor = (forPay: WeekPay) => weekPnl({
     week,

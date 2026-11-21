@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DiscountKind, InvoiceLineRow, InvoiceStatus } from "../calc/invoice";
 import { fetchAll } from "./load";
+import type { PriceUnit } from "./types";
 
 export type InvoiceRow = {
   id: string;
@@ -14,6 +15,8 @@ export type InvoiceRow = {
   customer_id: string;
   number: string | null;
   reissue: number;
+  /** A stand-alone sale (no order; Lucas, 11/20/26): -S1, -S2. Blank: the weekly invoice from packing. */
+  sale_no: number | null;
   status: InvoiceStatus;
   invoice_date: string;
   memo: string;
@@ -79,7 +82,7 @@ export type IssuedBox = {
 };
 
 const COLS =
-  "id, week_id, customer_id, number, reissue, status, invoice_date, memo, fingerprint, created_at, " +
+  "id, week_id, customer_id, number, reissue, sale_no, status, invoice_date, memo, fingerprint, created_at, " +
   "replaces_id, number_by_hand, reopened_at, reopened_by_name, terms_days, due_date, total, issued, finalized_at, sent_at, voided_at, void_reason, " +
   "payments (id, invoice_id, paid_on, amount, method, reference, note, created_at), " +
   "invoice_boxes (box_id, product_id, weight, lot, pack_date, serial, label_no, case_no, source), " +
@@ -91,10 +94,11 @@ function plain(e: { message: string; code?: string } | null): string | null {
   if (e.code === "23505" && /invoices_number_key/.test(e.message)) return "Another invoice already has that number.";
   if (e.code === "23505" && /invoices_one_per_week/.test(e.message)) return "This location already has an invoice this week.";
   if (e.code === "23514" && /invoice_lines_manual/.test(e.message)) return "A line you add needs a description, an amount, a price and a note.";
+  if (e.code === "23514" && /invoice_lines_inventory/.test(e.message)) return "Type how much, more than 0.";
   if (e.code === "23514" && /discount_note/.test(e.message)) return "A discount needs a note.";
   if (e.code === "23514" && /invoice_lines_percent/.test(e.message)) return "A percent discount can't be over 100%.";
   if (e.code === "23514" && /payments_amount/.test(e.message)) return "A payment is more than $0.";
-  if (e.code === "42501" && /finalized|Payments go|Use Finalize|Only an admin/.test(e.message)) return e.message;
+  if (e.code === "42501" && /finalized|Payments go|Use Finalize|Only an admin|stays a sale/.test(e.message)) return e.message;
   if (e.code === "42501") return "You can't change this.";
   return e.message;
 }
@@ -156,6 +160,31 @@ export async function addManualLine(
     quantity: l.quantity,
     unit_price: l.unitPrice,
     note: l.note,
+    sort: l.sort,
+  });
+  return plain(error);
+}
+
+/** A new stand-alone sale for a customer on a date, in the order week holding the date. Its id, or an error. */
+export async function makeSale(db: SupabaseClient, customerId: string, date: string): Promise<{ id: string | null; error: string | null }> {
+  const { data, error } = await db.rpc("make_sale_invoice", { p_customer: customerId, p_date: date });
+  return { id: (data as string | null) ?? null, error: plain(error) };
+}
+
+/** A product on a sale: the amount in its price unit (a decimal string), boxes optional. Priced from Setup > Prices. */
+export async function addProductLine(
+  db: SupabaseClient,
+  invoiceId: string,
+  l: { productId: string; description: string; quantity: string; priceUnit: PriceUnit; boxes: number; sort: number },
+): Promise<string | null> {
+  const { error } = await db.from("invoice_lines").insert({
+    invoice_id: invoiceId,
+    kind: "inventory",
+    product_id: l.productId,
+    description: l.description,
+    quantity: l.quantity,
+    price_unit: l.priceUnit,
+    boxes: l.boxes,
     sort: l.sort,
   });
   return plain(error);

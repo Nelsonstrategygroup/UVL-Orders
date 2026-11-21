@@ -223,7 +223,7 @@ export function invoiceTotals(lines: PricedLine[]): InvoiceTotals {
   for (const l of lines) {
     if (l.totalCents != null) totalCents += l.totalCents;
     boxes += l.boxes;
-    if (l.kind === "packed" && l.price_unit === "lb" && l.quantity != null) lb += toFixedInt(l.quantity, 3);
+    if ((l.kind === "packed" || l.kind === "inventory") && l.price_unit === "lb" && l.quantity != null) lb += toFixedInt(l.quantity, 3);
   }
   const priceNeeded = lines.filter((l) => l.priceNeeded).length;
   const countNeeded = lines.filter((l) => l.countNeeded).length;
@@ -336,3 +336,19 @@ export function lineBoxWeights(
   }
   return out;
 }
+
+/**
+ * The amount typed on a sale's product line (Lucas, 11/20/26), in the
+ * product's price unit: pounds up to 3 decimals, cases and pieces whole.
+ * Above 0. A decimal string for the database, or null when it isn't one.
+ */
+export function parseSaleAmount(text: string, unit: PriceUnit): string | null {
+  const t = text.trim().replace(/,/g, "").replace(/\s*(lb|lbs|cases?|ea|each|pieces?|pcs?)\.?$/i, "");
+  const ok = unit === "lb" ? /^(\d+(\.\d{0,3})?|\.\d{1,3})$/ : /^\d+$/;
+  if (!ok.test(t)) return null;
+  const v = t.startsWith(".") ? `0${t}` : t.replace(/\.$/, "");
+  return Number(v) > 0 ? v.replace(/^0+(?=\d)/, "") : null;
+}
+
+/** What a sale's amount is called for a price unit: "Pounds", "Cases", "Pieces". */
+export const SALE_AMOUNT_LABEL: Record<PriceUnit, string> = { lb: "Pounds", case: "Cases", each: "Pieces" };

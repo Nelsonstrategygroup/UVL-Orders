@@ -42,14 +42,16 @@ export function sheetFor(data: InvoiceWeek, inv: InvoiceRow, customers: Customer
   }
   const c = customers.byId.get(inv.customer_id);
   const b = data.billing.get(inv.customer_id);
+  // The location's boxes this week. A stand-alone sale has none of them: they're its weekly invoice's.
+  const mine = inv.sale_no == null ? data.boxes.filter((x) => x.customer_id === inv.customer_id) : [];
   const terms = termsFor(b?.terms_days, data.settings?.default_terms_days ?? 15);
   // A draft's Mohawk charge lines are worked out from today's charges; a finalized one has them stored.
-  // A draft's Freight line too (finalizing stores it), when the location has freight set.
+  // A draft's Freight line too (finalizing stores it), when the location has freight set. Never on a sale.
   const freight =
-    inv.status === "draft"
+    inv.status === "draft" && inv.sale_no == null
       ? freightLine(
           freightRateFor(data.freight, inv.customer_id, inv.invoice_date, c?.parent_customer_id ?? null),
-          data.boxes.filter((x) => x.customer_id === inv.customer_id),
+          mine,
           inv.id,
         )
       : null;
@@ -64,17 +66,13 @@ export function sheetFor(data: InvoiceWeek, inv: InvoiceRow, customers: Customer
   return {
     invoice: inv,
     lines,
-    boxWeights: lineBoxWeights(
-      lines,
-      data.boxes.filter((x) => x.customer_id === inv.customer_id),
-      lead,
-    ),
+    boxWeights: lineBoxWeights(lines, mine, lead),
     customerName: c ? displayName(c, customers.byId) : "Unknown customer",
     billTo: b?.bill_to_address ?? "",
     terms,
     due: dueDate(inv.invoice_date, terms),
     settings: data.settings,
-    boxes: b?.box_detail ? data.boxes.filter((x) => x.customer_id === inv.customer_id) : null,
+    boxes: b?.box_detail && inv.sale_no == null ? mine : null,
     productName,
   };
 }
