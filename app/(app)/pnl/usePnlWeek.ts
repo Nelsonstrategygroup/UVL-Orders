@@ -20,7 +20,8 @@ import { fromSnapshot, toSnapshot } from "@/lib/calc/pnlSnapshot";
 import { loadWeekBoxes } from "@/lib/db/invoices";
 import { loadCharges, loadFreight, loadPrices } from "@/lib/db/invoicing";
 import { loadLambCostSetup } from "@/lib/db/lambCost";
-import { loadPnlSetup, loadWeekAdjustments, loadWeekEntries, loadWeekExpenseFiles, loadWeekInvoiceData, loadWeekStatus } from "@/lib/db/pnl";
+import { loadPnlSetup, loadWeekAdjustments, loadWeekEntries, loadWeekExpenseFiles, loadWeekFreezer, loadWeekInvoiceData, loadWeekStatus } from "@/lib/db/pnl";
+import { freezerIn, freezerOut } from "@/lib/calc/freezer";
 import { loadWeekSheets } from "@/lib/db/weighSheets";
 import { loadDrivers, loadWeekRuns } from "@/lib/db/trucks";
 import { runPay } from "@/lib/calc/truck";
@@ -49,13 +50,15 @@ const TABLES = [
   "truck_driver_rates",
   "weeks",
   "pallets",
+  "freezer_boxes",
+  "freezer_takes",
 ];
 const SETUP_TABLES = ["expense_categories", "expense_category_rates"];
 
 const STATUS_TABLES = ["pnl_closed_weeks", "pnl_week_reviews", "pnl_week_events"];
 
 async function loadWeek(db: SupabaseClient, week: string) {
-  const [entries, sheets, inv, invoiceData, prices, charges, freight, boxes, people, adjustments, expenseFiles, weekRuns, drivers, pallets] = await Promise.all([
+  const [entries, sheets, inv, invoiceData, prices, charges, freight, boxes, people, adjustments, expenseFiles, weekRuns, drivers, pallets, freezer] = await Promise.all([
     loadWeekEntries(db, week),
     loadWeekSheets(db, week),
     db.from("weeks").select("invoice_number, no_processing").eq("id", week).maybeSingle(),
@@ -70,6 +73,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     loadWeekRuns(db, week),
     loadDrivers(db),
     db.from("pallets").select("id, tag, number").eq("week_id", week),
+    loadWeekFreezer(db, week),
   ]);
   return {
     ...entries,
@@ -81,6 +85,7 @@ async function loadWeek(db: SupabaseClient, week: string) {
     charges,
     freight,
     boxes,
+    freezer,
     adjustments,
     expenseFiles,
     runs: weekRuns.runs.map((r) => runPay(r, weekRuns.stops, drivers.drivers, drivers.rates)),
@@ -167,6 +172,7 @@ export function usePnlWeek(week: string) {
       chainOf: Object.fromEntries(customers.list.map((c) => [c.id, c.parent_customer_id ?? null])),
     },
     lbShipped: data.boxes.reduce((s, b) => s + Number(b.weight), 0).toFixed(2),
+    freezer: { in: freezerIn(week, data.freezer.boxes), out: freezerOut(week, data.freezer.takes, data.freezer.boxes) },
   });
   const p = pnlFor(pay);
   const producerName = (id: string) => lc.producers.find((x) => x.id === id)?.name ?? "Unknown producer";
@@ -192,9 +198,10 @@ export function usePnlWeek(week: string) {
     lead: (id) => groupLead(id, catalog.products),
     userName: (id) => (id ? (data.people.get(id) ?? "someone no longer listed") : "unknown"),
     expenseFiles: data.expenseFiles,
+    productName,
   });
   const lambCount = weekData ? weekCalc(weekData, catalog).c.final : null;
-  const checks = pnlChecks({ p, ii, lambCount, week });
+  const checks = pnlChecks({ p, ii, lambCount, week, productName });
   // What closing the week saves (and the closed week shows).
   const snapshot = () =>
     toSnapshot({

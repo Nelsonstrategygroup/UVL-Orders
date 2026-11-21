@@ -328,3 +328,48 @@ export async function reopenWeek(db: SupabaseClient, week: string, reason: strin
   const { error } = await db.rpc("reopen_pnl_week", { p_week: week, p_reason: reason.trim() });
   return weekPlain(error);
 }
+
+// ---------------------------------------------------------------------------
+// Into and Out of freezer (Kathy's rule, 11/20/26): the week's boxes counting
+// as freezer income, the week's take-outs that take it back, their boxes, and
+// what each box was worth going in.
+// ---------------------------------------------------------------------------
+
+export type WeekFreezer = { boxes: import("../calc/freezer").ValuedBox[]; takes: import("../calc/freezer").ValuedTake[] };
+
+const FZ_BOX = "id, product_id, qty, weight_lb, added_on, week_id, counts_as_income, reason, serial";
+
+export async function loadWeekFreezer(db: SupabaseClient, week: string): Promise<WeekFreezer> {
+  const [inRes, takeRes] = await Promise.all([
+    db.from("freezer_boxes").select(FZ_BOX).eq("week_id", week).eq("counts_as_income", true),
+    db.from("freezer_takes").select("id, box_id, qty, taken_on, week_id, reason, counts_in_pnl").eq("week_id", week).eq("counts_in_pnl", true),
+  ]);
+  if (inRes.error) throw new Error(inRes.error.message);
+  if (takeRes.error) throw new Error(takeRes.error.message);
+  const takes = (takeRes.data ?? []) as import("../calc/freezer").ValuedTake[];
+  const boxes = (inRes.data ?? []) as Record<string, unknown>[];
+  const missing = [...new Set(takes.map((t) => t.box_id))].filter((id) => !boxes.some((b) => b.id === id));
+  if (missing.length) {
+    const more = await db.from("freezer_boxes").select(FZ_BOX).in("id", missing);
+    if (more.error) throw new Error(more.error.message);
+    boxes.push(...((more.data ?? []) as Record<string, unknown>[]));
+  }
+  const ids = boxes.map((b) => b.id as string);
+  const values = ids.length ? await db.from("freezer_box_values").select("box_id, price, price_unit, percent, value, note").in("box_id", ids) : { data: [], error: null };
+  if (values.error) throw new Error(values.error.message);
+  const byBox = new Map(((values.data ?? []) as { box_id: string; price: string | null; price_unit: string | null; percent: string | null; value: string | null; note: string }[]).map((v) => [v.box_id, v]));
+  return {
+    boxes: boxes.map((b) => {
+      const v = byBox.get(b.id as string);
+      return {
+        ...(b as unknown as import("../calc/freezer").ValuedBox),
+        price: v?.price ?? null,
+        price_unit: v?.price_unit ?? null,
+        percent: v?.percent ?? null,
+        value: v?.value ?? null,
+        note: v?.note ?? (v ? "" : "No freezer value: not worked out"),
+      };
+    }),
+    takes,
+  };
+}

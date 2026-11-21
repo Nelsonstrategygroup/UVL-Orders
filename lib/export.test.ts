@@ -17,13 +17,17 @@ describe("export all data", () => {
 
   it("covers every table, with parents before the rows that point at them", () => {
     const names = EXPORT_TABLES.map((t) => t.table);
-    expect(names).toHaveLength(33);
+    expect(names).toHaveLength(39);
     expect(names.indexOf("customers")).toBeLessThan(names.indexOf("customer_billing"));
     expect(names.indexOf("products")).toBeLessThan(names.indexOf("prices"));
     expect(names.indexOf("customers")).toBeLessThan(names.indexOf("orders"));
     expect(names.indexOf("orders")).toBeLessThan(names.indexOf("order_lines"));
     expect(names.indexOf("cut_sheets")).toBeLessThan(names.indexOf("cut_sets"));
     expect(names.indexOf("half_whole_orders")).toBeLessThan(names.indexOf("freezer_log"));
+    // Freezer boxes and counts (11/20/26): a count before its boxes, a box before its value, take-outs and log lines.
+    expect(names.indexOf("freezer_counts")).toBeLessThan(names.indexOf("freezer_boxes"));
+    expect(names.indexOf("freezer_boxes")).toBeLessThan(names.indexOf("freezer_box_values"));
+    expect(names.indexOf("freezer_takes")).toBeLessThan(names.indexOf("freezer_log"));
   });
 
   it("explains itself", () => {

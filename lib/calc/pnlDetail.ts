@@ -36,6 +36,7 @@ import {
   type WeekPnl,
 } from "./pnl";
 import type { RunPay } from "./truck";
+import type { FreezerLineRow } from "./freezer";
 import { priceFor, priceSource, priceText, PRICE_UNIT_SHORT, type ChargeRow, type PriceRow } from "./prices";
 import { longDate, niceDate } from "../dates";
 
@@ -108,6 +109,8 @@ export type DetailInput = {
   userName: (id: string | null | undefined) => string;
   /** Files attached to expense entries. */
   expenseFiles?: { expense_id: string; path: string; name: string }[];
+  /** A product's name (the freezer lines). */
+  productName?: (id: string) => string;
 };
 
 /** "+$25.00", "-$50.00" */
@@ -213,6 +216,7 @@ function incomeDetail(x: DetailInput): LineDetail {
     ...(p.otherCents ? [`other income ${centsText(p.otherCents)}`] : []),
     ...(p.incomeAdj ? [`adjustments ${signed(p.incomeAdj)}`] : []),
     ...(p.oneOffIncomeCents ? [`one-off income ${centsText(p.oneOffIncomeCents)}`] : []),
+    ...(p.freezerCents ? [`into and out of freezer ${signed(p.freezerCents)}`] : []),
   ];
   return {
     key: "income",
@@ -637,10 +641,71 @@ function resultDetails(x: DetailInput): LineDetail[] {
   ];
 }
 
+const OUT_REASON: Record<string, string> = { packed: "Packed for an order", half_whole: "Half or whole order" };
+
+/** One freezer box (or what came out of it): weight or count × default price × percent = value. */
+function freezerItem(x: DetailInput, r: FreezerLineRow, out: boolean): DetailItem {
+  const name = x.productName?.(r.productId) ?? r.productId;
+  const amount = r.priceUnit === "lb" ? `${(r.weightLb ?? 0).toFixed(2)} lb` : `${r.qty} ${r.priceUnit === "case" ? "case" : "each"}`;
+  const math =
+    r.cents == null
+      ? [r.note || "No freezer value."]
+      : [
+          `${amount} × ${priceText(r.price ?? 0)}${r.priceUnit ? PRICE_UNIT_SHORT[r.priceUnit as keyof typeof PRICE_UNIT_SHORT] ?? "" : ""} default price × ${r.percent}% = ${centsText(r.cents < BigInt(0) ? -r.cents : r.cents)}`,
+          out ? "At the value it went in at, not today's price." : "",
+        ].filter(Boolean);
+  return {
+    label: `${name}${r.serial ? ` · serial ${r.serial}` : ""}`,
+    tag: r.cents == null ? "No freezer value" : out ? OUT_REASON[r.reason] ?? "Out" : r.reason === "leftover" ? "Leftover from packing" : "Added",
+    amount: r.cents == null ? undefined : centsText(r.cents),
+    math,
+    note: day(r.date),
+  };
+}
+
+function freezerDetails(x: DetailInput): LineDetail[] {
+  const { p } = x;
+  if (!p.freezerIn || !p.freezerOut) return [];
+  const fi = p.freezerIn;
+  const fo = p.freezerOut;
+  return [
+    {
+      key: "freezer_in",
+      lineKey: "freezer_in",
+      title: "Into freezer",
+      amount: centsText(fi.total),
+      projected: false,
+      how: [
+        "Product put in the freezer this week counts as income at a percent of its default sale price on the day it went in (Kathy's rule: some of it never sells at full price). P&L Setup has the percent.",
+        "Pound-priced products: the box's weight × the price. Case or each: the count × the price. Each box rounded to the cent.",
+        "Leftovers put in the freezer from Packing count by themselves. Anything else added to the freezer counts only when an admin ticked \"Count as this week's freezer income\".",
+        ...withAdjustments(fi.cents, fi.adj, fi.total, fi.adj !== BigInt(0)),
+        `${plural(fi.rows.length, "box", "boxes")} = ${centsText(fi.cents)}${fi.noValue.length ? ` (${plural(fi.noValue.length, "box has", "boxes have")} no freezer value)` : ""}`,
+      ],
+      items: [...fi.rows.map((r) => freezerItem(x, r, false)), ...adjustmentItems(adjustmentsOf(p, "freezer_in"))],
+    },
+    {
+      key: "freezer_out",
+      lineKey: "freezer_out",
+      title: "Out of freezer",
+      amount: centsText(fo.total),
+      projected: false,
+      how: [
+        "Freezer product packed for an order this week: what it added going in is taken back, at the value it went in at, so it's counted once. The order's invoice counts the sale as usual.",
+        "Only boxes that counted as freezer income going in are taken back.",
+        ...withAdjustments(fo.cents, fo.adj, fo.total, fo.adj !== BigInt(0)),
+        `${plural(fo.rows.length, "box", "boxes")} = ${centsText(fo.cents)}`,
+      ],
+      items: [...fo.rows.map((r) => freezerItem(x, r, true)), ...adjustmentItems(adjustmentsOf(p, "freezer_out"))],
+    },
+  ];
+}
+
 /** Every line's detail, in the order the P&L shows them. */
 export function pnlDetails(x: DetailInput): LineDetail[] {
   return [
     incomeDetail(x),
+    ...freezerDetails(x),
     ...x.p.groups.flatMap((g) => [...g.lines.map((l) => categoryDetail(x, l)), groupDetail(g)]),
     oneOffExpenseDetail(x),
     ...resultDetails(x),
@@ -665,6 +730,7 @@ export type PnlCheck = {
 export function pnlChecks(x: {
   p: WeekPnl;
   ii: InvoiceIncome;
+  productName?: (id: string) => string;
   /** This week's lamb count (This week), or null when unknown. */
   lambCount: number | null;
   /** The packing Monday, for the links. */
@@ -732,6 +798,14 @@ export function pnlChecks(x: {
       text: `${l.name}: ${plural(l.freight!.offPallet, "box isn't", "boxes aren't")} on a pallet, so not counted.`,
       href: "/packing",
       link: "Packing",
+    });
+  // Freezer boxes with no value: no default price (or no weight), so the line leaves them out (11/20/26).
+  for (const r of [...(p.freezerIn?.noValue ?? []), ...(p.freezerOut?.noValue ?? [])])
+    out.push({
+      key: `freezer:${r.id}`,
+      text: `${x.productName?.(r.productId) ?? r.productId}${r.serial ? ` (serial ${r.serial})` : ""}: no freezer value, ${(r.note || "No freezer value: not worked out").replace(/^No freezer value: /, "")}.`,
+      href: r.note.includes("price") ? "/setup/prices" : "/freezer",
+      link: r.note.includes("price") ? "Prices" : "Freezer",
     });
   for (const l of p.categories.filter((c) => c.active && c.waiting === "No rate for this week (P&L Setup)."))
     out.push({ key: `rate:${l.categoryId}`, text: `${l.name} has no rate for this week.`, href: "/setup/lamb-cost", link: "P&L Setup" });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { freezerIn, freezerOut, type ValuedBox } from "./freezer";
 import { sheetPay, weekPay, type KillSheet } from "./lambCost";
 import { invoiceIncome, weekPnl, type CategoryRate, type ExpenseCategory, type ExpenseEntry, type PackedLine } from "./pnl";
 import { pnlChecks, pnlDetails, type DetailInput } from "./pnlDetail";
@@ -264,5 +265,24 @@ describe("adjustments in the line detail (stage B)", () => {
     const e = da.find((x) => x.key === "oneoff-expense")!;
     expect(e.items.at(-1)).toMatchObject({ label: "Freight bill (Heritage)", tag: "One-off expense", amount: "$412.50", math: ["Reason: Bill #4471"] });
     expect(e.amount).toBe("$412.50");
+  });
+});
+
+describe("Into freezer and Out of freezer detail (11/20/26)", () => {
+  const boxes: ValuedBox[] = [
+    { id: "b1", product_id: "shanks", qty: 16, weight_lb: 32.6, added_on: "2026-11-17", week_id: WEEK, counts_as_income: true, reason: "leftover", serial: "2631310052", price: "7.5500", price_unit: "lb", percent: "90", value: "221.52", note: "" },
+    { id: "b2", product_id: "tongue", qty: 3, weight_lb: 4.2, added_on: "2026-11-17", week_id: WEEK, counts_as_income: true, reason: "leftover", serial: null, price: null, price_unit: "lb", percent: "90", value: null, note: "No freezer value: no default price" },
+  ];
+  const fp = weekPnl({ week: WEEK, pay, income: [], expenses, categories, rates, invoices: ii, freezer: { in: freezerIn(WEEK, boxes), out: freezerOut(WEEK, [], boxes) } });
+  const fd = pnlDetails({ ...input, p: fp, productName: (id) => (id === "shanks" ? "Mixed Shanks" : "Tongue") });
+  it("shows each box with its weight, the default price, the percent and the value", () => {
+    const l = fd.find((x) => x.key === "freezer_in")!;
+    expect(l.amount).toBe("$221.52");
+    expect(l.items[0]).toMatchObject({ label: "Mixed Shanks · serial 2631310052", amount: "$221.52", math: ["32.60 lb × $7.55/lb default price × 90% = $221.52"] });
+    expect(l.items[1]).toMatchObject({ label: "Tongue", tag: "No freezer value" });
+  });
+  it("lists a box with no default price in the checks", () => {
+    const c = pnlChecks({ p: fp, ii, lambCount: 3, productName: (id) => (id === "shanks" ? "Mixed Shanks" : "Tongue") });
+    expect(c.find((x) => x.key === "freezer:b2")?.text).toBe("Tongue: no freezer value, no default price.");
   });
 });
