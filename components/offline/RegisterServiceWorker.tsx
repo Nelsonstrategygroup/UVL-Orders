@@ -21,10 +21,10 @@ export default function RegisterServiceWorker() {
       return;
     }
     navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).catch(() => undefined);
-    // On a Packing page with signal, keep all of Packing on the phone for the freezer.
-    if (location.pathname.startsWith("/packing") && navigator.onLine)
+    // On a Packing or Freezer page with signal, keep all of Packing and the freezer pages on the phone for the freezer.
+    if ((location.pathname.startsWith("/packing") || location.pathname.startsWith("/freezer")) && navigator.onLine)
       void navigator.serviceWorker.ready.then((reg) =>
-        reg.active?.postMessage({ type: "keep-pages", paths: ["/packing", "/packing/scan", "/packing/pallets", "/packing/print", "/packing/weigh", "/packing/paper"] }),
+        reg.active?.postMessage({ type: "keep-pages", paths: ["/packing", "/packing/scan", "/packing/pallets", "/packing/print", "/packing/weigh", "/packing/paper", "/freezer", "/freezer/add", "/freezer/count"] }),
       );
   }, []);
   return null;

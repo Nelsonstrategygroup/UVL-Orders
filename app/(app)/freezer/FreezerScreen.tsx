@@ -3,7 +3,8 @@
 // Freezer (SPEC 5.8), ported from the prototype's renderFreezer: what's on
 // hand, what pending half and whole orders are counting on, and what's free.
 
-import { useCan } from "@/components/CurrentUser";
+import Link from "next/link";
+import { useCan, useMe } from "@/components/CurrentUser";
 import ViewOnly from "@/components/ViewOnly";
 import { useCallback, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -17,6 +18,7 @@ import { countUnit } from "@/lib/calc/units";
 import { niceDate } from "@/lib/dates";
 import { addFreezerEntry, loadHalfWhole, removeFreezerEntry, type FreezerRow } from "@/lib/db/halfwhole";
 import type { CatalogPart, CatalogProduct } from "@/lib/db/types";
+import { FreezerExtras } from "./FreezerExtras";
 
 const RECENT = 40;
 
@@ -29,8 +31,27 @@ export default function FreezerScreen() {
   const [adding, setAdding] = useState(false);
   const close = useCallback(() => setAdding(false), []);
   const canChange = useCan("freezer").change;
+  const isAdmin = useMe().role === "admin";
 
-  if (loadError || error) return <p className="note bad">Couldn&apos;t load the freezer: {loadError || error}</p>;
+  // The freezer buttons work with no signal (they open pages kept on the phone), so they show even if this can't load.
+  const buttons = canChange && (
+    <div className="mb-3 grid gap-2 sm:flex sm:flex-wrap">
+      <Link className="scanbtn" href="/freezer/add">
+        Add to freezer
+      </Link>
+      <Link className="scanbtn alt" href="/freezer/count">
+        Freezer count
+      </Link>
+    </div>
+  );
+  if (loadError || error)
+    return (
+      <>
+        <h2>Freezer</h2>
+        {buttons}
+        <p className="note bad">Couldn&apos;t load the freezer: {loadError || error}</p>
+      </>
+    );
   if (!catalog || !data) return <div className="empty">Loading...</div>;
 
   const { onHand, need } = halfWholeNeeds(data.freezer, data.orders, catalog.parts, catalog.products);
@@ -60,6 +81,7 @@ export default function FreezerScreen() {
         )}
       </div>
       {!canChange && <ViewOnly what="the freezer" />}
+      {buttons}
 
       <div className="grid2">
         <section className="panel">
@@ -113,7 +135,11 @@ export default function FreezerScreen() {
                     </td>
                     <td className="small muted">{e.note}</td>
                     <td>
-                      {!canChange ? null : e.half_whole_order_id ? (
+                      {!canChange ? null : e.freezer_box_id || e.freezer_take_id ? (
+                        <span className="small muted" title="Change the box below (Boxes in the freezer)">
+                          Box
+                        </span>
+                      ) : e.half_whole_order_id ? (
                         <span className="small muted" title="Change the order on Half and whole to put these back">
                           Order
                         </span>
@@ -132,6 +158,8 @@ export default function FreezerScreen() {
           )}
         </section>
       </div>
+
+      <FreezerExtras canChange={canChange} isAdmin={isAdmin} nameOf={nameOf} />
 
       {adding && (
         <FreezerChange

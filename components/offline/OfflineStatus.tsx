@@ -43,6 +43,16 @@ function describe(q: Queued): string {
       return a.on ? "A store put on a pallet" : "A store taken off a pallet";
     case "pallet-status":
       return `A pallet marked ${a.status}`;
+    case "freezer-add":
+      return `A box for the freezer${a.box.weight_lb ? `, ${a.box.weight_lb} lb` : ""}${a.box.serial ? `, serial ${a.box.serial}` : ""}`;
+    case "freezer-remove":
+      return "Taking a box back out of the freezer";
+    case "count-start":
+      return "Starting a freezer count";
+    case "count-item":
+      return `A box in the freezer count${a.item.serial ? `, serial ${a.item.serial}` : ""}`;
+    case "count-item-set":
+      return "A change in the freezer count";
   }
 }
 

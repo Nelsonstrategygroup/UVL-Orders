@@ -1,7 +1,7 @@
 -- Freezer boxes, take-outs, counts and value (migration 20261125000100).
 
 begin;
-select plan(47);
+select plan(51);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000000fb0a1', 'fz-admin@test.local'),
@@ -153,6 +153,19 @@ select ok((select count(*) = 2 and bool_and(reason = 'stock_in' and source = 'co
   from public.freezer_boxes where count_id = '00000000-0000-4000-8000-0000000fb2c1'), 'both are added, not as income');
 select throws_ok($$ update public.freezer_count_items set voided = true where id = '00000000-0000-4000-8000-0000000fb2d1' $$,
   '55000', null, 'a finished count can''t change');
+
+-- A label the app didn't know: the packer's pick waits for an admin.
+select lives_ok($$ select public.add_to_freezer('{"product_id":"fz-tongue","qty":3,"gtin":"10698746489288","serial":"u1","source":"scan","product_confirmed":false}') $$,
+  'the packer saves a box from an unknown label with a product picked');
+select throws_ok($$ select public.confirm_freezer_box((select id from public.freezer_boxes where serial = 'u1'), 'fz-shanks') $$,
+  '42501', null, 'only an admin confirms it');
+set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000fb0a1","role":"authenticated"}';
+select lives_ok($$ select public.confirm_freezer_box((select id from public.freezer_boxes where serial = 'u1'), 'fz-shanks') $$,
+  'an admin confirms the product');
+select ok((select product_id = 'fz-shanks' and product_confirmed from public.freezer_boxes where serial = 'u1')
+  and (select product_id = 'fz-shanks' from public.gtin_products where gtin = '10698746489288')
+  and (select l.product_id = 'fz-shanks' from public.freezer_log l join public.freezer_boxes b on b.id = l.freezer_box_id where b.serial = 'u1'),
+  'the box, its log line and the label all say the confirmed product');
 
 select * from finish();
 rollback;

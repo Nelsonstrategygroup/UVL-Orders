@@ -85,7 +85,68 @@ type ActionBody =
   /** Delete a pallet started by mistake. Only an empty one: a pallet with boxes is kept. */
   | { type: "pallet-delete"; id: string; tag: string }
   /** A pallet is full (or open again, or shipped). */
-  | { type: "pallet-status"; id: string; status: "planned" | "open" | "full" | "shipped" };
+  | { type: "pallet-status"; id: string; status: "planned" | "open" | "full" | "shipped" }
+  /** A box put in the freezer: Add to freezer, or a leftover from Packing (add_to_freezer, 11/20/26). */
+  | { type: "freezer-add"; box: FreezerAdd }
+  /** Take back a box added by mistake (remove_freezer_box), by the phone's client_id. */
+  | { type: "freezer-remove"; client_id: string }
+  /** Start a freezer count (made on the phone, so it can start with no signal). */
+  | { type: "count-start"; count: { id: string; kind: "stock_in" | "reconcile"; product_ids: string[] | null; count_date: string } }
+  /** A box scanned, or an amount counted by hand, in a count. Nothing changes in inventory until the count is applied. */
+  | { type: "count-item"; item: CountItemUpload }
+  /** Change a counted item: take a scan back, add or skip it, or choose its product. */
+  | {
+      type: "count-item-set";
+      id: string;
+      count_id: string;
+      patch: { voided?: boolean; decision?: "add" | "skip" | null; product_id?: string; product_confirmed?: boolean; qty?: number };
+    };
+
+/** What add_to_freezer takes (lib/db/freezer.ts). */
+export type FreezerAdd = {
+  client_id: string;
+  product_id: string;
+  qty: number;
+  weight_lb: number | null;
+  gtin: string | null;
+  serial: string | null;
+  serial_date: string | null;
+  case_no: string | null;
+  pack_date: string | null;
+  lot: string | null;
+  raw_scan: string | null;
+  product_confirmed: boolean;
+  source: "manual" | "scan" | "packing";
+  reason: string;
+  note: string;
+  added_on: string;
+  /** A packing leftover: the packing week it counts toward. */
+  week_id: string | null;
+  counts_as_income: boolean;
+  /** When it was saved on the phone. */
+  at: string;
+};
+
+/** One count item, as saved on the phone and uploaded. */
+export type CountItemUpload = {
+  id: string;
+  count_id: string;
+  device_id: string;
+  kind: "scan" | "manual";
+  product_id: string | null;
+  qty: number;
+  weight_lb: number | null;
+  gtin: string | null;
+  serial: string | null;
+  serial_date: string | null;
+  case_no: string | null;
+  pack_date: string | null;
+  lot: string | null;
+  raw_scan: string | null;
+  product_confirmed: boolean;
+  decision: "add" | "skip" | null;
+  scanned_at: string;
+};
 
 /**
  * Where an action came from, in plain words, for the audit log's source
@@ -130,6 +191,16 @@ export function sourceOf(a: Action): string {
       return "pallet deleted";
     case "pallet-status":
       return `pallet marked ${a.status}`;
+    case "freezer-add":
+      return a.box.source === "packing" ? "leftover put in the freezer (Packing)" : a.box.source === "scan" ? "scanned in (Add to freezer)" : "typed in (Add to freezer)";
+    case "freezer-remove":
+      return "taken back, added by mistake (Add to freezer)";
+    case "count-start":
+      return a.count.kind === "stock_in" ? "freezer stock-in count started" : "freezer count started";
+    case "count-item":
+      return a.item.kind === "scan" ? "scanned (freezer count)" : "counted by hand (freezer count)";
+    case "count-item-set":
+      return "changed in a freezer count";
   }
 }
 

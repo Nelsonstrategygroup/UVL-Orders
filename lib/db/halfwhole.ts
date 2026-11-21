@@ -21,6 +21,9 @@ export type FreezerRow = {
   created_at: string;
   /** Set when this entry is what a filled half or whole order took. */
   half_whole_order_id: string | null;
+  /** Set when a freezer box (Add to freezer, a count, a packing leftover) or a take-out wrote it. Changed with the box, not here. */
+  freezer_box_id?: string | null;
+  freezer_take_id?: string | null;
 };
 
 export type HalfWholeData = { orders: HWOrder[]; freezer: FreezerRow[] };
@@ -49,7 +52,7 @@ export async function loadHalfWhole(db: SupabaseClient): Promise<HalfWholeData> 
     all<FreezerRow>((a, b) =>
       db
         .from("freezer_log")
-        .select("id, entry_date, product_id, qty, note, created_at, half_whole_order_id")
+        .select("id, entry_date, product_id, qty, note, created_at, half_whole_order_id, freezer_box_id, freezer_take_id")
         .order("entry_date", { ascending: false })
         .order("created_at", { ascending: false })
         .range(a, b),

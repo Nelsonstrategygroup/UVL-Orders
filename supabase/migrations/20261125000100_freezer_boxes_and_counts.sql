@@ -686,6 +686,35 @@ end $$;
 revoke execute on function public.set_freezer_income(uuid, boolean) from public, anon;
 grant execute on function public.set_freezer_income(uuid, boolean) to authenticated, service_role;
 
+-- Admin: confirm the product of a box saved from a label the app didn't know.
+-- The app learns the label, and every unconfirmed box with it is settled.
+create or replace function public.confirm_freezer_box(p_id uuid, p_product text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_gtin text;
+begin
+  if not public.is_admin() then
+    raise exception 'Only an admin can confirm a product.' using errcode = '42501';
+  end if;
+  select gtin into v_gtin from public.freezer_boxes where id = p_id;
+  if not found then
+    raise exception 'That box is gone.';
+  end if;
+  perform set_config('uvl.source', 'product confirmed (Freezer)', true);
+  if v_gtin is not null then
+    insert into public.gtin_products (gtin, product_id) values (v_gtin, p_product)
+    on conflict (gtin) do update set product_id = excluded.product_id;
+    update public.freezer_boxes set product_id = p_product, product_confirmed = true
+    where gtin = v_gtin and not product_confirmed;
+  end if;
+  update public.freezer_boxes set product_id = p_product, product_confirmed = true where id = p_id;
+end $$;
+revoke execute on function public.confirm_freezer_box(uuid, text) from public, anon;
+grant execute on function public.confirm_freezer_box(uuid, text) to authenticated, service_role;
+
 -- A phone says how it's doing in a count (and joins it).
 create or replace function public.freezer_count_checkin(p_count uuid, p_device text, p_person text, p_waiting int)
 returns void
