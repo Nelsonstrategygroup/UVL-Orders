@@ -89,3 +89,21 @@ A. Migration (the sale column, skip sales in the live-draft functions, the
 B. `lib/calc` changes + tests; the New sale invoice button and Add a product
    on the invoice page.
 C. P&L income and Open invoices, per the answers above.
+
+## Lucas's answers (11/20/26)
+
+1. Week and number as proposed: the week holding the invoice date, "3005-EMER-S1".
+2. One-off buyers are a need that will keep coming up; for now add them as
+   ordinary customers. A better way for one-off customers is still to plan.
+3. Typed lines, with the product picked from a drop-down list. Yes, that's
+   how it's built.
+4. Only a finalized sale counts on the P&L.
+5. A sale line should take the box out of the freezer. This waits for the
+   freezer box records (the freezer Add/Count work) and is built after that.
+6. Emerson's held boxes: not now. Lucas is asking Chris what has shipped.
+
+## As built (stages A to C, 11/20/26)
+
+See SPEC 15.4c. Migration 20261125000300 (rollback in supabase/rollback),
+tests in supabase/tests/database/sale_invoices.test.sql and lib/calc.
+Not built yet: the freezer link (answer 5).

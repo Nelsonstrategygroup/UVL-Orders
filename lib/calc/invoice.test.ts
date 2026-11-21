@@ -9,6 +9,7 @@ import {
   lbText,
   paidCents,
   parseDiscount,
+  parseSaleAmount,
   priceLines,
   quantityText,
   STATE_LABEL,
@@ -195,5 +196,30 @@ describe("Mohawk charge lines on a draft (Lucas, 11/15/26)", () => {
   it("counts the boxes when it wasn't on the order", () => {
     const out = priceLines([{ ...carcass, ordered_qty: null, boxes: 2 }], prices, "emerson", "2026-11-03", null, [charge("40")]);
     expect(out[1].totalCents).toBe(BigInt(8000));
+  });
+});
+
+describe("a sale's product line (Lucas, 11/20/26)", () => {
+  it("takes pounds up to 3 decimals, and whole cases and pieces", () => {
+    expect(parseSaleAmount("12.5", "lb")).toBe("12.5");
+    expect(parseSaleAmount(" 12.345 lb", "lb")).toBe("12.345");
+    expect(parseSaleAmount(".75", "lb")).toBe("0.75");
+    expect(parseSaleAmount("1,204.10", "lb")).toBe("1204.10");
+    expect(parseSaleAmount("007", "lb")).toBe("7");
+    expect(parseSaleAmount("2", "case")).toBe("2");
+    expect(parseSaleAmount("3 pieces", "each")).toBe("3");
+  });
+  it("refuses blanks, zero, too many decimals, and part of a case", () => {
+    for (const [t, u] of [["", "lb"], ["0", "lb"], ["0.000", "lb"], ["1.2345", "lb"], ["-2", "lb"], ["abc", "lb"], ["1.5", "case"], ["0", "each"]] as const)
+      expect(parseSaleAmount(t, u)).toBeNull();
+  });
+  it("counts a sale line's pounds in the weight", () => {
+    const lines = priceLines(
+      [{ id: "a", invoice_id: "i", kind: "inventory", product_id: "racks", description: "Racks", ordered_qty: null, ordered_unit: "", boxes: 2, quantity: "12.345", price_unit: "lb", unit_price: "10", discount_kind: null, discount: null, not_on_order: false, note: "", sort: 1 }],
+      [],
+      "c",
+      "2026-11-17",
+    );
+    expect(invoiceTotals(lines)).toMatchObject({ totalCents: BigInt(12345), boxes: 2, lbThousandths: BigInt(12345), complete: true });
   });
 });

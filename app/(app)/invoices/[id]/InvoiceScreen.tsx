@@ -8,6 +8,8 @@
 // count), which locks the lines, total and number. Once finalized: the date
 // and number, Mark sent, payments, Reopen (admins, no payments: live again),
 // and Void (with a reason). A void invoice can be reissued as a new draft (-R1).
+// A stand-alone sale (Lucas, 11/20/26) has no packing: products are picked
+// from the list with the amount typed, priced from Setup > Prices.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,11 +20,23 @@ import { getDb, useStaffData } from "@/components/data/StaffData";
 import { useLive } from "@/components/data/useLive";
 import { useToast } from "@/components/Toast";
 import { useWeek } from "@/components/Week";
-import { invoiceState, invoiceTotals, paidCents, parseDiscount, STATE_LABEL, type PricedLine } from "@/lib/calc/invoice";
+import {
+  invoiceState,
+  invoiceTotals,
+  paidCents,
+  parseDiscount,
+  parseSaleAmount,
+  quantityText,
+  SALE_AMOUNT_LABEL,
+  STATE_LABEL,
+  type PricedLine,
+} from "@/lib/calc/invoice";
+import { groupLead, packedWith } from "@/lib/calc/packTogether";
 import { centsText, lineTotalCents, parsePrice, priceText } from "@/lib/calc/prices";
 import { ago, isISODate, niceDate, todayISO, weekName } from "@/lib/dates";
 import {
   addManualLine,
+  addProductLine,
   addPayment,
   deleteDraft,
   deleteLine,
@@ -78,11 +92,14 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
   const t = invoiceTotals(sheet.lines);
   const draft = inv.status === "draft";
   const issued = inv.status === "finalized" || inv.status === "sent";
+  const sale = inv.sale_no != null;
   // A draft stays when nothing's packed only if it has lines added by hand or a note; then it can be deleted.
   const nothingPacked = !data.boxes.some((b) => b.customer_id === inv.customer_id) && !inv.invoice_lines.some((l) => l.kind === "packed");
+  // A draft sale can always be deleted.
+  const canDelete = draft && (sale || nothingPacked);
   const replaces = inv.replaces_id ? data.invoices.find((i) => i.id === inv.replaces_id) : undefined;
   const replacedBy = data.invoices.find((i) => i.replaces_id === inv.id);
-  const live = data.invoices.find((i) => i.customer_id === inv.customer_id && i.status !== "void");
+  const live = data.invoices.find((i) => i.customer_id === inv.customer_id && i.status !== "void" && i.sale_no === inv.sale_no);
   const after = (err: string | null, ok: string) => {
     toast(err ? `Couldn't save: ${err}` : ok);
     refresh();
@@ -103,13 +120,25 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
 
   // What stops a draft being finalized, in plain words.
   const blockers = [
-    !inv.number ? "It needs an invoice number." : "",
+    !inv.number
+      ? sale && !data.billing.get(inv.customer_id)?.invoice_code
+        ? `It needs an invoice number. Give ${sheet.customerName} an invoice code in Setup > Invoicing, or type a number.`
+        : "It needs an invoice number."
+      : "",
+    sale && inv.invoice_lines.length === 0 ? "Add a product." : "",
     t.priceNeeded ? `${t.priceNeeded} line${t.priceNeeded === 1 ? " has" : "s have"} no price (Setup > Prices).` : "",
     t.countNeeded ? `${t.countNeeded} line${t.countNeeded === 1 ? " needs" : "s need"} a count (on Packing).` : "",
   ].filter(Boolean);
 
   const remove = async () => {
-    if (!confirm(`Delete the draft for ${sheet.customerName}? Nothing is packed for it; the lines you added and the note go too.`)) return;
+    if (
+      !confirm(
+        sale
+          ? `Delete this sale invoice for ${sheet.customerName}? Its lines and note go too.`
+          : `Delete the draft for ${sheet.customerName}? Nothing is packed for it; the lines you added and the note go too.`,
+      )
+    )
+      return;
     const err = await deleteDraft(db, inv.id);
     if (err) return after(err, "");
     toast("Draft deleted");
@@ -128,11 +157,13 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
   const reopen = async () => {
     if (
       !confirm(
-        `Reopen ${inv.number ?? "this invoice"}? It becomes a draft again: its lines follow packing and today's price list, and its total can change. Your name and the time are kept.`,
+        sale
+          ? `Reopen ${inv.number ?? "this invoice"}? It becomes a draft again: its prices come from today's price list, and its total can change. Your name and the time are kept.`
+          : `Reopen ${inv.number ?? "this invoice"}? It becomes a draft again: its lines follow packing and today's price list, and its total can change. Your name and the time are kept.`,
       )
     )
       return;
-    await run(() => reopenInvoice(db, inv.id), "Reopened. It follows packing again.");
+    await run(() => reopenInvoice(db, inv.id), sale ? "Reopened." : "Reopened. It follows packing again.");
   };
   const reissue = async () => {
     setBusy(true);
@@ -151,7 +182,8 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
             &larr; Invoices
           </Link>
           <h2 className="mr-auto">
-            {sheet.customerName} · {weekName(week)}
+            {sheet.customerName} · {sale ? "Sale · " : ""}
+            {weekName(week)}
           </h2>
           <button type="button" className="btn" onClick={() => okUnconfirmed("Print") && window.print()}>
             Print
@@ -173,7 +205,8 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
           <b>{STATE_LABEL[invoiceState(inv.status, t.totalCents, paidCents(inv.payments))]}</b>
           {inv.finalized_at && <span className="small muted"> · finalized {ago(inv.finalized_at)}</span>}
           {inv.sent_at && <span className="small muted"> · sent {ago(inv.sent_at)}</span>}
-          {draft && <span className="small muted"> · follows packing and prices until finalized</span>}
+          {draft && !sale && <span className="small muted"> · follows packing and prices until finalized</span>}
+          {sale && <span className="small muted"> · a sale with no order{draft ? "; prices follow Setup > Prices until finalized" : ""}</span>}
           {inv.reopened_at && (
             <span className="small muted">
               {" "}
@@ -215,7 +248,8 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
               </p>
             ) : live ? (
               <p className="mb-0">
-                This location has another invoice this week: <Link href={`/invoices/${live.id}`}>{live.number ?? "open it"}</Link>.
+                {sale ? "This sale has another invoice: " : "This location has another invoice this week: "}
+                <Link href={`/invoices/${live.id}`}>{live.number ?? "open it"}</Link>.
               </p>
             ) : (
               canEdit && (
@@ -224,7 +258,9 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
                     Reissue
                   </button>
                   <span className="small muted">
-                    A new draft from packing as it is now, numbered -R, with the same added lines and discounts.
+                    {sale
+                      ? "A new draft with the same lines, numbered -R. Prices come from the price list again."
+                      : "A new draft from packing as it is now, numbered -R, with the same added lines and discounts."}
                   </span>
                 </div>
               )
@@ -235,9 +271,9 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
         {canEdit && (draft || issued) && (
           <section className="panel mt-2">
             <div className="flex flex-wrap items-end gap-3">
-              <DateField inv={inv} onSaved={after} />
+              <DateField inv={inv} sale={sale} onSaved={after} />
               <NumberField inv={inv} onSaved={after} />
-              {draft && nothingPacked && (
+              {canDelete && (
                 <div className="ml-auto flex flex-wrap gap-2">
                   <button type="button" className="btn ghost" disabled={busy} onClick={() => void remove()}>
                     Delete draft
@@ -277,7 +313,7 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
                 {isAdmin && (inv.payments.length ? " To reopen it, delete its payments first." : " Reopen makes it a live draft again.")}
               </p>
             )}
-            {draft && nothingPacked && (
+            {draft && !sale && nothingPacked && (
               <p className="small mt-1 mb-0">Nothing is packed for this location now. It stays because it has lines you added or a note.</p>
             )}
 
@@ -306,11 +342,24 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
                     }}
                   />
                 </label>
-                <h3 className="mt-3">Discounts and lines you add</h3>
-                <p className="small muted mt-1">
-                  Quantities come from packing. To change one, fix it on Packing; this draft follows. A discount is a dollar
-                  amount (5.00) or a percent (10%), and needs a note.
-                </p>
+                {sale ? (
+                  <>
+                    <h3 className="mt-3">Products, discounts and lines you add</h3>
+                    <p className="small muted mt-1">
+                      Pick a product and type how much. Prices come from Setup &gt; Prices on the invoice date. A discount is a dollar
+                      amount (5.00) or a percent (10%), and needs a note.
+                    </p>
+                    <AddProduct invoiceId={inv.id} nextSort={Math.max(0, ...inv.invoice_lines.map((l) => l.sort)) + 1} onSaved={after} />
+                  </>
+                ) : (
+                  <>
+                    <h3 className="mt-3">Discounts and lines you add</h3>
+                    <p className="small muted mt-1">
+                      Quantities come from packing. To change one, fix it on Packing; this draft follows. A discount is a dollar
+                      amount (5.00) or a percent (10%), and needs a note.
+                    </p>
+                  </>
+                )}
                 <ul className="m-0 mt-1 grid list-none gap-2 p-0">
                   {sheet.lines
                     // Mohawk charge lines come from Setup > Prices, not from here.
@@ -340,7 +389,7 @@ function InvoiceView({ id, week }: { id: string; week: string }) {
   );
 }
 
-function DateField({ inv, onSaved }: { inv: InvoiceRow; onSaved: (err: string | null, ok: string) => boolean }) {
+function DateField({ inv, sale, onSaved }: { inv: InvoiceRow; sale: boolean; onSaved: (err: string | null, ok: string) => boolean }) {
   const db = getDb();
   return (
     <label className="grid gap-1">
@@ -356,7 +405,14 @@ function DateField({ inv, onSaved }: { inv: InvoiceRow; onSaved: (err: string | 
           if (!isISODate(v) || v < "2020-01-01" || v > "2100-12-31") return;
           if (v !== inv.invoice_date)
             void updateInvoice(db, inv.id, { invoice_date: v }).then((err) =>
-              onSaved(err, inv.status === "draft" ? "Date saved. Prices are from this date." : "Date saved. The due date follows."),
+              onSaved(
+                err,
+                inv.status !== "draft"
+                  ? "Date saved. The due date follows."
+                  : sale
+                    ? "Date saved. Prices are from this date, and the sale is in the week holding it."
+                    : "Date saved. Prices are from this date.",
+              ),
             );
         }}
       />
@@ -599,7 +655,13 @@ function LineEdit({ line: l, onSaved }: { line: PricedLine; onSaved: (err: strin
         <button type="button" className="copy min-h-[44px] px-2" onClick={() => setOpen(!open)}>
           {open ? "Close" : l.discount != null ? "Change discount" : l.kind === "manual" ? "Change note" : "Discount"}
         </button>
-        {l.kind === "manual" && (
+        {l.kind === "inventory" && (
+          <span className="small muted">
+            {quantityText(l.quantity, l.price_unit)}
+            {l.boxes ? `, ${l.boxes} box${l.boxes === 1 ? "" : "es"}` : ""}
+          </span>
+        )}
+        {(l.kind === "manual" || l.kind === "inventory") && (
           <button type="button" className="copy min-h-[44px] px-2" onClick={() => void remove()}>
             Remove
           </button>
@@ -703,5 +765,79 @@ function AddLine({ invoiceId, nextSort, onSaved }: { invoiceId: string; nextSort
         </button>
       </form>
     </details>
+  );
+}
+
+/**
+ * A product on a sale (Lucas, 11/20/26): picked from the list, the amount in
+ * its price unit (pounds, cases or pieces), boxes if known. Products packed
+ * in one box (Heart, Liver, Kidney) are one choice, as on the invoice.
+ */
+function AddProduct({ invoiceId, nextSort, onSaved }: { invoiceId: string; nextSort: number; onSaved: (err: string | null, ok: string) => boolean }) {
+  const db = getDb();
+  const toast = useToast();
+  const { catalog } = useStaffData();
+  const [productId, setProductId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [boxes, setBoxes] = useState("");
+  if (!catalog) return null;
+  // Active products in sort order; a packed-together group once, under its first product.
+  const choices = catalog.products
+    .filter((p) => p.active && groupLead(p.id, catalog.products) === p.id)
+    .map((p) => {
+      const group = packedWith(p.id, catalog.products);
+      const name = group.length > 1 ? group.map((id) => catalog.productById.get(id)?.name ?? id).join(", ") : p.name;
+      return { id: p.id, name, unit: p.price_unit };
+    });
+  const picked = choices.find((c) => c.id === productId);
+
+  const add = async () => {
+    if (!picked) return toast("Pick a product.");
+    const q = parseSaleAmount(amount, picked.unit);
+    if (!q) return toast(picked.unit === "lb" ? "Type the pounds, like 12.5" : `Type how many ${SALE_AMOUNT_LABEL[picked.unit].toLowerCase()}, like 2`);
+    const b = boxes.trim() ? Number(boxes.trim()) : 0;
+    if (!Number.isInteger(b) || b < 0) return toast("Boxes is a whole number, or leave it blank.");
+    const ok = onSaved(
+      await addProductLine(db, invoiceId, { productId: picked.id, description: picked.name, quantity: q, priceUnit: picked.unit, boxes: b, sort: nextSort }),
+      `Added ${picked.name}`,
+    );
+    if (ok) {
+      setProductId("");
+      setAmount("");
+      setBoxes("");
+    }
+  };
+
+  return (
+    <form
+      className="mt-2 flex flex-wrap items-end gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void add();
+      }}
+    >
+      <label className="grid gap-1">
+        <span className="lbl m-0">Product</span>
+        <select className="field" value={productId} onChange={(e) => setProductId(e.target.value)}>
+          <option value="">Pick a product</option>
+          {choices.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="grid gap-1">
+        <span className="lbl m-0">{picked ? SALE_AMOUNT_LABEL[picked.unit] : "How much"}</span>
+        <input className="field num w-28!" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </label>
+      <label className="grid gap-1">
+        <span className="lbl m-0">Boxes (if known)</span>
+        <input className="field num w-20!" inputMode="numeric" value={boxes} onChange={(e) => setBoxes(e.target.value)} />
+      </label>
+      <button type="submit" className="btn">
+        Add product
+      </button>
+    </form>
   );
 }

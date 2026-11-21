@@ -30,6 +30,7 @@ const invoice = (p: Partial<InvoiceRow>): InvoiceRow => ({
   customer_id: "c",
   number: "99301-LIFE",
   reissue: 0,
+  sale_no: null,
   number_by_hand: false,
   reopened_at: null,
   reopened_by_name: "",

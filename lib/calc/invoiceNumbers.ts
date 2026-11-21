@@ -30,3 +30,11 @@ export function parseWeekNumber(v: string): number | null {
   const n = Number(t);
   return n > 0 && Number.isSafeInteger(n) ? n : null;
 }
+
+/**
+ * A stand-alone sale (Lucas, 11/20/26): the week's number, the location code
+ * and -S1, -S2 ("3005-EMER-S1"); a reissue adds -R1. Same as sale_number_for() in the database.
+ */
+export function saleNumberText(weekNumber: number, code: string, sale: number, reissue = 0): string {
+  return `${weekNumber}-${code}-S${sale}${reissue > 0 ? `-R${reissue}` : ""}`;
+}

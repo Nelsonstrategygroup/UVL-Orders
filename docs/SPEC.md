@@ -665,6 +665,15 @@ The full plan, with the schema, screens and stages, is `docs/invoicing-plan.md`.
 - Payments: date, amount (cents), ACH, check or other, reference, note; partial and more than owed allowed (with a question). Paid and Partly paid come from the payments. If packing changes after finalizing, the invoice says so (Packing changed) and keeps what it was finalized with.
 - Screens: the invoice page (Finalize with what's missing in plain words; Mark sent; Payments; Void; Reissue; VOID across a void one; payments and the balance on the printout), Invoices (status words, void invoices listed below), Open invoices (any week, money owed, days overdue; by number, due date or location). Print and download, "Tuesday, invoices": the week's invoices, Open invoices, and Invoice lines for QuickBooks (one row per line for a date range, in QuickBooks Online's import columns; a discount is its own row). Payments and invoice boxes are in Export all data.
 
+### 15.4c Stand-alone sales (Lucas, 11/20/26; migration 20261125000300; plan in `docs/stand-alone-invoices-plan.md`)
+- An invoice for products sold with no order (boxes from the freezer, say): Invoices > **New sale (no order)**, pick a customer already in the app and the invoice date (today to start). One-off buyers are added as ordinary customers for now; a better way for them is still to come.
+- `invoices.sale_no`. Packing never touches a sale: it isn't refilled or deleted by the live drafts, and it doesn't count toward one invoice per location per week, so a location can have its weekly invoice and any number of sales.
+- It belongs to the order week holding its invoice date; while a draft, changing the date moves it (new week, new sale number). Number: the week's number + the location code + -S1, -S2 ("3005-EMER-S1"); reissue adds -R1; changeable like any number.
+- Lines: pick a product from the list (Heart, Liver, Kidney as one) and type the pounds, cases or pieces (whole cases and pieces), boxes optional ('inventory' lines). Priced from Setup > Prices on the invoice date like a packed line; discounts and lines added by hand as usual. Finalize needs at least one line and adds no Freight line, no Mohawk charge and no boxes from packing. Reissue copies its lines.
+- Weekly P&L: only a finalized (or sent) sale counts, as its own income row ("Emerson, sale 3005-EMER-S1"); a draft sale isn't projected income.
+- Not yet: taking a box out of freezer inventory. Lucas (11/20/26): a sale line should take the box out of the freezer. Waits for the freezer box records (freezer Add/Count); built only after that, with Lucas's OK on how.
+- Not yet: Emerson's held boxes (Lucas is asking Chris what has shipped).
+
 ### 15.5 Open questions
 - DECIDED (Lucas, 10/29/26; migration 20261030000200): the cut sheet, manifest and invoices share one INV#, the week's invoice number (weeks.invoice_number). The cut sheet's INV# box sets it; cut_sheets.inv_number is no longer used.
 - ON HOLD (Lucas, 10/29/26): Kirkland's store number and Kathy's OK on the invoice codes. Stage 4 (QuickBooks Online connection) is tabled until Lucas raises it again.
