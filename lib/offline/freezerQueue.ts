@@ -18,7 +18,7 @@ export function applyFreezerQueue(b: FreezerBundle, queue: Queued[]): FreezerBun
   let waitingAdds = 0;
   for (const q of waiting) {
     const a = q.action;
-    if (a.type === "freezer-add") {
+    if (a.type === "freezer-add" || a.type === "box-to-freezer") {
       waitingAdds++;
       if (boxes.some((x) => x.client_id === a.box.client_id)) continue;
       const x = a.box;

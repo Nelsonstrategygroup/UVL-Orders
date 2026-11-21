@@ -88,6 +88,8 @@ type ActionBody =
   | { type: "pallet-status"; id: string; status: "planned" | "open" | "full" | "shipped" }
   /** A box put in the freezer: Add to freezer, or a leftover from Packing (add_to_freezer, 11/20/26). */
   | { type: "freezer-add"; box: FreezerAdd }
+  /** Packing: a leftover box with no store goes in the freezer, and off Packing, in one step (put_box_in_freezer, 11/20/26). */
+  | { type: "box-to-freezer"; weight_id?: string; weight_client_id?: string; box: FreezerAdd }
   /** Take back a box added by mistake (remove_freezer_box), by the phone's client_id. */
   | { type: "freezer-remove"; client_id: string }
   /** Start a freezer count (made on the phone, so it can start with no signal). */
@@ -195,6 +197,8 @@ export function sourceOf(a: Action): string {
       return a.box.source === "packing" ? "leftover put in the freezer (Packing)" : a.box.source === "scan" ? "scanned in (Add to freezer)" : "typed in (Add to freezer)";
     case "freezer-remove":
       return "taken back, added by mistake (Add to freezer)";
+    case "box-to-freezer":
+      return "leftover put in the freezer (Packing)";
     case "count-start":
       return a.count.kind === "stock_in" ? "freezer stock-in count started" : "freezer count started";
     case "count-item":
@@ -343,6 +347,10 @@ export function applyQueue(data: PackingData, queue: Queued[], who = "This phone
       if (!moved.correction_reason) moved = { ...moved, ...countedAs(boxLabelProduct(moved), to?.lines, data) };
       if (to) to.weights.push(moved);
       else unassigned.push(moved);
+    } else if (a.type === "box-to-freezer") {
+      // Gone from Packing straight away: it's in the freezer.
+      const i = unassigned.findIndex((w) => (a.weight_id && w.id === a.weight_id) || (a.weight_client_id && w.client_id === a.weight_client_id));
+      if (i >= 0) unassigned.splice(i, 1);
     } else if (a.type === "weight-remove") {
       const o = byId.get(a.order_id);
       if (!o) continue;

@@ -198,6 +198,18 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       if (r.error?.code === "23505") return { kind: "done", note: `Not added to the freezer: ${r.error.message}` };
       return classify(r.error, r.status);
     }
+    case "box-to-freezer": {
+      const r = await withTimeout(
+        db
+          .rpc("put_box_in_freezer", {
+            p: { weight_id: a.weight_id ?? null, weight_client_id: a.weight_client_id ?? null, client_id: a.box.client_id, qty: a.box.qty, note: a.box.note },
+          })
+          .setHeader(SOURCE_HEADER, src),
+      );
+      // Gone from Packing, or put on a store since (another phone): nothing to move.
+      if (r.error?.code === "P0002" || r.error?.code === "55000") return { kind: "done", note: `Not put in the freezer: ${r.error.message}` };
+      return classify(r.error, r.status);
+    }
     case "freezer-remove": {
       const found = await withTimeout(db.from("freezer_boxes").select("id").eq("client_id", a.client_id).maybeSingle());
       if (found.error) return classify(found.error, found.status);

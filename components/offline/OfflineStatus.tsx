@@ -47,6 +47,8 @@ function describe(q: Queued): string {
       return `A box for the freezer${a.box.weight_lb ? `, ${a.box.weight_lb} lb` : ""}${a.box.serial ? `, serial ${a.box.serial}` : ""}`;
     case "freezer-remove":
       return "Taking a box back out of the freezer";
+    case "box-to-freezer":
+      return `A leftover box for the freezer${a.box.weight_lb ? `, ${a.box.weight_lb} lb` : ""}`;
     case "count-start":
       return "Starting a freezer count";
     case "count-item":

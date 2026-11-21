@@ -1,7 +1,7 @@
 -- Freezer boxes, take-outs, counts and value (migration 20261125000100).
 
 begin;
-select plan(51);
+select plan(56);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000000fb0a1', 'fz-admin@test.local'),
@@ -166,6 +166,22 @@ select ok((select product_id = 'fz-shanks' and product_confirmed from public.fre
   and (select product_id = 'fz-shanks' from public.gtin_products where gtin = '10698746489288')
   and (select l.product_id = 'fz-shanks' from public.freezer_log l join public.freezer_boxes b on b.id = l.freezer_box_id where b.serial = 'u1'),
   'the box, its log line and the label all say the confirmed product');
+
+-- Packing: a leftover with no store goes in the freezer in one step.
+reset role;
+insert into public.packing_weights (id, client_id, order_id, week_id, product_id, weight, gtin, serial, lot, route) values
+  ('00000000-0000-4000-8000-0000000fb0d5', '00000000-0000-4000-8000-0000000fb0d6', null, '2099-11-09', 'fz-shanks', 18.4, '10698746488816', '2631319001', '654321', 'unassigned');
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000fb0a2","role":"authenticated"}';
+select lives_ok($$ select public.put_box_in_freezer('{"weight_client_id":"00000000-0000-4000-8000-0000000fb0d6","client_id":"00000000-0000-4000-8000-0000000fb1b1","qty":8}') $$,
+  'the packer puts an unassigned box in the freezer');
+select ok((select source = 'packing' and reason = 'leftover' and counts_as_income and week_id = '2099-11-09' and qty = 8 and weight_lb = 18.4 and lot = '654321'
+  from public.freezer_boxes where client_id = '00000000-0000-4000-8000-0000000fb1b1'), 'it keeps the label details and counts as that packing week''s income');
+select is((select count(*)::int from public.packing_weights where id = '00000000-0000-4000-8000-0000000fb0d5'), 0, 'and it''s gone from Packing');
+select is((select public.put_box_in_freezer('{"weight_client_id":"00000000-0000-4000-8000-0000000fb0d6","client_id":"00000000-0000-4000-8000-0000000fb1b1","qty":8}')),
+  (select id from public.freezer_boxes where client_id = '00000000-0000-4000-8000-0000000fb1b1'), 'sending it twice saves it once');
+select throws_ok($$ select public.put_box_in_freezer('{"weight_id":"00000000-0000-4000-8000-0000000fb0d2","qty":8}') $$,
+  '55000', null, 'a box on a store isn''t put in the freezer');
 
 select * from finish();
 rollback;

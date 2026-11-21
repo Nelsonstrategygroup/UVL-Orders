@@ -612,6 +612,58 @@ end $$;
 revoke execute on function public.add_to_freezer(jsonb) from public, anon;
 grant execute on function public.add_to_freezer(jsonb) to authenticated, service_role;
 
+-- Packing: a leftover box with no store goes in the freezer (Lucas, 11/20/26).
+-- In one step: the freezer box is made from the Packing box (label, lot,
+-- weight, pack date) and the Packing box is removed, so it's never in both or
+-- neither. Counts as that packing week's freezer income. p: weight_id or
+-- weight_client_id (the Packing box), client_id (the freezer box, made on the
+-- phone), qty (in the product's unit), note.
+create or replace function public.put_box_in_freezer(p jsonb)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  w record;
+  v_id uuid;
+  v_client uuid := nullif(p ->> 'client_id', '')::uuid;
+begin
+  if not (public.can_change('packing') or public.can_change('freezer')) then
+    raise exception 'You can''t put boxes in the freezer.' using errcode = '42501';
+  end if;
+  if v_client is not null then
+    select id into v_id from public.freezer_boxes where client_id = v_client;
+    if found then return v_id; end if;
+  end if;
+  select * into w from public.packing_weights
+  where id = nullif(p ->> 'weight_id', '')::uuid or client_id = nullif(p ->> 'weight_client_id', '')::uuid
+  for update
+  limit 1;
+  if not found then
+    raise exception 'That box is gone from Packing.' using errcode = 'P0002';
+  end if;
+  if w.order_id is not null then
+    raise exception 'This box is on a store now. It wasn''t put in the freezer.' using errcode = '55000';
+  end if;
+  perform set_config('uvl.source', 'leftover put in the freezer (Packing)', true);
+  v_id := public.add_to_freezer(jsonb_build_object(
+    'client_id', v_client,
+    'product_id', w.product_id,
+    'qty', coalesce(nullif(p ->> 'qty', '')::numeric, w.weight),
+    'weight_lb', w.weight,
+    'gtin', w.gtin, 'serial', w.serial, 'serial_date', w.serial_date, 'case_no', w.case_no,
+    'pack_date', w.pack_date, 'lot', w.lot, 'raw_scan', w.raw_scan,
+    'product_confirmed', true,
+    'source', 'packing', 'reason', 'leftover', 'note', coalesce(p ->> 'note', ''),
+    'added_on', coalesce((w.scanned_at at time zone 'America/Los_Angeles')::date, public.freezer_today()),
+    'week_id', coalesce(w.week_id, public.order_week(public.freezer_today()))));
+  delete from public.packing_weights where id = w.id;
+  return v_id;
+end $$;
+revoke execute on function public.put_box_in_freezer(jsonb) from public, anon;
+grant execute on function public.put_box_in_freezer(jsonb) to authenticated, service_role;
+
 -- Take something out of a box. p: box_id, qty (default all that's left), reason, note, taken_on, client_id, counts_in_pnl.
 create or replace function public.take_from_freezer(p jsonb)
 returns uuid

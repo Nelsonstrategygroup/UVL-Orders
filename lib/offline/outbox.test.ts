@@ -220,6 +220,18 @@ describe("a box from the Weigh Sheet's blank rows with no store (11/1/26)", () =
     expect(out.unassigned[0]).toMatchObject({ client_id: "u1", product_id: "rack", weight: 33.3, slot: null, label_no: null, source: "weigh" });
     expect(out.orders[0].weights).toHaveLength(0);
   });
+
+  it("leaves Packing straight away when it's put in the freezer (11/20/26)", () => {
+    const a = { type: "weight-unassigned", client_id: "u1", week_id: "2026-10-19", product_id: "rack", weight: 33.3, at: "2026-11-02T15:00:00Z" } as const;
+    const toFreezer = {
+      type: "box-to-freezer",
+      weight_client_id: "u1",
+      box: { client_id: "f1", product_id: "rack", qty: 16, weight_lb: 33.3, source: "packing", reason: "leftover", week_id: "2026-10-19", counts_as_income: true },
+    } as unknown as Action;
+    const out = applyQueue(data(), [q(a), q(toFreezer)]);
+    expect(out.unassigned).toEqual([]);
+    expect(sourceOf(toFreezer)).toBe("leftover put in the freezer (Packing)");
+  });
 });
 
 describe("where an action came from, for the audit log (11/10/26)", () => {

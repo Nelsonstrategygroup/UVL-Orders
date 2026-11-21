@@ -43,7 +43,7 @@ import { useLabelNumbers } from "./useLabelNumbers";
 import { typedBoxPallet } from "@/lib/calc/routing";
 import { notAssignedBoxes, nothingToPackWords } from "@/lib/calc/notAssigned";
 import { notSavedScans } from "@/lib/calc/notSaved";
-import { MoveSheet, NotAssignedBanner, NotSavedBanner, sendBoxMove, type FoundBox } from "./MoveBox";
+import { MoveSheet, NotAssignedBanner, NotSavedBanner, sendBoxMove, sendToFreezer, type FoundBox } from "./MoveBox";
 import CorrectBoxSheet, { BoxLabelNote } from "./CorrectBox";
 const FILTERS: [PackFilter, string][] = [
   ["todo", "To pack"],
@@ -253,6 +253,14 @@ export default function PackingScreen() {
           data={bundle.data}
           labels={labels}
           onClose={() => setAssigning(null)}
+          onFreezer={(qty) => {
+            void sendToFreezer(enqueue, week, assigning, qty)
+              .then(() => {
+                setAssigning(null);
+                toast("Put in the freezer");
+              })
+              .catch(() => toast("Couldn't save on this phone. Try again."));
+          }}
           onSave={(to) => {
             void sendBoxMove(enqueue, bundle.data!, labels, week, assigning, to, "Packing")
               .then((m) => {

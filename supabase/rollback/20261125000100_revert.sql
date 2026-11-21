@@ -26,6 +26,7 @@ drop function if exists public.set_freezer_income(uuid, boolean);
 drop function if exists public.confirm_freezer_box(uuid, text);
 drop function if exists public.remove_freezer_box(uuid);
 drop function if exists public.take_from_freezer(jsonb);
+drop function if exists public.put_box_in_freezer(jsonb);
 drop function if exists public.add_to_freezer(jsonb);
 
 drop table if exists public.freezer_takes;
