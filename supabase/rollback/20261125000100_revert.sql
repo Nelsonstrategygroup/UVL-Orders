@@ -14,6 +14,8 @@ alter publication supabase_realtime drop table
 
 drop trigger if exists packing_weights_freezer_box on public.packing_weights;
 drop trigger if exists freezer_log_box_guard on public.freezer_log;
+drop trigger if exists freezer_log_takes_oldest on public.freezer_log;
+drop trigger if exists freezer_log_takes_back on public.freezer_log;
 
 -- The log lines boxes and take-outs wrote.
 delete from public.freezer_log where freezer_box_id is not null or freezer_take_id is not null;
@@ -38,6 +40,7 @@ drop table if exists public.freezer_counts;
 drop table if exists public.freezer_value_rates;
 
 drop function if exists public.freezer_box_packed();
+drop function if exists public.freezer_log_takes_oldest();
 drop function if exists public.freezer_log_box_guard();
 drop function if exists public.freezer_count_items_open();
 drop function if exists public.freezer_takes_after();

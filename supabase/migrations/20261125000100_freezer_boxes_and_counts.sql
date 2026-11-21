@@ -211,6 +211,10 @@ create table public.freezer_takes (
   packing_weight_id uuid unique references public.packing_weights (id) on delete cascade,
   half_whole_order_id uuid references public.half_whole_orders (id) on delete cascade,
   count_id uuid references public.freezer_counts (id) on delete set null,
+  -- A count-based take-out (Half and whole filled, "Add or take out") that took this from the oldest box.
+  -- No foreign key on purpose: freezer_log already points here (freezer_take_id), and a second link
+  -- between the two tables breaks the API's embeds. Removed with its log line by trigger.
+  source_log_id uuid,
   -- Out of freezer on the P&L: takes back what the box added going in.
   counts_in_pnl boolean not null default false,
   created_by uuid default auth.uid() references public.profiles (id),
@@ -430,8 +434,9 @@ begin
   update public.freezer_boxes b
   set qty_left = b.qty - coalesce((select sum(t.qty) from public.freezer_takes t where t.box_id = b.id), 0)
   where b.id = v_box;
-  -- Half and whole orders log their own take-outs (set_half_whole_status).
-  if tg_op = 'INSERT' and new.reason <> 'half_whole' then
+  -- Half and whole orders log their own take-outs (set_half_whole_status), and a take-out
+  -- made from a count-based log line already has that line.
+  if tg_op = 'INSERT' and new.reason <> 'half_whole' and new.source_log_id is null then
     insert into public.freezer_log (entry_date, product_id, qty, note, freezer_take_id, created_by)
     select new.taken_on, b.product_id, -new.qty,
       case new.reason
@@ -491,6 +496,55 @@ begin
 end $$;
 create trigger freezer_log_box_guard before insert or update or delete on public.freezer_log
   for each row execute function public.freezer_log_box_guard();
+
+-- Something taken out by count, not by box (Half and whole marked filled, or
+-- "Add or take out"): it comes out of the oldest boxes of that product first,
+-- so their values leave the freezer too (Lucas, 11/20/26). Whatever no box
+-- covers was stock counted before boxes were recorded. Removing the log line
+-- (an order put back to pending, or Remove) puts the boxes back.
+create or replace function public.freezer_log_takes_oldest()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_left numeric;
+  b record;
+  v_take numeric;
+  v_week date;
+begin
+  if tg_op = 'DELETE' then
+    delete from public.freezer_takes where source_log_id = old.id;
+    return old;
+  end if;
+  if new.qty >= 0 or new.freezer_box_id is not null or new.freezer_take_id is not null then
+    return null;
+  end if;
+  v_left := -new.qty;
+  if new.half_whole_order_id is not null then
+    v_week := public.order_week(new.entry_date);
+  end if;
+  for b in
+    select id, qty_left from public.freezer_boxes
+    where product_id = new.product_id and qty_left > 0
+    order by added_on, created_at, id
+    for update
+  loop
+    exit when v_left <= 0;
+    v_take := least(v_left, b.qty_left);
+    insert into public.freezer_takes (box_id, qty, taken_on, week_id, reason, note, half_whole_order_id, source_log_id, created_by)
+    values (b.id, v_take, new.entry_date, coalesce(v_week, public.order_week(new.entry_date)),
+      case when new.half_whole_order_id is not null then 'half_whole' else 'taken_out' end,
+      left(coalesce(new.note, ''), 200), new.half_whole_order_id, new.id, new.created_by);
+    v_left := v_left - v_take;
+  end loop;
+  return null;
+end $$;
+create trigger freezer_log_takes_oldest after insert on public.freezer_log
+  for each row execute function public.freezer_log_takes_oldest();
+create trigger freezer_log_takes_back before delete on public.freezer_log
+  for each row execute function public.freezer_log_takes_oldest();
 
 -- A box in the freezer packed for an order (same GTIN and serial) comes out by itself.
 create or replace function public.freezer_box_packed()
