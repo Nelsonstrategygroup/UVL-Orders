@@ -216,7 +216,7 @@ Port from the prototype: list of orders, "New order," guided form with half or w
 
 ### 5.8 Freezer
 
-On hand, held for pending half and whole orders, and free, per product. "Add or take out" form. Recent changes with remove.
+On hand, held for pending half and whole orders, and free, per product. "Add or take out" form. Recent changes with remove. Add to freezer, Freezer count, boxes in the freezer, labels to confirm and the freezer value: section 17.
 
 ### 5.8a Print and download
 
@@ -722,4 +722,45 @@ Admin only, additive only, same safeguards. A P&L, not accounting: payment statu
 - Expense entries: date, category, amount, note. Any number per week. Butcher is entered here as needed.
 - Income entries: date, customer (picked from the customer list, which is only read), amount, note. A stopgap until invoices are used. The customer's name is copied onto the entry and no link is added to the customers table, so deleting or changing customers works as before.
 - Weekly P&L (More, printable, the usual week bar): income by customer; producer cost by producer (head count, carcass lb, live lb, average weight, pay); each calculated charge with its math ("103 lambs × $1.80"); entered expenses by category; total expense, profit, profit per head, cost per carcass lb. Each charge is rounded to the cent. Where something is missing the page says so instead of showing a misleading number: "No income entered", "No weigh sheet for this week", and profit, profit per head and cost per carcass lb wait for both.
-- Not now: invoices feeding income, freezer in and out, payment tracking, a producer-facing view.
+- Not now: invoices feeding income, freezer in and out (built later: section 17), payment tracking, a producer-facing view.
+
+## 17. Freezer boxes, Add to freezer, freezer counts, and the freezer value (Lucas and Kathy, 11/19-20/26)
+
+Until now the freezer was a count per product (`freezer_log`). Boxes are now recorded too, so the app can tell a box that's already there, list what wasn't counted, and value what went in. Every box still writes its +count to `freezer_log` and every take-out its -count, so On hand, Half and whole and "Add or take out" work as before. Branch `freezer-count`; migrations 20261125000100 (boxes, take-outs, counts, value setting) and 20261125000200 (P&L adjustments to the freezer lines); revert files in `supabase/rollback`.
+
+### 17.1 Add to freezer (Freezer > Add to freezer)
+- Puts boxes in freezer inventory that didn't come through packing or an order. Scan them (same GS1-128 parsing as Packing: GTIN, weight, pack date, serial, lot; same beep and buzz) or type them in: product, how many in that product's unit (pieces, packs or pounds), weight, pack date, lot if known. Several in one go.
+- Count and weight are both kept for every box (Lucas: the weight data helps with average weights). The count starts at the last count typed for that product, else weight ÷ lb per piece; a product counted in pounds uses the weight.
+- Reason, default "Added manually": Found in freezer, Put away outside packing, Other (a note is required). The date defaults to today and can be changed.
+- A box already in the freezer (same GTIN and serial) is refused: "This box is already in the freezer." A box packed for a customer (Emerson's held boxes) isn't added.
+- An unknown GTIN is never an alert. An admin says which product it is and the app learns it. Anyone else picks the product for that box only; it's saved as "Product not confirmed", and Freezer shows admins a "Labels to confirm" list (`confirm_freezer_box` teaches the label and settles every box with it).
+- Who and when: the audit log. Saved on the phone first and uploaded with signal (outbox), like Packing.
+
+### 17.2 Packing leftovers (Lucas, 11/20/26)
+- A box with no store (Not assigned, on Packing and Scan boxes) has "Leftover? Put in freezer": it asks how many are in it, then moves it off Packing and into freezer inventory in one step (`put_box_in_freezer`). It counts as that packing week's freezer income by itself. Nothing else in Packing changes.
+
+### 17.3 Freezer counts (Freezer > Freezer count)
+- Two kinds (Lucas, 11/20/26): a **stock-in count** scans boxes to add every one (the first count; the freezer log was empty on 11/20/26), and a **freezer count** (reconciliation) checks what's there against the app, for the whole freezer or chosen products.
+- Scan each box; anything without a readable label is counted by hand by product. Nothing changes in inventory until the count is applied. Adds chosen during a count wait for Apply too (Lucas).
+- A freezer count matches boxes the app has. A box it doesn't have is offered "Add to freezer" (an option, not an alert). A box packed for a customer shows as held, never added.
+- Review by product: matched; found (whether it will be added; can be added here); held; not counted, each left as is (the default) or removed as Sold, Used, Discarded, Not found or Other (a note); totals in the app, counted, difference. A stock-in count's review lists what will be added, each can be left out.
+- No signal in the freezer: scans are kept on the phone and upload when there's signal. The screen shows how many are waiting on this phone and on the other phones. A count can be paused and picked up again on any phone (one open count at a time, any number of phones; nothing locks to one, so a dead phone can't block it). Apply needs this phone's scans uploaded; other phones' waiting scans hold it too, unless an admin applies anyway.
+- Each count is kept (`freezer_counts.results`): date, who, scope and what the review showed; opened from Freezer > Freezer counts.
+- No notifications anywhere: differences show only on the review and the saved count.
+- "Sold" only takes a box out of inventory (no invoice; invoices without an order are a separate piece of work).
+
+### 17.4 Freezer value: 90% of the default sale price (Kathy's rule)
+- Product put in the freezer counts at a percent of its default sale price (customer_id blank) on the day it went in, because some of it never sells at full price. P&L Setup > "Freezer value: percent of default sale price": 90% from 2026-10-08, dated like the other rates, admins only.
+- Pound-priced products: weight × price × percent; case or each: count × price × percent; each box rounded half up to the cent. Products packed together use their group's price (Kidney uses Heart's, like invoices). No default price: no value, "No freezer value: no default price", listed in the week's checks.
+- The value is kept on the box (`freezer_box_values`, read by admins and the P&L only). What comes out is taken back at the value it went in at, never today's price.
+- Take-outs by count (Half and whole marked filled, "Add or take out") come out of the oldest boxes first; removing the log line puts them back.
+- Freezer shows admins the freezer balance: what's in the freezer now, valued.
+
+### 17.5 Weekly P&L: Into freezer and Out of freezer
+- **Into freezer** (income): boxes counting as freezer income in the week (`freezer_boxes.week_id`): leftovers from Packing by themselves; any other add only when an admin ticks "Count as this week's freezer income" (on Add to freezer, or later on Freezer).
+- **Out of freezer** (reduces income, because the P&L counts invoices as income and the sale of a freezer box is already on its invoice): boxes packed for an order (same GTIN and serial, by itself) or taken for a half or whole order that week, at the value they went in at, only if they counted going in. Other take-outs and count changes don't touch the P&L.
+- Both open to "How this was calculated" (each box: weight or count × default price × percent = value), take adjustments, show in the activity log, and are saved with a closed week; a box or take-out that counts in a closed week can't change. They aren't part of a percent-of-income base (marketing).
+- Worked example, week of Nov 16 (INV 3004): no box was recorded going in or out that week, so both lines are $0. The one real freezer move, Emerson's Mixed Shanks box (serial 2631310052, 32.6 lb, $7.55/lb default), would be 32.6 × 90% × $7.55 = $221.52 Into freezer the week it was put away and −$221.52 Out of freezer on Nov 16, while Bothell's invoice bills it as usual.
+
+### 17.6 Who
+- Admin and packing roles add to the freezer and run counts (the packing role's Freezer default is now Change); the Operations lead keeps Change (Lucas). Dollar values are admins only.
