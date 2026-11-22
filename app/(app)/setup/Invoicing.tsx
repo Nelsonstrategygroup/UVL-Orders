@@ -15,7 +15,7 @@ import { useLive } from "@/components/data/useLive";
 import { useToast } from "@/components/Toast";
 import { displayName, sortByDisplayName } from "@/lib/calc/customers";
 import { cleanCode, invoiceNumberText, isInvoiceCode, parseWeekNumber, suggestWeekNumber } from "@/lib/calc/invoiceNumbers";
-import { currentWeek, niceDate } from "@/lib/dates";
+import { addDays, currentWeek, niceDate } from "@/lib/dates";
 import {
   loadCustomerBilling,
   loadInvoiceSettings,
@@ -118,8 +118,18 @@ function WeekNumbers({ canEdit }: { canEdit: boolean }) {
 
   const thisWeek = currentWeek();
   const next = suggestWeekNumber(weeks);
-  // Weeks with a number, and every week from this one on.
-  const shown = weeks.filter((w) => w.invoice_number != null || w.id >= thisWeek).slice(0, 12);
+  // Weeks with a number, and every week from this one on. This week and the
+  // next three always show, even before any orders are in: saving a number
+  // creates the week.
+  const byId = new Map(weeks.map((w) => [w.id, w]));
+  for (let i = 0; i < 4; i++) {
+    const id = addDays(thisWeek, 7 * i);
+    if (!byId.has(id)) byId.set(id, { id, invoice_number: null });
+  }
+  const shown = [...byId.values()]
+    .filter((w) => w.invoice_number != null || w.id >= thisWeek)
+    .sort((a, b) => (a.id < b.id ? 1 : -1))
+    .slice(0, 12);
 
   return (
     <section className="panel mt-3">
