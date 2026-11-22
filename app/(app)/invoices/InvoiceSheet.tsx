@@ -127,7 +127,9 @@ export default function InvoiceSheet({ invoice: inv, lines, customerName, billTo
                     {l.detail && <span className="inv-small block">{l.detail}</span>}
                     {l.note && !l.discount && <span className="inv-small block">{l.note}</span>}
                   </td>
-                  <td className="num">{l.kind === "manual" || l.kind === "charge" || l.kind === "freight" ? "" : l.boxes}</td>
+                  <td className="num">
+                    {l.kind === "manual" || l.kind === "charge" || l.kind === "freight" || (l.kind === "inventory" && !l.boxes) ? "" : l.boxes}
+                  </td>
                   <td className="num">
                     {l.kind === "shorted" ? (
                       "Not shipped"

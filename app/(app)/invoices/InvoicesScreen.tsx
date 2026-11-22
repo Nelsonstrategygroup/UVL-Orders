@@ -3,10 +3,13 @@
 // Invoices (SPEC 15): the week's invoices, one per location. Every packed
 // location has a draft that follows packing and the price list until it's
 // finalized (Lucas, 11/8/26: no more Make drafts or Update from packing).
+// New sale makes a stand-alone invoice with no order (Lucas, 11/20/26): it
+// sits in the list beside the weekly ones, marked Sale.
 // Each shows its number, boxes, weight and total, and whether prices or
 // counts are still needed. Finalize all locks every draft that's ready.
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCan } from "@/components/CurrentUser";
 import { getDb, useStaffData } from "@/components/data/StaffData";
@@ -15,7 +18,8 @@ import { useWeek, WeekBar } from "@/components/Week";
 import { compareCustomerIds, displayName } from "@/lib/calc/customers";
 import { invoiceState, lbText, paidCents, STATE_LABEL } from "@/lib/calc/invoice";
 import { centsText, toFixedInt } from "@/lib/calc/prices";
-import { finalizeInvoice } from "@/lib/db/invoices";
+import { isISODate, packingMonday, todayISO, weekName } from "@/lib/dates";
+import { finalizeInvoice, makeSale } from "@/lib/db/invoices";
 import { sheetFor, totalsOf } from "./sheet";
 import { useInvoiceWeek } from "./useInvoiceWeek";
 
@@ -48,12 +52,18 @@ export default function InvoicesScreen() {
   const rows = live
     .map((inv) => {
       const sheet = sheetFor(data, inv, customers, catalog);
-      // Weight: every box, as the manifests show it (per case boxes too).
-      const lb = data.boxes.filter((b) => b.customer_id === inv.customer_id).reduce((s, b) => s + toFixedInt(b.weight, 3), BigInt(0));
-      return { inv, sheet, t: totalsOf(sheet), lb };
+      const t = totalsOf(sheet);
+      // Weight: every box, as the manifests show it (per case boxes too). A sale: the pounds on its lines.
+      const lb =
+        inv.sale_no != null
+          ? t.lbThousandths
+          : data.boxes.filter((b) => b.customer_id === inv.customer_id).reduce((s, b) => s + toFixedInt(b.weight, 3), BigInt(0));
+      return { inv, sheet, t, lb };
     })
-    .sort((a, b) => byCustomer(a.inv.customer_id, b.inv.customer_id));
-  const invoiced = new Set(live.map((i) => i.customer_id));
+    // Each location's weekly invoice, then its sales in order.
+    .sort((a, b) => byCustomer(a.inv.customer_id, b.inv.customer_id) || (a.inv.sale_no ?? 0) - (b.inv.sale_no ?? 0));
+  // Sales don't stand in for a location's weekly invoice.
+  const invoiced = new Set(live.filter((i) => i.sale_no == null).map((i) => i.customer_id));
   // Packed with no live invoice: only when its invoice was voided (Reissue makes the next one).
   const packedNoInvoice = data.packing.orders.filter((o) => o.boxes > 0 && !invoiced.has(o.customer_id));
   const orderedNothingPacked = data.packing.orders.filter((o) => o.status === "ordered" && o.lines > 0 && o.boxes === 0 && !invoiced.has(o.customer_id));
@@ -126,6 +136,7 @@ Not ready, left as drafts: ${notReady.map((r) => `${r.sheet.customerName} (${why
           Open invoices
         </Link>
       </div>
+      {canEdit && <NewSale />}
 
       {data.weekNumber == null && anyPacked && (
         <p className="note warn mt-2">
@@ -186,6 +197,7 @@ Not ready, left as drafts: ${notReady.map((r) => `${r.sheet.customerName} (${why
                     <Link href={`/invoices/${inv.id}`}>
                       <b>{sheet.customerName}</b>
                     </Link>
+                    {inv.sale_no != null && <span className="tag ml-2">Sale</span>}
                   </td>
                   <td>{inv.number ?? <span className="tag extra">Number needed</span>}</td>
                   <td>
@@ -205,6 +217,7 @@ Not ready, left as drafts: ${notReady.map((r) => `${r.sheet.customerName} (${why
                 <tr key={inv.id} className="muted">
                   <td>
                     <Link href={`/invoices/${inv.id}`}>{inv.issued?.customer_name ?? name(inv.customer_id)}</Link>
+                    {inv.sale_no != null && <span className="tag ml-2">Sale</span>}
                   </td>
                   <td>
                     <s>{inv.number}</s>
@@ -236,5 +249,90 @@ Not ready, left as drafts: ${notReady.map((r) => `${r.sheet.customerName} (${why
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * New sale (Lucas, 11/20/26): an invoice for products sold with no order,
+ * for a customer already in the app, on a date (today to start). It goes in
+ * the order week holding the date. Then the invoice page opens to add products.
+ */
+function NewSale() {
+  const db = getDb();
+  const toast = useToast();
+  const router = useRouter();
+  const { setWeek } = useWeek();
+  const { customers } = useStaffData();
+  const [open, setOpen] = useState(false);
+  const [customerId, setCustomerId] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [busy, setBusy] = useState(false);
+  if (!customers) return null;
+  const byCustomer = compareCustomerIds(customers.byId);
+  const choices = customers.list
+    .filter((c) => c.active)
+    .map((c) => c.id)
+    .sort(byCustomer)
+    .map((id) => ({ id, name: displayName(customers.byId.get(id)!, customers.byId) }));
+  const okDate = isISODate(date) && date >= "2020-01-01" && date <= "2100-12-31";
+
+  const make = async () => {
+    if (!customerId) return toast("Pick who it's for.");
+    if (!okDate) return toast("Pick the invoice date.");
+    setBusy(true);
+    const r = await makeSale(db, customerId, date);
+    setBusy(false);
+    if (r.error || !r.id) return toast(`Couldn't make it: ${r.error ?? "try again"}`);
+    toast("Sale invoice made. Add the products.");
+    setWeek(packingMonday(date));
+    router.push(`/invoices/${r.id}`);
+  };
+
+  if (!open)
+    return (
+      <div className="mt-2">
+        <button type="button" className="btn ghost" onClick={() => setOpen(true)}>
+          New sale (no order)
+        </button>
+      </div>
+    );
+  return (
+    <section className="panel mt-2">
+      <h3 className="m-0">New sale</h3>
+      <p className="small muted mt-1">
+        An invoice for products sold without an order, like boxes from the freezer. Packing doesn&apos;t change it. Someone new? Add them in
+        Customers first.
+      </p>
+      <form
+        className="mt-2 flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void make();
+        }}
+      >
+        <label className="grid gap-1">
+          <span className="lbl m-0">Who it&apos;s for</span>
+          <select className="field" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <option value="">Pick a customer</option>
+            {choices.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="lbl m-0">Invoice date</span>
+          <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <button type="submit" className="btn" disabled={busy}>
+          Make the invoice
+        </button>
+        <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+        {okDate && <span className="small muted basis-full">It goes in the week of {weekName(packingMonday(date))}.</span>}
+      </form>
+    </section>
   );
 }

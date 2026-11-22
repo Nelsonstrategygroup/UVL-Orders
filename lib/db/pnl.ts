@@ -94,9 +94,13 @@ export async function loadWeekInvoiceData(db: SupabaseClient, week: string): Pro
   const orders = (o.data ?? []) as unknown as { customer_id: string; order_lines: { product_id: string }[] }[];
   const invoices: WeekInvoice[] = inv.filter((i) => i.status !== "void");
   const locationIds = [
-    ...new Set([...orders.filter((x) => x.order_lines.length > 0).map((x) => x.customer_id), ...invoices.map((i) => i.customer_id)]),
+    // A stand-alone sale doesn't make its customer a location for the week (it's its own row).
+    ...new Set([
+      ...orders.filter((x) => x.order_lines.length > 0).map((x) => x.customer_id),
+      ...invoices.filter((i) => i.sale_no == null).map((i) => i.customer_id),
+    ]),
   ];
-  const final = new Set(invoices.filter((i) => i.status === "finalized" || i.status === "sent").map((i) => i.customer_id));
+  const final = new Set(invoices.filter((i) => i.sale_no == null && (i.status === "finalized" || i.status === "sent")).map((i) => i.customer_id));
   const lines = await Promise.all(
     locationIds
       .filter((id) => !final.has(id))

@@ -109,6 +109,8 @@ export type WeekInvoice = {
   total: number | string | null;
   invoice_date: string;
   invoice_lines?: InvoiceLineRow[];
+  /** A stand-alone sale (no order; -S1, -S2). Blank: the weekly invoice from packing. */
+  sale_no?: number | null;
 };
 
 export type IncomeStatus = "finalized" | "packed" | "not_packed";
@@ -131,6 +133,8 @@ export type LocationIncome = {
   chainId: string | null;
   /** Finalized: the lines as finalized. Packed: what's packed, priced (Mohawk charge lines included). */
   lines: PricedLine[];
+  /** A stand-alone sale: counts once finalized, its own row (Lucas, 11/20/26). */
+  sale?: boolean;
 };
 
 export type InvoiceIncome = {
@@ -160,10 +164,12 @@ export function invoiceIncome(input: {
   /** Freight per location or chain (Setup > Invoicing), and the week's boxes, for a draft's Freight line. */
   freight?: FreightChargeRow[];
   boxes?: { customer_id: string; weight: number | string; pallet_id?: string | null }[];
+  /** A customer's name, for a sale to someone with no order this week. */
+  nameOf?: (customerId: string) => string;
 }): InvoiceIncome {
   const tuesday = addDays(input.week, 1); // a new draft's invoice date
   const rows: LocationIncome[] = input.locations.map((loc) => {
-    const inv = input.invoices.find((i) => i.customer_id === loc.id && i.status !== "void");
+    const inv = input.invoices.find((i) => i.customer_id === loc.id && i.status !== "void" && i.sale_no == null);
     const base = { invoiceId: inv?.id ?? null, number: inv?.number ?? null, date: inv?.invoice_date ?? tuesday, chainId: loc.chainId };
     if (inv && (inv.status === "finalized" || inv.status === "sent")) {
       const lines = inv.invoice_lines ? priceLines(inv.invoice_lines, [], loc.id, inv.invoice_date) : [];
@@ -203,6 +209,27 @@ export function invoiceIncome(input: {
     const missing = [...new Set(priced.filter((l) => l.priceNeeded && l.product_id).map((l) => input.productName(l.product_id!)))];
     return { customerId: loc.id, name: loc.name, status: "packed", cents: sum, unpackedLines, priceNeeded: missing, ...base, lines: priced };
   });
+  // Stand-alone sales (no order): each its own row, counted only once finalized
+  // (Lucas, 11/20/26). A draft sale isn't projected income.
+  for (const inv of input.invoices) {
+    if (inv.sale_no == null || (inv.status !== "finalized" && inv.status !== "sent")) continue;
+    const loc = input.locations.find((l) => l.id === inv.customer_id);
+    const who = loc?.name ?? input.nameOf?.(inv.customer_id) ?? "Customer";
+    rows.push({
+      customerId: inv.customer_id,
+      name: `${who}, sale ${inv.number ?? ""}`.trim(),
+      status: "finalized",
+      cents: cents(inv.total ?? 0),
+      unpackedLines: 0,
+      priceNeeded: [],
+      invoiceId: inv.id ?? null,
+      number: inv.number ?? null,
+      date: inv.invoice_date,
+      chainId: null,
+      lines: inv.invoice_lines ? priceLines(inv.invoice_lines, [], inv.customer_id, inv.invoice_date) : [],
+      sale: true,
+    });
+  }
   const sum = (s: IncomeStatus) => rows.filter((r) => r.status === s).reduce((t, r) => t + (r.cents ?? ZERO), ZERO);
   const needed = new Map<string, string[]>();
   for (const r of rows) for (const p of r.priceNeeded) needed.set(p, [...(needed.get(p) ?? []), r.name]);

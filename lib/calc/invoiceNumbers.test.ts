@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanCode, invoiceNumberText, isInvoiceCode, parseWeekNumber, suggestWeekNumber } from "./invoiceNumbers";
+import { cleanCode, invoiceNumberText, isInvoiceCode, parseWeekNumber, saleNumberText, suggestWeekNumber } from "./invoiceNumbers";
 
 describe("invoice numbers", () => {
   it("joins the week number and the location code, with -R for reissues", () => {
@@ -25,5 +25,13 @@ describe("invoice numbers", () => {
     expect(parseWeekNumber("")).toBeNull();
     expect(parseWeekNumber("30.5")).toBeNull();
     expect(parseWeekNumber("0")).toBeNull();
+  });
+});
+
+describe("sale numbers (Lucas, 11/20/26)", () => {
+  it("adds -S and the sale number, then -R for reissues", () => {
+    expect(saleNumberText(3005, "EMER", 1)).toBe("3005-EMER-S1");
+    expect(saleNumberText(3005, "EMER", 2)).toBe("3005-EMER-S2");
+    expect(saleNumberText(3005, "PCC16", 1, 1)).toBe("3005-PCC16-S1-R1");
   });
 });

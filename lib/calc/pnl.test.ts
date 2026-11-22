@@ -316,6 +316,34 @@ describe("income from invoices and packing (Lucas, 11/15/26)", () => {
     expect(weekPnl({ week: W, pay, income: [], expenses: [], categories,
       rates, invoices: done }).projected).toBe(false);
   });
+  it("counts a stand-alone sale once finalized, as its own row, never as projected (Lucas, 11/20/26)", () => {
+    const withSales = invoiceIncome({
+      week: W,
+      locations: [locations[2]],
+      invoices: [
+        { id: "n1", customer_id: "newport", status: "finalized", total: "1000.00", invoice_date: "2026-11-10" },
+        // A finalized sale for Newport, beside its weekly invoice.
+        { id: "s1", number: "3005-NEWP-S1", customer_id: "newport", status: "finalized", total: "96.00", invoice_date: "2026-11-11", sale_no: 1 },
+        // A sale to someone with no order this week.
+        { id: "s2", number: "3005-FARM-S1", customer_id: "farm", status: "sent", total: "20.50", invoice_date: "2026-11-12", sale_no: 1 },
+        // Draft and void sales count for nothing.
+        { id: "s3", number: "3005-NEWP-S2", customer_id: "newport", status: "draft", total: null, invoice_date: "2026-11-12", sale_no: 2 },
+        { id: "s4", number: "3005-NEWP-S3", customer_id: "newport", status: "void", total: "50.00", invoice_date: "2026-11-12", sale_no: 3 },
+      ],
+      packed: [],
+      prices,
+      charges,
+      productName: (id) => id,
+      nameOf: (id) => (id === "farm" ? "Farm Store" : id),
+    });
+    expect(withSales.rows.find((x) => x.customerId === "newport" && !x.sale)).toMatchObject({ status: "finalized", cents: BigInt(100000), invoiceId: "n1" });
+    expect(withSales.rows.filter((x) => x.sale).map((x) => [x.name, x.cents])).toEqual([
+      ["Newport Ave, sale 3005-NEWP-S1", BigInt(9600)],
+      ["Farm Store, sale 3005-FARM-S1", BigInt(2050)],
+    ]);
+    expect(withSales.finalizedCents).toBe(BigInt(100000 + 9600 + 2050));
+    expect(withSales.projected).toBe(false);
+  });
   it("has no income before anything is packed", () => {
     const none = invoiceIncome({ week: W, locations: [locations[3]], invoices: [], packed: [packed("keycity", "racks", null, "shorted")], prices, charges, productName: (id) => id });
     expect(weekPnl({ week: W, pay, income: [], expenses: [], categories,

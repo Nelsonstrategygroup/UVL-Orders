@@ -256,7 +256,8 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
   // Chains first-come, then locations on their own, by income.
   const groups: { key: string; name: string; rows: LocationIncome[] }[] = [];
   for (const r of counted) {
-    const key = r.chainId ?? r.customerId;
+    // A stand-alone sale is its own line (Lucas, 11/20/26).
+    const key = r.sale ? `sale:${r.invoiceId}` : (r.chainId ?? r.customerId);
     const g = groups.find((x) => x.key === key);
     if (g) g.rows.push(r);
     else groups.push({ key, name: r.chainId ? (customers?.byId.get(r.chainId)?.name ?? "Chain") : r.name, rows: [r] });
@@ -305,7 +306,7 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
                   {chain &&
                     isOpen &&
                     g.rows.map((r) => (
-                      <tr key={r.customerId}>
+                      <tr key={r.invoiceId ?? r.customerId}>
                         <td className="pl-5">
                           <Tap onClick={() => onOpen(["income"], r.name)}>{r.name.replace(/^[^:]+: /, "")}</Tap>
                           {!same && gs.length > 1 && tag(r.status)}
