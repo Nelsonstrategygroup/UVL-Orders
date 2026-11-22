@@ -13,6 +13,7 @@ import {
   type PackedLine,
   type PnlAdjustment,
 } from "./pnl";
+import { freezerIn, freezerOut, type ValuedBox, type ValuedTake } from "./freezer";
 
 const WEEK = "2026-11-16";
 const sheet: KillSheet = {
@@ -405,5 +406,74 @@ describe("adjustments and one-off lines (Lucas, 11/15/26)", () => {
     expect(line(q, "prod").total).toBe(BigInt(75144));
     expect(q.incomeCents).toBe(BigInt(100000));
     expect(q.adjustments).toEqual([]);
+  });
+});
+
+describe("Into freezer and Out of freezer (Kathy's rule, 11/20/26)", () => {
+  // The Emerson Mixed Shanks box: 32.6 lb x 90% x $7.55 = $221.52.
+  const box: ValuedBox = {
+    id: "b1",
+    product_id: "shanks",
+    qty: 16,
+    weight_lb: 32.6,
+    added_on: "2026-11-12",
+    week_id: "2026-11-09",
+    counts_as_income: true,
+    reason: "leftover",
+    serial: "2631310052",
+    price: "7.5500",
+    price_unit: "lb",
+    percent: "90",
+    value: "221.52",
+    note: "",
+  };
+  const take: ValuedTake = { id: "t1", box_id: "b1", qty: 16, taken_on: "2026-11-16", week_id: WEEK, reason: "packed", counts_in_pnl: true };
+  const base = { pay, income: [inc("i1", "k1", "PCC Bothell", "1000")], expenses: [], categories, rates };
+
+  it("counts the box going in as income in its week", () => {
+    const p = weekPnl({ ...base, week: "2026-11-09", freezer: { in: freezerIn("2026-11-09", [box]), out: freezerOut("2026-11-09", [], [box]) } });
+    expect(centsText(p.freezerIn!.total)).toBe("$221.52");
+    expect(centsText(p.incomeCents)).toBe("$1,221.52");
+  });
+
+  it("takes it back the week it's packed for an order, so the sale on the invoice is counted once", () => {
+    const p = weekPnl({ ...base, week: WEEK, freezer: { in: freezerIn(WEEK, [box]), out: freezerOut(WEEK, [take], [box]) } });
+    expect(p.freezerOut!.total).toBe(BigInt(-22152));
+    expect(centsText(p.incomeCents)).toBe("$778.48");
+  });
+
+  it("leaves freezer in and out out of a percent of income", () => {
+    const p = weekPnl({ ...base, week: "2026-11-09", freezer: { in: freezerIn("2026-11-09", [box]), out: freezerOut("2026-11-09", [], [box]) } });
+    // Marketing 4% of $1,000 (not of $1,221.52)
+    expect(line(p, "mkt").total).toBe(BigInt(4000));
+  });
+
+  it("takes adjustments to either line", () => {
+    const adj: PnlAdjustment = {
+      id: "a1",
+      week_id: "2026-11-09",
+      kind: "adjustment",
+      line_key: "freezer_in",
+      side: "income",
+      label: "",
+      amount: "-21.52",
+      reason: "box was damaged",
+      attachment_path: null,
+      attachment_name: "",
+      created_by_name: "Lucas",
+      created_at: "2026-11-20T20:00:00Z",
+      voided_at: null,
+      voided_by_name: "",
+      void_reason: "",
+    };
+    const p = weekPnl({ ...base, week: "2026-11-09", adjustments: [adj], freezer: { in: freezerIn("2026-11-09", [box]), out: freezerOut("2026-11-09", [], [box]) } });
+    expect(centsText(p.freezerIn!.total)).toBe("$200.00");
+    expect(p.incomeAdj).toBe(BigInt(0));
+  });
+
+  it("is nothing for a week with no freezer boxes", () => {
+    const p = weekPnl({ ...base, week: WEEK });
+    expect(p.freezerCents).toBe(BigInt(0));
+    expect(p.incomeCents).toBe(BigInt(100000));
   });
 });

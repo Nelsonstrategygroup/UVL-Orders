@@ -1,8 +1,9 @@
 // Service worker for offline Packing (SPEC 11.7). Keeps Packing and Scan boxes
 // on the phone so they open with no signal (inside the Mohawk freezer).
 //
-// - Pages under /packing: from the network when there's signal (and kept),
-//   otherwise the kept copy.
+// - Pages under /packing, and the freezer's Add to freezer and count pages
+//   (11/20/26): from the network when there's signal (and kept), otherwise
+//   the kept copy.
 // - The app's code and files (/_next/static, /zxing, /icons): kept once
 //   loaded; these never change under the same name.
 // - Everything else (the database, other pages, logins) goes straight to the
@@ -25,7 +26,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-const isPackingPage = (url) => url.pathname === "/packing" || url.pathname.startsWith("/packing/");
+const isPackingPage = (url) =>
+  url.pathname === "/packing" ||
+  url.pathname.startsWith("/packing/") ||
+  url.pathname === "/freezer" ||
+  url.pathname === "/freezer/add" ||
+  url.pathname === "/freezer/count";
 const isFile = (url) =>
   url.pathname.startsWith("/_next/static/") ||
   url.pathname.startsWith("/zxing/") ||
@@ -45,7 +51,7 @@ async function page(request) {
     if (res.ok && !res.redirected && isPackingPage(new URL(res.url))) await cache.put(url.pathname, res.clone());
     return res;
   } catch {
-    const kept = (await cache.match(url.pathname)) || (await cache.match("/packing"));
+    const kept = (await cache.match(url.pathname)) || (url.pathname.startsWith("/packing") ? await cache.match("/packing") : undefined);
     if (kept) return kept;
     return new Response(
       "<!doctype html><meta name=viewport content='width=device-width'><title>No signal</title>" +

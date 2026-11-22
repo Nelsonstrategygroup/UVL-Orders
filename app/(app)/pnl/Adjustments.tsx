@@ -19,6 +19,8 @@ export function lineOptions(p: WeekPnl, categories: ExpenseCategory[]): { key: s
   const shown = new Set(p.categories.map((l) => l.categoryId));
   return [
     { key: "income", label: "Income" },
+    { key: "freezer_in", label: "Into freezer" },
+    { key: "freezer_out", label: "Out of freezer" },
     ...p.categories.map((l) => ({ key: categoryKey(l.categoryId), label: `${l.group}: ${l.name}` })),
     // Retired categories, so an old adjustment still has a name.
     ...categories.filter((c) => !shown.has(c.id)).map((c) => ({ key: categoryKey(c.id), label: `${c.group_name}: ${c.name}` })),
@@ -110,7 +112,7 @@ export function AdjustForm({
       week,
       kind: oneOff ? "one_off" : "adjustment",
       lineKey: oneOff ? null : key,
-      side: oneOff ? side : key === "income" ? "income" : "expense",
+      side: oneOff ? side : key === "income" || key === "freezer_in" || key === "freezer_out" ? "income" : "expense",
       label,
       amount: v,
       reason,

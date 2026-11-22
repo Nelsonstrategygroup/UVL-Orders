@@ -67,6 +67,7 @@ import {
   routeOrder,
   routePallets,
   sendBoxMove,
+  sendToFreezer,
   type FoundBox,
   type MoveTarget,
 } from "../MoveBox";
@@ -758,6 +759,21 @@ export default function ScanScreen() {
           labels={labels}
           onClose={() => setMoving(null)}
           onSave={(to) => void moveBox(moving.box, to)}
+          onFreezer={
+            canPack
+              ? (qty) => {
+                  const b = moving.box;
+                  void sendToFreezer(enqueue, week, b, qty)
+                    .then(() => {
+                      setMoving(null);
+                      setDup(null);
+                      goodScan();
+                      show({ ok: true, title: "Put in the freezer", detail: "It's off Packing and in freezer inventory." });
+                    })
+                    .catch(() => toast("Couldn't save on this phone. Try again."));
+                }
+              : undefined
+          }
         />
       )}
 

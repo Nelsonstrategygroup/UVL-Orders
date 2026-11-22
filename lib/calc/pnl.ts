@@ -11,6 +11,7 @@ import { freightLine, freightRateFor, priceLines, type FreightChargeRow, type In
 import { roundToCents, type WeekPay } from "./lambCost";
 import { stopsMade, type RunPay } from "./truck";
 import { toFixedInt, type ChargeRow, type PriceRow } from "./prices";
+import type { FreezerLine } from "./freezer";
 
 const ZERO = BigInt(0);
 
@@ -434,8 +435,18 @@ export type WeekPnl = {
   /** One-off income lines. */
   oneOffIncome: PnlAdjustment[];
   oneOffIncomeCents: bigint;
-  /** All income: calculated + adjustments + one-off lines. */
+  /** All income: calculated + adjustments + one-off lines + Into and Out of freezer. */
   incomeCents: bigint;
+  /**
+   * Into freezer (positive) and Out of freezer (negative), Kathy's rule
+   * (11/20/26): product put in the freezer counts at a percent of its default
+   * sale price; what comes out to fill an order is taken back at that value.
+   * Missing on a week closed before then.
+   */
+  freezerIn?: FreezerLine & { adj: bigint; total: bigint };
+  freezerOut?: FreezerLine & { adj: bigint; total: bigint };
+  /** Into + Out of freezer, with their adjustments. Part of incomeCents, not of a percent-of-income base. */
+  freezerCents?: bigint;
   /** Invoice income only (finalized + packed), less freight, for a percent of sales. */
   salesCents: bigint;
   hasIncome: boolean;
@@ -534,6 +545,8 @@ export function weekPnl(input: {
   runs?: RunPay[];
   /** The week's boxes and pallets, for freight. */
   freight?: FreightInput;
+  /** Into and Out of freezer for the week (freezerIn / freezerOut in lib/calc/freezer.ts). */
+  freezer?: { in: FreezerLine; out: FreezerLine };
 }): WeekPnl {
   const adjustments = input.adjustments ?? [];
   const live = adjustments.filter((a) => !a.voided_at);
@@ -559,11 +572,18 @@ export function weekPnl(input: {
   const incomeAdj = adj("income");
   const oneOffIncome = live.filter((a) => a.kind === "one_off" && a.side === "income");
   const oneOffIncomeCents = oneOffIncome.reduce((s, a) => s + cents(a.amount), ZERO);
-  const incomeCents = incomeCalc + incomeAdj + oneOffIncomeCents;
+  const empty: FreezerLine = { cents: ZERO, rows: [], noValue: [] };
+  const fIn = input.freezer?.in ?? empty;
+  const fOut = input.freezer?.out ?? empty;
+  const freezerIn = { ...fIn, adj: adj("freezer_in"), total: fIn.cents + adj("freezer_in") };
+  const freezerOut = { ...fOut, adj: adj("freezer_out"), total: fOut.cents + adj("freezer_out") };
+  const freezerCents = freezerIn.total + freezerOut.total;
+  const incomeCents = incomeCalc + incomeAdj + oneOffIncomeCents + freezerCents;
   const hasIncome =
     input.income.length > 0 ||
     (!!inv && inv.finalizedCount + inv.packedCount > 0) ||
-    live.some((a) => a.side === "income");
+    live.some((a) => a.side === "income") ||
+    fIn.rows.length + fOut.rows.length > 0;
   const projected = !!inv?.projected;
 
   const head = input.pay.head;
@@ -603,7 +623,8 @@ export function weekPnl(input: {
         else calc = rate?.amount != null ? roundToCents(toFixedInt(rate.amount, 4) * BigInt(head), 4) : ZERO;
         break;
       case "percent_income":
-        base = c.income_base === "sales" ? salesCents : incomeCents;
+        // Freezer in and out aren't sales or money in: never part of a percent of income.
+        base = c.income_base === "sales" ? salesCents : incomeCents - freezerCents;
         isProjected = projected;
         if (!hasIncome) [calc, waiting] = [null, "No income yet."];
         // cents (2 decimals) × percent (4 decimals) / 100 = dollars with 8 decimals
@@ -754,6 +775,9 @@ export function weekPnl(input: {
     oneOffIncome,
     oneOffIncomeCents,
     incomeCents,
+    freezerIn,
+    freezerOut,
+    freezerCents,
     salesCents,
     hasIncome,
     otherCents,

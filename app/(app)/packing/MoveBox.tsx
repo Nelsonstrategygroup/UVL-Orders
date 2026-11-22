@@ -38,6 +38,7 @@ import {
   type PackWeight,
 } from "@/lib/db/packing";
 import { isLocal, type Action } from "@/lib/offline/outbox";
+import { todayISO } from "@/lib/dates";
 import { qtyText } from "@/lib/orders";
 
 /** "6 each", "45 lb", "1 case": what the store ordered of this product. */
@@ -133,6 +134,7 @@ export function MoveSheet({
   labels,
   onClose,
   onSave,
+  onFreezer,
 }: {
   b: FoundBox;
   focus: "store" | "pallet";
@@ -140,8 +142,11 @@ export function MoveSheet({
   labels: SheetLabel[];
   onClose: () => void;
   onSave: (to: MoveTarget) => void;
+  /** A box with no store: put it in the freezer as a leftover, with its count (11/20/26). */
+  onFreezer?: (qty: number) => void;
 }) {
   const w = b.w;
+  const [freezing, setFreezing] = useState(false);
   const [orderId, setOrderId] = useState<string>(b.orderId ?? "");
   // A box from another week is going to a store someone chose, so every store is listed.
   const [all, setAll] = useState(!!b.earlier);
@@ -280,8 +285,99 @@ export function MoveSheet({
           Cancel
         </button>
       </div>
+
+      {onFreezer && !b.orderId && !b.earlier && (
+        <div className="mt-4 border-t pt-3">
+          {!freezing ? (
+            <button type="button" className="btn ghost w-full" onClick={() => setFreezing(true)}>
+              Leftover? Put in freezer
+            </button>
+          ) : (
+            <FreezerCount product={data.packing.products.get(boxLabelProduct(w))} weight={w.weight} onPut={onFreezer} onCancel={() => setFreezing(false)} />
+          )}
+        </div>
+      )}
     </Sheet>
   );
+}
+
+/** How many are in the leftover box (pounds: its weight), then put it in the freezer. */
+function FreezerCount({
+  product,
+  weight,
+  onPut,
+  onCancel,
+}: {
+  product: PackProduct | undefined;
+  weight: number;
+  onPut: (qty: number) => void;
+  onCancel: () => void;
+}) {
+  const byWeight = product?.unit === "lb";
+  const guess = !byWeight && product?.lb_per_unit && product.lb_per_unit > 0 ? Math.max(1, Math.round(weight / product.lb_per_unit)) : 1;
+  const [count, setCount] = useState(String(guess));
+  const n = byWeight ? weight : Number(count);
+  const word = product?.unit === "each" ? "pieces" : product?.unit === "pack" ? "packs" : product?.unit ?? "pieces";
+  return (
+    <div>
+      <p className="m-0 mb-2">
+        <b>Put in freezer.</b> It comes off Packing and counts as this week&apos;s freezer income.
+      </p>
+      {!byWeight && (
+        <>
+          <label className="lbl big mt-0!" htmlFor="fz-count">
+            How many {word} in this box?
+          </label>
+          <input
+            id="fz-count"
+            className="field big"
+            inputMode="decimal"
+            value={count}
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setCount(e.target.value.replace(/[^0-9.]/g, ""))}
+          />
+        </>
+      )}
+      <div className="mt-3 grid gap-2">
+        <button type="button" className="bigbtn mt-0!" disabled={!(n > 0)} onClick={() => onPut(n)}>
+          Put in freezer
+        </button>
+        <button type="button" className="btn ghost" onClick={onCancel}>
+          Don&apos;t put it in the freezer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Put a box with no store in the freezer: off Packing and into freezer inventory in one step (11/20/26). */
+export function sendToFreezer(enqueue: (a: Action) => Promise<unknown>, week: string, b: FoundBox, qty: number) {
+  const w = b.w;
+  return enqueue({
+    type: "box-to-freezer",
+    ...(isLocal(w) ? { weight_client_id: w.client_id ?? "" } : { weight_id: w.id }),
+    box: {
+      client_id: crypto.randomUUID(),
+      product_id: boxLabelProduct(w),
+      qty,
+      weight_lb: w.weight,
+      gtin: w.gtin,
+      serial: w.serial,
+      serial_date: null,
+      case_no: w.case_no,
+      pack_date: null,
+      lot: w.lot,
+      raw_scan: null,
+      product_confirmed: true,
+      source: "packing",
+      reason: "leftover",
+      note: "",
+      added_on: todayISO(),
+      week_id: week,
+      counts_as_income: true,
+      at: new Date().toISOString(),
+    },
+  });
 }
 
 /** One order as routing sees it, for this product. */

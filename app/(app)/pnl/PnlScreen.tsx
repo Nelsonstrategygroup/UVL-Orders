@@ -265,7 +265,7 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
   const total = (rows: LocationIncome[]) => rows.reduce((t, r) => t + (r.cents ?? BigInt(0)), BigInt(0));
   groups.sort((a, b) => Number(total(b.rows) - total(a.rows)));
   const tag = (s: IncomeStatus) => <span className={`tag ${STATUS[s].cls} ml-2`}>{STATUS[s].label}</span>;
-  const extra = p.adjustments.filter((a) => !a.voided_at && a.side === "income");
+  const extra = p.adjustments.filter((a) => !a.voided_at && a.side === "income" && a.line_key !== "freezer_in" && a.line_key !== "freezer_out");
 
   return (
     <section className="panel mt-3" aria-labelledby="pnl-income">
@@ -330,6 +330,24 @@ function Income({ p, ii, onOpen }: { p: WeekPnl; ii: InvoiceIncome; onOpen: OnOp
             {extra.map((a) => (
               <OneOffRow key={a.id} a={a} onOpen={() => onOpen(["income"], a.kind === "one_off" ? a.label : a.reason)} />
             ))}
+            {p.freezerIn && (p.freezerIn.rows.length > 0 || p.freezerIn.adj !== BigInt(0)) && (
+              <tr>
+                <td>
+                  <Tap onClick={() => onOpen(["freezer_in"])}>Into freezer</Tap>
+                  <span className="small muted block">{plural(p.freezerIn.rows.length, "box", "boxes")} put in the freezer</span>
+                </td>
+                <td className="num text-right">{centsText(p.freezerIn.total)}</td>
+              </tr>
+            )}
+            {p.freezerOut && (p.freezerOut.rows.length > 0 || p.freezerOut.adj !== BigInt(0)) && (
+              <tr>
+                <td>
+                  <Tap onClick={() => onOpen(["freezer_out"])}>Out of freezer</Tap>
+                  <span className="small muted block">{plural(p.freezerOut.rows.length, "box", "boxes")} packed for orders, at the value they went in at</span>
+                </td>
+                <td className="num text-right">{p.freezerOut.total < BigInt(0) ? `-${centsText(-p.freezerOut.total)}` : centsText(p.freezerOut.total)}</td>
+              </tr>
+            )}
             {p.freightIncome !== BigInt(0) && (
               <tr>
                 <td className="small muted">Of which freight on invoices</td>

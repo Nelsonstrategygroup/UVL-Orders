@@ -22,10 +22,11 @@ export type AuditRow = {
 };
 
 /** The change log tables the activity page reads. */
-export const RATE_TABLES = ["prices", "carcass_charges", "expense_category_rates", "producer_rates", "lamb_cost_settings", "truck_driver_rates"] as const;
+export const RATE_TABLES = ["prices", "carcass_charges", "expense_category_rates", "producer_rates", "lamb_cost_settings", "truck_driver_rates", "freezer_value_rates"] as const;
 /** Rate tables that are gone (charges became expense categories, 11/16/26): their log rows still show. */
 export const OLD_RATE_TABLES = ["pnl_lamb_charges", "pnl_percent_charges"] as const;
-export const WEEK_TABLES = ["kill_sheets", "pnl_expenses", "pnl_income", "pnl_adjustments", "truck_runs"] as const;
+/** freezer_boxes and freezer_takes: only rows that count on the P&L show (describe). */
+export const WEEK_TABLES = ["kill_sheets", "pnl_expenses", "pnl_income", "pnl_adjustments", "truck_runs", "freezer_boxes", "freezer_takes"] as const;
 export const SHEET_TABLES = ["kill_lambs", "kill_adjustments"] as const;
 export const ACTIVITY_TABLES = [
   ...RATE_TABLES,
@@ -224,12 +225,33 @@ function spec(table: string, n: Names): FieldSpec[] {
         ["effective_from", "From", date],
         ["note", "Note"],
       ];
+    case "freezer_value_rates":
+      return [
+        ["percent", "Percent of default sale price", (v) => `${factorText(s(v))}%`],
+        ["effective_from", "From", date],
+        ["note", "Note"],
+      ];
+    case "freezer_boxes":
+      return [
+        ["product_id", "Product", (v) => n.product(s(v))],
+        ["qty", "Count"],
+        ["weight_lb", "Weight", (v) => `${Number(v).toFixed(2)} lb`],
+        ["added_on", "Date", date],
+        ["counts_as_income", "Counts as freezer income", (v) => (v ? "yes" : "no")],
+      ];
+    case "freezer_takes":
+      return [
+        ["qty", "Count"],
+        ["taken_on", "Date", date],
+        ["reason", "Why", (v) => ({ packed: "packed for an order", half_whole: "half or whole order" })[s(v)] ?? s(v)],
+        ["counts_in_pnl", "Takes back its freezer income", (v) => (v ? "yes" : "no")],
+      ];
     default:
       return [];
   }
 }
 
-const LINE: Record<string, string> = { income: "Income", producer: "Producer cost" };
+const LINE: Record<string, string> = { income: "Income", producer: "Producer cost", freezer_in: "Into freezer", freezer_out: "Out of freezer" };
 
 /** What the row is, in words. */
 function title(table: string, d: Record<string, unknown>, n: Names): string {
@@ -276,6 +298,12 @@ function title(table: string, d: Record<string, unknown>, n: Names): string {
       return `Truck driver: ${s(d.name)}`;
     case "truck_driver_rates":
       return `Driver pay rate: ${n.driver?.(s(d.driver_id)) ?? "a driver"}`;
+    case "freezer_value_rates":
+      return "Freezer value percent";
+    case "freezer_boxes":
+      return `Into freezer: ${n.product(s(d.product_id))}${d.serial ? ` (serial ${s(d.serial)})` : ""}`;
+    case "freezer_takes":
+      return "Out of freezer";
     default:
       return table;
   }
@@ -335,7 +363,7 @@ export function rangeText({ from, to }: { from: string; to: string | null }): st
 /** The days in a week a rate is looked up on (prices: the invoice date; carcass weights: the kill days; charges: the Monday). */
 export function weekRateDays(table: string, week: string): { from: string; to: string } {
   if (table === "prices" || table === "carcass_charges") return { from: addDays(week, 1), to: addDays(week, 1) };
-  if (table === "producer_rates" || table === "lamb_cost_settings" || table === "truck_driver_rates") return { from: weekDays(week)[0], to: weekEnd(week) };
+  if (table === "producer_rates" || table === "lamb_cost_settings" || table === "truck_driver_rates" || table === "freezer_value_rates") return { from: weekDays(week)[0], to: weekEnd(week) };
   return { from: week, to: week };
 }
 
@@ -355,6 +383,7 @@ const APPLIES_NOTE: Record<string, string> = {
   pnl_percent_charges: "weeks",
   expense_category_rates: "weeks",
   truck_driver_rates: "truck runs dated",
+  freezer_value_rates: "boxes put in the freezer",
 };
 
 /** One change log row in words. null: nothing the P&L shows changed. */
@@ -362,6 +391,9 @@ export function describe(row: AuditRow, n: Names, current: RateRow[]): Entry | n
   const d = (row.new_data ?? row.old_data ?? {}) as Record<string, unknown>;
   const o = (row.old_data ?? {}) as Record<string, unknown>;
   const nw = (row.new_data ?? {}) as Record<string, unknown>;
+  // Freezer boxes and take-outs that never counted on the P&L aren't P&L activity.
+  if (row.table_name === "freezer_boxes" && !o.counts_as_income && !nw.counts_as_income) return null;
+  if (row.table_name === "freezer_takes" && !o.counts_in_pnl && !nw.counts_in_pnl) return null;
   const fields: Field[] = [];
   let action: string = ACTIONS[row.action];
   for (const [key, label, fmt] of spec(row.table_name, n)) {

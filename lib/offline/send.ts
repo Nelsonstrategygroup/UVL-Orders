@@ -190,5 +190,52 @@ export async function sendAction(db: SupabaseClient, a: Action): Promise<Outcome
       if (r.status === "gone") return { kind: "done", note: "A box was for an order that no longer exists. Kathy will see it." };
       return classify({ message: r.message });
     }
+    case "freezer-add": {
+      const { at: _at, ...box } = a.box;
+      void _at;
+      const r = await withTimeout(db.rpc("add_to_freezer", { p: box }).setHeader(SOURCE_HEADER, src));
+      // Already in the freezer, or packed for a customer (another phone, or since): nothing to add.
+      if (r.error?.code === "23505") return { kind: "done", note: `Not added to the freezer: ${r.error.message}` };
+      return classify(r.error, r.status);
+    }
+    case "box-to-freezer": {
+      const r = await withTimeout(
+        db
+          .rpc("put_box_in_freezer", {
+            p: { weight_id: a.weight_id ?? null, weight_client_id: a.weight_client_id ?? null, client_id: a.box.client_id, qty: a.box.qty, note: a.box.note },
+          })
+          .setHeader(SOURCE_HEADER, src),
+      );
+      // Gone from Packing, or put on a store since (another phone): nothing to move.
+      if (r.error?.code === "P0002" || r.error?.code === "55000") return { kind: "done", note: `Not put in the freezer: ${r.error.message}` };
+      return classify(r.error, r.status);
+    }
+    case "freezer-remove": {
+      const found = await withTimeout(db.from("freezer_boxes").select("id").eq("client_id", a.client_id).maybeSingle());
+      if (found.error) return classify(found.error, found.status);
+      if (!found.data) return { kind: "done" };
+      const r = await withTimeout(db.rpc("remove_freezer_box", { p_id: found.data.id }).setHeader(SOURCE_HEADER, src));
+      return classify(r.error, r.status);
+    }
+    case "count-start": {
+      const r = await withTimeout(
+        db.from("freezer_counts").upsert({ ...a.count, status: "open" }, { onConflict: "id", ignoreDuplicates: true }).setHeader(SOURCE_HEADER, src),
+      );
+      if (r.error?.code === "23505")
+        return { kind: "refused", message: "Another freezer count is already open. Finish or throw away that one first." };
+      return classify(r.error, r.status);
+    }
+    case "count-item": {
+      const r = await withTimeout(
+        db.from("freezer_count_items").upsert(a.item, { onConflict: "id", ignoreDuplicates: true }).setHeader(SOURCE_HEADER, src),
+      );
+      // The same box counted on another phone: it's counted once.
+      if (r.error?.code === "23505") return { kind: "done" };
+      return classify(r.error, r.status);
+    }
+    case "count-item-set": {
+      const r = await withTimeout(db.from("freezer_count_items").update(a.patch).eq("id", a.id).setHeader(SOURCE_HEADER, src));
+      return classify(r.error, r.status);
+    }
   }
 }
