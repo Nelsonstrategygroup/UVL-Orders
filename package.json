@@ -12,20 +12,26 @@
     "test:watch": "vitest",
     "test:db": "supabase test db",
     "seed": "node --env-file-if-exists=.env.local --import tsx scripts/seed.ts",
-    "create-admin": "node --env-file-if-exists=.env.local --import tsx scripts/create-admin.ts"
+    "create-admin": "node --env-file-if-exists=.env.local --import tsx scripts/create-admin.ts",
+    "ai:guide": "node --import tsx scripts/ai-data-guide.ts",
+    "ai:check": "node --env-file-if-exists=.env.local --import tsx scripts/ai-check.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "jszip": "^3.10.2",
+    "libpg-query": "^18.2.4",
     "next": "16.3.8",
     "pdf-lib": "1.17.1",
+    "postgres": "^4.1.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
     "zxing-wasm": "3.1.4"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.17",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.19.1",
     "@types/react": "^19",

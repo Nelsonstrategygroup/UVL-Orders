@@ -7,6 +7,7 @@ import { navFor, onlyPacking, tabFor, type NavItem, type Perms, type Role } from
 import { logout } from "@/app/login/actions";
 import Sheet from "./Sheet";
 import { getLabelOffset, setLabelOffset } from "./labelOffset";
+import { canAsk } from "@/lib/ai/readers";
 import { StaffDataProvider } from "./data/StaffData";
 import { CurrentUserProvider } from "./CurrentUser";
 import { ToastProvider } from "./Toast";
@@ -125,7 +126,7 @@ export default function AppShell({
       {/* "My account", kept apart from Setup: larger text, help, password, log out. */}
       {sheet === "account" && (
         <Sheet title="My account" onClose={close}>
-          <MyAccount displayName={displayName} onDone={close} />
+          <MyAccount displayName={displayName} canAsk={canAsk(role)} onDone={close} />
         </Sheet>
       )}
     </>
@@ -190,7 +191,7 @@ function PrinterOffset() {
   );
 }
 
-function MyAccount({ displayName, onDone }: { displayName: string; onDone: () => void }) {
+function MyAccount({ displayName, canAsk, onDone }: { displayName: string; canAsk: boolean; onDone: () => void }) {
   // Only rendered after a tap, never on the server, so reading the DOM here is safe.
   const [large, setLarge] = useState(() => document.documentElement.classList.contains("large"));
 
@@ -219,6 +220,12 @@ function MyAccount({ displayName, onDone }: { displayName: string; onDone: () =>
       <Link href="/help" className="mt-3 flex min-h-[44px] items-center text-[1.05rem] text-forest underline">
         How to use this
       </Link>
+
+      {canAsk && (
+        <Link href="/ask" onClick={onDone} className="mt-1 flex min-h-[44px] items-center text-[1.05rem] text-forest underline">
+          Ask a question about your data
+        </Link>
+      )}
 
       <PrinterOffset />
 
