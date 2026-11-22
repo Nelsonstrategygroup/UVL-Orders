@@ -1,4 +1,4 @@
-// Freezer boxes, take-outs, counts and value (migration 20261125000100).
+// Freezer boxes, take-outs, counts and value (migration 20261125000400).
 // Loaders for the freezer screens, and the copy kept on the phone so Add to
 // freezer and counts work with no signal (the freezer has none).
 

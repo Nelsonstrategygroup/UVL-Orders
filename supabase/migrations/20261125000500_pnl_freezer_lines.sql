@@ -2,11 +2,11 @@
 --
 -- Product put in the freezer counts as income for its week at 90% of its
 -- default sale price (freezer_boxes + freezer_box_values, migration
--- 20261125000100); what comes out to fill an order takes that back, at the
+-- 20261125000400); what comes out to fill an order takes that back, at the
 -- value it went in at. The P&L works the lines out (lib/calc/freezer.ts);
 -- this only lets an adjustment be made to either line, like Income.
 --
--- Undo: supabase/rollback/20261125000200_revert.sql
+-- Undo: supabase/rollback/20261125000500_revert.sql
 
 alter table public.pnl_adjustments
   drop constraint pnl_adjustments_line_key_check,

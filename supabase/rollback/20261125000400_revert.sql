@@ -1,4 +1,4 @@
--- Undoes 20261125000100_freezer_boxes_and_counts.sql.
+-- Undoes 20261125000400_freezer_boxes_and_counts.sql.
 --
 -- WARNING: this deletes every freezer box, take-out and count, and the freezer
 -- log lines they wrote (so On hand goes back to what "Add or take out" and

@@ -1,4 +1,4 @@
--- Freezer boxes, take-outs, counts and value (migration 20261125000100).
+-- Freezer boxes, take-outs, counts and value (migration 20261125000400).
 
 begin;
 select plan(56);

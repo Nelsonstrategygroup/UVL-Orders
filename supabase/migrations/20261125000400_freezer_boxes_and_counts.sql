@@ -37,7 +37,7 @@
 --   * The packing role can now add to the freezer and run counts (freezer:
 --     Change), as Lucas asked; admins and Operations leads already could.
 --
--- Undo: supabase/rollback/20261125000100_revert.sql
+-- Undo: supabase/rollback/20261125000400_revert.sql
 
 -- ---------------------------------------------------------------------------
 -- The freezer value setting

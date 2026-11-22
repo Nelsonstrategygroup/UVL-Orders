@@ -1,4 +1,4 @@
--- Adjustments to Into freezer and Out of freezer (migration 20261125000200).
+-- Adjustments to Into freezer and Out of freezer (migration 20261125000500).
 
 begin;
 select plan(4);

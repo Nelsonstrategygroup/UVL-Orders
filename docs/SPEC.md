@@ -735,7 +735,7 @@ Admin only, additive only, same safeguards. A P&L, not accounting: payment statu
 
 ## 17. Freezer boxes, Add to freezer, freezer counts, and the freezer value (Lucas and Kathy, 11/19-20/26)
 
-Until now the freezer was a count per product (`freezer_log`). Boxes are now recorded too, so the app can tell a box that's already there, list what wasn't counted, and value what went in. Every box still writes its +count to `freezer_log` and every take-out its -count, so On hand, Half and whole and "Add or take out" work as before. Branch `freezer-count`; migrations 20261125000100 (boxes, take-outs, counts, value setting) and 20261125000200 (P&L adjustments to the freezer lines); revert files in `supabase/rollback`.
+Until now the freezer was a count per product (`freezer_log`). Boxes are now recorded too, so the app can tell a box that's already there, list what wasn't counted, and value what went in. Every box still writes its +count to `freezer_log` and every take-out its -count, so On hand, Half and whole and "Add or take out" work as before. Branch `freezer-count`; migrations 20261125000400 (boxes, take-outs, counts, value setting) and 20261125000500 (P&L adjustments to the freezer lines); revert files in `supabase/rollback`.
 
 ### 17.1 Add to freezer (Freezer > Add to freezer)
 - Puts boxes in freezer inventory that didn't come through packing or an order. Scan them (same GS1-128 parsing as Packing: GTIN, weight, pack date, serial, lot; same beep and buzz) or type them in: product, how many in that product's unit (pieces, packs or pounds), weight, pack date, lot if known. Several in one go.

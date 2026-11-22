@@ -1,4 +1,4 @@
--- Take-outs by count come out of the oldest boxes first (migration 20261125000100).
+-- Take-outs by count come out of the oldest boxes first (migration 20261125000400).
 
 begin;
 select plan(13);

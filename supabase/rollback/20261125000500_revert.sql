@@ -1,4 +1,4 @@
--- Undoes 20261125000200_pnl_freezer_lines.sql.
+-- Undoes 20261125000500_pnl_freezer_lines.sql.
 -- Adjustments made to Into freezer or Out of freezer must go first (they'd break the old rule):
 -- they're voided, not deleted, in the app, so delete them here only after a backup.
 
