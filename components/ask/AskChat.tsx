@@ -4,6 +4,7 @@
 // on the Ask screen and in the side panel; both share one conversation.
 
 import { useEffect, useRef, useState } from "react";
+import { answerLine } from "@/lib/ai/answerText";
 import { useAsk } from "./AskProvider";
 import { canSpeak, speak, stopSpeaking, useListen, useSpeaking } from "./speech";
 
@@ -115,7 +116,14 @@ export default function AskChat({ autoFocus = false }: { autoFocus?: boolean }) 
       {[...turns].reverse().map((t) => (
         <div key={t.id} className="card">
           <p className="small muted mb-1">You asked: {t.question}</p>
-          <div className="whitespace-pre-wrap text-[1.1rem] leading-relaxed">{t.answer}</div>
+          <div className="whitespace-pre-wrap text-[1.1rem] leading-relaxed">
+            {t.answer.split("\n").map((line, k) => (
+              <span key={k}>
+                {k > 0 && "\n"}
+                {answerLine(line).map((p, n) => (p.bold ? <b key={n}>{p.text}</b> : p.text))}
+              </span>
+            ))}
+          </div>
           {voiceOut && (
             <button
               type="button"
