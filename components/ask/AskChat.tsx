@@ -80,7 +80,7 @@ export default function AskChat({ autoFocus = false }: { autoFocus?: boolean }) 
           </div>
         </form>
         {(listen.error || error) && (
-          <p role="alert" className="mt-2 text-[1.02rem] text-bad">
+          <p role="alert" className="note bad mt-2 text-[1.02rem]">
             {listen.error || error}
           </p>
         )}
