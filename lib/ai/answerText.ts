@@ -4,6 +4,20 @@
 
 export type Piece = { text: string; bold: boolean };
 
+/**
+ * The short answer, and the notes on how it was worked out (what was counted,
+ * what was left out), which the model puts after a line of just "---". The
+ * notes are folded away under "How I found this".
+ */
+export function splitAnswer(answer: string): { main: string; notes: string } {
+  const m = answer.match(/^[ \t]*-{3,}[ \t]*$/m);
+  if (!m || m.index === undefined) return { main: answer.trim(), notes: "" };
+  const main = answer.slice(0, m.index).trim();
+  const notes = answer.slice(m.index + m[0].length).trim();
+  // Nothing before the line: show it all rather than an empty answer.
+  return main ? { main, notes } : { main: notes, notes: "" };
+}
+
 /** One line of an answer, split into plain and bold pieces. */
 export function answerLine(line: string): Piece[] {
   const heading = line.match(/^\s{0,3}#{1,6}\s+(.*)$/);

@@ -4,7 +4,7 @@
 // on the Ask screen and in the side panel; both share one conversation.
 
 import { useEffect, useRef, useState } from "react";
-import { answerLine } from "@/lib/ai/answerText";
+import { answerLine, splitAnswer } from "@/lib/ai/answerText";
 import { useAsk } from "./AskProvider";
 import { canSpeak, speak, stopSpeaking, useListen, useSpeaking } from "./speech";
 
@@ -113,48 +113,64 @@ export default function AskChat({ autoFocus = false }: { autoFocus?: boolean }) 
         )}
       </div>
 
-      {[...turns].reverse().map((t) => (
-        <div key={t.id} className="card">
-          <p className="small muted mb-1">You asked: {t.question}</p>
-          <div className="whitespace-pre-wrap text-[1.1rem] leading-relaxed">
-            {t.answer.split("\n").map((line, k) => (
-              <span key={k}>
-                {k > 0 && "\n"}
-                {answerLine(line).map((p, n) => (p.bold ? <b key={n}>{p.text}</b> : p.text))}
-              </span>
-            ))}
+      {[...turns].reverse().map((t) => {
+        const { main, notes } = splitAnswer(t.answer);
+        return (
+          <div key={t.id} className="card">
+            <p className="small muted mb-1">You asked: {t.question}</p>
+            <AnswerText text={main} className="text-[1.1rem]" />
+            {voiceOut && (
+              <button
+                type="button"
+                className="btn ghost mt-2 min-h-[44px]"
+                onClick={() => (speaking === t.id ? stopSpeaking() : speak(main, t.id))}
+              >
+                <span aria-hidden="true">{speaking === t.id ? "■" : "🔊"}</span> {speaking === t.id ? "Stop reading" : "Read out loud"}
+              </button>
+            )}
+            {(notes || t.queries.length > 0) && (
+              <details className="mt-2">
+                <summary className="small muted min-h-[44px] cursor-pointer">How I found this</summary>
+                {notes && <AnswerText text={notes} className="mt-1 text-[1rem]" />}
+                {t.queries.length > 0 && (
+                  <>
+                    <p className="small muted mt-3 mb-1">What I looked up:</p>
+                    <ul className="small grid gap-2">
+                      {t.queries.map((q, j) => (
+                        <li key={j}>
+                          {q.purpose || "Looked something up"}
+                          {q.error ? " (didn't work, tried again)" : q.truncated ? ` (first ${q.rowCount} rows)` : ""}
+                          {showSql && <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-field p-2 text-[.8rem]">{q.sql}</pre>}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </details>
+            )}
           </div>
-          {voiceOut && (
-            <button
-              type="button"
-              className="btn ghost mt-2 min-h-[44px]"
-              onClick={() => (speaking === t.id ? stopSpeaking() : speak(t.answer, t.id))}
-            >
-              <span aria-hidden="true">{speaking === t.id ? "■" : "🔊"}</span> {speaking === t.id ? "Stop reading" : "Read out loud"}
-            </button>
-          )}
-          {t.queries.length > 0 && (
-            <details className="mt-2">
-              <summary className="small muted min-h-[44px] cursor-pointer">How I found this</summary>
-              <ul className="small mt-1 grid gap-2">
-                {t.queries.map((q, j) => (
-                  <li key={j}>
-                    {q.purpose || "Looked something up"}
-                    {q.error ? " (didn't work, tried again)" : q.truncated ? ` (first ${q.rowCount} rows)` : ""}
-                    {showSql && <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-field p-2 text-[.8rem]">{q.sql}</pre>}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </div>
-      ))}
+        );
+      })}
 
       {turns.length > 0 && (
         <button type="button" className="btn ghost min-h-[44px]" onClick={clear}>
           Start over
         </button>
       )}
+    </div>
+  );
+}
+
+/** Answer text: kept line breaks, with **bold** shown as bold. */
+function AnswerText({ text, className }: { text: string; className: string }) {
+  return (
+    <div className={`whitespace-pre-wrap leading-relaxed ${className}`}>
+      {text.split("\n").map((line, k) => (
+        <span key={k}>
+          {k > 0 && "\n"}
+          {answerLine(line).map((p, n) => (p.bold ? <b key={n}>{p.text}</b> : p.text))}
+        </span>
+      ))}
     </div>
   );
 }

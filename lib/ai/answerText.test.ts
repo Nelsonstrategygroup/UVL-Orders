@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { answerLine } from "./answerText";
+import { answerLine, splitAnswer } from "./answerText";
+
+describe("splitAnswer", () => {
+  it("splits the answer from the notes at a --- line", () => {
+    expect(splitAnswer("Last week there were **19 orders**.\n---\nI counted an order only when the customer ordered.")).toEqual({
+      main: "Last week there were **19 orders**.",
+      notes: "I counted an order only when the customer ordered.",
+    });
+  });
+
+  it("keeps an answer with no notes whole", () => {
+    expect(splitAnswer("19 orders.")).toEqual({ main: "19 orders.", notes: "" });
+  });
+
+  it("never leaves the answer empty", () => {
+    expect(splitAnswer("---\n19 orders.")).toEqual({ main: "19 orders.", notes: "" });
+  });
+});
 
 describe("answerLine", () => {
   it("leaves a plain line as one piece", () => {

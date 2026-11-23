@@ -5,6 +5,7 @@
 // It goes away on reload or log out (nothing is saved).
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { splitAnswer } from "@/lib/ai/answerText";
 import { speak, stopSpeaking, unlockSpeech } from "./speech";
 
 export type AskQuery = { purpose: string; sql: string; rowCount?: number; truncated?: boolean; error?: string };
@@ -80,7 +81,8 @@ export function AskProvider({ showSql, children }: { showSql: boolean; children:
         if (data.answer !== undefined) {
           const turn: AskTurn = { id: `${Date.now()}`, question: q, answer: data.answer, queries: data.queries ?? [], spoken };
           setTurns((ts) => [...ts, turn]);
-          if (spoken || readAloud) speak(turn.answer, turn.id);
+          // Read only the answer, not the notes folded under it.
+          if (spoken || readAloud) speak(splitAnswer(turn.answer).main, turn.id);
           return true;
         }
         setError(data.error || "Ask couldn't get an answer just now. Try again.");

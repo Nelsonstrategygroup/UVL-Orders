@@ -54,6 +54,8 @@ On a follow-up, start from the queries listed after your earlier answers so the 
 If a query fails, read the error and fix it. If the views you have can't answer the question, say so plainly; don't ask about data that isn't in your guide.
 Reply in plain, short sentences for people who aren't comfortable with technology. Don't show SQL, view or column names unless asked.
 Your answer is shown as plain text: you may put **bold** around a key number or name and start list lines with "- ", but don't use tables, headings or other formatting. Put a list of figures one per line.
+Give the answer first and keep it short: the numbers or names they asked for, nothing else. If you had to guess what they meant and another reading would change the answer, say so in one short sentence there.
+Put everything else (how you counted, what you left out, side details, other ways to look at it) after a line containing only ---. That part is folded away; leave it out when there's nothing worth adding.
 
 Data guide:
 
@@ -77,8 +79,8 @@ function textOf(content: Anthropic.ContentBlock[]): string {
 
 /** How to answer a question that was spoken: the answer is read aloud. */
 const SPOKEN = `This question was spoken out loud and your answer will be read out loud.
-Answer in one to three short sentences that sound natural when heard. No tables, lists, headings or symbols.
-Round numbers sensibly and say units in words (pounds, boxes). If the full answer is long, give the main point and say they can see the details on the screen.`;
+Only the part before the --- line is read out. Make it one to three short sentences that sound natural when heard, with no lists or symbols.
+Round numbers sensibly and say units in words (pounds, boxes). If the full answer is long, give the main point there and put the details after the --- line, where they can be seen on the screen.`;
 
 /** Answer one question for a person with this role. Never throws. */
 export async function ask(role: Role, question: string, history?: unknown, opts: { spoken?: boolean } = {}): Promise<AskResult> {
