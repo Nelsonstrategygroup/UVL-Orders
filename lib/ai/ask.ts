@@ -11,6 +11,7 @@ import type { Role } from "@/lib/auth/roles";
 import { currentWeek, todayISO, weekName } from "@/lib/dates";
 import { openReader, readerUrl } from "./db";
 import { guideFor } from "./guide";
+import { cleanHistory, type AskQuery } from "./history";
 import { READERS } from "./readers";
 
 /** The model, from AI_MODEL so it can change without a code change. */
@@ -18,15 +19,15 @@ export function aiModel(): string {
   return process.env.AI_MODEL?.trim() || "claude-haiku-5-5";
 }
 
-/** Most model turns per question (each may run queries). */
-const MAX_ROUNDS = 8;
+/** Most model turns per question (each may run queries). Room to dig into why a number is what it is. */
+const MAX_ROUNDS = 15;
 /** Most queries per question, across all turns. */
-const MAX_QUERIES = 12;
+const MAX_QUERIES = 25;
 const MAX_QUESTION_CHARS = 2000;
-const MAX_HISTORY = 10;
+/** Stop starting new rounds after this long and answer with what's found (the route allows 120 s). */
+const TIME_BUDGET_MS = 95_000;
 
-export type AskTurn = { role: "user" | "assistant"; content: string };
-export type AskQuery = { purpose: string; sql: string; rowCount?: number; truncated?: boolean; error?: string };
+export type { AskQuery, AskTurn } from "./history";
 export type AskResult = { ok: true; answer: string; queries: AskQuery[] } | { ok: false; error: string };
 
 const RUN_QUERY: Anthropic.Tool = {
@@ -47,7 +48,9 @@ const RUN_QUERY: Anthropic.Tool = {
 };
 
 const INSTRUCTIONS = `You answer questions from Umpqua Valley Lamb staff about their orders app's data.
-Look things up with the run_query tool; never answer from memory or guess numbers. Use as few queries as you need.
+Look things up with the run_query tool; never answer from memory or guess numbers.
+When someone asks why a number is what it is, dig: find the rows behind it, follow the steps under "How the app works out its numbers" where there are some, and say which inputs make it what it is (which orders, boxes, lambs, lines or entries). Run as many queries as that takes.
+On a follow-up, start from the queries listed after your earlier answers so the numbers line up with what you said before; change them only as the new question needs.
 If a query fails, read the error and fix it. If the views you have can't answer the question, say so plainly; don't ask about data that isn't in your guide.
 Reply in plain, short sentences for people who aren't comfortable with technology. Don't show SQL, view or column names unless asked.
 
@@ -61,17 +64,6 @@ export function missingConfig(role: Role): string[] {
   if (!process.env.ANTHROPIC_API_KEY?.trim()) missing.push("ANTHROPIC_API_KEY");
   if (!readerUrl(role)) missing.push(READERS[role].envVar);
   return missing;
-}
-
-function cleanHistory(history: unknown): AskTurn[] {
-  if (!Array.isArray(history)) return [];
-  const turns = history
-    .filter((t): t is AskTurn =>
-      !!t && (t.role === "user" || t.role === "assistant") && typeof t.content === "string" && t.content.trim() !== "")
-    .map((t) => ({ role: t.role, content: t.content.slice(0, 4000) }))
-    .slice(-MAX_HISTORY);
-  while (turns.length && turns[0].role !== "user") turns.shift();
-  return turns;
 }
 
 function textOf(content: Anthropic.ContentBlock[]): string {
@@ -112,8 +104,9 @@ export async function ask(role: Role, question: string, history?: unknown): Prom
       { role: "user", content: q },
     ];
 
+    const started = Date.now();
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const lastRound = round === MAX_ROUNDS - 1 || queries.length >= MAX_QUERIES;
+      const lastRound = round === MAX_ROUNDS - 1 || queries.length >= MAX_QUERIES || Date.now() - started > TIME_BUDGET_MS;
       const response = await client.messages.create({
         model: aiModel(),
         max_tokens: 8000,

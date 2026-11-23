@@ -34,7 +34,7 @@ Customers:
 
 People: `created_by`, `packed_by`, `printed_by` and similar columns hold a person's id; join `people` for their name.
 
-Some numbers on the app's screens are worked out by the app's code and are not stored. When asked for one of them, say which screen shows the official figure, and only give a figure of your own if you can get it straight from stored rows, saying how you got it.
+Some numbers on the app's screens are worked out by the app's code and are not stored. When asked for one of them, say which screen shows the official figure. "How the app works out its numbers" (at the end, where listed) gives the steps: use them to explain why a number is what it is, by looking up the rows that go into each step. A figure you work out yourself may differ from the screen by rounding or by something saved since; say so, and that the screen's figure is the official one.
 
 Answering: plain, short sentences for people who are not comfortable with technology. No SQL, column names or jargon in the answer unless asked. Round pounds to one decimal and money to the cent. If the data can't answer the question, say so plainly. Never guess.
 
@@ -137,7 +137,7 @@ Columns: id (uuid), name (text), sort (integer)
 <!-- /columns -->
 
 ### weeks
-One row per order week, keyed by its packing Monday (`id`). `invoice_number` is the INV#. `no_processing` = no orders, cutting or packing that week (e.g. Thanksgiving), with the reason. `lamb_override` is the lamb count Kathy typed in, if any. The lamb count on This week (from orders, the cut sheet or her number, plus extra lambs) is worked out by the app: point to This week for it.
+One row per order week, keyed by its packing Monday (`id`). `invoice_number` is the INV#. `no_processing` = no orders, cutting or packing that week (e.g. Thanksgiving), with the reason. `lamb_override` is the lamb count Kathy typed in, if any. The lamb count on This week (her number, the cut sheet or orders, plus extra lambs) is worked out by the app: This week has the official figure.
 <!-- columns -->
 Columns: id (date), invoice_number (integer), process_date (date), producer (text), lamb_override (integer), notes (text), no_processing (boolean), no_processing_note (text), labels_printed_at (timestamp with time zone)
 <!-- /columns -->
@@ -221,7 +221,7 @@ Columns: order_id (uuid), boxes (integer), pallet (text), updated_at (timestamp 
 <!-- /columns -->
 
 ### packing_weights
-One row per packed box: the box's net weight in lb (`weight`), scanned from Mohawk's label or typed (`source`: scan, manual, weigh). `order_id` links the customer's order (blank = unassigned box, kept for the week). Mohawk's lot (`lot`), the label's serial (the box ID), the box label number (`label_no`) and the pallet (`pallet_id`). One box holds one product; the HLK box counts once. The expected box counts on Packing are worked out by the app: point to Packing for them.
+One row per packed box: the box's net weight in lb (`weight`), scanned from Mohawk's label or typed (`source`: scan, manual, weigh). `order_id` links the customer's order (blank = unassigned box, kept for the week). Mohawk's lot (`lot`), the label's serial (the box ID), the box label number (`label_no`) and the pallet (`pallet_id`). One box holds one product; the HLK box counts once. The expected box counts on Packing are worked out by the app: Packing has the official figures.
 <!-- columns -->
 Columns: id (uuid), week_id (date), order_id (uuid), product_id (text), label_product_id (text), weight (numeric), source (text), gtin (text), serial (text), serial_date (date), case_no (text), pack_date (date), lot (text), pallet_id (uuid), box_type_id (text), slot (integer), label_no (integer), box_no (integer), route (text), offered (text), off_order (boolean), scanned_at (timestamp with time zone), created_at (timestamp with time zone), created_by (uuid), corrected_at (timestamp with time zone), correction_reason (text)
 <!-- /columns -->
@@ -377,7 +377,7 @@ Columns: business_name (text), business_address (text), business_phone (text), b
 <!-- /columns -->
 
 ### invoices
-One invoice per location per week, plus stand-alone sales (`sale_no` set, "3005-EMER-S1"). `number` = INV# + the location's code, -R1 for a reissue. `status`: draft, finalized, sent or void. Paid and partly paid are not statuses: compare `total` with the sum of its `payments`. Invoices bill what was packed, by actual weight for products priced per lb, never what was ordered. `total` is set when finalized; a draft's total is worked out on the Invoices screen: point there for it. Leave out void invoices unless asked.
+One invoice per location per week, plus stand-alone sales (`sale_no` set, "3005-EMER-S1"). `number` = INV# + the location's code, -R1 for a reissue. `status`: draft, finalized, sent or void. Paid and partly paid are not statuses: compare `total` with the sum of its `payments`. Invoices bill what was packed, by actual weight for products priced per lb, never what was ordered. `total` is set when finalized; a draft's total is worked out on the Invoices screen, which has the official figure. Leave out void invoices unless asked.
 <!-- columns -->
 Columns: id (uuid), week_id (date), customer_id (uuid), number (text), sale_no (integer), reissue (integer), replaces_id (uuid), status (text), invoice_date (date), terms_days (integer), due_date (date), total (numeric), memo (text), created_at (timestamp with time zone), finalized_at (timestamp with time zone), sent_at (timestamp with time zone), voided_at (timestamp with time zone), void_reason (text)
 <!-- /columns -->
@@ -491,7 +491,7 @@ Columns: id (uuid), week_id (date), kind (text), line_key (text), side (text), l
 <!-- /columns -->
 
 ### pnl_closed_weeks
-Closed P&L weeks. `snapshot` (JSON) is the P&L as it stood when closed: the official figures for that week. For a week that isn't closed, the profit is worked out on the Weekly P&L screen: point there for it.
+Closed P&L weeks. `snapshot` (JSON) is the P&L as it stood when closed: the official figures for that week. For a week that isn't closed, the profit is worked out on the Weekly P&L screen, which has the official figure.
 <!-- columns -->
 Columns: week_id (date), closed_at (timestamp with time zone), closed_by_name (text), snapshot (jsonb), missing (text[])
 <!-- /columns -->
@@ -513,3 +513,80 @@ The owners who review the weekly P&L.
 <!-- columns -->
 Columns: id (uuid), name (text), profile_id (uuid), sort (integer)
 <!-- /columns -->
+
+## How the app works out its numbers
+
+<!--
+Calculations the app does in code (lib/calc) and never stores. Each section is
+sent only to a reader that can SELECT every view in its "needs" list, so it may
+name those views. Keep these in step with the code they describe: they say how
+the screens work, so a wrong note gives a wrong explanation. Headings must have
+the form: ### Title (needs: view, view)
+-->
+
+### The week's lamb count (needs: weeks, cut_sets, orders, order_lines, order_requests, products, product_part_uses, parts, week_extra_lambs)
+The official count is on This week. A week has one lamb count, from the first of these that applies:
+1. Kathy's own number (`weeks.lamb_override`) when it's set.
+2. Otherwise the cut sheet total (sum of the week's `cut_sets.lambs`) when it's above 0.
+3. Otherwise the count recommended from orders = lambs for parts + carcass lambs + extra lambs.
+
+Lambs for parts, step by step:
+- Add up each product's order lines for the week. Lines with `only_if_extra` are left out (they fill from what's left afterwards). Lines asked for this week but not confirmed yet (`order_requests` for the week) count too. Pending half and whole lamb orders the freezer can't cover add to the totals.
+- A line in another unit is turned into the product's own unit with `lb_per_unit` (pounds of a piece product become whole pieces, to the nearest piece, at least 1; without `lb_per_unit` it counts as 0).
+- Products with `carcass` true go out uncut: each is one lamb, added on top (the carcass lambs). Products with a `fill_note` (Le Trim) are filled from extras and take nothing. Products with `counts_toward_lambs` false or `not_lamb` true use parts but never set the count.
+- Each product unit uses parts (`product_part_uses.qty` per unit), giving the need for each part.
+- Whole loins: needed = whole loins ordered + the larger of racks and short loins needed (one whole loin gives one rack and one short loin).
+- For each part that can set the count (`parts.drives_count`, and not cut from another part): lambs = need ÷ `parts.per_lamb`, rounded up. The largest of these is the lambs for parts, and that part "sets" the count.
+- Extra lambs = sum of the week's `week_extra_lambs.lambs`. They're in the recommended count only; Kathy's number and the cut sheet are taken as they are.
+
+The balance (extra or short) for each part: supply = (the week's count − carcass lambs) × `per_lamb`; left over = supply − need. Pieces are whole: any part of a piece short is one short, less than a whole piece spare is even. Products that draw from more than one part (`products.draws_from`, Mixed Shanks) take what those parts have left over, in that order, and never set the count.
+
+### Expected boxes (needs: products, product_box_limits, box_types, app_settings, order_lines)
+Packing and the box labels split each order line into boxes the same way:
+- Products never share a box (the HLK box is the exception: one box per customer).
+- Only box limits with `status` 'ok' are used.
+- What fits in one box = the lowest of its `max_count`, what fits under its `max_lb`, and what fits under the box cap (`app_settings.box_cap_lb`, 45 lb). Pounds use `lb_per_unit`; without it only the count is checked.
+- If one box holds the whole line, it's the smallest box that does. Otherwise full boxes of the largest type the product fits in, then the smallest box that holds the rest.
+
+### A draft invoice's total (needs: invoices, invoice_lines, prices, carcass_charges, freight_charges, customers, products, payments)
+A finalized or sent invoice's `total` is stored and official. A draft's total is worked out on the Invoices screen:
+- Its packed lines come from packing: for products priced per lb (`products.price_unit` = 'lb'), the quantity is the sum of the packed boxes' net weights; otherwise the count. What was ordered doesn't change the bill.
+- Price: the line's own `unit_price` if it has one; else the newest `prices` row on or before the invoice date for that location, else for its chain (`customers.parent_customer_id`, PCC), else the default (`customer_id` blank). A store's own price wins even over a newer chain price. No price: the line shows "Price needed" and adds nothing.
+- Line total = quantity × price, rounded half up to the cent, minus the discount (a dollar amount, or a percent of the line rounded to the cent).
+- Mohawk carcass charges: under a line whose product has a charge on the date (`carcass_charges`, looked up like a price), carcasses ordered (else boxes) × the charge.
+- Freight: one line from the location's newest `freight_charges` row on or before the date (else its chain's): `method` per_delivery = 1, per_box = boxes, per_pallet = pallets carrying its boxes, per_lb = the boxes' net weight; × `amount`. None when the method is 'none' or the amount is 0.
+- Invoice total = the sum of its lines. Paid or partly paid = compare it with the sum of its `payments`.
+
+### Producer pay (needs: kill_sheets, kill_lambs, kill_adjustments)
+- Each lamb: carcass lb × the sheet's `live_factor` = live lb; live lb × the sheet's `base_rate` = base pay; plus or minus that lamb's adjustments (`kill_adjustments` with its `lamb_id`) = its pay.
+- Then the sheet's own adjustments (no `lamb_id`): `kind` 'dollars' adds the amount; 'per_live_lb' adds amount × the sheet's live lb.
+- Nothing is rounded until a sheet's total and the week's totals, half up to the cent.
+- A week's producer pay = all its sheets (`kill_sheets.week_id`); head = the number of lambs on them.
+- The sheet's rate is the producer's own rate on the kill date if one applies, else the base rate; the factor is from the pricing setting (`rate_source` says which; `override_reason` is set when it was typed in by hand). While the week is open these follow the dated settings; a closed week keeps its numbers.
+
+### Freezer value (needs: freezer_boxes, freezer_box_values, freezer_takes)
+- A box's value is fixed the day it goes in: weight (for products priced per lb) or count × the default sale price that day × `percent` (90%), half up to the cent (`freezer_box_values.value`). No price or no weight: no value.
+- Into freezer for a week = the values of boxes with that `week_id` and `counts_as_income`. Positive, counted as income on the P&L.
+- Out of freezer for a week = take-outs with that `week_id` and `counts_in_pnl`, each at its box's value × qty taken ÷ the box's qty (never today's price). Negative.
+
+### The weekly P&L (needs: pnl_income, pnl_expenses, pnl_adjustments, expense_categories, expense_category_rates, pnl_closed_weeks)
+For a closed week, `pnl_closed_weeks.snapshot` holds the official figures; explain from it. For an open week the Weekly P&L screen works it out like this.
+
+Income = income entered by hand (`pnl_income`) + invoice income + adjustments to income + one-off income lines + Into freezer + Out of freezer (each with its own adjustments).
+- Invoice income, per location with an order or invoice that week: a finalized or sent invoice counts its `total`. Otherwise, if anything is packed, the packing is priced the way the draft invoice would be and counted as projected income. Not packed: nothing. Stand-alone sales count only once finalized. Void invoices never count.
+- Sales = invoice income less the freight charged on it.
+
+Expenses: categories (`expense_categories`) in three groups: Cost of product, Delivery, Operating. Each category's total = what its `method` works out + expenses entered in it (`pnl_expenses`) + adjustments to it. Rates are the newest `expense_category_rates` row on or before the packing Monday.
+- entered: only what's entered.
+- weigh_sheets: the week's producer pay from the carcass weights. Without carcass weights for the week it isn't known yet (unless the week has no processing).
+- per_lamb: rate `amount` × lambs on the week's carcass weights.
+- percent_income: `percent` of income (`income_base` 'all': all income except Into and Out of freezer; 'sales': sales only).
+- fixed_weekly: the rate's amounts: weekly amounts + yearly amounts ÷ 52.
+- percent_category: `percent` of the totals of the categories in `base_category_ids`.
+- per_truck_run (`truck_part`): driver_pay = each run's pay (the driver's newest rate on or before the run date: base + per extra stop × extra stops − per skipped stop × skipped stops); fuel = the runs' fuel; maintenance = rate `amount` × runs by drivers marked for maintenance.
+- freight_pallet: rate `amount` × pallets carrying boxes for the locations it covers (`customer_ids`, or their chain).
+- freight_weight: rate `amount` per lb × the net weight of those boxes on pallets; with `weight_basis` 'gross', plus `per_box_lb` per box and `per_pallet_lb` per pallet.
+
+Adjustments (`pnl_adjustments`, leave out voided ones): `kind` 'adjustment' adds to one line (`line_key`: 'income', 'freezer_in', 'freezer_out', 'category:<category id>', or 'producer' for producer pay); 'one_off' is its own line on the `side` it names. A worked-out number is never changed: worked out + adjustments = total.
+
+Total expense = every category + one-off expense lines; not known without the week's carcass weights (unless no processing). Profit = income − total expense. Per head = profit ÷ lambs on the carcass weights. Projected income (packed, not finalized) makes the profit projected too.

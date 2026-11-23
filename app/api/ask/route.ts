@@ -7,7 +7,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { ask } from "@/lib/ai/ask";
 import { canAsk } from "@/lib/ai/readers";
 
-export const maxDuration = 60;
+// Digging into a number can take many queries (lib/ai/ask.ts stops starting new ones at 95 s).
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();

@@ -11,7 +11,8 @@ app's data and answers. Safety comes from the database, not from trusting the mo
 | The SQL check (second lock): Postgres's own parser, one SELECT only, schema `ai` only, no sleep/file/settings/sequence functions, 500-row cap | `sqlGuard.ts` |
 | Running a query: the reader for the person's role, `READ ONLY` transaction, 5 s limit | `db.ts`, `readers.ts` |
 | The Anthropic API (the only place it's called), the `run_query` tool and the loop | `ask.ts` |
-| The data guide sent to the model: General notes plus only the views that role can read | `data-guide.md` (hand notes; columns generated), `dataGuide.ts` (generated), `guide.ts` |
+| Follow-up questions: the last 10 questions and answers go back with each question, each answer with the queries it ran (not their rows) | `history.ts` |
+| The data guide sent to the model: General notes, only the views that role can read, and "How the app works out its numbers" sections (lamb count, expected boxes, draft invoice total, producer pay, freezer value, weekly P&L), each sent only when the role can read every view it lists in `needs` | `data-guide.md` (hand notes; columns generated), `dataGuide.ts` (generated), `guide.ts` |
 | Server route: picks the reader from the signed-in person's profile | `app/api/ask/route.ts` |
 | Screen | `/ask`, linked from My account for roles that can use Ask |
 
@@ -28,6 +29,14 @@ INSERT/UPDATE/DELETE fail at the database, public tables, auth and storage are
 refused, and each role sees what its screens allow).
 
 After changing the views, run `npm run ai:guide` (rebuilds the column lists).
+
+Limits per question (`ask.ts`): 25 queries, 15 rounds, and no new round after
+95 s (the route allows 120 s). They're set for digging into why a number is
+what it is, not for cost.
+
+When the way the app works out a number changes in `lib/calc`, change its
+section under "How the app works out its numbers" in `data-guide.md` too, then
+run `npm run ai:guide`. Those notes are what Ask uses to explain a number.
 
 ## Setting it up (Lucas, by hand)
 

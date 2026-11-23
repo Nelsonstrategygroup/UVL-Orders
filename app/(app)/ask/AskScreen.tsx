@@ -1,7 +1,8 @@
 "use client";
 
 // One question at a time, big and simple. Earlier questions and answers on
-// this screen are sent along so a follow-up ("and the week before?") works.
+// this screen (and the queries behind them) are sent along so a follow-up
+// ("and the week before?", "why is that so high?") works.
 
 import { useRef, useState } from "react";
 
@@ -26,9 +27,11 @@ export default function AskScreen({ showSql }: { showSql: boolean }) {
     if (!q || busy) return;
     setBusy(true);
     setError("");
-    const history = turns.flatMap((t) => [
+    // The last 10 questions, each answer with the queries behind it, so a
+    // follow-up ("why is that so high?") digs into the same rows.
+    const history = turns.slice(-10).flatMap((t) => [
       { role: "user", content: t.question },
-      { role: "assistant", content: t.answer },
+      { role: "assistant", content: t.answer, queries: t.queries },
     ]);
     try {
       const res = await fetch("/api/ask", {
