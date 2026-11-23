@@ -14,7 +14,8 @@ app's data and answers. Safety comes from the database, not from trusting the mo
 | Follow-up questions: the last 10 questions and answers go back with each question, each answer with the queries it ran (not their rows) | `history.ts` |
 | The data guide sent to the model: General notes, only the views that role can read, and "How the app works out its numbers" sections (lamb count, expected boxes, draft invoice total, producer pay, freezer value, weekly P&L), each sent only when the role can read every view it lists in `needs` | `data-guide.md` (hand notes; columns generated), `dataGuide.ts` (generated), `guide.ts` |
 | Server route: picks the reader from the signed-in person's profile | `app/api/ask/route.ts` |
-| Screen | `/ask`, linked from My account for roles that can use Ask |
+| Screen | `/ask` (phones: More list and My account), and a round Ask button on wide screens that opens the same conversation in a side panel (`components/ask/`). The conversation lives in the app shell (`AskProvider`), so it carries on between screens; it isn't saved |
+| Voice | Talk and Read out loud use the browser's own speech (`components/ask/speech.ts`), no extra service. Listening works in Chrome, Edge and Safari (Chrome sends the audio to Google); not Firefox. A spoken question sends `spoken: true`, which asks for a short answer that sounds right read aloud; `spoken.ts` strips formatting before reading |
 
 Who can use Ask: `ASK_ROLES` in `readers.ts` (Admin, Accountant, Packing; not
 Operations lead or Viewer yet). What each role sees follows the app: a role reads

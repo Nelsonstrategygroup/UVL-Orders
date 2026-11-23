@@ -487,6 +487,51 @@
     }
   }
 
+  /* Ask: round button in the corner and the panel it opens (wide screens only;
+     phones open Ask from More). */
+  .askfab {
+    display: none;
+  }
+  @media (min-width: 900px) {
+    .askfab {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      z-index: 35;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 56px;
+      padding: 0 1.3rem;
+      border: 0;
+      border-radius: 999px;
+      background: var(--forest);
+      color: var(--on-forest);
+      font-size: 1.1rem;
+      font-weight: 600;
+      box-shadow: 0 4px 14px rgba(20, 22, 16, 0.25);
+    }
+  }
+  .askpanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(440px, 100vw);
+    overflow-y: auto;
+    background: var(--linen);
+    border-left: 1px solid var(--line);
+    box-shadow: -4px 0 18px rgba(20, 22, 16, 0.18);
+    padding: 0.75rem 0.9rem 1.5rem;
+  }
+  /* Wide enough for the screen and the panel side by side: move the screen over. */
+  @media (min-width: 1200px) {
+    html.ask-open body {
+      padding-right: 440px;
+    }
+  }
+
   /* Toast */
   .toast {
     position: fixed;

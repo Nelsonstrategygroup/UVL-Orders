@@ -74,8 +74,13 @@ function textOf(content: Anthropic.ContentBlock[]): string {
     .trim();
 }
 
+/** How to answer a question that was spoken: the answer is read aloud. */
+const SPOKEN = `This question was spoken out loud and your answer will be read out loud.
+Answer in one to three short sentences that sound natural when heard. No tables, lists, headings or symbols.
+Round numbers sensibly and say units in words (pounds, boxes). If the full answer is long, give the main point and say they can see the details on the screen.`;
+
 /** Answer one question for a person with this role. Never throws. */
-export async function ask(role: Role, question: string, history?: unknown): Promise<AskResult> {
+export async function ask(role: Role, question: string, history?: unknown, opts: { spoken?: boolean } = {}): Promise<AskResult> {
   const q = typeof question === "string" ? question.trim() : "";
   if (!q) return { ok: false, error: "Type a question first." };
   if (q.length > MAX_QUESTION_CHARS) return { ok: false, error: "That question is too long. Please make it shorter." };
@@ -98,6 +103,7 @@ export async function ask(role: Role, question: string, history?: unknown): Prom
       // The same for every question from this role: cached.
       { type: "text", text: INSTRUCTIONS + guideFor(views), cache_control: { type: "ephemeral" } },
       { type: "text", text: `Today is ${todayISO()}. This week is the week of ${weekName(week)} (packing Monday ${week}).` },
+      ...(opts.spoken ? [{ type: "text" as const, text: SPOKEN }] : []),
     ];
     const messages: Anthropic.MessageParam[] = [
       ...cleanHistory(history).map((t) => ({ role: t.role, content: t.content })),

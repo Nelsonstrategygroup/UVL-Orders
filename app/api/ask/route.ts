@@ -1,4 +1,4 @@
-// POST /api/ask { question, history? } -> { answer, queries } or { error }.
+// POST /api/ask { question, history?, spoken? } -> { answer, queries } or { error }.
 // The database reader is picked from the signed-in person's role, read from
 // their profile on the server (never from the request). The service role key
 // is not used here.
@@ -17,14 +17,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "Ask isn't turned on for your role yet." }, { status: 403 });
   }
 
-  let body: { question?: unknown; history?: unknown };
+  let body: { question?: unknown; history?: unknown; spoken?: unknown };
   try {
     body = await request.json();
   } catch {
     return Response.json({ error: "Type a question first." }, { status: 400 });
   }
 
-  const result = await ask(user.role, typeof body.question === "string" ? body.question : "", body.history);
+  const result = await ask(user.role, typeof body.question === "string" ? body.question : "", body.history, {
+    spoken: body.spoken === true,
+  });
   if (!result.ok) return Response.json({ error: result.error }, { status: 200 });
   return Response.json({ answer: result.answer, queries: result.queries });
 }

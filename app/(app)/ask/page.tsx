@@ -1,5 +1,6 @@
-// Ask: type a question, get an answer from the app's data (lib/ai). Opened
-// from My account. Roles Ask isn't turned on for get a plain message.
+// Ask: type or say a question, get an answer from the app's data (lib/ai).
+// Opened from My account, the More list on phones, or the Ask button. Roles
+// Ask isn't turned on for get a plain message.
 
 import { requireUser } from "@/lib/auth/current-user";
 import { canAsk } from "@/lib/ai/readers";
@@ -17,5 +18,5 @@ export default async function AskPage() {
       </div>
     );
   }
-  return <AskScreen showSql={user.role === "admin"} />;
+  return <AskScreen />;
 }

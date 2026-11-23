@@ -14,6 +14,8 @@ import { ToastProvider } from "./Toast";
 import { WeekProvider } from "./Week";
 import { OutboxProvider } from "./offline/OutboxProvider";
 import RegisterServiceWorker from "./offline/RegisterServiceWorker";
+import { AskProvider } from "./ask/AskProvider";
+import AskLauncher from "./ask/AskLauncher";
 
 function isCurrent(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -47,90 +49,113 @@ export default function AppShell({
   const sheet = opened && opened.path === pathname ? opened.kind : null;
   const setSheet = (kind: "more" | "account") => setOpened({ kind, path: pathname });
   const close = useCallback(() => setOpened(null), []);
+  const ask = canAsk(role);
 
-  return (
-    <>
-      <header className="topbar">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="brandmark" aria-hidden="true">
-            UV
-          </div>
-          <h1 className="truncate text-[#F4F2E6]">Umpqua Valley Lamb</h1>
-        </div>
-        {nav.length > 0 && (
-          <nav className="toptabs desk-only ml-auto flex-wrap gap-1" aria-label="Sections">
-            {nav.map((n) => (
-              <Link key={n.key} href={n.href} aria-current={n.key === tab ? "page" : undefined}>
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-        )}
-        <button
-          type="button"
-          className={`topbtn ${nav.length > 0 ? "" : "ml-auto"} max-[899px]:ml-auto`}
-          onClick={() => setSheet("account")}
-        >
-          My account
-        </button>
-      </header>
-
-      <main className="mx-auto max-w-[1280px] px-4 pt-4 pb-24">
-        {current && current.sections.length > 1 && (
-          <nav className="noprint mb-3 flex flex-wrap gap-2" aria-label={`${current.label} sections`}>
-            {current.sections.map((s) => (
-              <Link
-                key={s.href}
-                href={s.href}
-                className={isCurrent(pathname, s.href) || (s.href === "/carcass-weights" && isCurrent(pathname, "/weigh-sheets")) ? "seclink on" : "seclink"}
-                aria-current={isCurrent(pathname, s.href) ? "page" : undefined}
-              >
-                {s.label}
-              </Link>
-            ))}
-          </nav>
-        )}
-        <CurrentUserProvider me={{ id: userId, role, displayName, perms }}>
-          <ToastProvider>
-            <WeekProvider>
-              <OutboxProvider>
-                <RegisterServiceWorker />
-                {simple ? children : <StaffDataProvider>{children}</StaffDataProvider>}
-              </OutboxProvider>
-            </WeekProvider>
-          </ToastProvider>
-        </CurrentUserProvider>
-      </main>
-
-      {nav.length > 0 && (
-        <nav className="bottombar mob-only" aria-label="Sections">
-          {bottom.map((n) => (
-            <Link key={n.key} href={n.href} aria-current={n.key === tab ? "page" : undefined}>
-              <b aria-hidden="true">{n.icon}</b>
-              {n.short}
-            </Link>
-          ))}
-          {more.length > 0 && (
-            <button type="button" onClick={() => setSheet("more")} aria-current={moreCurrent ? "page" : undefined}>
-              <b aria-hidden="true">&#8943;</b>More
-            </button>
-          )}
-        </nav>
-      )}
-
-      {sheet === "more" && (
-        <Sheet title="More" onClose={close}>
-          <MoreList items={more} />
-        </Sheet>
-      )}
-      {/* "My account", kept apart from Setup: larger text, help, password, log out. */}
-      {sheet === "account" && (
-        <Sheet title="My account" onClose={close}>
-          <MyAccount displayName={displayName} canAsk={canAsk(role)} onDone={close} />
-        </Sheet>
-      )}
-    </>
+  return ask ? (
+    <AskProvider showSql={role === "admin"}>
+      {shell()}
+      {/* The floating Ask button, on wide screens only, and not on the simple Packing screen. */}
+      {!simple && <AskLauncher />}
+    </AskProvider>
+  ) : (
+    shell()
   );
+
+  function shell() {
+    return (
+      <>
+        <header className="topbar">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="brandmark" aria-hidden="true">
+              UV
+            </div>
+            <h1 className="truncate text-[#F4F2E6]">Umpqua Valley Lamb</h1>
+          </div>
+          {nav.length > 0 && (
+            <nav className="toptabs desk-only ml-auto flex-wrap gap-1" aria-label="Sections">
+              {nav.map((n) => (
+                <Link key={n.key} href={n.href} aria-current={n.key === tab ? "page" : undefined}>
+                  {n.label}
+                </Link>
+              ))}
+            </nav>
+          )}
+          <button
+            type="button"
+            className={`topbtn ${nav.length > 0 ? "" : "ml-auto"} max-[899px]:ml-auto`}
+            onClick={() => setSheet("account")}
+          >
+            My account
+          </button>
+        </header>
+
+        <main className="mx-auto max-w-[1280px] px-4 pt-4 pb-24">
+          {current && current.sections.length > 1 && (
+            <nav className="noprint mb-3 flex flex-wrap gap-2" aria-label={`${current.label} sections`}>
+              {current.sections.map((s) => (
+                <Link
+                  key={s.href}
+                  href={s.href}
+                  className={isCurrent(pathname, s.href) || (s.href === "/carcass-weights" && isCurrent(pathname, "/weigh-sheets")) ? "seclink on" : "seclink"}
+                  aria-current={isCurrent(pathname, s.href) ? "page" : undefined}
+                >
+                  {s.label}
+                </Link>
+              ))}
+            </nav>
+          )}
+          <CurrentUserProvider me={{ id: userId, role, displayName, perms }}>
+            <ToastProvider>
+              <WeekProvider>
+                <OutboxProvider>
+                  <RegisterServiceWorker />
+                  {simple ? children : <StaffDataProvider>{children}</StaffDataProvider>}
+                </OutboxProvider>
+              </WeekProvider>
+            </ToastProvider>
+          </CurrentUserProvider>
+        </main>
+
+        {nav.length > 0 && (
+          <nav className="bottombar mob-only" aria-label="Sections">
+            {bottom.map((n) => (
+              <Link key={n.key} href={n.href} aria-current={n.key === tab ? "page" : undefined}>
+                <b aria-hidden="true">{n.icon}</b>
+                {n.short}
+              </Link>
+            ))}
+            {(more.length > 0 || ask) && (
+              <button type="button" onClick={() => setSheet("more")} aria-current={moreCurrent ? "page" : undefined}>
+                <b aria-hidden="true">&#8943;</b>More
+              </button>
+            )}
+          </nav>
+        )}
+
+        {sheet === "more" && (
+          <Sheet title="More" onClose={close}>
+            <MoreList items={more} />
+            {ask && (
+              <Link
+                href="/ask"
+                className="mt-2 block rounded-[10px] border border-line bg-paper p-3 text-ink no-underline"
+              >
+                <b>Ask</b>
+                <br />
+                <span className="text-[.82rem] text-ink-soft">Ask a question about your data, by typing or talking</span>
+              </Link>
+            )}
+          </Sheet>
+        )}
+        {/* "My account", kept apart from Setup: larger text, help, password, log out. */}
+        {sheet === "account" && (
+          <Sheet title="My account" onClose={close}>
+            <MyAccount displayName={displayName} canAsk={ask} onDone={close} />
+          </Sheet>
+        )}
+      </>
+    );
+  }
 }
 
 function MoreList({ items }: { items: NavItem[] }) {
